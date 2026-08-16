@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import {
   Star,
   Pencil,
+  Settings,
   Bell,
   Mic,
   Palette,
@@ -80,13 +81,22 @@ export const ProfileScreen = () => {
             </View>
           </View>
 
-          {/* Edit Profile Button */}
-          <Pressable
-            onPress={() => alert('Chỉnh sửa thông tin cá nhân...')}
-            className="w-10 h-10 rounded-xl bg-white/15 justify-center items-center border border-white/20 active:bg-white/25"
-          >
-            <Pencil color="#FFFFFF" size={18} />
-          </Pressable>
+          {/* Action Buttons (Edit & Settings) */}
+          <View className="flex-row items-center gap-2">
+            <Pressable
+              onPress={() => router.push('/(student)/profile/settings' as any)}
+              className="w-10 h-10 rounded-xl bg-white/15 justify-center items-center border border-white/20 active:bg-white/25"
+            >
+              <Settings color="#FFFFFF" size={18} />
+            </Pressable>
+
+            <Pressable
+              onPress={() => alert('Chỉnh sửa thông tin cá nhân...')}
+              className="w-10 h-10 rounded-xl bg-white/15 justify-center items-center border border-white/20 active:bg-white/25"
+            >
+              <Pencil color="#FFFFFF" size={18} />
+            </Pressable>
+          </View>
         </View>
 
         {/* 4 Stats Row */}
@@ -253,7 +263,7 @@ export const ProfileScreen = () => {
 
             {/* TTS Voice Settings */}
             <Pressable
-              onPress={() => alert('Cài đặt giọng đọc TTS...')}
+              onPress={() => router.push('/(student)/profile/settings' as any)}
               className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50"
             >
               <View className="flex-row items-center gap-3">
@@ -265,7 +275,7 @@ export const ProfileScreen = () => {
 
             {/* Theme Toggle */}
             <Pressable
-              onPress={() => alert('Chuyển đổi Giao diện Light / Dark...')}
+              onPress={() => router.push('/(student)/profile/settings' as any)}
               className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50"
             >
               <View className="flex-row items-center gap-3">
@@ -277,7 +287,7 @@ export const ProfileScreen = () => {
 
             {/* Language Selection */}
             <Pressable
-              onPress={() => alert('Thay đổi ngôn ngữ ứng dụng...')}
+              onPress={() => router.push('/(student)/profile/settings' as any)}
               className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50"
             >
               <View className="flex-row items-center gap-3">
@@ -289,7 +299,7 @@ export const ProfileScreen = () => {
 
             {/* Data Export */}
             <Pressable
-              onPress={() => alert('Xuất lịch sử & dữ liệu học tập...')}
+              onPress={() => router.push('/(student)/profile/settings' as any)}
               className="p-4 flex-row justify-between items-center active:bg-gray-50"
             >
               <View className="flex-row items-center gap-3">

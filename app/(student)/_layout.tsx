@@ -77,6 +77,7 @@ export default function StudentTabsLayout() {
 
       {/* Hide Non-Tab Subroutes from Bottom Navigation Bar */}
       <Tabs.Screen name="profile/premium" options={{ href: null }} />
+      <Tabs.Screen name="profile/settings" options={{ href: null }} />
       <Tabs.Screen name="practice" options={{ href: null }} />
       <Tabs.Screen name="review" options={{ href: null }} />
       <Tabs.Screen name="league" options={{ href: null }} />
@@ -102,6 +103,9 @@ export default function StudentTabsLayout() {
       <Tabs.Screen name="practice/scan/[wordId]" options={{ href: null }} />
       <Tabs.Screen name="practice/speaking/index" options={{ href: null }} />
       <Tabs.Screen name="practice/speaking/ipa" options={{ href: null }} />
+      <Tabs.Screen name="practice/speaking/single-practice" options={{ href: null }} />
+      <Tabs.Screen name="practice/speaking/detailed-feedback" options={{ href: null }} />
+      <Tabs.Screen name="practice/speaking/unit-roleplay" options={{ href: null }} />
       <Tabs.Screen name="practice/speaking/roleplay/index" options={{ href: null }} />
       <Tabs.Screen name="practice/speaking/roleplay/[scenarioId]" options={{ href: null }} />
       <Tabs.Screen name="practice/writing/index" options={{ href: null }} />
