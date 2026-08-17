@@ -237,6 +237,23 @@ export const ProfileScreen = () => {
         {/* Settings Menu Card List */}
         <Animated.View entering={FadeInDown.delay(450).duration(400)}>
           <View className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden mb-6">
+            {/* Community Entry */}
+            <Pressable
+              onPress={() => router.push('/(student)/feed' as any)}
+              className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50"
+            >
+              <View className="flex-row items-center gap-3">
+                <Globe color="#0EA5E9" size={20} />
+                <Text className="text-sm font-bold text-neutralInk">Cộng Đồng Học Viên</Text>
+              </View>
+              <View className="flex-row items-center gap-1.5">
+                <View className="bg-[#E0F2FE] px-2 py-0.5 rounded-full">
+                  <Text className="text-[10px] font-bold text-[#0EA5E9]">Mới</Text>
+                </View>
+                <ChevronRight color="#94A3B8" size={18} />
+              </View>
+            </Pressable>
+
             {/* My Classes Entry */}
             <Pressable
               onPress={() => router.push('/(student)/classes' as any)}
