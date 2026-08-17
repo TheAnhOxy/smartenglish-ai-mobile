@@ -1,14 +1,14 @@
 export const AppColors = {
-  primary: '#FF6B35',
-  primaryDark: '#E85A2A',
-  secondary: '#0F7173',
-  accent: '#FFC93C',
+  primary: '#0EA5E9',        // Soft Sky Blue
+  primaryDark: '#0284C7',    // Deep Sky Blue
+  secondary: '#1E3A5F',      // Navy Blue
+  accent: '#38BDF8',         // Light Blue Accent
   success: '#2ECC71',
   error: '#FF4D4D',
   warning: '#FFA726',
   neutralInk: '#1A1D29',
   neutralGray: '#6B7280',
-  surface: '#F7F5F2',
+  surface: '#F0F7FF',        // Soft Light Blue Background
   cardWhite: '#FFFFFF',
   darkBg: '#12141C',
   darkCard: '#1E212C',
@@ -17,7 +17,7 @@ export const AppColors = {
   srsAgain: '#FF4D4D',
   srsHard: '#FFA726',
   srsGood: '#2ECC71',
-  srsEasy: '#0F7173',
+  srsEasy: '#0EA5E9',
 
   // League Colors
   leagueBronze: '#CD7F32',
@@ -28,7 +28,7 @@ export const AppColors = {
   // Errors / Highlight
   errorSpelling: '#FF4D4D',
   errorGrammar: '#FFA726',
-  errorWordChoice: '#0F7173'
+  errorWordChoice: '#0EA5E9'
 } as const;
 
 export type AppColorKey = keyof typeof AppColors;
