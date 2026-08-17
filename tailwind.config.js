@@ -9,24 +9,24 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: "#FF6B35",        // Momentum Orange
-        primaryDark: "#E85A2A",    // Pressed Orange
-        secondary: "#0F7173",      // Deep Teal
-        accent: "#FFC93C",         // Sunshine Yellow
+        primary: "#0EA5E9",        // Soft Sky Blue
+        primaryDark: "#0284C7",    // Deep Sky Blue
+        secondary: "#1E3A5F",      // Navy Blue
+        accent: "#38BDF8",         // Light Blue Accent
         success: "#2ECC71",        // Leaf Green
         error: "#FF4D4D",          // Coral Red
         warning: "#FFA726",        // Amber
         neutralInk: "#1A1D29",     // Text Main
         neutralGray: "#6B7280",    // Text Sub
-        surface: "#F7F5F2",        // App Background
+        surface: "#F0F7FF",        // App Background Soft Light Blue
         cardWhite: "#FFFFFF",      // Card Background Light
-        darkBg: "#12141C",         // Speaking/Scan Dark BG
+        darkBg: "#12141C",         // Dark BG
         darkCard: "#1E212C",       // Dark Mode Card
         // SRS Specific Colors
         srsAgain: "#FF4D4D",
         srsHard: "#FFA726",
         srsGood: "#2ECC71",
-        srsEasy: "#0F7173",
+        srsEasy: "#0EA5E9",
         // League Colors
         leagueBronze: "#CD7F32",
         leagueSilver: "#C0C0C0",
