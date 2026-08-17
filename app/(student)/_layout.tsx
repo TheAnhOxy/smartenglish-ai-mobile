@@ -78,8 +78,6 @@ export default function StudentTabsLayout() {
       {/* Hide Non-Tab Subroutes from Bottom Navigation Bar */}
       <Tabs.Screen name="profile/premium" options={{ href: null }} />
       <Tabs.Screen name="profile/settings" options={{ href: null }} />
-      <Tabs.Screen name="practice" options={{ href: null }} />
-      <Tabs.Screen name="review" options={{ href: null }} />
       <Tabs.Screen name="league" options={{ href: null }} />
       <Tabs.Screen name="analytics" options={{ href: null }} />
       <Tabs.Screen name="daily-challenge" options={{ href: null }} />
@@ -114,6 +112,9 @@ export default function StudentTabsLayout() {
       <Tabs.Screen name="practice/writing/compare" options={{ href: null }} />
       <Tabs.Screen name="practice/chatbot/index" options={{ href: null }} />
       <Tabs.Screen name="practice/chatbot/[conversationId]" options={{ href: null }} />
+      <Tabs.Screen name="practice/quiz/index" options={{ href: null }} />
+      <Tabs.Screen name="practice/quiz/play" options={{ href: null }} />
+      <Tabs.Screen name="practice/quiz/result" options={{ href: null }} />
       <Tabs.Screen name="practice/quiz/[quizId]" options={{ href: null }} />
       <Tabs.Screen name="practice/exam/[examId]" options={{ href: null }} />
       <Tabs.Screen name="practice/exam/result" options={{ href: null }} />

@@ -12,8 +12,19 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { useRoleGateStore } from '@/src/core/flows/roleGateStore';
 
-// Tắt cảnh báo thuộc tính deprecated pointerEvents của react-native-web khi chạy môi trường Web
-LogBox.ignoreLogs(['props.pointerEvents is deprecated']);
+// Tắt cảnh báo thuộc tính deprecated của react-native-web khi chạy môi trường Web
+LogBox.ignoreAllLogs(true);
+
+if (__DEV__) {
+  const originalWarn = console.warn;
+  console.warn = (...args) => {
+    const msg = args.join(' ');
+    if (msg.includes('pointerEvents') || msg.includes('shadow*') || msg.includes('boxShadow')) {
+      return;
+    }
+    originalWarn(...args);
+  };
+}
 
 export { ErrorBoundary } from 'expo-router';
 
