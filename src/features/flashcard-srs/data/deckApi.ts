@@ -9,6 +9,7 @@ export interface DeckItemDTO {
   studyMode?: string;
   targetExam?: string;
   isPublic?: boolean;
+  isPremium?: boolean;
 }
 
 export const fetchSystemDecksApi = async (): Promise<DeckItemDTO[]> => {

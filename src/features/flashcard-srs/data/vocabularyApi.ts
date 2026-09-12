@@ -38,6 +38,7 @@ export interface VocabTopic {
   wordCount?: number;
   iconUrl?: string;
   difficultyLevel?: string;
+  isPremium?: boolean;
 }
 
 const mapWord = (w: any): WordDetail => {
@@ -201,6 +202,7 @@ export const getTopicsApi = async (): Promise<VocabTopic[]> => {
         wordCount: t.wordCount !== undefined ? t.wordCount : 0,
         iconUrl: t.iconUrl || t.iconEmoji || undefined,
         difficultyLevel: t.difficultyLevel || undefined,
+        isPremium: Boolean(t.isPremium),
       }));
     }
   } catch (err) {

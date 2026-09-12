@@ -22,6 +22,8 @@ import {
   BookOpen,
   Layers,
   Coffee,
+  Crown,
+  Lock,
 } from 'lucide-react-native';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import {
@@ -69,6 +71,7 @@ export const DecksScreen = () => {
           cardCount: t.wordCount !== undefined ? t.wordCount : 0,
           studyMode: 'srs',
           targetExam: t.difficultyLevel || 'B1',
+          isPremium: Boolean(t.isPremium),
         }));
         setSystemDecks(mappedSystemTopics);
       } else {
@@ -86,6 +89,8 @@ export const DecksScreen = () => {
   useEffect(() => {
     loadData();
   }, [currentUser?.id]);
+
+  const isUserPremium = currentUser?.plan !== 'free';
 
   const handleCreateDeck = async () => {
     if (!newDeckName.trim()) return;
@@ -132,6 +137,10 @@ export const DecksScreen = () => {
   };
 
   const handleOpenStudy = (deck: DeckItemDTO) => {
+    if (deck.isPremium && !isUserPremium) {
+      router.push('/(student)/profile/premium' as any);
+      return;
+    }
     try {
       router.push({
         pathname: `/(student)/review/decks/[deckId]/study`,
@@ -234,8 +243,20 @@ export const DecksScreen = () => {
                     <IconComp color={styleColor.ring} size={22} />
                   </View>
 
-                  <View style={styles.cardCountBadge}>
-                    <Text style={styles.cardCountText}>{deck.cardCount} Thẻ</Text>
+                  <View style={styles.cardTopBadgeRow}>
+                    {deck.isPremium && (
+                      <View style={[styles.proBadge, !isUserPremium && styles.proBadgeLocked]}>
+                        {isUserPremium ? (
+                          <Crown color="#B45309" size={10} />
+                        ) : (
+                          <Lock color="#B45309" size={10} />
+                        )}
+                        <Text style={styles.proBadgeText}>PRO</Text>
+                      </View>
+                    )}
+                    <View style={styles.cardCountBadge}>
+                      <Text style={styles.cardCountText}>{deck.cardCount} Thẻ</Text>
+                    </View>
                   </View>
                 </View>
 
@@ -461,6 +482,32 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  cardTopBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  proBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  proBadgeLocked: {
+    backgroundColor: '#F3F4F6',
+    borderColor: '#E5E7EB',
+  },
+  proBadgeText: {
+    fontSize: 9,
+    fontFamily: font.family,
+    fontWeight: '800',
+    color: '#B45309',
   },
   cardCountBadge: {
     paddingHorizontal: 8,
