@@ -122,6 +122,7 @@ export default function StudentTabsLayout() {
       <Tabs.Screen name="practice/reading/generate" options={{ href: null }} />
       <Tabs.Screen name="practice/listening/[audioId]" options={{ href: null }} />
 
+      <Tabs.Screen name="review/index" options={{ href: null }} />
       <Tabs.Screen name="review/decks/index" options={{ href: null }} />
       <Tabs.Screen name="review/decks/[deckId]/study" options={{ href: null }} />
       <Tabs.Screen name="review/topics" options={{ href: null }} />
