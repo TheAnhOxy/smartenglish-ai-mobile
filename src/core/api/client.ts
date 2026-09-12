@@ -1,75 +1,126 @@
-import axios from 'axios';
-import MockAdapter from 'axios-mock-adapter';
-import { MOCK_USERS, MOCK_USER_STATS, MOCK_CLASSES, MOCK_ASSIGNMENTS, MOCK_NOTIFICATIONS, MOCK_DECKS } from '../data/mockData';
+import axios, { AxiosInstance } from 'axios';
+import { Platform } from 'react-native';
 
-// Create base Axios instance
-export const apiClient = axios.create({
-  baseURL: 'https://api.smartenglish.ai/v1',
-  timeout: 10000,
+import Constants from 'expo-constants';
+
+const getGatewayUrl = () => {
+  // 1. Nếu chạy trên Web browser của máy tính
+  if (Platform.OS === 'web') {
+    const envUrl = process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_GATEWAY_URL;
+    return (envUrl || 'http://localhost:8080').replace(/\/$/, '');
+  }
+
+  // 2. Nếu có biến môi trường chỉ định rõ (IP LAN hoặc ngrok HTTPS)
+  const envUrl = process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_GATEWAY_URL;
+  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+    return envUrl.replace(/\/$/, '');
+  }
+
+  // 3. Tự động lấy IP máy tính đang chạy Expo server từ hostUri nếu là IPv4 hợp lệ
+  const hostUri = Constants.expoConfig?.hostUri || (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
+  if (hostUri) {
+    const host = hostUri.split(':')[0];
+    const isIpV4 = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host);
+    if (isIpV4 && host !== '127.0.0.1') {
+      return `http://${host}:8080`;
+    }
+  }
+
+  // 4. Fallback cho Android Emulator
+  if (Platform.OS === 'android') {
+    return 'http://10.0.2.2:8080';
+  }
+
+  // 5. Fallback mặc định cho thiết bị thật trên Wi-Fi LAN
+  return 'http://172.16.0.144:8080';
+};
+
+
+export const SERVICE_URLS = {
+  GATEWAY: getGatewayUrl(),
+  AUTH: getGatewayUrl(),
+  CONTENT: getGatewayUrl(),
+  LEARNING: getGatewayUrl(),
+  AI_PRACTICE: getGatewayUrl(),
+  PAYMENT: getGatewayUrl(),
+};
+
+// Create primary Axios instance routing 100% through API Gateway (Port 8080)
+export const apiClient: AxiosInstance = axios.create({
+  baseURL: getGatewayUrl(),
+  timeout: 15000,
   headers: {
-    'Content-Type': 'application/json'
-  }
+    'Content-Type': 'application/json',
+  },
 });
 
-// Setup Mock Adapter with realistic random delay (300-900ms)
-export const mockAdapter = new MockAdapter(apiClient, { delayResponse: 500 });
+apiClient.interceptors.request.use(
+  (config) => {
+    // Route all requests through API Gateway (Port 8080)
+    config.baseURL = getGatewayUrl();
 
-// Configure mock endpoints
-mockAdapter.onPost('/auth/login').reply((config: any) => {
-  const { email } = JSON.parse(config.data || '{}');
-  const user = Object.values(MOCK_USERS).find((u) => u.email === email);
-
-  if (user) {
-    return [
-      200,
-      {
-        access_token: `mock_jwt_token_for_${user.role}`,
-        refresh_token: `mock_refresh_token_for_${user.role}`,
-        user
+    // Attach Authorization token from Zustand auth store
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { useAuthStore } = require('@/src/core/flows/authStore');
+      const accessToken: string | null = useAuthStore.getState().accessToken;
+      if (accessToken) {
+        config.headers = config.headers || {};
+        (config.headers as any)['Authorization'] = accessToken.startsWith('Bearer ')
+          ? accessToken
+          : `Bearer ${accessToken}`;
       }
-    ];
+    } catch (_) {
+      // Ignore any errors (e.g. during the login request itself)
+    }
+
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+apiClient.interceptors.response.use(
+  (response) => {
+    const body = response.data;
+    if (body && typeof body === 'object') {
+      const errStatus = body.status || body.statusCode || body.code;
+      if (typeof errStatus === 'number' && errStatus >= 400) {
+        const error: any = new Error(body.message || `Backend error: status ${errStatus}`);
+        error.response = { status: errStatus, data: body };
+        console.warn(`[API Business Error ${errStatus} ${response.config?.url}]:`, body.message);
+        return Promise.reject(error);
+      }
+      if (body.success === false) {
+        const error: any = new Error(body.message || 'Operation failed');
+        error.response = { status: 400, data: body };
+        console.warn(`[API Business Error ${response.config?.url}]:`, body.message);
+        return Promise.reject(error);
+      }
+    }
+    return response;
+  },
+  (error) => {
+    const fullUrl = `${error.config?.baseURL || ''}${error.config?.url || ''}`;
+    if (error.response) {
+      console.warn(`[API Error ${error.response.status} ${fullUrl}]:`, error.response.data);
+    } else {
+      console.warn(`[API Network Error ${fullUrl}]:`, error.message);
+    }
+    return Promise.reject(error);
   }
-  return [401, { message: 'Email hoặc mật khẩu không chính xác' }];
-});
+);
 
-mockAdapter.onGet('/auth/me').reply((config: any) => {
-  const authHeader = config.headers?.Authorization ? String(config.headers.Authorization) : '';
-  if (authHeader.includes('teacher')) {
-    return [200, { user: MOCK_USERS.teacher, stats: MOCK_USER_STATS[MOCK_USERS.teacher.id] }];
-  } else if (authHeader.includes('admin')) {
-    return [200, { user: MOCK_USERS.admin, stats: MOCK_USER_STATS[MOCK_USERS.admin.id] }];
+/**
+ * Returns the currently logged-in user's id as a string.
+ * Falls back to empty string if not authenticated.
+ */
+export const getCurrentUserId = (): string => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { useAuthStore } = require('@/src/core/flows/authStore');
+    const uid = useAuthStore.getState().currentUser?.id;
+    return uid ? String(uid) : '';
+  } catch {
+    return '';
   }
-  return [200, { user: MOCK_USERS.student, stats: MOCK_USER_STATS[MOCK_USERS.student.id] }];
-});
-
-mockAdapter.onGet('/teacher/classes').reply(() => {
-  return [200, { classes: MOCK_CLASSES }];
-});
-
-mockAdapter.onPost('/teacher/classes/join').reply((config: any) => {
-  const { join_code } = JSON.parse(config.data || '{}');
-  const foundClass = MOCK_CLASSES.find((c) => c.join_code === join_code);
-
-  if (!join_code) {
-    return [400, { message: 'Vui lòng nhập mã lớp' }];
-  }
-  if (!foundClass) {
-    return [404, { message: 'Mã lớp không đúng, kiểm tra lại với giáo viên' }];
-  }
-  if (foundClass.status === 'archived') {
-    return [400, { message: 'Lớp học này đã kết thúc' }];
-  }
-  return [200, { message: 'Tham gia lớp học thành công', class: foundClass }];
-});
-
-mockAdapter.onGet(/\/teacher\/classes\/.*\/assignments/).reply(() => {
-  return [200, { assignments: MOCK_ASSIGNMENTS }];
-});
-
-mockAdapter.onGet('/notifications').reply(() => {
-  return [200, { notifications: MOCK_NOTIFICATIONS }];
-});
-
-mockAdapter.onGet('/learning/decks').reply(() => {
-  return [200, { decks: MOCK_DECKS }];
-});
+};
