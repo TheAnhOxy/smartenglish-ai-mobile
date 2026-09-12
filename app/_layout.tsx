@@ -2,8 +2,7 @@ import '../global.css';
 import { useEffect } from 'react';
 import { LogBox } from 'react-native';
 import { useFonts } from 'expo-font';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import 'react-native-reanimated';
@@ -12,14 +11,21 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { useRoleGateStore } from '@/src/core/flows/roleGateStore';
 
-// Tắt cảnh báo thuộc tính deprecated của react-native-web khi chạy môi trường Web
+// Tắt cảnh báo thuộc tính deprecated
 LogBox.ignoreAllLogs(true);
+LogBox.ignoreLogs([
+  'Expo AV has been deprecated',
+  '[expo-av]',
+  'pointerEvents',
+  'shadow*',
+  'boxShadow',
+]);
 
 if (__DEV__) {
   const originalWarn = console.warn;
   console.warn = (...args) => {
     const msg = args.join(' ');
-    if (msg.includes('pointerEvents') || msg.includes('shadow*') || msg.includes('boxShadow')) {
+    if (msg.includes('pointerEvents') || msg.includes('shadow*') || msg.includes('boxShadow') || msg.includes('expo-av')) {
       return;
     }
     originalWarn(...args);
@@ -105,6 +111,11 @@ function RootLayoutNav() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="(student)" options={{ headerShown: false }} />
+        <Stack.Screen name="(teacher-companion)" options={{ headerShown: false }} />
+        <Stack.Screen name="admin-blocked" options={{ headerShown: false }} />
+        <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       </Stack>
     </ThemeProvider>
