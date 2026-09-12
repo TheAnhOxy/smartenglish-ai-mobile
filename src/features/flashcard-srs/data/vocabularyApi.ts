@@ -9,10 +9,16 @@ export interface WordDetail {
   cefrLevel: string;
   definitionEn: string;
   definitionVi: string;
-  examples: Array<{ sentenceEn: string; sentenceVi?: string }>;
+  usageNote?: string;
+  examples: Array<{ sentenceEn: string; sentenceVi?: string; audioUrl?: string }>;
+  collocation?: string;
   synonyms?: string[];
   antonyms?: string[];
+  topicId?: string;
   topicName?: string;
+  audioUsUrl?: string;
+  audioUkUrl?: string;
+  imageUrl?: string;
 }
 
 export interface WordSearchPage {
@@ -26,30 +32,52 @@ export interface WordSearchPage {
 export interface VocabTopic {
   id: string;
   name: string;
+  nameEn?: string;
+  slug?: string;
   description?: string;
   wordCount?: number;
   iconUrl?: string;
+  difficultyLevel?: string;
 }
 
-const mapWord = (w: any): WordDetail => ({
-  id: String(w.id || ''),
-  word: w.word || w.wordEn || '',
-  ipaUs: w.ipaUs || '',
-  ipaUk: w.ipaUk || undefined,
-  partOfSpeech: w.partOfSpeech || w.pos || 'noun',
-  cefrLevel: w.cefrLevel || 'B1',
-  definitionEn: w.definitionEn || w.definition || '',
-  definitionVi: w.definitionVi || w.meaningVi || w.wordVi || '',
-  examples: Array.isArray(w.examples)
+const mapWord = (w: any): WordDetail => {
+  const meaningsList: any[] = Array.isArray(w.meanings) ? w.meanings : [];
+  const primaryMeaning = meaningsList[0] || {};
+  const viMeanings = meaningsList.map((m: any) => m.meaningVi).filter(Boolean).join('; ');
+  const enMeanings = meaningsList.map((m: any) => m.meaningEn).filter(Boolean).join('; ');
+
+  const phrasesList: any[] = Array.isArray(w.phrases) ? w.phrases : [];
+  const collocationStr = phrasesList.map((p: any) => p.phrase + (p.meaningVi ? ` (${p.meaningVi})` : '')).filter(Boolean).join(' • ');
+
+  const examplesList: any[] = Array.isArray(w.examples)
     ? w.examples.map((ex: any) => ({
-        sentenceEn: ex.sentenceEn || ex.sentence || typeof ex === 'string' ? ex : '',
-        sentenceVi: ex.sentenceVi || undefined
+        sentenceEn: ex.sentenceEn || ex.sentence || (typeof ex === 'string' ? ex : ''),
+        sentenceVi: ex.sentenceVi || ex.meaningVi || undefined,
+        audioUrl: ex.audioUrl || undefined,
       }))
-    : [],
-  synonyms: Array.isArray(w.synonyms) ? w.synonyms : undefined,
-  antonyms: Array.isArray(w.antonyms) ? w.antonyms : undefined,
-  topicName: w.topicName || undefined
-});
+    : [];
+
+  return {
+    id: String(w.id || ''),
+    word: w.word || w.wordEn || '',
+    ipaUs: w.ipaUs || w.ipa || '',
+    ipaUk: w.ipaUk || undefined,
+    partOfSpeech: w.partOfSpeech || primaryMeaning.partOfSpeech || w.pos || 'Từ vựng',
+    cefrLevel: w.cefrLevel || 'B1',
+    definitionEn: enMeanings || w.definitionEn || w.definition || '',
+    definitionVi: viMeanings || w.definitionVi || w.meaningVi || w.wordVi || '',
+    usageNote: primaryMeaning.usageNote || undefined,
+    examples: examplesList,
+    collocation: collocationStr || undefined,
+    synonyms: Array.isArray(w.synonyms) ? w.synonyms : undefined,
+    antonyms: Array.isArray(w.antonyms) ? w.antonyms : undefined,
+    topicId: w.topicId ? String(w.topicId) : undefined,
+    topicName: w.topicName || undefined,
+    audioUsUrl: w.audioUsUrl || undefined,
+    audioUkUrl: w.audioUkUrl || undefined,
+    imageUrl: w.imageUrl || undefined,
+  };
+};
 
 /**
  * GET /api/v1/content/words/lookup?word=...
@@ -167,9 +195,12 @@ export const getTopicsApi = async (): Promise<VocabTopic[]> => {
       return data.map((t: any) => ({
         id: String(t.id),
         name: t.nameVi || t.nameEn || t.name || 'Chủ đề',
-        description: t.description || undefined,
-        wordCount: t.wordCount || undefined,
-        iconUrl: t.iconUrl || undefined
+        nameEn: t.nameEn || undefined,
+        slug: t.slug || undefined,
+        description: t.description || `Bộ từ vựng chủ đề ${t.nameVi || t.nameEn}`,
+        wordCount: t.wordCount !== undefined ? t.wordCount : 0,
+        iconUrl: t.iconUrl || t.iconEmoji || undefined,
+        difficultyLevel: t.difficultyLevel || undefined,
       }));
     }
   } catch (err) {
