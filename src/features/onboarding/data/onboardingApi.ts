@@ -159,6 +159,17 @@ export const submitPlacementTestApi = async (answers: Record<string, string>): P
   else if (pct >= 60) cefr = 'B1';
   else if (pct >= 40) cefr = 'A2';
 
+  // Persist evaluated level to backend auth-service
+  try {
+    const { apiClient } = await import('@/src/core/api/client');
+    await apiClient.put('/api/v1/users/me/learning-settings', {
+      cefrLevel: cefr,
+      targetGoal: 'TOEIC 650'
+    });
+  } catch (err) {
+    console.warn('[OnboardingAPI] Failed to update backend CEFR level:', err);
+  }
+
   return {
     cefr_level: cefr,
     score_pct: pct,
