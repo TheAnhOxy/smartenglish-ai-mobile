@@ -27,7 +27,7 @@ import { useAuthStore } from '@/src/core/flows/authStore';
 
 export const ProfileScreen = () => {
   const router = useRouter();
-  const { currentUser, logout } = useAuthStore();
+  const { currentUser, logout, userStats } = useAuthStore();
 
   // Progress Bar Animation
   const progressWidth = useSharedValue(0);
@@ -76,7 +76,7 @@ export const ProfileScreen = () => {
                 {currentUser?.display_name || 'Nguyễn Minh'}
               </Text>
               <View className="bg-white/15 px-3 py-1 rounded-full border border-white/20 self-start">
-                <Text className="text-xs font-semibold text-gray-200">Level 8 — Scholar 🎓</Text>
+                <Text className="text-xs font-semibold text-gray-200">Level {userStats?.level ?? 1} — Scholar 🎓</Text>
               </View>
             </View>
           </View>
@@ -102,29 +102,29 @@ export const ProfileScreen = () => {
         {/* 4 Stats Row */}
         <View className="flex-row justify-around items-center pt-3 border-t border-white/15">
           <View className="items-center">
-            <Text className="text-lg font-extrabold text-white">1,240</Text>
+            <Text className="text-lg font-extrabold text-white">{(userStats?.xp_total ?? 0).toLocaleString('vi-VN')}</Text>
             <Text className="text-[11px] font-medium text-gray-300">XP</Text>
           </View>
 
           <View className="w-[1px] h-7 bg-white/20" />
 
           <View className="items-center">
-            <Text className="text-lg font-extrabold text-white">127</Text>
-            <Text className="text-[11px] font-medium text-gray-300">Từ</Text>
+            <Text className="text-lg font-extrabold text-white">{userStats?.coins ?? 0}</Text>
+            <Text className="text-[11px] font-medium text-gray-300">Coins</Text>
           </View>
 
           <View className="w-[1px] h-7 bg-white/20" />
 
           <View className="items-center">
-            <Text className="text-lg font-extrabold text-white">15 🔥</Text>
+            <Text className="text-lg font-extrabold text-white">{userStats?.streak_current ?? 0} 🔥</Text>
             <Text className="text-[11px] font-medium text-gray-300">Streak</Text>
           </View>
 
           <View className="w-[1px] h-7 bg-white/20" />
 
           <View className="items-center">
-            <Text className="text-lg font-extrabold text-white">12</Text>
-            <Text className="text-[11px] font-medium text-gray-300">Badges</Text>
+            <Text className="text-lg font-extrabold text-white">{userStats?.level ?? 1}</Text>
+            <Text className="text-[11px] font-medium text-gray-300">Level</Text>
           </View>
         </View>
       </Animated.View>
