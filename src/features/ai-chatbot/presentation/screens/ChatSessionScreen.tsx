@@ -1,24 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TextInput, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { MOCK_CHAT_MESSAGES } from '../../data/chatbotApi';
+import { clearChatHistory } from '../../data/chatbotApi';
 import { useSendMessageMutation } from '../../application/useAiChatbot';
 import { SentenceRefactorSheetModal } from './SentenceRefactorSheetModal';
+import { ChatMessage } from '@/src/core/types/schema';
 
 export const ChatSessionScreen = () => {
   const router = useRouter();
-  const [messages, setMessages] = useState(MOCK_CHAT_MESSAGES);
+  const scrollRef = useRef<ScrollView>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      message_id: 'welcome',
+      role: 'assistant',
+      content: 'Xin chào! Tôi là Loxera AI, trợ lý học tiếng Anh của bạn. Hãy hỏi tôi bất cứ điều gì về từ vựng, ngữ pháp, hoặc giao tiếp nhé! 👋',
+      sent_at: new Date().toISOString()
+    }
+  ]);
   const [input, setInput] = useState('');
   const [selectedRefactorList, setSelectedRefactorList] = useState<string[] | null>(null);
 
+  // Clear backend history when screen mounts
+  useEffect(() => {
+    clearChatHistory();
+  }, []);
+
   const { mutate: sendMessage, isPending } = useSendMessageMutation();
+
+  const scrollToBottom = () => {
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
+  };
 
   const handleSend = () => {
     if (!input.trim() || isPending) return;
 
-    const userMsg = {
+    const userMsg: ChatMessage = {
       message_id: `u-${Date.now()}`,
-      role: 'user' as const,
+      role: 'user',
       content: input,
       sent_at: new Date().toISOString()
     };
@@ -26,10 +44,12 @@ export const ChatSessionScreen = () => {
     setMessages((prev) => [...prev, userMsg]);
     const textToSend = input;
     setInput('');
+    scrollToBottom();
 
     sendMessage(textToSend, {
       onSuccess: (res) => {
         setMessages((prev) => [...prev, res]);
+        scrollToBottom();
       }
     });
   };
@@ -45,7 +65,7 @@ export const ChatSessionScreen = () => {
       </View>
 
       {/* Messages */}
-      <ScrollView className="flex-1 my-2" showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} className="flex-1 my-2" showsVerticalScrollIndicator={false}>
         <View className="gap-3">
           {messages.map((m) => (
             <View key={m.message_id}>
