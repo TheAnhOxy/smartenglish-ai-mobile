@@ -1,201 +1,798 @@
-import React from 'react';
-import { View, Text, ScrollView, Pressable, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, Pressable, Image, StyleSheet } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
-import { Bell, Camera, BookOpen, Bot, HelpCircle, ChevronRight, Compass } from 'lucide-react-native';
+import {
+  Bell,
+  ScanText,
+  Aperture,
+  BookOpen,
+  MessageSquare,
+  BrainCircuit,
+  Sparkles,
+  Zap,
+  ChevronRight,
+  Compass,
+  Flame,
+  CheckCircle2,
+  Volume2,
+  Bookmark,
+  Coins,
+} from 'lucide-react-native';
 import { useAuthStore } from '@/src/core/flows/authStore';
+import { LoxeraFoxMascot } from '@/src/core/components/LoxeraFoxMascot';
+import { speakText } from '@/src/core/services/speechService';
+import { useDeckStore } from '@/src/features/flashcard-srs/data/deckStore';
+import { palette, font } from '@/src/theme';
+import { usePressSpring } from '@/src/hooks/usePressSpring';
+import { useStaggerReveal } from '@/src/hooks/useStaggerReveal';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export const HomeScreen = () => {
   const router = useRouter();
-  const { currentUser } = useAuthStore();
+  const { currentUser, userStats } = useAuthStore();
+  const { saveWordsToDeck } = useDeckStore();
+
+  const [isPlayingDailyWord, setIsPlayingDailyWord] = useState(false);
+  const [isDailyWordSaved, setIsDailyWordSaved] = useState(false);
+
+  // Motion Springs
+  const scanSpring = usePressSpring(0.97);
+  const flashcardSpring = usePressSpring(0.97);
+  const chatSpring = usePressSpring(0.97);
+  const quizSpring = usePressSpring(0.97);
+  const heroSpring = usePressSpring(0.98);
+  const continueSpring = usePressSpring(0.98);
+
+  // Stagger Animations
+  const animHeader = useStaggerReveal(0, 50);
+  const animStats = useStaggerReveal(1, 50);
+  const animHero = useStaggerReveal(2, 50);
+  const animGrid = useStaggerReveal(3, 50);
+  const animDaily = useStaggerReveal(4, 50);
+
+  // Featured Daily Word
+  const dailyWord = {
+    word_id: 'w-ubiquitous-today',
+    word: 'Ubiquitous',
+    phonetic: '/juːˈbɪkwɪtəs/',
+    pos: 'Adj',
+    meaning_vi: 'Có mặt ở khắp mọi nơi, phổ biến rộng rãi',
+    example: 'Mobile phones and AI tools have become ubiquitous in daily life.'
+  };
+
+  const handlePlayDailyWord = () => {
+    setIsPlayingDailyWord(true);
+    speakText(dailyWord.word, {
+      language: 'en-US',
+      rate: 0.85,
+      onDone: () => setIsPlayingDailyWord(false),
+      onError: () => setIsPlayingDailyWord(false),
+    });
+  };
+
+  const handleSaveDailyWord = () => {
+    saveWordsToDeck('deck-1', [dailyWord]);
+    setIsDailyWordSaved(true);
+  };
 
   return (
-    <ScrollView className="flex-1 bg-[#F8FAF9] pt-14 px-5" showsVerticalScrollIndicator={false}>
-      {/* Top Header Section */}
-      <View className="flex-row justify-between items-center mb-5">
-        <Pressable onPress={() => router.push('/(student)/profile' as any)} className="flex-row items-center gap-3">
+    <ScrollView style={s.container} contentContainerStyle={s.contentContainer} showsVerticalScrollIndicator={false}>
+      {/* Top Header Row */}
+      <Animated.View style={[s.headerRow, animHeader]}>
+        <Pressable onPress={() => router.push('/(student)/profile' as any)} style={s.profileTouch}>
           <Image
             source={{
               uri: currentUser?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200'
             }}
-            className="w-11 h-11 rounded-full border border-gray-200"
+            style={s.avatar}
           />
           <View>
-            <Text className="text-xs text-neutralGray font-medium">Chào buổi sáng, {currentUser?.display_name || 'Minh'}! 👋</Text>
-            <Text className="text-base font-bold text-[#4F46E5]">SmartEnglish AI</Text>
+            <Text style={s.greetingText}>Chào buổi sáng, {currentUser?.display_name || 'Học Viên'} 👋</Text>
+            <Text style={s.brandTitle}>Loxera English</Text>
           </View>
         </Pressable>
 
         <Pressable
           onPress={() => router.push('/(student)/notifications' as any)}
-          className="w-10 h-10 rounded-full bg-white border border-gray-100 items-center justify-center relative active:bg-gray-50 shadow-sm"
+          style={s.bellBtn}
         >
-          <Bell color="#475569" size={20} />
-          <View className="w-2.5 h-2.5 rounded-full bg-error absolute top-2 right-2 border-2 border-white" />
+          <Bell color={palette.textSoft} size={20} />
+          <View style={s.bellBadge} />
         </Pressable>
-      </View>
+      </Animated.View>
 
-      {/* Top Stats Bar (White Pill Card) */}
-      <View className="bg-white p-3.5 rounded-2xl border border-gray-100 flex-row items-center justify-between shadow-sm mb-5">
+      {/* Stats Bar */}
+      <Animated.View style={[s.statsBar, animStats]}>
         {/* Streak */}
-        <View className="flex-row items-center gap-1.5">
-          <Text className="text-lg">🔥</Text>
-          <Text className="text-xs font-bold text-neutralInk">15 ngày</Text>
+        <View style={s.streakChip}>
+          <Flame color={palette.accent} size={18} fill={palette.accent} />
+          <Text style={s.streakText}>{userStats?.streak_current ?? 0} ngày</Text>
         </View>
 
         {/* XP Progress */}
-        <View className="flex-1 px-4 items-center">
-          <View className="flex-row items-center gap-1 mb-1">
-            <Text className="text-xs font-extrabold text-[#4F46E5]">1.240 XP</Text>
-            <Text className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">SCHOLAR LVL 8</Text>
+        <View style={s.xpSection}>
+          <View style={s.xpRow}>
+            <Zap color={palette.accent} size={14} fill={palette.accent} />
+            <Text style={s.xpText}>{(userStats?.xp_total ?? 0).toLocaleString('vi-VN')} XP</Text>
+            <Text style={s.levelTag}>LVL {userStats?.level ?? 1}</Text>
           </View>
-          <View className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-            <View className="h-full bg-[#FF6B35] rounded-full" style={{ width: '65%' }} />
+          <View style={s.xpProgressBg}>
+            <View style={[s.xpProgressFill, { width: `${Math.min(((userStats?.xp_this_week ?? 0) / Math.max((userStats?.level ?? 1) * 500, 100)) * 100, 100)}%` }]} />
           </View>
         </View>
 
         {/* Coins */}
-        <View className="flex-row items-center gap-1.5">
-          <Text className="text-lg">💰</Text>
-          <Text className="text-xs font-bold text-neutralInk">320</Text>
+        <View style={s.coinChip}>
+          <Coins color={palette.primary} size={16} />
+          <Text style={s.coinText}>{userStats?.coins ?? 0}</Text>
         </View>
-      </View>
+      </Animated.View>
 
-      {/* Daily Challenge Card (Vibrant Purple/Indigo Banner) */}
-      <View className="bg-[#4F46E5] p-5 rounded-3xl mb-5 shadow-lg relative overflow-hidden">
-        <View className="flex-row justify-between items-center mb-3">
-          <Text className="text-lg font-bold text-white">Thử thách hôm nay</Text>
-          <View className="bg-white/20 px-3 py-1 rounded-full backdrop-blur-md">
-            <Text className="text-xs font-bold text-white">0/3 hoàn thành</Text>
-          </View>
-        </View>
-
-        {/* Checklist */}
-        <View className="gap-2.5">
-          <Pressable
-            onPress={() => router.push('/(student)/review' as any)}
-            className="flex-row items-center gap-2.5"
-          >
-            <View className="w-5 h-5 rounded-full border-2 border-white/80 justify-center items-center" />
-            <Text className="text-sm font-semibold text-white">Học 5 từ mới</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => router.push('/(student)/practice/scan' as any)}
-            className="flex-row items-center gap-2.5"
-          >
-            <View className="w-5 h-5 rounded-full border-2 border-white/80 justify-center items-center" />
-            <Text className="text-sm font-semibold text-white">Quét 1 ảnh</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => router.push('/(student)/practice/quiz/quiz-101' as any)}
-            className="flex-row items-center gap-2.5"
-          >
-            <View className="w-5 h-5 rounded-full border-2 border-white/80 justify-center items-center" />
-            <Text className="text-sm font-semibold text-white">Quiz 10 câu</Text>
-          </Pressable>
-        </View>
-      </View>
-
-      {/* 4 Feature Quick Shortcut Grid (2x2 Grid) */}
-      <View className="flex-row flex-wrap gap-3.5 mb-5">
-        {/* Shortcut 1: Quét ảnh */}
-        <Pressable
+      {/* HERO FEATURED BANNER: AI Camera Scanner */}
+      <Animated.View style={animHero}>
+        <AnimatedPressable
           onPress={() => router.push('/(student)/practice/scan' as any)}
-          className="w-[47.5%] bg-white p-4 rounded-2xl border border-gray-100 items-center shadow-sm active:bg-gray-50"
+          onPressIn={heroSpring.onPressIn}
+          onPressOut={heroSpring.onPressOut}
+          style={[s.heroBanner, heroSpring.animatedStyle]}
         >
-          <View className="w-12 h-12 rounded-2xl bg-[#CFFAFE] items-center justify-center mb-2.5">
-            <Camera color="#0891B2" size={24} />
-          </View>
-          <Text className="text-xs font-bold text-neutralInk">📷 Quét ảnh</Text>
-        </Pressable>
+          <View style={s.heroContent}>
+            <View style={s.heroBadge}>
+              <Sparkles color="#FFFFFF" size={13} />
+              <Text style={s.heroBadgeText}>AI Smart Scanner</Text>
+            </View>
 
-        {/* Shortcut 2: Flashcard */}
-        <Pressable
-          onPress={() => router.push('/(student)/review' as any)}
-          className="w-[47.5%] bg-white p-4 rounded-2xl border border-gray-100 items-center shadow-sm active:bg-gray-50"
-        >
-          <View className="w-12 h-12 rounded-2xl bg-[#CFFAFE] items-center justify-center mb-2.5">
-            <BookOpen color="#0891B2" size={24} />
-          </View>
-          <Text className="text-xs font-bold text-neutralInk">🎴 Flashcard</Text>
-        </Pressable>
+            <Text style={s.heroTitle}>Quét Ảnh Nhận Diện Từ Vựng AI</Text>
+            <Text style={s.heroSub}>
+              Chụp hoặc tải ảnh vật thể để AI tự động khoanh vùng & tạo thẻ ghi nhớ.
+            </Text>
 
-        {/* Shortcut 3: AI Chat */}
-        <Pressable
-          onPress={() => router.push('/(student)/assistant' as any)}
-          className="w-[47.5%] bg-white p-4 rounded-2xl border border-gray-100 items-center shadow-sm active:bg-gray-50"
-        >
-          <View className="w-12 h-12 rounded-2xl bg-[#CFFAFE] items-center justify-center mb-2.5">
-            <Bot color="#0891B2" size={24} />
+            <View style={s.heroCta}>
+              <Aperture color={palette.primary} size={16} />
+              <Text style={s.heroCtaText}>Quét Ảnh Ngay</Text>
+            </View>
           </View>
-          <Text className="text-xs font-bold text-neutralInk">🤖 AI Chat</Text>
-        </Pressable>
 
-        {/* Shortcut 4: Quiz */}
-        <Pressable
-          onPress={() => router.push('/(student)/practice/quiz/quiz-101' as any)}
-          className="w-[47.5%] bg-white p-4 rounded-2xl border border-gray-100 items-center shadow-sm active:bg-gray-50"
-        >
-          <View className="w-12 h-12 rounded-2xl bg-[#CFFAFE] items-center justify-center mb-2.5">
-            <HelpCircle color="#0891B2" size={24} />
+          <View style={s.mascotWrap}>
+            <LoxeraFoxMascot size={110} showGlow={false} showBook={false} animated />
           </View>
-          <Text className="text-xs font-bold text-neutralInk">🧠 Quiz</Text>
-        </Pressable>
-      </View>
+        </AnimatedPressable>
+      </Animated.View>
+
+      {/* 4 Quick Action Cards Grid */}
+      <Animated.View style={animGrid}>
+        <Text style={s.sectionHeader}>Tính năng nổi bật</Text>
+        <View style={s.gridRow}>
+          {/* Card 1: AI Quét Ảnh */}
+          <AnimatedPressable
+            onPress={() => router.push('/(student)/practice/scan' as any)}
+            onPressIn={scanSpring.onPressIn}
+            onPressOut={scanSpring.onPressOut}
+            style={[s.gridCard, scanSpring.animatedStyle]}
+          >
+            <View style={s.gridIconCircle}>
+              <ScanText color={palette.primary} size={22} />
+            </View>
+            <View style={s.gridCardTextWrap}>
+              <Text style={s.gridCardTitle}>Quét Ảnh AI</Text>
+              <Text style={s.gridCardSub}>Nhận diện vật thể</Text>
+            </View>
+          </AnimatedPressable>
+
+          {/* Card 2: Flashcard */}
+          <AnimatedPressable
+            onPress={() => router.push('/(student)/review' as any)}
+            onPressIn={flashcardSpring.onPressIn}
+            onPressOut={flashcardSpring.onPressOut}
+            style={[s.gridCard, flashcardSpring.animatedStyle]}
+          >
+            <View style={s.gridIconCircle}>
+              <BookOpen color={palette.primary} size={22} />
+            </View>
+            <View style={s.gridCardTextWrap}>
+              <Text style={s.gridCardTitle}>Flashcard</Text>
+              <Text style={s.gridCardSub}>Ôn tập SM-2</Text>
+            </View>
+          </AnimatedPressable>
+
+          {/* Card 3: AI Chat */}
+          <AnimatedPressable
+            onPress={() => router.push('/(student)/assistant' as any)}
+            onPressIn={chatSpring.onPressIn}
+            onPressOut={chatSpring.onPressOut}
+            style={[s.gridCard, chatSpring.animatedStyle]}
+          >
+            <View style={s.gridIconCircle}>
+              <MessageSquare color={palette.primary} size={22} />
+            </View>
+            <View style={s.gridCardTextWrap}>
+              <Text style={s.gridCardTitle}>Trợ Lý AI Chat</Text>
+              <Text style={s.gridCardSub}>Giao tiếp Loxera</Text>
+            </View>
+          </AnimatedPressable>
+
+          {/* Card 4: Quiz */}
+          <AnimatedPressable
+            onPress={() => router.push('/(student)/practice/quiz/quiz-101' as any)}
+            onPressIn={quizSpring.onPressIn}
+            onPressOut={quizSpring.onPressOut}
+            style={[s.gridCard, quizSpring.animatedStyle]}
+          >
+            <View style={s.gridIconCircle}>
+              <BrainCircuit color={palette.primary} size={22} />
+            </View>
+            <View style={s.gridCardTextWrap}>
+              <Text style={s.gridCardTitle}>Quiz 10 Câu</Text>
+              <Text style={s.gridCardSub}>Luyện tập từ vựng</Text>
+            </View>
+          </AnimatedPressable>
+        </View>
+      </Animated.View>
+
+      {/* Daily Vocabulary Card */}
+      <Animated.View style={[s.dailyCard, animDaily]}>
+        <View style={s.dailyTopRow}>
+          <View style={s.dailyTag}>
+            <Sparkles color={palette.primary} size={12} />
+            <Text style={s.dailyTagText}>Từ Vựng Mỗi Ngày</Text>
+          </View>
+
+          <Pressable
+            onPress={handlePlayDailyWord}
+            style={[
+              s.audioBtn,
+              isPlayingDailyWord && s.audioBtnActive
+            ]}
+          >
+            <Volume2 color={isPlayingDailyWord ? '#FFFFFF' : palette.primary} size={18} />
+          </Pressable>
+        </View>
+
+        <View style={s.wordRow}>
+          <View style={s.wordTitleWrap}>
+            <Text style={s.wordText}>{dailyWord.word}</Text>
+            <View style={s.posTag}>
+              <Text style={s.posText}>{dailyWord.pos}</Text>
+            </View>
+          </View>
+
+          <Pressable
+            onPress={handleSaveDailyWord}
+            style={[
+              s.saveBtn,
+              isDailyWordSaved && s.saveBtnActive
+            ]}
+          >
+            {isDailyWordSaved ? (
+              <>
+                <CheckCircle2 color={palette.success} size={14} />
+                <Text style={s.saveBtnTextSaved}>Đã Lưu</Text>
+              </>
+            ) : (
+              <>
+                <Bookmark color="#FFFFFF" size={14} fill="#FFFFFF" />
+                <Text style={s.saveBtnText}>Lưu Thẻ</Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+
+        <Text style={s.phoneticText}>{dailyWord.phonetic} • {dailyWord.meaning_vi}</Text>
+        <Text style={s.exampleText}>"{dailyWord.example}"</Text>
+      </Animated.View>
 
       {/* Continue Learning Section */}
-      <View className="mb-5">
-        <View className="flex-row justify-between items-center mb-3">
-          <Text className="text-base font-bold text-[#4F46E5]">Tiếp tục học</Text>
-          <Pressable onPress={() => router.push('/(student)/learn' as any)}>
-            <Text className="text-xs font-bold text-[#06B6D4]">Xem tất cả</Text>
-          </Pressable>
-        </View>
-
-        <View className="bg-white p-4 rounded-2xl border border-gray-100 flex-row items-center justify-between shadow-sm">
-          <View className="flex-row items-center gap-3 flex-1 mr-2">
-            <View className="w-12 h-12 rounded-2xl bg-[#CFFAFE] items-center justify-center">
-              <Compass color="#0891B2" size={24} />
-            </View>
-            <View className="flex-1">
-              <Text className="text-sm font-bold text-neutralInk">Từ vựng Du lịch — Bộ 3</Text>
-              <Text className="text-xs text-neutralGray mt-0.5">18/50 từ đã học</Text>
-            </View>
-          </View>
-
-          <Pressable
-            onPress={() => router.push('/(student)/review/decks/d-1/study' as any)}
-            className="bg-[#4F46E5] px-4 py-2.5 rounded-xl shadow-sm active:bg-[#4338CA]"
-          >
-            <Text className="text-white font-bold text-xs">Tiếp tục</Text>
-          </Pressable>
-        </View>
+      <View style={s.sectionRow}>
+        <Text style={s.sectionHeader}>Tiếp tục học</Text>
+        <Pressable onPress={() => router.push('/(student)/learn' as any)}>
+          <Text style={s.seeAllText}>Xem tất cả</Text>
+        </Pressable>
       </View>
 
-      {/* Live Teacher Announcement Card */}
-      <Pressable
-        onPress={() => router.push('/(student)/profile/classes' as any)}
-        className="bg-white p-4 rounded-2xl border border-gray-100 flex-row items-center justify-between shadow-sm mb-12 active:bg-gray-50"
+      <AnimatedPressable
+        onPress={() => router.push('/(student)/review/decks/d-1/study' as any)}
+        onPressIn={continueSpring.onPressIn}
+        onPressOut={continueSpring.onPressOut}
+        style={[s.continueCard, continueSpring.animatedStyle]}
       >
-        <View className="flex-row items-center gap-3 flex-1 mr-2">
-          <View className="relative">
-            <Image
-              source={{ uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200' }}
-              className="w-12 h-12 rounded-full border border-gray-200"
-            />
-            <View className="w-3.5 h-3.5 rounded-full bg-red-500 border-2 border-white absolute bottom-0 right-0" />
+        <View style={s.continueLeft}>
+          <View style={s.continueIconCircle}>
+            <Compass color={palette.primary} size={22} />
           </View>
-          <View className="flex-1">
-            <View className="flex-row items-center gap-1 mb-0.5">
-              <Text className="text-[10px] font-bold text-red-500 uppercase tracking-wide">🔴 TRỰC TIẾP</Text>
-            </View>
-            <Text className="text-sm font-bold text-neutralInk">Lớp của Cô Sarah: Giao tiếp</Text>
+          <View style={s.continueTextWrap}>
+            <Text style={s.continueTitle}>Từ vựng Du lịch — Bộ 3</Text>
+            <Text style={s.continueSub}>18/50 từ đã học</Text>
           </View>
         </View>
 
-        <ChevronRight color="#94A3B8" size={20} />
+        <View style={s.continueCtaBtn}>
+          <Text style={s.continueCtaText}>Tiếp tục</Text>
+        </View>
+      </AnimatedPressable>
+
+      {/* Live Class Notification */}
+      <Pressable
+        onPress={() => router.push('/(student)/profile/classes' as any)}
+        style={s.liveCard}
+      >
+        <View style={s.liveLeft}>
+          <Image
+            source={{ uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200' }}
+            style={s.liveAvatar}
+          />
+          <View>
+            <Text style={s.liveBadge}>● TRỰC TIẾP</Text>
+            <Text style={s.liveTitle}>Lớp của Cô Sarah: Giao tiếp</Text>
+          </View>
+        </View>
+
+        <ChevronRight color={palette.textSoft} size={20} />
       </Pressable>
     </ScrollView>
   );
 };
+
+const s = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: palette.bg,
+  },
+  contentContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 56,
+    paddingBottom: 48,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  profileTouch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: palette.primarySoft,
+  },
+  greetingText: {
+    fontSize: 12,
+    fontFamily: font.family,
+    color: palette.textSoft,
+  },
+  brandTitle: {
+    fontSize: 16,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.primary,
+  },
+  bellBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  bellBadge: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: palette.danger,
+    position: 'absolute',
+    top: 10,
+    right: 10,
+  },
+  statsBar: {
+    backgroundColor: palette.surface,
+    padding: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: palette.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  streakChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(67, 59, 255, 0.08)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  streakText: {
+    fontSize: 12,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.text,
+  },
+  xpSection: {
+    flex: 1,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  xpRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+  xpText: {
+    fontSize: 12,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.accent,
+  },
+  levelTag: {
+    fontSize: 10,
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: palette.textSoft,
+  },
+  xpProgressBg: {
+    width: '100%',
+    height: 6,
+    backgroundColor: palette.primarySoft,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  xpProgressFill: {
+    height: '100%',
+    backgroundColor: palette.accent,
+    borderRadius: 3,
+  },
+  coinChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(227, 166, 62, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  coinText: {
+    fontSize: 12,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.warning,
+  },
+  heroBanner: {
+    backgroundColor: palette.primary,
+    padding: 20,
+    borderRadius: 24,
+    marginBottom: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    overflow: 'hidden',
+    shadowColor: palette.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  heroContent: {
+    flex: 1,
+    marginRight: 10,
+  },
+  heroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  heroBadgeText: {
+    fontSize: 11,
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  heroTitle: {
+    fontSize: 20,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 6,
+    lineHeight: 26,
+  },
+  heroSub: {
+    fontSize: 12,
+    fontFamily: font.family,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 16,
+    lineHeight: 17,
+  },
+  heroCta: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 14,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  heroCtaText: {
+    fontSize: 13,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.primary,
+  },
+  mascotWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionHeader: {
+    fontSize: 16,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.text,
+    marginBottom: 12,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 24,
+  },
+  gridCard: {
+    width: '48%',
+    backgroundColor: palette.surface,
+    padding: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: palette.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  gridIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: palette.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gridCardTextWrap: {
+    flex: 1,
+  },
+  gridCardTitle: {
+    fontSize: 13,
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: palette.text,
+  },
+  gridCardSub: {
+    fontSize: 11,
+    fontFamily: font.family,
+    color: palette.textSoft,
+    marginTop: 2,
+  },
+  dailyCard: {
+    backgroundColor: palette.surface,
+    padding: 18,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: palette.border,
+    marginBottom: 24,
+  },
+  dailyTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  dailyTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: palette.primarySoft,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  dailyTagText: {
+    fontSize: 11,
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: palette.primary,
+  },
+  audioBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: palette.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  audioBtnActive: {
+    backgroundColor: palette.primary,
+  },
+  wordRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  wordTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  wordText: {
+    fontSize: 20,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.text,
+  },
+  posTag: {
+    backgroundColor: palette.primarySoft,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  posText: {
+    fontSize: 11,
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: palette.primary,
+  },
+  saveBtn: {
+    backgroundColor: palette.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  saveBtnActive: {
+    backgroundColor: 'rgba(31, 174, 122, 0.12)',
+  },
+  saveBtnText: {
+    fontSize: 12,
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  saveBtnTextSaved: {
+    fontSize: 12,
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: palette.success,
+  },
+  phoneticText: {
+    fontSize: 13,
+    fontFamily: font.family,
+    color: palette.textSoft,
+    marginBottom: 8,
+  },
+  exampleText: {
+    fontSize: 13,
+    fontFamily: font.family,
+    color: palette.text,
+    backgroundColor: palette.bg,
+    padding: 12,
+    borderRadius: 12,
+    fontStyle: 'italic',
+  },
+  sectionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  seeAllText: {
+    fontSize: 13,
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: palette.primary,
+  },
+  continueCard: {
+    backgroundColor: palette.surface,
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: palette.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  continueLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  continueIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: palette.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  continueTextWrap: {
+    flex: 1,
+  },
+  continueTitle: {
+    fontSize: 14,
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: palette.text,
+  },
+  continueSub: {
+    fontSize: 12,
+    fontFamily: font.family,
+    color: palette.textSoft,
+    marginTop: 2,
+  },
+  continueCtaBtn: {
+    backgroundColor: palette.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  continueCtaText: {
+    color: '#FFFFFF',
+    fontFamily: font.family,
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  liveCard: {
+    backgroundColor: palette.surface,
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: palette.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  liveLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  liveAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+  },
+  liveBadge: {
+    fontSize: 10,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.danger,
+    marginBottom: 2,
+  },
+  liveTitle: {
+    fontSize: 13,
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: palette.text,
+  },
+});
+
