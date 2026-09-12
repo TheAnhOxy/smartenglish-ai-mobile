@@ -1,3 +1,4 @@
+import { apiClient, getCurrentUserId } from '@/src/core/api/client';
 import { ChatMessage } from '@/src/core/types/schema';
 
 export interface ChatConversationItem {
@@ -7,45 +8,53 @@ export interface ChatConversationItem {
   last_message_at: string;
 }
 
-export const MOCK_CONVERSATIONS: ChatConversationItem[] = [
-  {
-    id: 'chat-1',
-    title: 'Hỏi Đáp Từ Vựng & Cấu Trúc',
-    last_message: 'Sparky: "Accomplish" thường đi với tân ngữ là goal hoặc task.',
-    last_message_at: '2026-08-16T10:15:00Z'
-  }
-];
+// In-session conversation history sent to backend for multi-turn context
+let _conversationHistory: Array<{ role: 'user' | 'model'; content: string }> = [];
 
-export const MOCK_CHAT_MESSAGES: ChatMessage[] = [
-  {
-    message_id: 'm1',
-    role: 'user',
-    content: 'Can you explain how to use the word accomplish in a business sentence?',
-    sent_at: '2026-08-16T10:14:00Z'
-  },
-  {
-    message_id: 'm2',
-    role: 'assistant',
-    content: 'Certainly! "Accomplish" means to achieve or complete something successfully. Example: "Our team accomplished all project goals before the deadline."',
-    sent_at: '2026-08-16T10:15:00Z',
-    referenced_word_ids: ['word-02']
-  }
-];
+export const clearChatHistory = () => {
+  _conversationHistory = [];
+};
 
-export const sendChatMessageApi = async (text: string): Promise<ChatMessage> => {
-  return {
-    message_id: `m-${Date.now()}`,
-    role: 'assistant',
-    content: `Sparky: Cảm ơn bạn! Tôi hiểu bạn vừa nói "${text}". Bạn có muốn tôi giải thích thêm về ngữ pháp câu này không?`,
-    sent_at: new Date().toISOString(),
-    grammar_check: {
-      has_error: false,
-      corrected_text: text,
-      rule_explanation_vi: 'Câu của bạn viết hoàn toàn đúng ngữ pháp!',
-      natural_alternatives: [
-        `Could you please clarify "${text}"?`,
-        `I would like to inquire about "${text}".`
-      ]
-    }
-  };
+/**
+ * Sends a message to the backend AI chat endpoint (/api/v1/ai-practice/chat).
+ * The backend proxies to Gemini — no API key needed on mobile.
+ */
+export const sendChatMessageApi = async (
+  text: string,
+  cefrLevel: string = 'Intermediate',
+  topic: string = 'Tự do'
+): Promise<ChatMessage> => {
+  try {
+    // Include recent history (last 10 turns) for multi-turn conversation
+    const recentHistory = _conversationHistory.slice(-10);
+
+    const response = await apiClient.post<any>('/api/v1/ai-practice/chat', {
+      message: text,
+      cefrLevel,
+      topic,
+      history: recentHistory
+    });
+
+    const data = response.data?.data || response.data;
+    const reply: string = data?.reply || data?.message || 'Loxera AI đang bận, vui lòng thử lại sau.';
+
+    // Append user + AI turns to local history for multi-turn context
+    _conversationHistory.push({ role: 'user', content: text });
+    _conversationHistory.push({ role: 'model', content: reply });
+
+    return {
+      message_id: `m-${Date.now()}`,
+      role: 'assistant',
+      content: reply,
+      sent_at: new Date().toISOString()
+    };
+  } catch (err: any) {
+    console.warn('[chatbotApi] AI chat API error:', err?.message || err);
+    return {
+      message_id: `m-err-${Date.now()}`,
+      role: 'assistant',
+      content: 'Không thể kết nối với Loxera AI lúc này. Vui lòng kiểm tra kết nối mạng và thử lại.',
+      sent_at: new Date().toISOString()
+    };
+  }
 };
