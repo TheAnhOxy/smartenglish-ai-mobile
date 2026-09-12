@@ -9,7 +9,7 @@ import {
   PanResponder,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Zap, Volume2, CheckCircle2, RotateCcw, ThumbsUp, ThumbsDown, Sparkles } from 'lucide-react-native';
+import { Volume2, CheckCircle2, RotateCcw, ThumbsUp, ThumbsDown, BookOpen, Bookmark, Flame } from 'lucide-react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -18,7 +18,9 @@ import Animated, {
   interpolate,
   runOnJS,
 } from 'react-native-reanimated';
+import * as Speech from 'expo-speech';
 import { useAuthStore } from '@/src/core/flows/authStore';
+import { palette, font } from '@/src/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 90;
@@ -69,6 +71,9 @@ export const StudyDeckScreen = () => {
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+
+  const isSpeakerPressed = useRef(false);
 
   // Reanimated shared values
   const translateX = useSharedValue(0);
@@ -77,8 +82,42 @@ export const StudyDeckScreen = () => {
 
   const currentCard = mockStudyQueue[currentIndex];
 
-  const advanceCard = (rating: number) => {
-    // Reset values for next card
+  const playAudio = (wordToSpeak: string) => {
+    try {
+      setIsPlayingAudio(true);
+      Speech.stop();
+      Speech.speak(wordToSpeak, {
+        language: 'en-US',
+        pitch: 1.0,
+        rate: 0.9,
+        onDone: () => setIsPlayingAudio(false),
+        onError: () => setIsPlayingAudio(false),
+      });
+    } catch (err) {
+      console.log('Speech playback error:', err);
+      setIsPlayingAudio(false);
+    }
+  };
+
+  const handleSpeakerPress = () => {
+    if (!currentCard) return;
+    isSpeakerPressed.current = true;
+    playAudio(currentCard.word);
+    setTimeout(() => {
+      isSpeakerPressed.current = false;
+    }, 600);
+  };
+
+  const handleCardTapToFlip = () => {
+    if (isSpeakerPressed.current) return;
+    toggleFlip();
+  };
+
+  const advanceCardRef = useRef((rating: number) => {});
+  advanceCardRef.current = (rating: number) => {
+    try {
+      Speech.stop();
+    } catch (_) {}
     translateX.value = 0;
     translateY.value = 0;
     flipRotation.value = 0;
@@ -86,16 +125,12 @@ export const StudyDeckScreen = () => {
     setCurrentIndex((prev) => prev + 1);
   };
 
-  const triggerNextCard = (rating: number) => {
-    runOnJS(advanceCard)(rating);
-  };
-
   // PanResponder for smooth Touch & Swipe Gesture
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        return Math.abs(gestureState.dx) > 10 || Math.abs(gestureState.dy) > 10;
+        return Math.abs(gestureState.dx) > 30 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
       },
       onPanResponderMove: (_, gestureState) => {
         translateX.value = gestureState.dx;
@@ -103,19 +138,18 @@ export const StudyDeckScreen = () => {
       },
       onPanResponderRelease: (_, gestureState) => {
         if (gestureState.dx > SWIPE_THRESHOLD) {
-          // Swipe Right -> Mastered / Good
-          translateX.value = withTiming(SCREEN_WIDTH * 1.2, { duration: 250 }, () => {
-            triggerNextCard(2);
+          translateX.value = withTiming(SCREEN_WIDTH * 1.2, { duration: 220 }, () => {
+            'worklet';
+            runOnJS(advanceCardRef.current)(2);
           });
         } else if (gestureState.dx < -SWIPE_THRESHOLD) {
-          // Swipe Left -> Need Review / Again
-          translateX.value = withTiming(-SCREEN_WIDTH * 1.2, { duration: 250 }, () => {
-            triggerNextCard(0);
+          translateX.value = withTiming(-SCREEN_WIDTH * 1.2, { duration: 220 }, () => {
+            'worklet';
+            runOnJS(advanceCardRef.current)(0);
           });
         } else {
-          // Spring back to center
-          translateX.value = withSpring(0, { damping: 15, stiffness: 150 });
-          translateY.value = withSpring(0, { damping: 15, stiffness: 150 });
+          translateX.value = withSpring(0, { damping: 12, stiffness: 150 });
+          translateY.value = withSpring(0, { damping: 12, stiffness: 150 });
         }
       },
     })
@@ -159,7 +193,6 @@ export const StudyDeckScreen = () => {
     };
   });
 
-  // Swipe Indicator Overlays
   const rightOverlayStyle = useAnimatedStyle(() => {
     const opacity = interpolate(translateX.value, [20, 120], [0, 1], 'clamp');
     return { opacity };
@@ -174,11 +207,11 @@ export const StudyDeckScreen = () => {
     return (
       <View style={styles.completedContainer}>
         <View style={styles.completedIconBadge}>
-          <CheckCircle2 color="#0EA5E9" size={56} />
+          <CheckCircle2 color={palette.primary} size={56} />
         </View>
-        <Text style={styles.completedTitle}>Đã Ôn Xong Tất Cả Thẻ!</Text>
+        <Text style={styles.completedTitle}>Đã hoàn thành lượt ôn tập!</Text>
         <Text style={styles.completedSub}>
-          Thuật toán SuperMemo-2 đã tính toán và xếp lịch ôn tập phù hợp nhất cho bạn.
+          Thuật toán SuperMemo-2 đã sắp xếp lịch ôn tiếp theo cho bộ từ vựng này.
         </Text>
         <Pressable
           onPress={() => router.back()}
@@ -207,16 +240,16 @@ export const StudyDeckScreen = () => {
 
         <View style={styles.headerTitleWrap}>
           <Text style={styles.headerTitle}>Loxera Flashcard</Text>
-          <Text style={styles.headerSub}>Ôn tập thông minh SRS</Text>
+          <Text style={styles.headerSub}>Ôn tập thuật toán SM-2</Text>
         </View>
 
         <View style={styles.streakBadge}>
-          <Text style={{ fontSize: 13 }}>🔥</Text>
+          <Flame color={palette.accent} size={14} fill={palette.accent} />
           <Text style={styles.streakText}>4 Ngày</Text>
         </View>
       </View>
 
-      {/* Progress Bar & Counter */}
+      {/* Progress Bar */}
       <View style={styles.progressSection}>
         <View style={styles.progressRow}>
           <Text style={styles.progressText}>
@@ -229,118 +262,127 @@ export const StudyDeckScreen = () => {
         </View>
       </View>
 
-      {/* Swipe Hint Banner */}
+      {/* Hint Banner */}
       <View style={styles.hintBanner}>
         <Text style={styles.hintText}>
-          👈 Vuốt trái: <Text style={{ color: '#EF4444', fontWeight: '700' }}>Chưa thuộc</Text> | Vuốt phải: <Text style={{ color: '#10B981', fontWeight: '700' }}>Thuộc</Text> 👉
+          👈 Vuốt trái: <Text style={{ color: palette.danger, fontWeight: '700' }}>Chưa thuộc</Text> | Vuốt phải: <Text style={{ color: palette.success, fontWeight: '700' }}>Thuộc</Text> 👉
         </Text>
       </View>
 
-      {/* Main Flashcard Viewport with Swipe Gesture */}
+      {/* Card Viewport */}
       <View style={styles.cardViewport}>
         <Animated.View
           style={[styles.animatedCardWrap, cardContainerStyle]}
           {...panResponder.panHandlers}
         >
-          {/* Swipe Indicator Overlay: RIGHT = THUỘC */}
+          {/* Swipe Indicator: RIGHT = THUỘC */}
           <Animated.View style={[styles.swipeOverlay, styles.swipeRightOverlay, rightOverlayStyle]} pointerEvents="none">
             <View style={styles.swipeBadgeRight}>
-              <ThumbsUp color="#10B981" size={28} />
+              <ThumbsUp color={palette.success} size={24} />
               <Text style={styles.swipeBadgeTextRight}>THUỘC</Text>
             </View>
           </Animated.View>
 
-          {/* Swipe Indicator Overlay: LEFT = CHƯA THUỘC */}
+          {/* Swipe Indicator: LEFT = CHƯA THUỘC */}
           <Animated.View style={[styles.swipeOverlay, styles.swipeLeftOverlay, leftOverlayStyle]} pointerEvents="none">
             <View style={styles.swipeBadgeLeft}>
-              <ThumbsDown color="#EF4444" size={28} />
+              <ThumbsDown color={palette.danger} size={24} />
               <Text style={styles.swipeBadgeTextLeft}>CHƯA THUỘC</Text>
             </View>
           </Animated.View>
 
-          {/* Card Tap to Flip */}
-          <Pressable onPress={toggleFlip} style={styles.cardInnerContainer}>
+          {/* Card Container */}
+          <View style={styles.cardInnerContainer}>
             {/* FRONT CARD */}
             <Animated.View style={[styles.cardFace, styles.cardFront, frontAnimatedStyle]}>
-              <View style={styles.cardHeaderTag}>
-                <Sparkles color="#0EA5E9" size={14} />
-                <Text style={styles.cardTagText}>{currentCard.type}</Text>
-              </View>
+              <Pressable onPress={handleCardTapToFlip} style={styles.cardBackgroundTapArea}>
+                <View style={styles.cardHeaderTag}>
+                  <BookOpen color={palette.primary} size={14} />
+                  <Text style={styles.cardTagText}>{currentCard.type}</Text>
+                </View>
 
-              <View style={styles.frontCenterContent}>
-                <Text style={styles.wordTitle}>{currentCard.word}</Text>
-                <Text style={styles.ipaText}>{currentCard.ipa}</Text>
+                <View style={styles.frontCenterContent}>
+                  <Text style={styles.wordTitle}>{currentCard.word}</Text>
+                  <Text style={styles.ipaText}>{currentCard.ipa}</Text>
+                </View>
 
-                {/* Speaker Audio Button */}
-                <Pressable
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    alert(`🔊 Đang phát âm: ${currentCard.word}`);
-                  }}
-                  style={styles.audioBtn}
-                >
-                  <Volume2 color="#FFFFFF" size={26} />
-                </Pressable>
-              </View>
-
-              <View style={styles.cardFooter}>
-                <RotateCcw color="#94A3B8" size={14} />
-                <Text style={styles.flipHintText}>Chạm vào thẻ để xem định nghĩa</Text>
-              </View>
+                <View style={styles.cardFooter}>
+                  <RotateCcw color={palette.textSoft} size={14} />
+                  <Text style={styles.flipHintText}>Chạm vào thẻ để lật xem định nghĩa</Text>
+                </View>
+              </Pressable>
             </Animated.View>
 
             {/* BACK CARD */}
             <Animated.View style={[styles.cardFace, styles.cardBack, backAnimatedStyle]}>
-              <View style={styles.cardHeaderTagBack}>
-                <Text style={styles.cardTagTextBack}>ĐỊNH NGHĨA & VÍ DỤ</Text>
-              </View>
-
-              <View style={styles.backCenterContent}>
-                <Text style={styles.meaningText}>{currentCard.meaning}</Text>
-
-                <View style={styles.exampleBox}>
-                  <Text style={styles.exampleTitle}>Ví dụ:</Text>
-                  <Text style={styles.exampleText}>"{currentCard.example}"</Text>
+              <Pressable onPress={toggleFlip} style={styles.cardBackgroundTapArea}>
+                <View style={styles.cardHeaderTagBack}>
+                  <Bookmark color={palette.primary} size={14} />
+                  <Text style={styles.cardTagTextBack}>ĐỊNH NGHĨA & VÍ DỤ</Text>
                 </View>
 
-                {currentCard.collocation && (
-                  <View style={styles.collocationBox}>
-                    <Text style={styles.collocationText}>💡 Collocation: {currentCard.collocation}</Text>
-                  </View>
-                )}
-              </View>
+                <View style={styles.backCenterContent}>
+                  <Text style={styles.meaningText}>{currentCard.meaning}</Text>
 
-              <View style={styles.cardFooter}>
-                <RotateCcw color="#0EA5E9" size={14} />
-                <Text style={[styles.flipHintText, { color: '#0EA5E9' }]}>Chạm để quay lại mặt trước</Text>
-              </View>
+                  <View style={styles.exampleBox}>
+                    <Text style={styles.exampleTitle}>Ví dụ:</Text>
+                    <Text style={styles.exampleText}>"{currentCard.example}"</Text>
+                  </View>
+
+                  {currentCard.collocation && (
+                    <View style={styles.collocationBox}>
+                      <Text style={styles.collocationText}>💡 Collocation: {currentCard.collocation}</Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.cardFooter}>
+                  <RotateCcw color={palette.primary} size={14} />
+                  <Text style={[styles.flipHintText, { color: palette.primary }]}>Chạm để quay lại mặt trước</Text>
+                </View>
+              </Pressable>
             </Animated.View>
-          </Pressable>
+          </View>
         </Animated.View>
       </View>
 
-      {/* Bottom SM-2 Rating Buttons */}
+      {/* Speaker Button */}
+      {!isFlipped && currentCard && (
+        <View style={styles.speakerRow}>
+          <Pressable
+            onPressIn={handleSpeakerPress}
+            style={[styles.speakerBtn, isPlayingAudio && styles.speakerBtnActive]}
+          >
+            <Volume2 color="#FFFFFF" size={22} />
+          </Pressable>
+          <Text style={styles.speakerHint}>
+            {isPlayingAudio ? 'Đang phát...' : 'Nghe phát âm'}
+          </Text>
+        </View>
+      )}
+
+      {/* Rating Buttons */}
       <View style={styles.ratingSection}>
-        <Text style={styles.ratingSectionTitle}>Đánh giá mức độ ghi nhớ:</Text>
+        <Text style={styles.ratingSectionTitle}>Mức độ nhớ từ này:</Text>
         <View style={styles.ratingRow}>
-          <Pressable onPress={() => advanceCard(0)} style={[styles.rateBtn, styles.rateAgain]}>
-            <Text style={[styles.rateBtnTitle, { color: '#DC2626' }]}>Chưa thuộc</Text>
-            <Text style={[styles.rateBtnSub, { color: '#EF4444' }]}>Quên (&lt;1m)</Text>
+          <Pressable onPress={() => advanceCardRef.current(0)} style={[styles.rateBtn, styles.rateAgain]}>
+            <Text style={[styles.rateBtnTitle, { color: palette.danger }]}>Chưa thuộc</Text>
+            <Text style={styles.rateBtnSub}>&lt;1m</Text>
           </Pressable>
 
-          <Pressable onPress={() => advanceCard(1)} style={[styles.rateBtn, styles.rateHard]}>
-            <Text style={[styles.rateBtnTitle, { color: '#D97706' }]}>Khó</Text>
-            <Text style={[styles.rateBtnSub, { color: '#F59E0B' }]}>2 ngày</Text>
+          <Pressable onPress={() => advanceCardRef.current(1)} style={[styles.rateBtn, styles.rateHard]}>
+            <Text style={[styles.rateBtnTitle, { color: palette.warning }]}>Khó</Text>
+            <Text style={styles.rateBtnSub}>2 ngày</Text>
           </Pressable>
 
-          <Pressable onPress={() => advanceCard(2)} style={[styles.rateBtn, styles.rateGood]}>
-            <Text style={[styles.rateBtnTitle, { color: '#0284C7' }]}>Thuộc</Text>
-            <Text style={[styles.rateBtnSub, { color: '#0EA5E9' }]}>4 ngày</Text>
+          <Pressable onPress={() => advanceCardRef.current(2)} style={[styles.rateBtn, styles.rateGood]}>
+            <Text style={[styles.rateBtnTitle, { color: palette.primary }]}>Thuộc</Text>
+            <Text style={styles.rateBtnSub}>4 ngày</Text>
           </Pressable>
 
-          <Pressable onPress={() => advanceCard(3)} style={[styles.rateBtn, styles.rateEasy]}>
-            <Text style={[styles.rateBtnTitle, { color: '#059669' }]}>Dễ</Text>
-            <Text style={[styles.rateBtnSub, { color: '#10B981' }]}>7 ngày</Text>
+          <Pressable onPress={() => advanceCardRef.current(3)} style={[styles.rateBtn, styles.rateEasy]}>
+            <Text style={[styles.rateBtnTitle, { color: palette.success }]}>Dễ</Text>
+            <Text style={styles.rateBtnSub}>7 ngày</Text>
           </Pressable>
         </View>
       </View>
@@ -351,8 +393,8 @@ export const StudyDeckScreen = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F0F7FF',
-    paddingTop: 48,
+    backgroundColor: palette.bg,
+    paddingTop: 52,
     paddingHorizontal: 20,
     paddingBottom: 24,
     justifyContent: 'space-between',
@@ -361,7 +403,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   avatarWrap: {
     padding: 2,
@@ -371,36 +413,36 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: '#DBEAFE',
+    borderColor: palette.primarySoft,
   },
   headerTitleWrap: {
     alignItems: 'center',
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '800',
-    color: '#1E3A5F',
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.text,
   },
   headerSub: {
-    fontSize: 11,
-    color: '#64748B',
-    fontWeight: '500',
+    fontSize: 12,
+    fontFamily: font.family,
+    color: palette.textSoft,
   },
   streakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: 'rgba(67, 59, 255, 0.08)',
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 100,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderRadius: 12,
   },
   streakText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#92400E',
+    fontSize: 12,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.text,
   },
   progressSection: {
     marginBottom: 10,
@@ -412,45 +454,48 @@ const styles = StyleSheet.create({
   },
   progressText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#1E3A5F',
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: palette.text,
   },
   progressPctText: {
     fontSize: 12,
-    fontWeight: '800',
-    color: '#0EA5E9',
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.primary,
   },
   progressTrack: {
-    height: 8,
-    backgroundColor: '#E0F2FE',
-    borderRadius: 100,
+    height: 6,
+    backgroundColor: palette.primarySoft,
+    borderRadius: 3,
     overflow: 'hidden',
   },
   progressBar: {
     height: '100%',
-    backgroundColor: '#0EA5E9',
-    borderRadius: 100,
+    backgroundColor: palette.primary,
+    borderRadius: 3,
   },
   hintBanner: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     paddingVertical: 6,
     paddingHorizontal: 14,
-    borderRadius: 100,
+    borderRadius: 14,
     alignSelf: 'center',
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#DBEAFE',
+    borderColor: palette.border,
   },
   hintText: {
     fontSize: 11,
-    color: '#64748B',
-    fontWeight: '600',
+    fontFamily: font.family,
+    color: palette.textSoft,
   },
   cardViewport: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     marginVertical: 4,
+    position: 'relative',
   },
   animatedCardWrap: {
     width: '100%',
@@ -473,33 +518,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#D1FAE5',
+    backgroundColor: 'rgba(31, 174, 122, 0.15)',
     borderWidth: 2,
-    borderColor: '#10B981',
+    borderColor: palette.success,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 16,
   },
   swipeBadgeTextRight: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#065F46',
+    fontSize: 14,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.success,
   },
   swipeBadgeLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: 'rgba(225, 84, 63, 0.15)',
     borderWidth: 2,
-    borderColor: '#EF4444',
+    borderColor: palette.danger,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 16,
   },
   swipeBadgeTextLeft: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#991B1B',
+    fontSize: 14,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.danger,
   },
   cardInnerContainer: {
     width: '100%',
@@ -512,145 +559,181 @@ const styles = StyleSheet.create({
     top: 0,
     right: 0,
     bottom: 0,
-    borderRadius: 32,
+    borderRadius: 24,
+    overflow: 'hidden',
+    shadowColor: palette.text,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  cardFront: {
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  cardBack: {
+    backgroundColor: palette.surface,
+    borderWidth: 1.5,
+    borderColor: palette.primarySoft,
+  },
+  cardBackgroundTapArea: {
+    flex: 1,
     padding: 24,
     justifyContent: 'space-between',
     alignItems: 'center',
-    shadowColor: '#1E3A5F',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 6,
-  },
-  cardFront: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E0F2FE',
-  },
-  cardBack: {
-    backgroundColor: '#F0F9FF',
-    borderWidth: 2,
-    borderColor: '#38BDF8',
   },
   cardHeaderTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#EFF6FF',
+    gap: 6,
+    backgroundColor: palette.primarySoft,
     paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: 100,
+    borderRadius: 10,
   },
   cardHeaderTagBack: {
-    backgroundColor: '#E0F2FE',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: palette.primarySoft,
     paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: 100,
+    borderRadius: 10,
   },
   cardTagText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#0EA5E9',
-    textTransform: 'uppercase',
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: palette.primary,
   },
   cardTagTextBack: {
     fontSize: 11,
-    fontWeight: '800',
-    color: '#0369A1',
-    letterSpacing: 0.5,
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: palette.primary,
   },
   frontCenterContent: {
     alignItems: 'center',
+    width: '100%',
+    gap: 4,
   },
   wordTitle: {
-    fontSize: 38,
-    fontWeight: '800',
-    color: '#1E3A5F',
-    marginBottom: 6,
+    fontSize: 36,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.text,
     textAlign: 'center',
   },
   ipaText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#64748B',
-    marginBottom: 20,
+    fontFamily: font.family,
+    color: palette.textSoft,
+    marginBottom: 8,
   },
-  audioBtn: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#0EA5E9',
+  speakerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 6,
+  },
+  speakerBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: palette.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#0EA5E9',
+    shadowColor: palette.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.15,
     shadowRadius: 10,
-    elevation: 5,
+    elevation: 4,
+  },
+  speakerBtnActive: {
+    backgroundColor: palette.accent,
+    transform: [{ scale: 1.05 }],
+  },
+  speakerHint: {
+    fontSize: 12,
+    fontFamily: font.family,
+    color: palette.textSoft,
   },
   backCenterContent: {
     width: '100%',
     alignItems: 'center',
   },
   meaningText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#1E3A5F',
+    fontSize: 18,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.text,
     textAlign: 'center',
-    lineHeight: 28,
-    marginBottom: 14,
+    lineHeight: 26,
+    marginBottom: 12,
   },
   exampleBox: {
-    backgroundColor: '#FFFFFF',
-    padding: 14,
-    borderRadius: 16,
+    backgroundColor: palette.bg,
+    padding: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: palette.border,
     width: '100%',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   exampleTitle: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#0369A1',
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: palette.primary,
     marginBottom: 4,
   },
   exampleText: {
     fontSize: 13,
-    color: '#334155',
+    fontFamily: font.family,
+    color: palette.text,
     fontStyle: 'italic',
     lineHeight: 18,
   },
   collocationBox: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: palette.primarySoft,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 10,
   },
   collocationText: {
     fontSize: 11,
+    fontFamily: font.family,
     fontWeight: '600',
-    color: '#0284C7',
+    color: palette.primary,
   },
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: palette.bg,
+    borderWidth: 1,
+    borderColor: palette.border,
   },
   flipHintText: {
     fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '600',
+    fontFamily: font.family,
+    color: palette.textSoft,
   },
   ratingSection: {
-    marginTop: 8,
+    marginTop: 6,
   },
   ratingSectionTitle: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#1E3A5F',
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: palette.textSoft,
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   ratingRow: {
     flexDirection: 'row',
@@ -658,80 +741,80 @@ const styles = StyleSheet.create({
   },
   rateBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 16,
+    paddingVertical: 10,
+    borderRadius: 14,
     alignItems: 'center',
     borderWidth: 1,
   },
   rateAgain: {
-    backgroundColor: '#FEE2E2',
-    borderColor: '#FECACA',
+    backgroundColor: 'rgba(225, 84, 63, 0.08)',
+    borderColor: 'rgba(225, 84, 63, 0.2)',
   },
   rateHard: {
-    backgroundColor: '#FEF3C7',
-    borderColor: '#FDE68A',
+    backgroundColor: 'rgba(227, 166, 62, 0.08)',
+    borderColor: 'rgba(227, 166, 62, 0.2)',
   },
   rateGood: {
-    backgroundColor: '#E0F2FE',
-    borderColor: '#BAE6FD',
+    backgroundColor: palette.primarySoft,
+    borderColor: palette.border,
   },
   rateEasy: {
-    backgroundColor: '#D1FAE5',
-    borderColor: '#A7F3D0',
+    backgroundColor: 'rgba(31, 174, 122, 0.08)',
+    borderColor: 'rgba(31, 174, 122, 0.2)',
   },
   rateBtnTitle: {
     fontSize: 12,
-    fontWeight: '800',
+    fontFamily: font.family,
+    fontWeight: '700',
   },
   rateBtnSub: {
     fontSize: 10,
-    fontWeight: '600',
+    fontFamily: font.family,
+    color: palette.textSoft,
     marginTop: 2,
   },
   completedContainer: {
     flex: 1,
-    backgroundColor: '#F0F7FF',
+    backgroundColor: palette.bg,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
   },
   completedIconBadge: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: '#E0F2FE',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: palette.primarySoft,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   completedTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#1E3A5F',
+    fontSize: 20,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.text,
     textAlign: 'center',
     marginBottom: 8,
   },
   completedSub: {
     fontSize: 13,
-    color: '#64748B',
+    fontFamily: font.family,
+    color: palette.textSoft,
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 28,
+    marginBottom: 24,
+    lineHeight: 18,
   },
   completedBtn: {
-    backgroundColor: '#0EA5E9',
-    paddingHorizontal: 32,
-    paddingVertical: 15,
-    borderRadius: 18,
-    shadowColor: '#0EA5E9',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 4,
+    backgroundColor: palette.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 16,
   },
   completedBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 15,
+    fontSize: 14,
+    fontFamily: font.family,
+    fontWeight: '700',
   },
 });
+
