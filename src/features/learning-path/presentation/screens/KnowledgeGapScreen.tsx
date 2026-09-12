@@ -26,6 +26,8 @@ export const KnowledgeGapScreen = () => {
     }
   };
 
+  const gapList: SkillGapItem[] = Array.isArray(gaps) ? gaps : [];
+
   return (
     <View className="flex-1 bg-surface pt-14 px-6 justify-between pb-10">
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -52,7 +54,7 @@ export const KnowledgeGapScreen = () => {
           <ActivityIndicator color="#0F7173" size="large" />
         ) : (
           <View className="gap-3">
-            {(gaps || []).map((item) => (
+            {gapList.map((item: SkillGapItem) => (
               <Pressable
                 key={item.id}
                 onPress={() => setSelectedItem(item)}
@@ -85,7 +87,7 @@ export const KnowledgeGapScreen = () => {
             <Text className="text-xs text-neutralGray mb-4">Các lỗi sai tiêu biểu đã ghi nhận:</Text>
 
             <View className="bg-surface p-4 rounded-xl mb-6 gap-2 border border-gray-200">
-              {selectedItem?.wrongWords.map((w, idx) => (
+              {selectedItem?.wrongWords?.map((w: string, idx: number) => (
                 <View key={idx} className="flex-row items-center gap-2">
                   <Text className="text-error font-bold text-xs">•</Text>
                   <Text className="text-xs font-semibold text-neutralInk">{w}</Text>
