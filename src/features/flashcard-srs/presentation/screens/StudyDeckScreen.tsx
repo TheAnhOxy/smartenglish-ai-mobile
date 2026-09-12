@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,20 @@ import {
   StyleSheet,
   Dimensions,
   PanResponder,
+  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Volume2, CheckCircle2, RotateCcw, ThumbsUp, ThumbsDown, BookOpen, Bookmark, Flame } from 'lucide-react-native';
+import {
+  Volume2,
+  CheckCircle2,
+  RotateCcw,
+  ThumbsUp,
+  ThumbsDown,
+  BookOpen,
+  Bookmark,
+  Flame,
+  ArrowLeft,
+} from 'lucide-react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -21,57 +32,43 @@ import Animated, {
 import * as Speech from 'expo-speech';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { palette, font } from '@/src/theme';
+import { exploreWordsApi } from '../../data/vocabularyApi';
+import { fetchDeckByIdApi, submitSrsReviewApi } from '../../data/deckApi';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 90;
 
+export interface StudyCard {
+  id: string;
+  cardId?: number;
+  word: string;
+  ipa: string;
+  type: string;
+  cefrLevel?: string;
+  meaning: string;
+  meaningEn?: string;
+  example: string;
+  exampleVi?: string;
+  collocation?: string;
+  audioUrl?: string;
+  imageUrl?: string;
+}
+
 export const StudyDeckScreen = () => {
-  const { deckId } = useLocalSearchParams<{ deckId: string }>();
+  const { deckId, topicId, deckName } = useLocalSearchParams<{
+    deckId: string;
+    topicId?: string;
+    deckName?: string;
+  }>();
   const router = useRouter();
   const { currentUser } = useAuthStore();
 
-  const mockStudyQueue = [
-    {
-      id: '1',
-      word: 'Resilient',
-      ipa: '/rɪˈzɪl.jənt/',
-      type: 'Adjective',
-      meaning: 'Kiên cường, có khả năng phục hồi nhanh chóng sau khó khăn',
-      example: 'She remained resilient despite facing major financial challenges.',
-      collocation: 'Resilient spirit / Resilient economy',
-    },
-    {
-      id: '2',
-      word: 'Ubiquitous',
-      ipa: '/juːˈbɪk.wɪ.təs/',
-      type: 'Adjective',
-      meaning: 'Có mặt ở khắp mọi nơi, vô cùng phổ biến rộng rãi',
-      example: 'Smartphones have become ubiquitous in modern daily life.',
-      collocation: 'Ubiquitous presence / Ubiquitous technology',
-    },
-    {
-      id: '3',
-      word: 'Meticulous',
-      ipa: '/mɪˈtɪk.jə.ləs/',
-      type: 'Adjective',
-      meaning: 'Tỉ mỉ, cẩn thận kỹ lưỡng từng chi tiết nhỏ nhất',
-      example: 'He is meticulous about keeping his research notes organized.',
-      collocation: 'Meticulous planning / Meticulous attention',
-    },
-    {
-      id: '4',
-      word: 'Pragmatic',
-      ipa: '/præɡˈmæt.ɪk/',
-      type: 'Adjective',
-      meaning: 'Thực tế, thực dụng, coi trọng hiệu quả hơn lý thuyết',
-      example: 'We need a pragmatic approach to solve this complex issue.',
-      collocation: 'Pragmatic decision / Pragmatic solution',
-    },
-  ];
-
+  const [loading, setLoading] = useState(true);
+  const [studyQueue, setStudyQueue] = useState<StudyCard[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [topicTitle, setTopicTitle] = useState(deckName || 'Ôn Tập Từ Vựng');
 
   const isSpeakerPressed = useRef(false);
 
@@ -80,7 +77,109 @@ export const StudyDeckScreen = () => {
   const translateY = useSharedValue(0);
   const flipRotation = useSharedValue(0);
 
-  const currentCard = mockStudyQueue[currentIndex];
+  // Load real cards on mount or whenever deckId / topicId changes
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadCards = async () => {
+      setLoading(true);
+      setCurrentIndex(0);
+      setIsFlipped(false);
+      translateX.value = 0;
+      translateY.value = 0;
+      flipRotation.value = 0;
+      try {
+        Speech.stop();
+      } catch (_) {}
+
+      try {
+        let cards: StudyCard[] = [];
+        const effectiveTopicId = topicId ? Number(topicId) : Number(deckId);
+
+        // 1. If effectiveTopicId is a valid topic id (1-50), load words from content-service
+        if (!isNaN(effectiveTopicId) && effectiveTopicId > 0 && effectiveTopicId <= 50) {
+          const exploreRes = await exploreWordsApi({ topicId: effectiveTopicId, size: 200 });
+          if (exploreRes.items && exploreRes.items.length > 0) {
+            if (exploreRes.items[0].topicName) {
+              setTopicTitle(exploreRes.items[0].topicName);
+            }
+            cards = exploreRes.items.map((w, idx) => ({
+              id: w.id || String(idx + 1),
+              word: w.word,
+              ipa: w.ipaUs || w.ipaUk || '',
+              type: w.partOfSpeech || 'Từ vựng',
+              cefrLevel: w.cefrLevel || 'B1',
+              meaning: w.definitionVi || 'Đang cập nhật nghĩa tiếng Việt',
+              meaningEn: w.definitionEn || '',
+              example: w.examples?.[0]?.sentenceEn || `Learn to use "${w.word}" in daily conversation.`,
+              exampleVi: w.examples?.[0]?.sentenceVi || '',
+              collocation: w.collocation || '',
+              audioUrl: w.audioUsUrl || w.audioUkUrl,
+              imageUrl: w.imageUrl,
+            }));
+          }
+        }
+
+        // 2. If no topic cards and deckId exists, load from learning-service personal deck
+        if (cards.length === 0 && deckId) {
+          const deckDetail = await fetchDeckByIdApi(deckId, currentUser?.id?.toString());
+          if (deckDetail) {
+            if (deckDetail.name) setTopicTitle(deckDetail.name);
+            if (deckDetail.cards && deckDetail.cards.length > 0) {
+              cards = deckDetail.cards.map((c, idx) => {
+                const frontParts = (c.customFront || '').trim().split(/\s{2,}|\t|\//);
+                const wordText = frontParts[0]?.replace('/', '').trim() || `Từ #${idx + 1}`;
+                const ipaText = c.customFront?.includes('/') ? '/' + c.customFront.split('/')[1] + '/' : '';
+
+                const backLines = (c.customBack || '').split('\n');
+                const meaningText = backLines[0] || 'Nghĩa từ vựng';
+                const exampleLine = backLines.find((l) =>
+                  l.toLowerCase().startsWith('ví dụ:') || l.toLowerCase().startsWith('example:')
+                );
+                const exampleText = exampleLine ? exampleLine.replace(/^(ví dụ:|example:)\s*/i, '') : '';
+
+                return {
+                  id: String(c.id || idx + 1),
+                  cardId: c.id,
+                  word: wordText,
+                  ipa: ipaText,
+                  type: c.userNote || 'Ghi nhớ',
+                  cefrLevel: 'A2',
+                  meaning: meaningText,
+                  meaningEn: '',
+                  example: exampleText || `Use "${wordText}" in daily communication.`,
+                  exampleVi: '',
+                  collocation: '',
+                  imageUrl: c.imageOverrideUrl,
+                };
+              });
+            }
+          }
+        }
+
+        if (isMounted) {
+          setStudyQueue(cards);
+        }
+      } catch (err) {
+        console.warn('Error loading study cards:', err);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadCards();
+
+    return () => {
+      isMounted = false;
+      try {
+        Speech.stop();
+      } catch (_) {}
+    };
+  }, [deckId, topicId]);
+
+  const currentCard = studyQueue[currentIndex];
 
   const playAudio = (wordToSpeak: string) => {
     try {
@@ -89,7 +188,7 @@ export const StudyDeckScreen = () => {
       Speech.speak(wordToSpeak, {
         language: 'en-US',
         pitch: 1.0,
-        rate: 0.9,
+        rate: 0.88,
         onDone: () => setIsPlayingAudio(false),
         onError: () => setIsPlayingAudio(false),
       });
@@ -118,6 +217,16 @@ export const StudyDeckScreen = () => {
     try {
       Speech.stop();
     } catch (_) {}
+
+    const card = studyQueue[currentIndex];
+    if (card?.cardId) {
+      submitSrsReviewApi({
+        cardId: card.cardId,
+        rating,
+        userId: currentUser?.id?.toString(),
+      }).catch((e) => console.log('SRS submit error:', e));
+    }
+
     translateX.value = 0;
     translateY.value = 0;
     flipRotation.value = 0;
@@ -203,43 +312,86 @@ export const StudyDeckScreen = () => {
     return { opacity };
   });
 
-  if (!currentCard) {
+  // 1. Loading State
+  if (loading) {
+    return (
+      <View style={[styles.completedContainer, { justifyContent: 'center' }]}>
+        <ActivityIndicator size="large" color={palette.primary} />
+        <Text style={[styles.completedSub, { marginTop: 16 }]}>
+          Đang tải kho từ vựng {topicTitle}...
+        </Text>
+      </View>
+    );
+  }
+
+  // 2. Empty State
+  if (!loading && studyQueue.length === 0) {
     return (
       <View style={styles.completedContainer}>
         <View style={styles.completedIconBadge}>
-          <CheckCircle2 color={palette.primary} size={56} />
+          <BookOpen color={palette.primary} size={48} />
         </View>
-        <Text style={styles.completedTitle}>Đã hoàn thành lượt ôn tập!</Text>
+        <Text style={styles.completedTitle}>Chưa có từ vựng</Text>
         <Text style={styles.completedSub}>
-          Thuật toán SuperMemo-2 đã sắp xếp lịch ôn tiếp theo cho bộ từ vựng này.
+          Chủ đề "{topicTitle}" hiện chưa có dữ liệu từ vựng. Vui lòng quay lại và chọn chủ đề khác!
         </Text>
-        <Pressable
-          onPress={() => router.back()}
-          style={styles.completedBtn}
-        >
+        <Pressable onPress={() => router.back()} style={styles.completedBtn}>
           <Text style={styles.completedBtnText}>Quay Về Bộ Thẻ</Text>
         </Pressable>
       </View>
     );
   }
 
-  const progressPct = Math.round(((currentIndex + 1) / mockStudyQueue.length) * 100);
+  // 3. Completed State
+  if (!currentCard) {
+    return (
+      <View style={styles.completedContainer}>
+        <View style={styles.completedIconBadge}>
+          <CheckCircle2 color={palette.success} size={56} />
+        </View>
+        <Text style={styles.completedTitle}>Đã hoàn thành lượt ôn tập!</Text>
+        <Text style={styles.completedSub}>
+          Bạn đã hoàn thành {studyQueue.length} từ vựng thuộc chủ đề "{topicTitle}".
+          Thuật toán SuperMemo-2 đã ghi nhận kết quả và xếp lịch ôn tập tối ưu tiếp theo cho bạn.
+        </Text>
+        <View style={{ width: '100%', gap: 12, marginTop: 24 }}>
+          <Pressable
+            onPress={() => {
+              translateX.value = 0;
+              translateY.value = 0;
+              flipRotation.value = 0;
+              setIsFlipped(false);
+              setCurrentIndex(0);
+            }}
+            style={[styles.completedBtn, { backgroundColor: palette.primary, flexDirection: 'row', justifyContent: 'center', gap: 8 }]}
+          >
+            <RotateCcw color="#FFFFFF" size={18} />
+            <Text style={styles.completedBtnText}>Ôn Lại Từ Đầu</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => router.back()}
+            style={[styles.completedBtn, { backgroundColor: '#F1F5F9' }]}
+          >
+            <Text style={[styles.completedBtnText, { color: palette.text }]}>Quay Về Bộ Thẻ</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  const progressPct = Math.round(((currentIndex + 1) / studyQueue.length) * 100);
 
   return (
     <View style={styles.root}>
       {/* Header Bar */}
       <View style={styles.headerBar}>
-        <Pressable onPress={() => router.back()} style={styles.avatarWrap}>
-          <Image
-            source={{
-              uri: currentUser?.avatar_url || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200',
-            }}
-            style={styles.avatar}
-          />
+        <Pressable onPress={() => router.back()} style={styles.backBtnWrap}>
+          <ArrowLeft color={palette.text} size={22} />
         </Pressable>
 
         <View style={styles.headerTitleWrap}>
-          <Text style={styles.headerTitle}>Loxera Flashcard</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>{topicTitle}</Text>
           <Text style={styles.headerSub}>Ôn tập thuật toán SM-2</Text>
         </View>
 
@@ -253,7 +405,7 @@ export const StudyDeckScreen = () => {
       <View style={styles.progressSection}>
         <View style={styles.progressRow}>
           <Text style={styles.progressText}>
-            Thẻ {currentIndex + 1}/{mockStudyQueue.length}
+            Thẻ {currentIndex + 1}/{studyQueue.length}
           </Text>
           <Text style={styles.progressPctText}>{progressPct}%</Text>
         </View>
@@ -296,14 +448,21 @@ export const StudyDeckScreen = () => {
             {/* FRONT CARD */}
             <Animated.View style={[styles.cardFace, styles.cardFront, frontAnimatedStyle]}>
               <Pressable onPress={handleCardTapToFlip} style={styles.cardBackgroundTapArea}>
-                <View style={styles.cardHeaderTag}>
-                  <BookOpen color={palette.primary} size={14} />
-                  <Text style={styles.cardTagText}>{currentCard.type}</Text>
+                <View style={styles.cardHeaderTagRow}>
+                  <View style={styles.cardHeaderTag}>
+                    <BookOpen color={palette.primary} size={14} />
+                    <Text style={styles.cardTagText}>{currentCard.type}</Text>
+                  </View>
+                  {!!currentCard.cefrLevel && (
+                    <View style={styles.cefrBadge}>
+                      <Text style={styles.cefrBadgeText}>{currentCard.cefrLevel}</Text>
+                    </View>
+                  )}
                 </View>
 
                 <View style={styles.frontCenterContent}>
                   <Text style={styles.wordTitle}>{currentCard.word}</Text>
-                  <Text style={styles.ipaText}>{currentCard.ipa}</Text>
+                  {!!currentCard.ipa && <Text style={styles.ipaText}>{currentCard.ipa}</Text>}
                 </View>
 
                 <View style={styles.cardFooter}>
@@ -324,14 +483,23 @@ export const StudyDeckScreen = () => {
                 <View style={styles.backCenterContent}>
                   <Text style={styles.meaningText}>{currentCard.meaning}</Text>
 
-                  <View style={styles.exampleBox}>
-                    <Text style={styles.exampleTitle}>Ví dụ:</Text>
-                    <Text style={styles.exampleText}>"{currentCard.example}"</Text>
-                  </View>
+                  {!!currentCard.meaningEn && (
+                    <Text style={styles.meaningEnText}>{currentCard.meaningEn}</Text>
+                  )}
 
-                  {currentCard.collocation && (
+                  {!!currentCard.example && (
+                    <View style={styles.exampleBox}>
+                      <Text style={styles.exampleTitle}>Ví dụ:</Text>
+                      <Text style={styles.exampleText}>"{currentCard.example}"</Text>
+                      {!!currentCard.exampleVi && (
+                        <Text style={styles.exampleViText}>{currentCard.exampleVi}</Text>
+                      )}
+                    </View>
+                  )}
+
+                  {!!currentCard.collocation && (
                     <View style={styles.collocationBox}>
-                      <Text style={styles.collocationText}>💡 Collocation: {currentCard.collocation}</Text>
+                      <Text style={styles.collocationText}>💡 Cụm từ: {currentCard.collocation}</Text>
                     </View>
                   )}
                 </View>
@@ -405,27 +573,27 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 12,
   },
-  avatarWrap: {
-    padding: 2,
-  },
-  avatar: {
+  backBtnWrap: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: palette.primarySoft,
-  },
-  headerTitleWrap: {
+    backgroundColor: 'rgba(0,0,0,0.04)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
+  headerTitleWrap: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 12,
+  },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: font.family,
     fontWeight: '700',
     color: palette.text,
   },
   headerSub: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: font.family,
     color: palette.textSoft,
   },
@@ -450,13 +618,14 @@ const styles = StyleSheet.create({
   progressRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 6,
   },
   progressText: {
     fontSize: 12,
     fontFamily: font.family,
     fontWeight: '600',
-    color: palette.text,
+    color: palette.textSoft,
   },
   progressPctText: {
     fontSize: 12,
@@ -466,8 +635,8 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     height: 6,
-    backgroundColor: palette.primarySoft,
     borderRadius: 3,
+    backgroundColor: palette.border,
     overflow: 'hidden',
   },
   progressBar: {
@@ -476,14 +645,8 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   hintBanner: {
-    backgroundColor: palette.surface,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    alignSelf: 'center',
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: palette.border,
+    alignItems: 'center',
+    marginBottom: 8,
   },
   hintText: {
     fontSize: 11,
@@ -494,8 +657,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: 4,
-    position: 'relative',
+    marginVertical: 6,
   },
   animatedCardWrap: {
     width: '100%',
@@ -583,6 +745,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  cardHeaderTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   cardHeaderTag: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -591,6 +758,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 10,
+  },
+  cefrBadge: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  cefrBadgeText: {
+    fontSize: 10,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: '#2563EB',
   },
   cardHeaderTagBack: {
     flexDirection: 'row',
@@ -619,7 +800,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   wordTitle: {
-    fontSize: 36,
+    fontSize: 34,
     fontFamily: font.family,
     fontWeight: '700',
     color: palette.text,
@@ -670,8 +851,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: palette.text,
     textAlign: 'center',
-    lineHeight: 26,
-    marginBottom: 12,
+    lineHeight: 25,
+    marginBottom: 6,
+  },
+  meaningEnText: {
+    fontSize: 12,
+    fontFamily: font.family,
+    color: palette.textSoft,
+    textAlign: 'center',
+    lineHeight: 16,
+    marginBottom: 10,
   },
   exampleBox: {
     backgroundColor: palette.bg,
@@ -696,17 +885,26 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     lineHeight: 18,
   },
+  exampleViText: {
+    fontSize: 12,
+    fontFamily: font.family,
+    color: palette.textSoft,
+    marginTop: 4,
+    lineHeight: 16,
+  },
   collocationBox: {
     backgroundColor: palette.primarySoft,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 10,
+    maxWidth: '100%',
   },
   collocationText: {
     fontSize: 11,
     fontFamily: font.family,
     fontWeight: '600',
     color: palette.primary,
+    textAlign: 'center',
   },
   cardFooter: {
     flexDirection: 'row',
@@ -810,11 +1008,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 16,
+    alignItems: 'center',
   },
   completedBtnText: {
     fontSize: 14,
     fontFamily: font.family,
     fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
-
