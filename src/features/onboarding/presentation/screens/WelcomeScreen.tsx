@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, Text, Pressable, Image, StyleSheet, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
+import { LoxeraFoxMascot } from '@/src/core/components/LoxeraFoxMascot';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -121,13 +122,9 @@ export const WelcomeScreen = () => {
         {/* Glow Ring Behind Logo */}
         <Animated.View style={[styles.glowRing, glowAnimStyle]} />
 
-        {/* Loxera Logo inside Premium Rounded Card Badge */}
+        {/* Transparent Large Loxera Fox Logo Mascot */}
         <Animated.View style={[styles.logoCard, logoAnimStyle]}>
-          <Image
-            source={require('@/assets/images/loxera-logo.png')}
-            style={styles.logoImage}
-            resizeMode="contain"
-          />
+          <LoxeraFoxMascot size={210} showGlow showBook animated />
         </Animated.View>
 
         {/* App Title */}
@@ -191,29 +188,22 @@ const styles = StyleSheet.create({
   },
   logoSection: {
     alignItems: 'center',
-    marginTop: 24,
+    justifyContent: 'center',
+    marginTop: 20,
+    flex: 1,
   },
   glowRing: {
     position: 'absolute',
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    backgroundColor: '#93C5FD',
-    top: -10,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: 'rgba(14, 165, 233, 0.15)',
+    top: 10,
   },
   logoCard: {
-    width: 180,
-    height: 180,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 40,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
-    shadowColor: '#1E3A5F',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 8,
+    width: 240,
+    height: 240,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2,
