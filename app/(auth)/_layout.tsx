@@ -9,6 +9,7 @@ export default function AuthLayout() {
       <Stack.Screen name="placement-test" />
       <Stack.Screen name="placement-result" />
       <Stack.Screen name="login" />
+      <Stack.Screen name="login-success" />
     </Stack>
   );
 }
