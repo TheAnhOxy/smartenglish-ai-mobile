@@ -10,6 +10,7 @@ export const useScanQuotaQuery = (isPremium: boolean) => {
 
 export const useSubmitScanMutation = () => {
   return useMutation({
-    mutationFn: submitScanImageApi
+    mutationFn: (params?: { base64Image?: string; mode?: 'document' | 'id_card' | 'book' | 'object' }) =>
+      submitScanImageApi(params?.base64Image, params?.mode)
   });
 };
