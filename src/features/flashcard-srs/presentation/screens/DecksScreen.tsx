@@ -30,6 +30,7 @@ import {
   createDeckApi,
   DeckItemDTO,
 } from '../../data/deckApi';
+import { getTopicsApi } from '../../data/vocabularyApi';
 import { palette, font } from '@/src/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -53,11 +54,27 @@ export const DecksScreen = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [sys, mine] = await Promise.all([
+      const [sys, mine, contentTopics] = await Promise.all([
         fetchSystemDecksApi(),
         fetchMyDecksApi(currentUser?.id?.toString()),
+        getTopicsApi(),
       ]);
-      setSystemDecks(sys);
+
+      if (contentTopics && contentTopics.length > 0) {
+        const mappedSystemTopics: DeckItemDTO[] = contentTopics.map((t) => ({
+          id: t.id,
+          name: t.name,
+          description: t.description || `Bộ từ vựng chủ đề ${t.name}`,
+          source: 'SYSTEM_TOPIC',
+          cardCount: t.wordCount !== undefined ? t.wordCount : 0,
+          studyMode: 'srs',
+          targetExam: t.difficultyLevel || 'B1',
+        }));
+        setSystemDecks(mappedSystemTopics);
+      } else {
+        setSystemDecks(sys);
+      }
+
       setMyDecks(mine);
     } catch (e) {
       console.warn('Error loading decks:', e);
@@ -114,9 +131,16 @@ export const DecksScreen = () => {
     return colors[index % colors.length];
   };
 
-  const handleOpenStudy = (deckId: number | string) => {
+  const handleOpenStudy = (deck: DeckItemDTO) => {
     try {
-      router.push(`/(student)/review/decks/${deckId}/study` as any);
+      router.push({
+        pathname: `/(student)/review/decks/[deckId]/study`,
+        params: {
+          deckId: String(deck.id),
+          topicId: deck.source === 'SYSTEM_TOPIC' ? String(deck.id) : '',
+          deckName: deck.name,
+        },
+      } as any);
     } catch (err) {
       console.warn('Navigation error:', err);
     }
@@ -201,7 +225,7 @@ export const DecksScreen = () => {
             return (
               <Pressable
                 key={String(deck.id)}
-                onPress={() => handleOpenStudy(deck.id)}
+                onPress={() => handleOpenStudy(deck)}
                 style={styles.deckCard}
               >
                 {/* Top Row: Icon & Cards Indicator */}
