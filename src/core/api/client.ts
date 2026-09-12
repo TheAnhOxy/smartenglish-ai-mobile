@@ -4,16 +4,17 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
 const getGatewayUrl = () => {
-  // 1. Nếu chạy trên Web browser của máy tính
-  if (Platform.OS === 'web') {
-    const envUrl = process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_GATEWAY_URL;
-    return (envUrl || 'http://localhost:8080').replace(/\/$/, '');
+  const rawEnv = process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_GATEWAY_URL;
+  const envUrl = rawEnv ? rawEnv.trim() : '';
+
+  // 1. Nếu có biến môi trường chỉ định rõ (IP LAN hoặc ngrok HTTPS)
+  if (envUrl) {
+    return envUrl.replace(/\/$/, '');
   }
 
-  // 2. Nếu có biến môi trường chỉ định rõ (IP LAN hoặc ngrok HTTPS)
-  const envUrl = process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_GATEWAY_URL;
-  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
-    return envUrl.replace(/\/$/, '');
+  // 2. Nếu chạy trên Web browser của máy tính
+  if (Platform.OS === 'web') {
+    return 'http://localhost:8080';
   }
 
   // 3. Tự động lấy IP máy tính đang chạy Expo server từ hostUri nếu là IPv4 hợp lệ
@@ -48,9 +49,10 @@ export const SERVICE_URLS = {
 // Create primary Axios instance routing 100% through API Gateway (Port 8080)
 export const apiClient: AxiosInstance = axios.create({
   baseURL: getGatewayUrl(),
-  timeout: 15000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
   },
 });
 
@@ -58,6 +60,8 @@ apiClient.interceptors.request.use(
   (config) => {
     // Route all requests through API Gateway (Port 8080)
     config.baseURL = getGatewayUrl();
+    config.headers = config.headers || {};
+    (config.headers as any)['ngrok-skip-browser-warning'] = 'true';
 
     // Attach Authorization token from Zustand auth store
     try {
