@@ -7,6 +7,8 @@ export const LeagueScreen = () => {
   const router = useRouter();
   const { data: members, isLoading } = useLeagueLeaderboardQuery();
 
+  const memberList = Array.isArray(members) ? members : [];
+
   return (
     <View className="flex-1 bg-surface pt-14 px-6 pb-6">
       {/* Top Header */}
@@ -30,9 +32,9 @@ export const LeagueScreen = () => {
         {/* Rank 2 - Silver */}
         <View className="items-center">
           <Text className="text-xl mb-1">🥈</Text>
-          <Image source={{ uri: 'https://i.pravatar.cc/100?img=2' }} className="w-10 h-10 rounded-full mb-1 border-2 border-gray-300" />
+          <Image source={{ uri: 'https://i.pravatar.cc/100?img=2' }} className="w-11 h-11 rounded-full mb-1 border-2 border-slate-300" />
           <Text className="text-[10px] font-bold text-neutralInk">Hoàng Nam</Text>
-          <Text className="text-[10px] font-extrabold text-secondary">720 XP</Text>
+          <Text className="text-[10px] font-extrabold text-neutralGray">720 XP</Text>
         </View>
 
         {/* Rank 1 - Gold */}
@@ -56,11 +58,11 @@ export const LeagueScreen = () => {
         <ActivityIndicator color="#FF6B35" size="large" />
       ) : (
         <FlatList
-          data={members || []}
+          data={memberList}
           keyExtractor={(item) => item.user_id}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => {
-            const isMe = item.user_id === '11111111-1111-1111-1111-111111111111';
+            const isMe = item.user_id === '17' || item.user_id === '11111111-1111-1111-1111-111111111111';
             return (
               <View
                 className={`p-4 rounded-2xl border mb-3 flex-row justify-between items-center ${
@@ -73,14 +75,19 @@ export const LeagueScreen = () => {
                   <Text className={`text-base font-extrabold w-6 text-center ${isMe ? 'text-primary' : 'text-neutralGray'}`}>
                     #{item.rank}
                   </Text>
-                  <Image source={{ uri: item.avatar_url }} className="w-9 h-9 rounded-full bg-gray-200" />
-                  <Text className={`text-sm font-bold flex-1 ${isMe ? 'text-primary font-extrabold' : 'text-neutralInk'}`}>
-                    {item.display_name} {isMe && '(Bạn)'}
-                  </Text>
+                  <Image source={{ uri: item.avatar_url }} className="w-10 h-10 rounded-full border border-gray-200" />
+                  <View>
+                    <Text className={`text-sm font-bold ${isMe ? 'text-primary' : 'text-neutralInk'}`}>
+                      {item.display_name} {isMe ? '(Bạn)' : ''}
+                    </Text>
+                    <Text className="text-[10px] text-neutralGray">Silver League</Text>
+                  </View>
                 </View>
 
-                <View className="bg-surface px-3 py-1 rounded-full border border-gray-200">
-                  <Text className="text-xs font-extrabold text-amber-600">{item.weekly_xp} XP</Text>
+                <View className="items-end">
+                  <Text className="text-sm font-extrabold text-neutralInk">{item.weekly_xp} XP</Text>
+                  {item.tier === 'gold' && <Text className="text-[9px] font-bold text-amber-600">▲ Thăng hạng Gold</Text>}
+                  {item.tier === 'demotion' && <Text className="text-[9px] font-bold text-error">▼ Rớt hạng</Text>}
                 </View>
               </View>
             );
