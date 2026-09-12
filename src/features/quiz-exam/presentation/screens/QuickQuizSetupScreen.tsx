@@ -1,20 +1,22 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, Image } from 'react-native';
+import { View, Text, ScrollView, Pressable, Image, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Menu, Zap, Minus, Plus, Lock, ChevronRight } from 'lucide-react-native';
+import { Menu, Zap, Minus, Plus, Lock, Check } from 'lucide-react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useAuthStore } from '@/src/core/flows/authStore';
+import { palette } from '@/src/theme/colors';
+import { font } from '@/src/theme/typography';
+import { Card } from '@/src/components/ui/Card';
 
 type QuestionType = 'trac_nghiem' | 'dien_tu' | 'ghep_noi' | 'sap_xep';
 
 export const QuickQuizSetupScreen = () => {
   const router = useRouter();
   const { currentUser } = useAuthStore();
-  const isPremium = currentUser?.plan !== 'free';
 
   const [selectedTypes, setSelectedTypes] = useState<QuestionType[]>(['trac_nghiem', 'dien_tu']);
   const [questionCount, setQuestionCount] = useState(10);
   const [selectedTopic, setSelectedTopic] = useState('Tất cả');
-  const [difficulty, setDifficulty] = useState(6);
 
   const toggleType = (type: QuestionType) => {
     setSelectedTypes((prev) =>
@@ -38,22 +40,21 @@ export const QuickQuizSetupScreen = () => {
         types: selectedTypes.join(','),
         count: questionCount.toString(),
         topic: selectedTopic,
-        difficulty: difficulty.toString(),
       },
     });
   };
 
   return (
-    <ScrollView className="flex-1 bg-[#F5F7FA]" showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.root} showsVerticalScrollIndicator={false}>
       {/* Header */}
-      <View className="pt-12 px-5 pb-4 flex-row justify-between items-center">
-        <View className="flex-row items-center gap-3">
-          <Pressable className="p-1">
-            <Menu color="#1E3A5F" size={22} />
+      <Animated.View entering={FadeInDown.duration(300)} style={styles.headerBar}>
+        <View style={styles.headerLeft}>
+          <Pressable style={styles.menuBtn}>
+            <Menu color={palette.text} size={20} />
           </Pressable>
           <View>
-            <Text className="text-lg font-extrabold text-[#1E3A5F]">AI Quiz</Text>
-            <Text className="text-[11px] text-gray-500 font-medium">Câu hỏi từ từ vựng của bạn</Text>
+            <Text style={styles.headerTitle}>AI Quiz</Text>
+            <Text style={styles.headerSubtitle}>Tạo bộ câu hỏi thông minh</Text>
           </View>
         </View>
 
@@ -61,190 +62,332 @@ export const QuickQuizSetupScreen = () => {
           source={{
             uri: currentUser?.avatar_url || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200',
           }}
-          className="w-10 h-10 rounded-full border-2 border-[#1E3A5F]"
+          style={styles.avatar}
         />
-      </View>
+      </Animated.View>
 
-      <View className="px-5">
-        {/* Quiz nhanh Banner */}
-        <View className="bg-[#1E3A5F] p-5 rounded-3xl mb-6 shadow-lg">
-          <View className="flex-row items-center gap-2 mb-2">
-            <View className="w-7 h-7 rounded-full bg-white/20 justify-center items-center">
-              <Zap color="#FFFFFF" size={16} fill="#FFFFFF" />
+      <View style={styles.container}>
+        {/* Banner Quick Quiz */}
+        <Animated.View entering={FadeInDown.delay(80).duration(300)}>
+          <Card style={styles.heroBanner}>
+            <View style={styles.heroHeader}>
+              <View style={styles.zapIconWrap}>
+                <Zap color="#FFFFFF" size={18} fill="#FFFFFF" />
+              </View>
+              <Text style={styles.heroTitle}>Quiz nhanh hôm nay</Text>
             </View>
-            <Text className="text-base font-bold text-white">Quiz nhanh</Text>
-          </View>
-          <Text className="text-xs text-white/80 mb-4 leading-5">
-            AI chọn 10 câu từ vựng yếu của bạn
-          </Text>
-          <Pressable
-            onPress={handleStartQuiz}
-            className="bg-white py-3 px-6 rounded-xl self-start active:bg-gray-100"
-          >
-            <Text className="text-sm font-bold text-[#1E3A5F]">Bắt đầu ngay</Text>
-          </Pressable>
-        </View>
-
-        {/* Tùy chỉnh Section */}
-        <Text className="text-xl font-bold text-[#1E3A5F] mb-4">Tùy chỉnh</Text>
-
-        {/* Chọn loại câu hỏi */}
-        <Text className="text-sm font-semibold text-gray-600 mb-3">Chọn loại câu hỏi</Text>
-        <View className="flex-row flex-wrap gap-3 mb-6">
-          {questionTypes.map((type) => {
-            const isSelected = selectedTypes.includes(type.key);
-            return (
-              <Pressable
-                key={type.key}
-                onPress={() => toggleType(type.key)}
-                className={`flex-row items-center gap-2 px-4 py-3 rounded-2xl border-2 ${
-                  isSelected
-                    ? 'border-[#1E3A5F] bg-white'
-                    : 'border-gray-200 bg-white'
-                }`}
-                style={{ width: '47%' }}
-              >
-                <View
-                  className={`w-6 h-6 rounded-md border-2 justify-center items-center ${
-                    isSelected ? 'bg-[#1E3A5F] border-[#1E3A5F]' : 'border-gray-300 bg-white'
-                  }`}
-                >
-                  {isSelected && <Text className="text-white text-xs font-bold">✓</Text>}
-                </View>
-                <Text className={`text-sm font-semibold ${isSelected ? 'text-[#1E3A5F]' : 'text-gray-500'}`}>
-                  {type.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {/* Số lượng câu hỏi Counter */}
-        <View className="flex-row justify-between items-center bg-white p-4 rounded-2xl border border-gray-100 mb-6">
-          <Text className="text-sm font-semibold text-gray-600">Số lượng câu hỏi</Text>
-          <View className="flex-row items-center gap-4">
-            <Pressable
-              onPress={() => setQuestionCount(Math.max(5, questionCount - 5))}
-              className="w-9 h-9 rounded-full bg-[#E8EDF2] justify-center items-center active:bg-gray-300"
-            >
-              <Minus color="#1E3A5F" size={18} />
+            <Text style={styles.heroSub}>AI tự chọn 10 từ vựng cần ôn tập nhất cho bạn</Text>
+            <Pressable onPress={handleStartQuiz} style={styles.heroBtn}>
+              <Text style={styles.heroBtnText}>Bắt đầu ngay →</Text>
             </Pressable>
-            <Text className="text-2xl font-extrabold text-[#1E3A5F] w-10 text-center">{questionCount}</Text>
-            <Pressable
-              onPress={() => setQuestionCount(Math.min(30, questionCount + 5))}
-              className="w-9 h-9 rounded-full bg-[#E8EDF2] justify-center items-center active:bg-gray-300"
-            >
-              <Plus color="#1E3A5F" size={18} />
-            </Pressable>
-          </View>
-        </View>
+          </Card>
+        </Animated.View>
 
-        {/* Chủ đề Chips */}
-        <Text className="text-sm font-semibold text-gray-600 mb-3">Chủ đề</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6">
-          <View className="flex-row gap-2">
-            {topics.map((topic) => (
-              <Pressable
-                key={topic}
-                onPress={() => setSelectedTopic(topic)}
-                className={`px-4 py-2 rounded-full border ${
-                  selectedTopic === topic
-                    ? 'bg-[#1E3A5F] border-[#1E3A5F]'
-                    : 'bg-white border-gray-200'
-                }`}
-              >
-                <Text
-                  className={`text-xs font-bold ${
-                    selectedTopic === topic ? 'text-white' : 'text-gray-600'
-                  }`}
-                >
-                  {topic}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </ScrollView>
+        {/* Setup Section */}
+        <Animated.View entering={FadeInDown.delay(140).duration(300)}>
+          <Text style={styles.sectionTitle}>Tùy chỉnh bài thi</Text>
 
-        {/* Độ khó Slider */}
-        <View className="mb-6">
-          <View className="flex-row justify-between items-center mb-3">
-            <Text className="text-sm font-semibold text-gray-600">Độ khó</Text>
-            <View className="flex-row items-center gap-1">
-              <Text className="text-xs text-gray-400">Dễ</Text>
-              <Text className="text-xs text-gray-400">{'>'}</Text>
-              <Text className="text-xs font-bold text-[#1E3A5F]">Khó</Text>
-            </View>
-          </View>
-
-          {/* Custom difficulty scale 1-10 */}
-          <View className="bg-white p-4 rounded-2xl border border-gray-100">
-            <View className="flex-row justify-between mb-2">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((level) => (
+          {/* Question Type Selection */}
+          <Text style={styles.inputLabel}>Dạng câu hỏi</Text>
+          <View style={styles.typeGrid}>
+            {questionTypes.map((type) => {
+              const isSelected = selectedTypes.includes(type.key);
+              return (
                 <Pressable
-                  key={level}
-                  onPress={() => setDifficulty(level)}
-                  className="items-center"
+                  key={type.key}
+                  onPress={() => toggleType(type.key)}
+                  style={[styles.typeCard, isSelected && styles.typeCardSelected]}
                 >
-                  <Text
-                    className={`text-xs font-bold ${
-                      level === difficulty ? 'text-[#1E3A5F]' : 'text-gray-400'
-                    }`}
-                  >
-                    {level}
+                  <View style={[styles.checkCircle, isSelected && styles.checkCircleActive]}>
+                    {isSelected && <Check color="#FFFFFF" size={12} strokeWidth={3} />}
+                  </View>
+                  <Text style={[styles.typeLabel, isSelected && styles.typeLabelSelected]}>
+                    {type.label}
                   </Text>
                 </Pressable>
-              ))}
-            </View>
-            {/* Slider Track */}
-            <View className="h-2 bg-gray-200 rounded-full mt-1 relative">
-              <View
-                className="h-2 bg-[#1E3A5F] rounded-full absolute left-0 top-0"
-                style={{ width: `${(difficulty / 10) * 100}%` }}
-              />
-              <View
-                className="w-5 h-5 rounded-full bg-[#1E3A5F] absolute -top-1.5 shadow-md border-2 border-white"
-                style={{ left: `${Math.max(0, (difficulty / 10) * 100 - 5)}%` }}
-              />
-            </View>
+              );
+            })}
           </View>
-        </View>
 
-        {/* Mô phỏng thi IELTS/TOEIC Premium */}
-        <Pressable
-          onPress={() => {
-            if (!isPremium) {
-              router.push('/(student)/profile/premium' as any);
-            } else {
-              handleStartQuiz();
-            }
-          }}
-          className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm mb-4 flex-row items-center gap-4"
-        >
-          <View className="w-12 h-12 rounded-2xl bg-[#E8EDF2] justify-center items-center">
-            <Lock color="#1E3A5F" size={22} />
-          </View>
-          <View className="flex-1">
-            <View className="flex-row items-center gap-2 mb-0.5">
-              <Text className="text-base font-bold text-[#1E3A5F]">Mô phỏng thi</Text>
-            </View>
-            <View className="flex-row items-center gap-2">
-              <Text className="text-sm text-gray-500 font-medium">IELTS/TOEIC</Text>
-              <View className="bg-[#FFC93C] px-2 py-0.5 rounded-md">
-                <Text className="text-[10px] font-extrabold text-[#78350F]">PREMIUM</Text>
-              </View>
+          {/* Question Count Adjuster */}
+          <Text style={styles.inputLabel}>Số lượng câu hỏi</Text>
+          <View style={styles.counterRow}>
+            <Text style={styles.counterTitle}>Tổng số câu</Text>
+            <View style={styles.counterActions}>
+              <Pressable
+                onPress={() => setQuestionCount(Math.max(5, questionCount - 5))}
+                style={styles.countBtn}
+              >
+                <Minus color={palette.text} size={16} />
+              </Pressable>
+              <Text style={styles.countText}>{questionCount}</Text>
+              <Pressable
+                onPress={() => setQuestionCount(Math.min(30, questionCount + 5))}
+                style={styles.countBtn}
+              >
+                <Plus color={palette.text} size={16} />
+              </Pressable>
             </View>
           </View>
-          <ChevronRight color="#94A3B8" size={20} />
-        </Pressable>
 
-        {/* Tạo đề thi CTA */}
-        <Pressable
-          onPress={handleStartQuiz}
-          className="bg-[#1E3A5F] py-4.5 rounded-2xl items-center shadow-lg mb-10 active:bg-[#162D4A]"
-        >
-          <Text className="text-white font-bold text-base">Tạo đề thi</Text>
-        </Pressable>
+          {/* Topic Selector */}
+          <Text style={styles.inputLabel}>Chủ đề từ vựng</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.topicScroll}>
+            <View style={styles.topicRow}>
+              {topics.map((topic) => {
+                const isSelected = selectedTopic === topic;
+                return (
+                  <Pressable
+                    key={topic}
+                    onPress={() => setSelectedTopic(topic)}
+                    style={[styles.topicChip, isSelected && styles.topicChipActive]}
+                  >
+                    <Text style={[styles.topicText, isSelected && styles.topicTextActive]}>
+                      {topic}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </ScrollView>
+
+          {/* Main Action Button */}
+          <Pressable onPress={handleStartQuiz} style={styles.startBtn}>
+            <Text style={styles.startBtnText}>Tạo bài thi tùy chỉnh</Text>
+          </Pressable>
+        </Animated.View>
       </View>
     </ScrollView>
   );
 };
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: palette.bg,
+  },
+  headerBar: {
+    paddingTop: 52,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  menuBtn: {
+    padding: 4,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontFamily: font.family,
+    fontWeight: '800',
+    color: palette.text,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    fontFamily: font.family,
+    color: palette.textSoft,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: palette.border,
+  },
+  container: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  heroBanner: {
+    backgroundColor: palette.primary,
+    marginBottom: 24,
+  },
+  heroHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  zapIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  heroTitle: {
+    fontSize: 18,
+    fontFamily: font.family,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  heroSub: {
+    fontSize: 13,
+    fontFamily: font.family,
+    color: 'rgba(255, 255, 255, 0.85)',
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  heroBtn: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  heroBtnText: {
+    fontSize: 13,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.primary,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontFamily: font.family,
+    fontWeight: '800',
+    color: palette.text,
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.textSoft,
+    marginBottom: 10,
+  },
+  typeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 20,
+  },
+  typeCard: {
+    width: '48%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: palette.border,
+    gap: 10,
+  },
+  typeCardSelected: {
+    borderColor: palette.primary,
+    backgroundColor: palette.primarySoft,
+  },
+  checkCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: palette.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkCircleActive: {
+    backgroundColor: palette.primary,
+    borderColor: palette.primary,
+  },
+  typeLabel: {
+    fontSize: 13,
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: palette.text,
+  },
+  typeLabelSelected: {
+    color: palette.primary,
+    fontWeight: '700',
+  },
+  counterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: palette.border,
+    marginBottom: 20,
+  },
+  counterTitle: {
+    fontSize: 14,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.text,
+  },
+  counterActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  countBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: palette.primarySoft,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  countText: {
+    fontSize: 18,
+    fontFamily: font.family,
+    fontWeight: '800',
+    color: palette.text,
+    minWidth: 24,
+    textAlign: 'center',
+  },
+  topicScroll: {
+    marginBottom: 28,
+  },
+  topicRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  topicChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 100,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  topicChipActive: {
+    backgroundColor: palette.primary,
+    borderColor: palette.primary,
+  },
+  topicText: {
+    fontSize: 13,
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: palette.textSoft,
+  },
+  topicTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  startBtn: {
+    backgroundColor: palette.primary,
+    paddingVertical: 16,
+    borderRadius: 18,
+    alignItems: 'center',
+    shadowColor: palette.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  startBtnText: {
+    fontSize: 15,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+});
