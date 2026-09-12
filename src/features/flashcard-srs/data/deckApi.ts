@@ -21,13 +21,7 @@ export const fetchSystemDecksApi = async (): Promise<DeckItemDTO[]> => {
   } catch (err) {
     console.warn('[fetchSystemDecksApi] Error:', err);
   }
-  // Fallback defaults
-  return [
-    { id: 1, name: '✈️ Du Lịch & Di Chuyển', description: 'Từ vựng sân bay, khách sạn, chỉ đường và du lịch', cardCount: 15, source: 'SYSTEM_TOPIC' },
-    { id: 2, name: '💻 Công Nghệ & AI', description: 'Thuật toán, lập trình, trí tuệ nhân tạo và công nghệ', cardCount: 20, source: 'SYSTEM_TOPIC' },
-    { id: 3, name: '💼 Kinh Doanh & Đàm Phán', description: 'Thương mại, hợp đồng, tài chính và giao dịch', cardCount: 18, source: 'SYSTEM_TOPIC' },
-    { id: 4, name: '☕ Đời Sống & Giao Tiếp', description: 'Gia đình, bạn bè, ẩm thực và mua sắm', cardCount: 25, source: 'SYSTEM_TOPIC' },
-  ];
+  return [];
 };
 
 export const fetchMyDecksApi = async (userId?: string): Promise<DeckItemDTO[]> => {
@@ -41,10 +35,7 @@ export const fetchMyDecksApi = async (userId?: string): Promise<DeckItemDTO[]> =
   } catch (err) {
     console.warn('[fetchMyDecksApi] Error:', err);
   }
-  // Fallback default user notebook
-  return [
-    { id: 'my-1', name: '📖 Sổ Từ Vựng Đã Lưu Của Tôi', description: 'Các từ đã tra cứu, lưu từ bài học và chatbot AI', cardCount: 8, source: 'MANUAL' }
-  ];
+  return [];
 };
 
 export const createDeckApi = async (name: string, description?: string, userId?: string): Promise<DeckItemDTO | null> => {
@@ -85,6 +76,58 @@ export const saveWordToDeckApi = async (params: {
     return response.data?.data || response.data;
   } catch (err) {
     console.warn('[saveWordToDeckApi] Error:', err);
+    return null;
+  }
+};
+
+export interface DeckCardDTO {
+  id: number;
+  deckId: number;
+  wordId?: number;
+  customFront: string;
+  customBack: string;
+  userNote?: string;
+  position?: number;
+  isSuspended?: boolean;
+  imageOverrideUrl?: string;
+  intervalDays?: number;
+  repetitions?: number;
+  dueDate?: string;
+  srsStage?: string;
+}
+
+export interface DeckDetailDTO extends DeckItemDTO {
+  cards: DeckCardDTO[];
+}
+
+export const fetchDeckByIdApi = async (deckId: number | string, userId?: string): Promise<DeckDetailDTO | null> => {
+  const uid = userId || getCurrentUserId();
+  try {
+    const response = await apiClient.get<any>(`/api/v1/learning/decks/${deckId}?userId=${uid}`);
+    const data = response.data?.data || response.data;
+    if (data && data.id) {
+      return data;
+    }
+  } catch (err) {
+    console.warn('[fetchDeckByIdApi] Error:', err);
+  }
+  return null;
+};
+
+export const submitSrsReviewApi = async (params: {
+  cardId: number;
+  rating: number;
+  userId?: string;
+}) => {
+  const uid = params.userId || getCurrentUserId();
+  try {
+    const response = await apiClient.post<any>(`/api/v1/learning/srs/review?userId=${uid}`, {
+      cardId: params.cardId,
+      rating: params.rating,
+    });
+    return response.data?.data || response.data;
+  } catch (err) {
+    console.warn('[submitSrsReviewApi] Error:', err);
     return null;
   }
 };
