@@ -11,13 +11,13 @@ export const useUserStatsQuery = (userId: string) => {
 export const useDailyPlanQuery = () => {
   return useQuery({
     queryKey: ['daily-plan-today'],
-    queryFn: fetchDailyPlanApi
+    queryFn: () => fetchDailyPlanApi()
   });
 };
 
 export const useLearningPathQuery = () => {
   return useQuery({
     queryKey: ['learning-path'],
-    queryFn: fetchLearningPathApi
+    queryFn: () => fetchLearningPathApi()
   });
 };
