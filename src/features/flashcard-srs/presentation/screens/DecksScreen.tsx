@@ -1,172 +1,285 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, Image, Modal, TextInput } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  Image,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+  StyleSheet,
+  Dimensions,
+} from 'react-native';
 import { useRouter } from 'expo-router';
-import { Zap, Briefcase, Plane, GraduationCap, Coffee, Plus, Filter } from 'lucide-react-native';
+import {
+  Zap,
+  Briefcase,
+  Plane,
+  Sparkles,
+  Folder,
+  Plus,
+  BookOpen,
+  Layers,
+  Coffee,
+} from 'lucide-react-native';
 import { useAuthStore } from '@/src/core/flows/authStore';
+import {
+  fetchSystemDecksApi,
+  fetchMyDecksApi,
+  createDeckApi,
+  DeckItemDTO,
+} from '../../data/deckApi';
+import { palette, font } from '@/src/theme';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const CARD_WIDTH = (SCREEN_WIDTH - 48 - 12) / 2;
 
 export const DecksScreen = () => {
   const router = useRouter();
   const { currentUser } = useAuthStore();
 
+  // 2 Segmented Tabs: 'SYSTEM' vs 'MY_DECKS'
+  const [activeTab, setActiveTab] = useState<'SYSTEM' | 'MY_DECKS'>('SYSTEM');
+  const [systemDecks, setSystemDecks] = useState<DeckItemDTO[]>([]);
+  const [myDecks, setMyDecks] = useState<DeckItemDTO[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newDeckName, setNewDeckName] = useState('');
+  const [newDeckDesc, setNewDeckDesc] = useState('');
+  const [creating, setCreating] = useState(false);
 
-  const mockDecks = [
-    {
-      id: 'd-1',
-      name: 'Business Idioms',
-      count: 120,
-      icon: Briefcase,
-      color: 'bg-amber-100 text-amber-600',
-      ringColor: '#FFC93C',
-      progressPct: 65
-    },
-    {
-      id: 'd-2',
-      name: 'Travel Phrases',
-      count: 45,
-      icon: Plane,
-      color: 'bg-cyan-100 text-cyan-600',
-      ringColor: '#00BCD4',
-      progressPct: 80
-    },
-    {
-      id: 'd-3',
-      name: 'IELTS Core Vocab',
-      count: 300,
-      icon: GraduationCap,
-      color: 'bg-red-100 text-red-600',
-      ringColor: '#FF6B35',
-      progressPct: 40
-    },
-    {
-      id: 'd-4',
-      name: 'Slang & Casual',
-      count: 80,
-      icon: Coffee,
-      color: 'bg-[#EDE9FE] text-[#7C3AED]',
-      ringColor: '#7C3AED',
-      progressPct: 0
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [sys, mine] = await Promise.all([
+        fetchSystemDecksApi(),
+        fetchMyDecksApi(currentUser?.id?.toString()),
+      ]);
+      setSystemDecks(sys);
+      setMyDecks(mine);
+    } catch (e) {
+      console.warn('Error loading decks:', e);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const handleCreateDeck = () => {
+  useEffect(() => {
+    loadData();
+  }, [currentUser?.id]);
+
+  const handleCreateDeck = async () => {
     if (!newDeckName.trim()) return;
-    alert(`Đã tạo bộ thẻ "${newDeckName}" thành công!`);
-    setNewDeckName('');
-    setShowCreateModal(false);
+    setCreating(true);
+    try {
+      const created = await createDeckApi(
+        newDeckName.trim(),
+        newDeckDesc.trim(),
+        currentUser?.id?.toString()
+      );
+      if (created) {
+        setMyDecks((prev) => [created, ...prev]);
+      }
+      setNewDeckName('');
+      setNewDeckDesc('');
+      setShowCreateModal(false);
+    } catch (e) {
+      console.warn('Error creating deck:', e);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const currentList = activeTab === 'SYSTEM' ? systemDecks : myDecks;
+
+  const getDeckIcon = (name: string) => {
+    const lower = name.toLowerCase();
+    if (lower.includes('du lịch') || lower.includes('travel') || lower.includes('bay')) return Plane;
+    if (lower.includes('công nghệ') || lower.includes('ai') || lower.includes('it')) return Sparkles;
+    if (lower.includes('kinh doanh') || lower.includes('đàm phán') || lower.includes('business')) return Briefcase;
+    if (lower.includes('đời sống') || lower.includes('giao tiếp') || lower.includes('daily')) return Coffee;
+    if (lower.includes('sổ từ') || lower.includes('lưu')) return BookOpen;
+    return Folder;
+  };
+
+  const getDeckColors = (index: number) => {
+    const colors = [
+      { bg: '#FFF7ED', ring: '#FF6B35' },
+      { bg: '#ECFEFF', ring: '#00BCD4' },
+      { bg: '#FAF5FF', ring: '#A855F7' },
+      { bg: '#ECFDF5', ring: '#10B981' },
+    ];
+    return colors[index % colors.length];
+  };
+
+  const handleOpenStudy = (deckId: number | string) => {
+    try {
+      router.push(`/(student)/review/decks/${deckId}/study` as any);
+    } catch (err) {
+      console.warn('Navigation error:', err);
+    }
+  };
+
+  const handleOpenPremium = () => {
+    try {
+      router.push('/(student)/profile/premium' as any);
+    } catch (err) {
+      console.warn('Navigation error:', err);
+    }
   };
 
   return (
-    <ScrollView className="flex-1 bg-[#F8FAF9] pt-12 px-6" showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
       {/* Top Header Bar */}
-      <View className="flex-row justify-between items-center mb-6">
+      <View style={styles.headerRow}>
         <Image
           source={{
-            uri: currentUser?.avatar_url || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200'
+            uri: currentUser?.avatar_url || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200',
           }}
-          className="w-10 h-10 rounded-full border border-gray-200"
+          style={styles.avatar}
         />
 
-        <Text className="text-xl font-extrabold text-[#9A2C00] tracking-tight">SmartEnglish AI</Text>
+        <Text style={styles.headerTitle}>SmartEnglish AI</Text>
 
-        <Pressable
-          onPress={() => router.push('/(student)/profile/premium' as any)}
-          className="w-10 h-10 rounded-full bg-orange-50 justify-center items-center active:bg-orange-100"
-        >
-          <Zap color="#C23B00" size={22} fill="#C23B00" />
+        <Pressable onPress={handleOpenPremium} style={styles.zapBtn}>
+          <Zap color="#C23B00" size={20} fill="#C23B00" />
         </Pressable>
       </View>
 
       {/* Section Title */}
-      <View className="flex-row justify-between items-end mb-6">
-        <View>
-          <Text className="text-3xl font-extrabold text-[#1E293B] tracking-tight">My Decks</Text>
-          <Text className="text-xs text-neutralGray mt-1 font-medium">Keep the momentum going!</Text>
+      <View style={styles.titleSection}>
+        <View style={styles.titleTextWrap}>
+          <Text style={styles.screenTitle}>Kho Thẻ Ghi Nhớ</Text>
+          <Text style={styles.screenSub}>Ôn tập ngắt quãng khoa học Spaced Repetition (SRS)</Text>
         </View>
 
-        <Pressable onPress={() => alert('Lọc bộ thẻ...')} className="flex-row items-center gap-1">
-          <Filter color="#0284C7" size={14} />
-          <Text className="text-xs font-bold text-[#0284C7]">Filter</Text>
-        </Pressable>
+        {activeTab === 'MY_DECKS' && (
+          <Pressable onPress={() => setShowCreateModal(true)} style={styles.createBadgeBtn}>
+            <Plus color="#FF6B35" size={14} />
+            <Text style={styles.createBadgeText}>Tạo Thẻ</Text>
+          </Pressable>
+        )}
       </View>
 
-      {/* Decks 2x2 Grid + Create Card */}
-      <View className="flex-row flex-wrap justify-between gap-y-4 mb-12">
-        {mockDecks.map((deck) => {
-          const IconComp = deck.icon;
-          return (
-            <Pressable
-              key={deck.id}
-              onPress={() => router.push(`/(student)/review/decks/${deck.id}/study` as any)}
-              className="w-[47.5%] bg-white p-5 rounded-3xl border border-gray-100 shadow-sm relative active:bg-gray-50 justify-between min-h-[170px]"
-            >
-              {/* Top Row: Icon Container & Circular Progress Indicator */}
-              <View className="flex-row justify-between items-start">
-                <View className={`w-12 h-12 rounded-2xl ${deck.color.split(' ')[0]} justify-center items-center`}>
-                  <IconComp color={deck.ringColor} size={22} />
-                </View>
-
-                {/* Progress Ring Simulation */}
-                <View className="w-8 h-8 rounded-full border-2 border-gray-100 justify-center items-center relative">
-                  <View
-                    className="w-full h-full rounded-full border-2 absolute"
-                    style={{ borderColor: deck.ringColor, opacity: deck.progressPct > 0 ? 1 : 0.2 }}
-                  />
-                  <Text className="text-[9px] font-bold text-neutralGray">{deck.progressPct}%</Text>
-                </View>
-              </View>
-
-              {/* Bottom Info: Title & Cards Count */}
-              <View className="mt-4">
-                <Text className="text-base font-bold text-[#1E293B] leading-5 mb-1" numberOfLines={2}>
-                  {deck.name}
-                </Text>
-                <Text className="text-xs font-medium text-neutralGray">{deck.count} Cards</Text>
-              </View>
-            </Pressable>
-          );
-        })}
-
-        {/* Create Deck Dashed Card */}
+      {/* 2 Segmented Tabs: Chủ đề hệ thống vs Bộ thẻ của tôi */}
+      <View style={styles.segmentedContainer}>
         <Pressable
-          onPress={() => setShowCreateModal(true)}
-          className="w-[47.5%] min-h-[170px] rounded-3xl border-2 border-dashed border-[#D6C5B8] items-center justify-center p-4 active:bg-orange-50/50"
+          onPress={() => setActiveTab('SYSTEM')}
+          style={[styles.segmentBtn, activeTab === 'SYSTEM' && styles.segmentBtnActive]}
         >
-          <View className="w-14 h-14 rounded-2xl bg-[#EDE9FE]/60 justify-center items-center mb-3">
-            <Plus color="#475569" size={28} />
-          </View>
-          <Text className="text-sm font-bold text-[#4E3B31]">Create Deck</Text>
+          <Layers color={activeTab === 'SYSTEM' ? '#FF6B35' : '#64748B'} size={16} />
+          <Text style={[styles.segmentBtnText, activeTab === 'SYSTEM' && styles.segmentBtnTextActive]}>
+            Chủ Đề Hệ Thống
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => setActiveTab('MY_DECKS')}
+          style={[styles.segmentBtn, activeTab === 'MY_DECKS' && styles.segmentBtnActive]}
+        >
+          <BookOpen color={activeTab === 'MY_DECKS' ? '#FF6B35' : '#64748B'} size={16} />
+          <Text style={[styles.segmentBtnText, activeTab === 'MY_DECKS' && styles.segmentBtnTextActive]}>
+            Bộ Thẻ Của Tôi ({myDecks.length})
+          </Text>
         </Pressable>
       </View>
+
+      {/* Loading state */}
+      {loading ? (
+        <View style={styles.loadingBox}>
+          <ActivityIndicator size="large" color="#FF6B35" />
+          <Text style={styles.loadingText}>Đang tải danh sách bộ thẻ từ máy chủ...</Text>
+        </View>
+      ) : (
+        /* Decks 2x2 Grid */
+        <View style={styles.gridContainer}>
+          {currentList.map((deck, idx) => {
+            const IconComp = getDeckIcon(deck.name);
+            const styleColor = getDeckColors(idx);
+            return (
+              <Pressable
+                key={String(deck.id)}
+                onPress={() => handleOpenStudy(deck.id)}
+                style={styles.deckCard}
+              >
+                {/* Top Row: Icon & Cards Indicator */}
+                <View style={styles.cardTopRow}>
+                  <View style={[styles.iconBox, { backgroundColor: styleColor.bg }]}>
+                    <IconComp color={styleColor.ring} size={22} />
+                  </View>
+
+                  <View style={styles.cardCountBadge}>
+                    <Text style={styles.cardCountText}>{deck.cardCount} Thẻ</Text>
+                  </View>
+                </View>
+
+                {/* Bottom Info: Title & Subtitle */}
+                <View style={styles.cardBottomWrap}>
+                  <Text style={styles.deckCardName} numberOfLines={2}>
+                    {deck.name}
+                  </Text>
+                  <Text style={styles.deckCardDesc} numberOfLines={2}>
+                    {deck.description || 'Luyện tập phương pháp lặp lại ngắt quãng'}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+
+          {/* Create Deck Card button when in MY_DECKS tab */}
+          {activeTab === 'MY_DECKS' && (
+            <Pressable onPress={() => setShowCreateModal(true)} style={styles.createDashedCard}>
+              <View style={styles.plusCircle}>
+                <Plus color="#475569" size={26} />
+              </View>
+              <Text style={styles.createDashedText}>Tạo Thẻ Mới</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
 
       {/* Create Deck Modal */}
       <Modal visible={showCreateModal} transparent animationType="fade">
-        <View className="flex-1 bg-black/60 justify-center items-center px-6">
-          <View className="bg-white p-6 rounded-3xl w-full border border-gray-100 shadow-2xl">
-            <Text className="text-xl font-bold text-neutralInk mb-1">Tạo Bộ Thẻ Flashcard Mới</Text>
-            <Text className="text-xs text-neutralGray mb-4">Nhập tên bộ thẻ để bắt đầu thêm từ vựng</Text>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Tạo Bộ Thẻ Cá Nhân Mới</Text>
+            <Text style={styles.modalSub}>Lưu các từ vựng bạn muốn tập trung ghi nhớ sâu</Text>
 
             <TextInput
               value={newDeckName}
               onChangeText={setNewDeckName}
-              placeholder="VD: Từ Vựng Chuyên Nành IT..."
-              className="bg-surface p-4 rounded-2xl border border-gray-200 text-sm font-medium mb-6 text-neutralInk"
+              placeholder="Tên bộ thẻ (VD: Từ vựng IELTS Writing...)"
+              placeholderTextColor="#94A3B8"
+              style={styles.modalInput}
+              autoFocus
             />
 
-            <View className="flex-row gap-3">
+            <TextInput
+              value={newDeckDesc}
+              onChangeText={setNewDeckDesc}
+              placeholder="Mô tả bộ thẻ (tùy chọn)"
+              placeholderTextColor="#94A3B8"
+              style={[styles.modalInput, { marginBottom: 20 }]}
+            />
+
+            <View style={styles.modalActionRow}>
               <Pressable
                 onPress={() => setShowCreateModal(false)}
-                className="flex-1 py-3.5 rounded-2xl border border-gray-200 items-center"
+                style={styles.modalCancelBtn}
               >
-                <Text className="font-semibold text-neutralInk text-sm">Hủy</Text>
+                <Text style={styles.modalCancelText}>Hủy</Text>
               </Pressable>
 
               <Pressable
                 onPress={handleCreateDeck}
-                className="flex-1 py-3.5 rounded-2xl bg-[#FF6B35] items-center shadow-md"
+                disabled={creating}
+                style={[styles.modalConfirmBtn, creating && { opacity: 0.6 }]}
               >
-                <Text className="text-white font-bold text-sm">Tạo Bộ Thẻ</Text>
+                <Text style={styles.modalConfirmText}>
+                  {creating ? 'Đang tạo...' : 'Tạo Bộ Thẻ'}
+                </Text>
               </Pressable>
             </View>
           </View>
@@ -175,3 +288,276 @@ export const DecksScreen = () => {
     </ScrollView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F8FAF9',
+  },
+  scrollContent: {
+    paddingTop: 16,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  avatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#9A2C00',
+    letterSpacing: -0.3,
+  },
+  zapBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FFF7ED',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  titleSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: 16,
+  },
+  titleTextWrap: {
+    flex: 1,
+  },
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#1E293B',
+    letterSpacing: -0.5,
+  },
+  screenSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  createBadgeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFF7ED',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  createBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FF6B35',
+  },
+  segmentedContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#E2E8F0',
+    padding: 4,
+    borderRadius: 16,
+    marginBottom: 20,
+  },
+  segmentBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  segmentBtnActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  segmentBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  segmentBtnTextActive: {
+    color: '#FF6B35',
+  },
+  loadingBox: {
+    paddingVertical: 48,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 8,
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 14,
+    marginBottom: 32,
+  },
+  deckCard: {
+    width: CARD_WIDTH,
+    minHeight: 165,
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+    justifyContent: 'space-between',
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  iconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardCountBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+  },
+  cardCountText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  cardBottomWrap: {
+    marginTop: 12,
+  },
+  deckCardName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+    lineHeight: 19,
+    marginBottom: 4,
+  },
+  deckCardDesc: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#94A3B8',
+    lineHeight: 15,
+  },
+  createDashedCard: {
+    width: CARD_WIDTH,
+    minHeight: 165,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    backgroundColor: '#FAFAFA',
+  },
+  plusCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  createDashedText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 24,
+    borderRadius: 24,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1E293B',
+    marginBottom: 4,
+  },
+  modalSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 16,
+  },
+  modalInput: {
+    backgroundColor: '#F8FAFC',
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#1E293B',
+    marginBottom: 10,
+  },
+  modalActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontWeight: '600',
+    color: '#475569',
+    fontSize: 13,
+  },
+  modalConfirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: '#FF6B35',
+    alignItems: 'center',
+  },
+  modalConfirmText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+});
