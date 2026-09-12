@@ -1,271 +1,260 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable, ActivityIndicator, Image, ScrollView, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  ActivityIndicator,
+  Image,
+  ScrollView,
+  StyleSheet,
+} from 'react-native';
+import Animated from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { useAuthFlow } from '../../application/useAuthFlow';
-import { AppColors } from '@/src/core/theme/colors';
+import { LoxeraFoxMascot } from '@/src/core/components/LoxeraFoxMascot';
+import { palette, font } from '@/src/theme';
+import { usePressSpring } from '@/src/hooks/usePressSpring';
+import { useStaggerReveal } from '@/src/hooks/useStaggerReveal';
+import { User, GraduationCap, ShieldAlert } from 'lucide-react-native';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export const LoginScreen = () => {
   const router = useRouter();
-  const [email, setEmail] = useState('student@smartenglish.ai');
-  const [password, setPassword] = useState('123456');
-  const { login, isPending, isError, error, selectDemoRole } = useAuthFlow();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const { login, isPending, isError, error } = useAuthFlow();
 
   const handleLogin = () => {
-    login({ email, password });
+    if (!email.trim() || !password.trim()) {
+      return;
+    }
+    login({ email: email.trim(), password: password.trim() });
   };
 
+  const loginSpring = usePressSpring(0.97);
+
+  const cardAnim0 = useStaggerReveal(0, 60);
+  const cardAnim1 = useStaggerReveal(1, 60);
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
-      {/* Header & Loxera Logo */}
-      <View style={styles.header}>
-        <View style={styles.logoCard}>
-          <Image
-            source={require('@/assets/images/loxera-logo.png')}
-            style={styles.logoImage}
-            resizeMode="contain"
-          />
+    <ScrollView
+      style={s.container}
+      contentContainerStyle={s.contentContainer}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Header & Logo */}
+      <Animated.View style={[s.header, cardAnim0]}>
+        <View style={s.logoWrapper}>
+          <LoxeraFoxMascot size={92} showGlow animated />
         </View>
-        <Text style={styles.appTitle}>Loxera English</Text>
-        <Text style={styles.appSubtitle}>
-          Trợ lý học tiếng Anh AI thông minh & Lộ trình cá nhân hóa
+        <Text style={s.appTitle}>Loxera</Text>
+        <Text style={s.appSubtitle}>
+          Trợ lý học tiếng Anh cá nhân hóa thế hệ mới
         </Text>
-      </View>
-
-      {/* Quick Demo Role Selection Cards */}
-      <View style={styles.card}>
-        <Text style={styles.cardSectionTitle}>
-          ⚡ ĐĂNG NHẬP NHANH ĐỂ TEST RBAC (3 ROLES)
-        </Text>
-        <View style={styles.roleRow}>
-          <Pressable
-            onPress={() => selectDemoRole('student')}
-            style={[styles.roleBtn, styles.roleBtnActive]}
-          >
-            <Text style={styles.roleTitleActive}>🎓 Học Viên</Text>
-            <Text style={styles.roleSubActive}>5 Tabs Full</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => selectDemoRole('teacher')}
-            style={styles.roleBtn}
-          >
-            <Text style={styles.roleTitle}>👩‍🏫 Giáo Viên</Text>
-            <Text style={styles.roleSub}>Companion</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => selectDemoRole('admin')}
-            style={styles.roleBtn}
-          >
-            <Text style={styles.roleTitle}>🔒 Admin</Text>
-            <Text style={styles.roleSub}>Blocked</Text>
-          </Pressable>
-        </View>
-      </View>
+      </Animated.View>
 
       {/* Login Form */}
-      <View style={styles.card}>
-        <Text style={styles.formTitle}>Đăng Nhập Tài Khoản</Text>
+      <Animated.View style={[s.card, cardAnim1]}>
+        <Text style={s.formTitle}>Đăng nhập tài khoản</Text>
 
         {isError && (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>
-              {(error as any)?.response?.data?.message || 'Đăng nhập thất bại. Vui lòng thử lại.'}
+          <View style={s.errorBox}>
+            <ShieldAlert color={palette.danger} size={18} />
+            <Text style={s.errorText}>
+              {(error as any)?.response?.data?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại.'}
             </Text>
           </View>
         )}
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Email</Text>
+        <View style={s.inputGroup}>
+          <Text style={s.inputLabel}>Email</Text>
           <TextInput
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
-            placeholder="nhapemail@domain.com"
-            placeholderTextColor="#94A3B8"
-            style={styles.input}
+            placeholder="email@example.com"
+            placeholderTextColor={palette.textSoft}
+            style={s.input}
           />
         </View>
 
-        <View style={styles.inputGroupLarge}>
-          <Text style={styles.inputLabel}>Mật Khẩu</Text>
+        <View style={s.inputGroupLarge}>
+          <Text style={s.inputLabel}>Mật khẩu</Text>
           <TextInput
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             placeholder="••••••••"
-            placeholderTextColor="#94A3B8"
-            style={styles.input}
+            placeholderTextColor={palette.textSoft}
+            style={s.input}
           />
         </View>
 
-        <Pressable
+        <AnimatedPressable
           onPress={handleLogin}
+          onPressIn={loginSpring.onPressIn}
+          onPressOut={loginSpring.onPressOut}
           disabled={isPending}
-          style={styles.loginBtn}
+          style={[s.loginBtn, loginSpring.animatedStyle]}
         >
           {isPending ? (
             <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
-            <Text style={styles.loginBtnText}>Đăng Nhập</Text>
+            <Text style={s.loginBtnText}>Đăng Nhập</Text>
           )}
-        </Pressable>
-      </View>
+        </AnimatedPressable>
+      </Animated.View>
 
       {/* Social Login Dividers */}
-      <View style={styles.dividerRow}>
-        <View style={styles.dividerLine} />
-        <Text style={styles.dividerText}>Hoặc đăng nhập bằng</Text>
-        <View style={styles.dividerLine} />
+      <View style={s.dividerRow}>
+        <View style={s.dividerLine} />
+        <Text style={s.dividerText}>Hoặc tiếp tục với</Text>
+        <View style={s.dividerLine} />
       </View>
 
-      <View style={styles.socialRow}>
-        <Pressable style={styles.socialBtn}>
-          <Text style={styles.socialText}>Google</Text>
+      <View style={s.socialRow}>
+        <Pressable style={s.socialBtn}>
+          <Image
+            source={{ uri: 'https://www.google.com/favicon.ico' }}
+            style={s.socialIcon}
+          />
+          <Text style={s.socialText}>Google</Text>
         </Pressable>
-        <Pressable style={styles.socialBtn}>
-          <Text style={styles.socialText}>Apple</Text>
-        </Pressable>
-        <Pressable style={styles.socialBtn}>
-          <Text style={styles.socialText}>Zalo</Text>
+        <Pressable style={s.socialBtn}>
+          <Image
+            source={{ uri: 'https://cdn-icons-png.flaticon.com/512/0/747.png' }}
+            style={s.socialIcon}
+          />
+          <Text style={s.socialText}>Apple</Text>
         </Pressable>
       </View>
 
       {/* Link to Register */}
-      <View style={styles.registerRow}>
-        <Text style={styles.registerText}>Chưa có tài khoản?</Text>
+      <View style={s.registerRow}>
+        <Text style={s.registerText}>Chưa có tài khoản?</Text>
         <Pressable onPress={() => router.push('/(auth)/register' as any)}>
-          <Text style={styles.registerLink}>Đăng Ký Ngay ➔</Text>
+          <Text style={s.registerLink}>Đăng ký ngay</Text>
         </Pressable>
       </View>
     </ScrollView>
   );
 };
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F0F7FF',
+    backgroundColor: palette.bg,
   },
   contentContainer: {
     paddingHorizontal: 24,
-    paddingTop: 56,
+    paddingTop: 60,
     paddingBottom: 48,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 24,
   },
-  logoCard: {
+  logoWrapper: {
     width: 110,
     height: 110,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
-    shadowColor: '#1E3A5F',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 6,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
-  },
-  logoImage: {
-    width: 90,
-    height: 90,
+    marginBottom: 12,
   },
   appTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#1E3A5F',
+    fontSize: 28,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.text,
+    letterSpacing: -0.5,
   },
   appSubtitle: {
-    fontSize: 13,
-    color: '#64748B',
+    fontSize: 14,
+    fontFamily: font.family,
+    color: palette.textSoft,
     marginTop: 4,
     textAlign: 'center',
-    fontWeight: '500',
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     padding: 20,
-    borderRadius: 24,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#DBEAFE',
-    shadowColor: '#1E3A5F',
-    shadowOffset: { width: 0, height: 2 },
+    borderColor: palette.border,
+    shadowColor: palette.text,
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 3,
+    shadowRadius: 12,
+    elevation: 2,
     marginBottom: 20,
   },
-  cardSectionTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
-    letterSpacing: 0.5,
-    marginBottom: 12,
+  sectionLabel: {
+    fontSize: 12,
+    fontFamily: font.family,
+    fontWeight: '500',
+    color: palette.textSoft,
+    marginBottom: 14,
   },
   roleRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
   },
   roleBtn: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: palette.bg,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingVertical: 12,
-    borderRadius: 14,
+    borderColor: palette.border,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 16,
     alignItems: 'center',
+    gap: 6,
   },
-  roleBtnActive: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#0EA5E9',
+  roleIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: palette.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   roleTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#334155',
-  },
-  roleTitleActive: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#0EA5E9',
+    fontSize: 14,
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: palette.text,
   },
   roleSub: {
-    fontSize: 10,
-    color: '#94A3B8',
-    marginTop: 2,
-  },
-  roleSubActive: {
-    fontSize: 10,
-    color: '#0EA5E9',
-    marginTop: 2,
-    fontWeight: '600',
+    fontSize: 11,
+    fontFamily: font.family,
+    color: palette.textSoft,
   },
   formTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#1E3A5F',
+    fontSize: 18,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.text,
     marginBottom: 16,
   },
   errorBox: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: 'rgba(225, 84, 63, 0.08)',
     padding: 12,
     borderRadius: 12,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: 'rgba(225, 84, 63, 0.2)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   errorText: {
-    fontSize: 12,
-    color: '#DC2626',
-    fontWeight: '500',
+    fontSize: 13,
+    fontFamily: font.family,
+    color: palette.danger,
+    flex: 1,
   },
   inputGroup: {
     marginBottom: 14,
@@ -274,53 +263,55 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   inputLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#334155',
+    fontSize: 13,
+    fontFamily: font.family,
+    fontWeight: '500',
+    color: palette.textSoft,
     marginBottom: 6,
   },
   input: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: palette.bg,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 14,
-    fontSize: 14,
-    color: '#1E293B',
+    fontSize: 15,
+    fontFamily: font.family,
+    color: palette.text,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    fontWeight: '500',
+    borderColor: palette.border,
   },
   loginBtn: {
-    backgroundColor: '#0EA5E9',
+    backgroundColor: palette.primary,
     paddingVertical: 15,
     borderRadius: 16,
     alignItems: 'center',
-    shadowColor: '#0EA5E9',
+    shadowColor: palette.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.15,
     shadowRadius: 10,
-    elevation: 4,
+    elevation: 3,
   },
   loginBtnText: {
     color: '#FFFFFF',
-    fontWeight: '800',
+    fontFamily: font.family,
+    fontWeight: '700',
     fontSize: 16,
   },
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 16,
+    marginVertical: 18,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#CBD5E1',
+    backgroundColor: palette.border,
   },
   dividerText: {
     paddingHorizontal: 12,
     fontSize: 12,
-    color: '#64748B',
-    fontWeight: '500',
+    fontFamily: font.family,
+    color: palette.textSoft,
   },
   socialRow: {
     flexDirection: 'row',
@@ -329,35 +320,44 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   socialBtn: {
-    paddingHorizontal: 20,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  socialIcon: {
+    width: 18,
+    height: 18,
   },
   socialText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1E3A5F',
+    fontSize: 14,
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: palette.text,
   },
   registerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 16,
   },
   registerText: {
-    fontSize: 13,
-    color: '#64748B',
-    fontWeight: '500',
+    fontSize: 14,
+    fontFamily: font.family,
+    color: palette.textSoft,
   },
   registerLink: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0EA5E9',
+    fontSize: 14,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.primary,
   },
 });
+
+
