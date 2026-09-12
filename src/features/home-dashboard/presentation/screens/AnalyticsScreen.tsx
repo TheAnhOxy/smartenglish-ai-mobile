@@ -37,6 +37,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import Svg, { Polygon, Line, Circle, Path, Defs, LinearGradient, Stop } from 'react-native-svg';
+import { palette } from '@/src/theme/colors';
+import { font } from '@/src/theme/typography';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -704,16 +706,16 @@ const s = StyleSheet.create({
   filterDropdownBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F1F5F9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100, borderWidth: 1, borderColor: '#E2E8F0' },
   filterDropdownText: { fontSize: 11, fontWeight: '700', color: '#475569' },
 
-  // Streak Navy Card (Matching Screenshot)
+  // Streak Navy Card (Matching Design System)
   streakNavyCard: {
-    backgroundColor: '#1E3A5F',
+    backgroundColor: palette.primary,
     borderRadius: 24,
     padding: 20,
     alignItems: 'center',
     marginBottom: 16,
-    shadowColor: '#1E3A5F',
+    shadowColor: palette.primary,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.2,
     shadowRadius: 16,
     elevation: 6,
   },
@@ -721,15 +723,13 @@ const s = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(0, 188, 212, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 188, 212, 0.4)',
   },
   streakMainTitle: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', marginBottom: 2 },
-  streakSubTitle: { fontSize: 11, color: '#7DD3FC', fontWeight: '600', marginBottom: 16 },
+  streakSubTitle: { fontSize: 11, color: palette.primarySoft, fontWeight: '600', marginBottom: 16 },
   streakDaysRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
   streakDayItem: { alignItems: 'center', flex: 1 },
   streakDayLabel: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.7)', marginBottom: 6 },
@@ -744,11 +744,11 @@ const s = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   streakCheckSquareActive: {
-    backgroundColor: '#0EA5E9',
-    borderColor: '#0EA5E9',
+    backgroundColor: palette.accent,
+    borderColor: palette.accent,
   },
 
-  // 3 Summary Stat Cards Row (Matching Screenshot)
+  // 3 Summary Stat Cards Row
   threeStatsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
   threeStatCard: {
     flex: 1,
@@ -756,21 +756,21 @@ const s = StyleSheet.create({
     padding: 14,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: palette.border,
     alignItems: 'center',
-    shadowColor: '#1E3A5F',
+    shadowColor: palette.text,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 10,
     elevation: 2,
   },
-  threeStatVal: { fontSize: 18, fontWeight: '800', color: '#1E3A5F' },
-  threeStatLabel: { fontSize: 10, color: '#64748B', fontWeight: '600', marginTop: 2 },
+  threeStatVal: { fontSize: 18, fontWeight: '800', color: palette.text },
+  threeStatLabel: { fontSize: 10, color: palette.textSoft, fontWeight: '600', marginTop: 2 },
 
   // Cards
-  card: { backgroundColor: '#FFF', padding: 18, borderRadius: 24, borderWidth: 1, borderColor: '#F1F5F9', marginBottom: 16, shadowColor: '#1E3A5F', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 8, elevation: 2 },
+  card: { backgroundColor: '#FFF', padding: 18, borderRadius: 24, borderWidth: 1, borderColor: palette.border, marginBottom: 16, shadowColor: palette.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 8, elevation: 2 },
   cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  cardTitleBig: { fontSize: 15, fontWeight: '800', color: '#1E293B', marginBottom: 12 },
+  cardTitleBig: { fontSize: 15, fontWeight: '800', color: palette.text, marginBottom: 12 },
 
   // Radar Pentagon Styles
   radarContainer: { alignItems: 'center', justifyContent: 'center', position: 'relative', height: 200, marginVertical: 10 },
