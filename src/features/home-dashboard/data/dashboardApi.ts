@@ -1,6 +1,5 @@
-import { apiClient } from '@/src/core/api/client';
-import { UserStats, Topic } from '@/src/core/types/schema';
-import { MOCK_USER_STATS } from '@/src/core/data/mockData';
+import { apiClient, getCurrentUserId } from '@/src/core/api/client';
+import { UserStats } from '@/src/core/types/schema';
 
 export interface DailyPlanData {
   id: string;
@@ -24,30 +23,108 @@ export interface LearningLessonNode {
   position: number;
 }
 
-export const fetchUserStatsApi = async (userId: string): Promise<UserStats> => {
-  return MOCK_USER_STATS[userId] || MOCK_USER_STATS['11111111-1111-1111-1111-111111111111'];
+export const fetchUserStatsApi = async (userId?: string): Promise<UserStats> => {
+  const uid = userId || getCurrentUserId();
+  try {
+    const response = await apiClient.get<any>(`/api/v1/learning/gamification/dashboard?userId=${uid}`);
+    const data = response.data?.data || response.data;
+    if (data) {
+      let leagueStr: 'bronze' | 'silver' | 'gold' | 'diamond' = 'bronze';
+      if (data.leagueLevel) {
+        const l = String(data.leagueLevel).toLowerCase();
+        if (['bronze', 'silver', 'gold', 'diamond'].includes(l)) {
+          leagueStr = l as any;
+        }
+      }
+
+      return {
+        user_id: String(uid),
+        xp_total: data.xpTotal ?? 0,
+        xp_this_week: data.xpThisWeek ?? 0,
+        level: data.level ?? 1,
+        coins: data.coins ?? 0,
+        streak_current: data.streakCurrent ?? 0,
+        streak_longest: data.streakLongest ?? 0,
+        streak_freeze_count: data.streakFreezeCount ?? 0,
+        league: leagueStr
+      };
+    }
+  } catch (err) {
+    console.warn('[Dashboard] fetchUserStatsApi error:', err);
+  }
+  // Return zero-value stats so UI shows empty state instead of fake data
+  return {
+    user_id: String(uid),
+    xp_total: 0,
+    xp_this_week: 0,
+    level: 1,
+    coins: 0,
+    streak_current: 0,
+    streak_longest: 0,
+    streak_freeze_count: 0,
+    league: 'bronze'
+  };
 };
 
-export const fetchDailyPlanApi = async (): Promise<DailyPlanData> => {
+export const fetchDailyPlanApi = async (userId?: string): Promise<DailyPlanData> => {
+  const uid = userId || getCurrentUserId();
+  try {
+    const response = await apiClient.get<any>(`/api/v1/learning/gamification/daily-quests?userId=${uid}`);
+    const data = response.data?.data || response.data;
+    if (data) {
+      // Map daily quests to plan format
+      const quests: any[] = data.quests || data.dailyQuests || [];
+      const flashcardQuest = quests.find((q: any) => (q.questType || q.type || '').toLowerCase().includes('flashcard'));
+      const quizQuest = quests.find((q: any) => (q.questType || q.type || '').toLowerCase().includes('quiz'));
+      const totalXp = quests.reduce((sum: number, q: any) => sum + (q.xpEarned || q.xpReward || 0), 0);
+      const allDone = quests.length > 0 && quests.every((q: any) => q.isCompleted || q.completed);
+
+      return {
+        id: 'plan-today',
+        plan_date: new Date().toISOString().split('T')[0],
+        flashcard_target: flashcardQuest?.targetCount || 20,
+        flashcard_done: flashcardQuest?.currentCount || flashcardQuest?.progress || 0,
+        quiz_target: quizQuest?.targetCount || 2,
+        quiz_done: quizQuest?.currentCount || quizQuest?.progress || 0,
+        xp_earned: totalXp,
+        plan_status: allDone ? 'completed' : (totalXp > 0 ? 'partial' : 'pending'),
+        ai_notes: data.motivationalMessage || undefined
+      };
+    }
+  } catch (err) {
+    console.warn('[Dashboard] fetchDailyPlanApi error:', err);
+  }
+  // Return empty plan so UI shows 0 progress instead of fake numbers
   return {
     id: 'plan-today',
     plan_date: new Date().toISOString().split('T')[0],
     flashcard_target: 20,
-    flashcard_done: 12,
+    flashcard_done: 0,
     quiz_target: 2,
-    quiz_done: 1,
-    xp_earned: 45,
-    plan_status: 'partial',
-    ai_notes: 'Hôm nay tập trung thì hiện tại hoàn thành vì bạn đã sai 4/5 câu phần này tuần trước.'
+    quiz_done: 0,
+    xp_earned: 0,
+    plan_status: 'pending'
   };
 };
 
-export const fetchLearningPathApi = async (): Promise<LearningLessonNode[]> => {
-  return [
-    { id: 'les-1', title_vi: 'Chào Hỏi & Giới Thiệu', title_en: 'Greetings & Introduction', status: 'completed', xp_reward: 20, estimated_min: 5, position: 1 },
-    { id: 'les-2', title_vi: 'Từ Vựng Giao Tiếp Công Sở', title_en: 'Office Communication', status: 'completed', xp_reward: 25, estimated_min: 8, position: 2 },
-    { id: 'les-3', title_vi: 'Thì Hiện Tại Hoàn Thành', title_en: 'Present Perfect Tense', status: 'current', xp_reward: 30, estimated_min: 10, position: 3 },
-    { id: 'les-4', title_vi: 'Đàm Phán Hợp Đồng', title_en: 'Contract Negotiation', status: 'locked', xp_reward: 35, estimated_min: 12, position: 4 },
-    { id: 'les-5', title_vi: 'Phỏng Vấn Xin Việc', title_en: 'Job Interview Practice', status: 'locked', xp_reward: 40, estimated_min: 15, position: 5 }
-  ];
+export const fetchLearningPathApi = async (userId?: string): Promise<LearningLessonNode[]> => {
+  const uid = userId || getCurrentUserId();
+  try {
+    const response = await apiClient.get<any>(`/api/v1/learning/path?userId=${uid}`);
+    const data = response.data?.data || response.data;
+    if (Array.isArray(data) && data.length > 0) {
+      return data.map((m: any, idx: number) => ({
+        id: String(m.id || idx + 1),
+        title_vi: m.titleVi || m.title || `Cột mốc ${idx + 1}`,
+        title_en: m.titleEn || m.title || `Milestone ${idx + 1}`,
+        status: (m.status || 'locked').toLowerCase() as any,
+        xp_reward: m.xpReward || 20,
+        estimated_min: m.estimatedMin || m.estimatedMinutes || 10,
+        position: m.position || idx + 1
+      }));
+    }
+  } catch (err) {
+    console.warn('[Dashboard] fetchLearningPathApi error:', err);
+  }
+  return [];
 };
