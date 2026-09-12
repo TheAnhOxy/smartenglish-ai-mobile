@@ -5,7 +5,7 @@ import { SrsRating } from '@/src/core/types/schema';
 export const useDecksQuery = () => {
   return useQuery({
     queryKey: ['decks'],
-    queryFn: fetchDecksApi
+    queryFn: () => fetchDecksApi()
   });
 };
 
