@@ -3,6 +3,6 @@ import { submitPronunciationAudioApi } from '../data/speakingApi';
 
 export const usePronunciationMutation = () => {
   return useMutation({
-    mutationFn: submitPronunciationAudioApi
+    mutationFn: (targetText?: string) => submitPronunciationAudioApi(targetText)
   });
 };
