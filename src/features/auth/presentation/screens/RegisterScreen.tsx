@@ -9,10 +9,11 @@ export const RegisterScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [phone, setPhone] = useState('');
   const [referralCode, setReferralCode] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
-  const { isPending } = useAuthFlow();
+  const { register, isPending, isError, error } = useAuthFlow();
 
   const handleRegister = () => {
     setErrorMessage('');
@@ -20,18 +21,37 @@ export const RegisterScreen = () => {
       setErrorMessage('Vui lòng điền đầy đủ thông tin bắt buộc.');
       return;
     }
+    if (password.length < 6) {
+      setErrorMessage('Mật khẩu phải chứa ít nhất 6 ký tự.');
+      return;
+    }
     if (password !== confirmPassword) {
       setErrorMessage('Mật khẩu nhập lại không khớp.');
       return;
     }
-    if (email.includes('exist') || email === 'student@smartenglish.ai') {
-      setErrorMessage('Email này đã được sử dụng. Vui lòng Đăng nhập thay vì Đăng ký.');
-      return;
-    }
 
-    // Success -> proceed to onboarding choose goal
-    router.push('/(auth)/choose-goal' as any);
+    // Call real register API
+    register(
+      {
+        email: email.trim(),
+        password: password.trim(),
+        displayName: displayName.trim(),
+        username: email.trim().split('@')[0],
+        phone: phone.trim() || undefined,
+        referralCode: referralCode.trim() || undefined,
+        cefrLevel: 'B1',
+        targetGoal: 'TOEIC 750'
+      },
+      {
+        onError: (err: any) => {
+          const msg = err?.response?.data?.message || err.message || 'Đăng ký không thành công, vui lòng kiểm tra lại.';
+          setErrorMessage(msg);
+        }
+      }
+    );
   };
+
+  const activeError = errorMessage || (isError ? ((error as any)?.response?.data?.message || 'Email hoặc thông tin đã tồn tại trong hệ thống.') : '');
 
   return (
     <ScrollView className="flex-1 bg-surface px-6 pt-14">
@@ -48,9 +68,9 @@ export const RegisterScreen = () => {
 
       {/* Form */}
       <View className="bg-cardWhite p-5 rounded-2xl shadow-sm border border-gray-100 mb-6">
-        {errorMessage ? (
+        {activeError ? (
           <View className="bg-error/10 p-3 rounded-xl mb-4 border border-error/20">
-            <Text className="text-xs text-error font-medium">{errorMessage}</Text>
+            <Text className="text-xs text-error font-medium">{activeError}</Text>
           </View>
         ) : null}
 
@@ -72,6 +92,17 @@ export const RegisterScreen = () => {
             keyboardType="email-address"
             autoCapitalize="none"
             placeholder="hocvien@gmail.com"
+            className="bg-surface px-4 py-3 rounded-xl text-neutralInk text-sm border border-gray-200"
+          />
+        </View>
+
+        <View className="mb-3">
+          <Text className="text-xs font-semibold text-neutralInk mb-1">Số Điện Thoại (Tùy chọn)</Text>
+          <TextInput
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+            placeholder="0987654321"
             className="bg-surface px-4 py-3 rounded-xl text-neutralInk text-sm border border-gray-200"
           />
         </View>
