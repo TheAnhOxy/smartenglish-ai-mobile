@@ -15,9 +15,10 @@ export const PlacementResultScreen = () => {
   const handleFinishOnboarding = () => {
     if (currentUser) {
       currentUser.onboarding_completed = true;
+      router.replace('/(student)/home' as any);
+    } else {
+      router.replace('/(auth)/register' as any);
     }
-    loginAsRole('student');
-    router.replace('/(student)/home' as any);
   };
 
   return (
