@@ -26,7 +26,7 @@ import {
   useAudioRecorder,
 } from 'expo-audio';
 import * as Speech from 'expo-speech';
-import { palette } from '@/src/theme/colors';
+import { colors, palette } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
 import { ProgressRing } from '@/src/components/ui/ProgressRing';
 
@@ -193,7 +193,7 @@ export const SingleWordSpeakingScreen = () => {
 
           {/* Reference Native Audio Player Button */}
           <Pressable onPress={playNativeAudio} style={s.nativeAudioBtn}>
-            <Volume2 color={isPlayingNative ? palette.primary : palette.accent} size={16} />
+            <Volume2 color={isPlayingNative ? colors.primary : colors.textSoft} size={16} />
             <Text style={s.nativeAudioText}>Phát âm chuẩn mẫu</Text>
           </Pressable>
 
@@ -202,22 +202,28 @@ export const SingleWordSpeakingScreen = () => {
             <Canvas style={{ width: '100%', height: 32 }}>
               <Path
                 path="M 10 16 Q 30 4, 50 16 T 90 16 T 130 16 T 170 16 T 210 16 T 250 16 T 290 16"
-                color={palette.primarySoft}
+                color={colors.primarySoft}
                 style="stroke"
                 strokeWidth={3}
                 strokeCap="round"
               >
-                <LinearGradient start={vec(0, 0)} end={vec(300, 0)} colors={[palette.primary, palette.accent]} />
+                <LinearGradient start={vec(0, 0)} end={vec(300, 0)} colors={[colors.primary, colors.primaryDeep]} />
               </Path>
             </Canvas>
           </View>
         </Animated.View>
 
-        {/* Score Gauge */}
+        {/* Score Gauge — Màu ngữ nghĩa: >=80 success, >=60 warning, <60 danger */}
         {score !== null && (
           <Animated.View entering={FadeInDown.delay(160).duration(300)} style={s.scoreCard}>
             <View style={s.scoreRingWrap}>
-              <ProgressRing size={88} strokeWidth={8} progress={score / 100} startColor={palette.primary} endColor={palette.accent} />
+              <ProgressRing
+                size={88}
+                strokeWidth={8}
+                progress={score / 100}
+                startColor={score >= 80 ? colors.success : score >= 60 ? colors.warning : colors.danger}
+                endColor={score >= 80 ? colors.successDark : score >= 60 ? colors.warningDark : colors.dangerDark}
+              />
               <View style={s.scoreOverlay}>
                 <Text style={s.scoreNumber}>{score}%</Text>
                 <Text style={s.scoreLabel}>ĐỘ CHUẨN</Text>
@@ -427,7 +433,7 @@ const s = StyleSheet.create({
     borderRadius: 16,
   },
   playbackBtnActive: {
-    backgroundColor: palette.accent,
+    backgroundColor: colors.primaryDeep,
   },
   playbackBtnText: {
     fontSize: 13,
