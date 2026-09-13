@@ -52,7 +52,7 @@ import {
   setCustomApiKey,
   getApiKey,
 } from '../../data/geminiService';
-import { palette } from '@/src/theme/colors';
+import { colors, palette } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
 import { MarkdownText } from '../components/MarkdownText';
 import { ThinkingIndicator } from '../components/ThinkingIndicator';
@@ -821,7 +821,7 @@ const s = StyleSheet.create({
     borderRadius: 100,
     backgroundColor: palette.primarySoft,
   },
-  speakBtnActive: { backgroundColor: palette.accent },
+  speakBtnActive: { backgroundColor: colors.primaryDeep },
   speakBtnText: { fontSize: 10, fontFamily: font.family, fontWeight: '700', color: palette.primary },
   speakBtnTextActive: { color: '#FFFFFF' },
   aiBubble: {
