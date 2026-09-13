@@ -1,118 +1,172 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, Image as RNImage, Modal } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  Image as RNImage,
+  StyleSheet,
+  Dimensions,
+  Platform,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, Volume2, Plus, Bookmark, VolumeX, CheckCircle2, X, Sparkles } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  ArrowLeft,
+  Volume2,
+  VolumeX,
+  Plus,
+  Bookmark,
+  CheckCircle2,
+  Sparkles,
+  ChevronUp,
+} from 'lucide-react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  withDelay,
+  withSequence,
+  FadeInDown,
+  FadeIn,
+  Easing,
+  runOnJS,
+} from 'react-native-reanimated';
+import {
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+} from 'react-native-gesture-handler';
+import Svg, { Path, Defs, Filter, FeDropShadow } from 'react-native-svg';
 import { SaveWordSheetModal } from './SaveWordSheetModal';
 import { speakText, stopSpeech } from '@/src/core/services/speechService';
 import { useDeckStore } from '@/src/features/flashcard-srs/data/deckStore';
+import { colors, font } from '@/src/theme';
+import { spring, timing } from '@/src/theme/motion';
+import { detectionPalette, getDetectionColor } from '@/src/theme/detection';
+import { usePressSpring } from '@/src/hooks/usePressSpring';
 
-// Distinct color palettes for up to 5 detected objects
-const OBJECT_COLORS = [
-  {
-    name: 'cyan',
-    borderColor: '#00F2FE',
-    bgColor: 'rgba(0, 242, 254, 0.2)',
-    selectedBgColor: 'rgba(0, 242, 254, 0.45)',
-    tagBg: 'bg-[#00F2FE]',
-    tagText: 'text-[#042A36]',
-    cardBorder: 'border-[#00F2FE]',
-    cardBg: 'bg-[#ECFEFF]',
-    cardDot: 'bg-[#00F2FE]',
-    speakerBg: 'bg-[#00F2FE]/20 text-[#0891B2]',
-  },
-  {
-    name: 'amber',
-    borderColor: '#FF9F1C',
-    bgColor: 'rgba(255, 159, 28, 0.2)',
-    selectedBgColor: 'rgba(255, 159, 28, 0.45)',
-    tagBg: 'bg-[#FF9F1C]',
-    tagText: 'text-[#3B1C00]',
-    cardBorder: 'border-[#FF9F1C]',
-    cardBg: 'bg-[#FFFBEB]',
-    cardDot: 'bg-[#FF9F1C]',
-    speakerBg: 'bg-[#FF9F1C]/20 text-[#D97706]',
-  },
-  {
-    name: 'emerald',
-    borderColor: '#10B981',
-    bgColor: 'rgba(16, 185, 129, 0.2)',
-    selectedBgColor: 'rgba(16, 185, 129, 0.45)',
-    tagBg: 'bg-[#10B981]',
-    tagText: 'text-white',
-    cardBorder: 'border-[#10B981]',
-    cardBg: 'bg-[#ECFDF5]',
-    cardDot: 'bg-[#10B981]',
-    speakerBg: 'bg-[#10B981]/20 text-[#059669]',
-  },
-  {
-    name: 'purple',
-    borderColor: '#A855F7',
-    bgColor: 'rgba(168, 85, 247, 0.2)',
-    selectedBgColor: 'rgba(168, 85, 247, 0.45)',
-    tagBg: 'bg-[#A855F7]',
-    tagText: 'text-white',
-    cardBorder: 'border-[#A855F7]',
-    cardBg: 'bg-[#FAF5FF]',
-    cardDot: 'bg-[#A855F7]',
-    speakerBg: 'bg-[#A855F7]/20 text-[#9333EA]',
-  },
-  {
-    name: 'rose',
-    borderColor: '#F43F5E',
-    bgColor: 'rgba(244, 63, 94, 0.2)',
-    selectedBgColor: 'rgba(244, 63, 94, 0.45)',
-    tagBg: 'bg-[#F43F5E]',
-    tagText: 'text-white',
-    cardBorder: 'border-[#F43F5E]',
-    cardBg: 'bg-[#FFF1F2]',
-    cardDot: 'bg-[#F43F5E]',
-    speakerBg: 'bg-[#F43F5E]/20 text-[#E11D48]',
-  },
-];
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const IMAGE_HEIGHT = Math.round(SCREEN_HEIGHT * 0.44);
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+// ─── L-Bracket SVG Corner Generator for Bounding Box ───
+const CornerBracketBox: React.FC<{
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color: string;
+  isSelected: boolean;
+  cornerLength?: number;
+}> = ({ x, y, width, height, color, isSelected, cornerLength = 18 }) => {
+  const cLen = Math.min(cornerLength, width * 0.35, height * 0.35);
+  const strokeWidth = isSelected ? 3.5 : 2.5;
+
+  // 4 L-shaped corners path: Top-Left, Top-Right, Bottom-Left, Bottom-Right
+  const pathD = `
+    M ${x} ${y + cLen} L ${x} ${y} L ${x + cLen} ${y}
+    M ${x + width - cLen} ${y} L ${x + width} ${y} L ${x + width} ${y + cLen}
+    M ${x} ${y + height - cLen} L ${x} ${y + height} L ${x + cLen} ${y + height}
+    M ${x + width - cLen} ${y + height} L ${x + width} ${y + height} L ${x + width} ${y + height - cLen}
+  `;
+
+  return (
+    <Svg
+      width={SCREEN_WIDTH}
+      height={IMAGE_HEIGHT}
+      style={StyleSheet.absoluteFill}
+      pointerEvents="none"
+    >
+      {/* Soft Glow Shadow behind bracket */}
+      <Path
+        d={pathD}
+        fill="none"
+        stroke={color}
+        strokeWidth={strokeWidth + 4}
+        strokeOpacity={isSelected ? 0.4 : 0.2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Crisp Main Corner Bracket Line */}
+      <Path
+        d={pathD}
+        fill="none"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+};
 
 export const ScanResultScreen = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { imageUri, scanData } = useLocalSearchParams<{ imageUri?: string; scanData?: string }>();
   const { savedWords } = useDeckStore();
 
   const [itemsToSave, setItemsToSave] = useState<any[] | null>(null);
-  const [selectedDetailItem, setSelectedDetailItem] = useState<any | null>(null);
   const [playingWordId, setPlayingWordId] = useState<string | null>(null);
   const [selectedBoxId, setSelectedBoxId] = useState<string | null>(null);
+  const [isSavingAll, setIsSavingAll] = useState(false);
+  const [savedConfirmToast, setSavedConfirmToast] = useState<string | null>(null);
+
+  // Bottom Sheet Gesture & Drag Position
+  // translateY: 0 (default expanded), > 0 (dragged down)
+  const translateY = useSharedValue(0);
+  const contextY = useSharedValue(0);
+
+  // Animation stagger values for synchronized box and card reveal
+  const revealProgress = useSharedValue(0);
+
+  const backSpring = usePressSpring(0.92);
+  const saveAllSpring = usePressSpring(0.95);
 
   const parsed = scanData ? JSON.parse(scanData) : null;
-  const objects = (parsed?.objects || [
+  const rawObjects = parsed?.objects || [
     {
       id: '1',
-      word_id: 'w-electric-fan',
-      word: 'Electric Fan',
-      phonetic: "/ɪ'lektrɪk fæn/",
+      word_id: 'w-laptop',
+      word: 'Laptop',
+      phonetic: '/ˈlæp.tɑːp/',
       pos: 'Noun',
-      meaning_vi: 'Quạt điện',
-      bounding_box: { x: 50, y: 50, width: 190, height: 180 },
-      examples: {
-        easy: 'Turn on the electric fan.',
-        medium: 'The electric fan keeps the room cool during summer.',
-        hard: 'Electric fans are energy-efficient household cooling appliances.'
-      }
+      meaning_vi: 'Máy tính xách tay',
+      bounding_box: { x: 45, y: 80, width: 170, height: 130 },
+      examples: { easy: 'She is working on her laptop.' },
     },
     {
       id: '2',
-      word_id: 'w-rice-cooker',
-      word: 'Rice Cooker',
-      phonetic: "/raɪs 'kʊk.ər/",
+      word_id: 'w-coffee-cup',
+      word: 'Coffee Cup',
+      phonetic: '/ˈkɑː.fi kʌp/',
       pos: 'Noun',
-      meaning_vi: 'Nồi cơm điện',
-      bounding_box: { x: 170, y: 20, width: 110, height: 100 },
-      examples: {
-        easy: 'The rice cooker makes delicious rice.',
-        medium: 'An electric rice cooker automates the steaming process.',
-        hard: 'Modern smart rice cookers utilize induction heating technology.'
-      }
-    }
-  ]).slice(0, 5); // Max 5 items
+      meaning_vi: 'Tách cà phê',
+      bounding_box: { x: 190, y: 110, width: 90, height: 95 },
+      examples: { easy: 'A hot coffee cup sits on the desk.' },
+    },
+    {
+      id: '3',
+      word_id: 'w-water-bottle',
+      word: 'Water Bottle',
+      phonetic: '/ˈwɑː.tər ˌbɑː.t̬əl/',
+      pos: 'Noun',
+      meaning_vi: 'Chai nước lọc',
+      bounding_box: { x: 140, y: 25, width: 75, height: 85 },
+      examples: { easy: 'Stay hydrated with a water bottle.' },
+    },
+  ];
 
+  const objects = rawObjects.slice(0, 5);
   const displayImageUri = imageUri || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=800';
+
+  useEffect(() => {
+    // Trigger staggered reveal
+    revealProgress.value = withTiming(1, { duration: 600, easing: Easing.out(Easing.cubic) });
+  }, []);
 
   const handlePlayAudio = (wordId: string, wordText: string) => {
     setSelectedBoxId(wordId);
@@ -127,300 +181,630 @@ export const ScanResultScreen = () => {
       language: 'en-US',
       rate: 0.9,
       onDone: () => setPlayingWordId(null),
-      onError: () => setPlayingWordId(null)
+      onError: () => setPlayingWordId(null),
     });
-  };
-
-  const handleOpenDetail = (item: any) => {
-    setSelectedDetailItem(item);
   };
 
   const isWordSaved = (wordId: string) => {
     return savedWords.some((w) => w.word_id === wordId);
   };
 
+  // ─── Direct Save All (No jumping / bounce animation) ───
+  const handleBatchSaveAll = () => {
+    setItemsToSave(objects);
+  };
+
+  // ─── Bottom Sheet Gesture Drag ───
+  const panGesture = Gesture.Pan()
+    .onStart(() => {
+      contextY.value = translateY.value;
+    })
+    .onUpdate((event) => {
+      // Allow dragging downwards only; rubber-band resist if dragging upwards
+      if (event.translationY < 0) {
+        translateY.value = contextY.value + event.translationY * 0.25;
+      } else {
+        translateY.value = contextY.value + event.translationY;
+      }
+    })
+    .onEnd((event) => {
+      if (event.translationY > 120 || event.velocityY > 600) {
+        // Snap partially down (collapsed preview)
+        translateY.value = withSpring(180, spring.gentle);
+      } else {
+        // Snap back to fully expanded top
+        translateY.value = withSpring(0, spring.gentle);
+      }
+    });
+
+  const animatedSheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  // ─── SAFE AREA AWARE BOUNDING BOX COORDINATE CONVERSION ───
+  const TOP_SAFE_BOUNDARY = insets.top + 48; // Space reserved for back button / header
+
   return (
-    <View className="flex-1 bg-[#F8FAF9]">
-      {/* Top Half: Scanned Image with Per-Object Distinct Color Bounding Boxes */}
-      <View className="w-full h-[46%] relative bg-black justify-center items-center overflow-hidden">
-        <RNImage
-          source={{ uri: displayImageUri }}
-          className="w-full h-full"
-          resizeMode="cover"
-        />
+    <GestureHandlerRootView style={s.root}>
+      <View style={s.container}>
+        {/* ─── Top View: Scanned Photo with Skia/SVG Corner Brackets ─── */}
+        <View style={s.imageContainer}>
+          <RNImage
+            source={{ uri: displayImageUri }}
+            style={s.imageBackground}
+            resizeMode="cover"
+          />
 
-        {/* Back Arrow Button: Returns to Camera Scanner Screen */}
-        <Pressable
-          onPress={() => router.push('/(student)/practice/scan' as any)}
-          className="absolute top-12 left-5 w-10 h-10 rounded-full bg-black/60 justify-center items-center backdrop-blur-md z-30 border border-white/20 active:bg-black/80"
-        >
-          <ArrowLeft color="#FFFFFF" size={20} />
-        </Pressable>
-
-        {/* Floating Top Badge */}
-        <View className="absolute top-12 right-5 bg-black/70 border border-white/20 px-3.5 py-1.5 rounded-full shadow-lg backdrop-blur-md z-30 flex-row items-center gap-1.5">
-          <View className="w-2 h-2 rounded-full bg-emerald-400" />
-          <Text className="text-xs font-bold text-white tracking-wide">Nhận Diện {objects.length} Vật Thể ✨</Text>
-        </View>
-
-        {/* Dynamic Multi-Color Bounding Box Rectangles Overlaid on Scanned Image */}
-        {objects.map((item: any, idx: number) => {
-          const box = item.bounding_box || { x: 30 + idx * 50, y: 40 + idx * 40, width: 120, height: 80 };
-          const colorTheme = OBJECT_COLORS[idx % OBJECT_COLORS.length];
-          const isPlaying = playingWordId === item.word_id;
-          const isSelected = selectedBoxId === item.word_id;
-          const isSaved = isWordSaved(item.word_id);
-
-          // Convert 300x300 grid coordinates to relative canvas percentages
-          const leftPct = Math.min(Math.max((box.x / 300) * 100, 2), 80);
-          const topPct = Math.min(Math.max((box.y / 300) * 100, 4), 80);
-          const widthPct = Math.min(Math.max((box.width / 300) * 100, 16), 96 - leftPct);
-          const heightPct = Math.min(Math.max((box.height / 300) * 100, 12), 92 - topPct);
-
-          const activeBorderColor = isPlaying || isSelected ? '#FFFFFF' : colorTheme.borderColor;
-          const activeBgColor = isPlaying || isSelected ? colorTheme.selectedBgColor : colorTheme.bgColor;
-
-          return (
-            <Pressable
-              key={item.id || idx}
-              onPress={() => handlePlayAudio(item.word_id, item.word)}
-              style={{
-                position: 'absolute',
-                left: `${leftPct}%`,
-                top: `${topPct}%`,
-                width: `${widthPct}%`,
-                height: `${heightPct}%`,
-                borderColor: activeBorderColor,
-                backgroundColor: activeBgColor,
-                borderWidth: isPlaying || isSelected ? 3 : 2,
-              }}
-              className={`rounded-2xl justify-between p-1 z-20 shadow-2xl backdrop-blur-xs ${
-                isPlaying || isSelected ? 'scale-[1.03]' : ''
-              }`}
+          {/* Top Bar Floating Controls */}
+          <View style={[s.floatingHeader, { top: insets.top + 8 }]}>
+            <AnimatedPressable
+              onPress={() => router.back()}
+              onPressIn={backSpring.onPressIn}
+              onPressOut={backSpring.onPressOut}
+              style={[s.backBtn, backSpring.animatedStyle]}
             >
-              {/* Corner Floating Object Label Tag with Distinct Theme Color */}
-              <View className="self-start -mt-3.5 -ml-1">
-                <Text className={`text-[10px] font-black px-2 py-0.5 rounded-md shadow-md ${colorTheme.tagBg} ${colorTheme.tagText}`}>
-                  #{idx + 1} {item.word} {isSaved ? '✓' : ''}
-                </Text>
-              </View>
+              <ArrowLeft color="#FFFFFF" size={20} />
+            </AnimatedPressable>
 
-              {/* Center Target Indicator Crosshair */}
-              <View className="self-center items-center justify-center opacity-60">
-                <View className="w-2.5 h-2.5 rounded-full border border-white" />
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {/* Bottom Half: Vocabulary Results Sheet with Matching Theme Colors */}
-      <View className="flex-1 bg-white rounded-t-3xl -mt-6 px-6 pt-3 shadow-2xl">
-        <View className="w-12 h-1 bg-gray-300 rounded-full self-center mb-4" />
-
-        {/* Section Header */}
-        <View className="flex-row justify-between items-center mb-4">
-          <View>
-            <Text className="text-lg font-bold text-neutralInk">Từ Vựng Nhận Diện Khoanh Vùng</Text>
-            <Text className="text-xs text-neutralGray">Được phân màu tương ứng với từng vật thể</Text>
+            {/* Object Count Badge */}
+            <View style={s.countBadge}>
+              <View style={s.countDot} />
+              <Text style={s.countBadgeText}>
+                {objects.length} vật thể nhận diện
+              </Text>
+            </View>
           </View>
 
-          {/* Batch Save All Button */}
-          <Pressable
-            onPress={() => setItemsToSave(objects)}
-            className="flex-row items-center gap-1.5 bg-orange-50 border border-orange-200 px-3.5 py-2 rounded-full active:bg-orange-100 shadow-sm"
-          >
-            <Plus color="#FF6B35" size={14} />
-            <Text className="text-xs font-bold text-[#FF6B35]">Lưu Tất Cả Thẻ</Text>
-          </Pressable>
+          {/* ─── Bounding Boxes & Dynamic Label Pills ─── */}
+          {objects.map((item: any, idx: number) => {
+            const boxData = item.bounding_box || {
+              x: 40 + idx * 50,
+              y: 50 + idx * 40,
+              width: 120,
+              height: 90,
+            };
+            const colorTheme = getDetectionColor(idx);
+            const isPlaying = playingWordId === item.word_id;
+            const isSelected = selectedBoxId === item.word_id;
+            const isSaved = isWordSaved(item.word_id);
+
+            // Convert to absolute pixel coordinates inside image container
+            const boxX = Math.max(
+              12,
+              Math.min((boxData.x / 300) * SCREEN_WIDTH, SCREEN_WIDTH - 90)
+            );
+            const boxY = Math.max(
+              TOP_SAFE_BOUNDARY,
+              Math.min((boxData.y / 300) * IMAGE_HEIGHT, IMAGE_HEIGHT - 70)
+            );
+            const boxWidth = Math.max(
+              65,
+              Math.min((boxData.width / 300) * SCREEN_WIDTH, SCREEN_WIDTH - boxX - 12)
+            );
+            const boxHeight = Math.max(
+              50,
+              Math.min((boxData.height / 300) * IMAGE_HEIGHT, IMAGE_HEIGHT - boxY - 12)
+            );
+
+            // ─── DYNAMIC SAFE-AREA LABEL POSITIONING LOGIC ───
+            // Solves the exact bug where labels overflowed status bar / clock:
+            const LABEL_HEIGHT = 26;
+            let labelTop = boxY - LABEL_HEIGHT - 5;
+            let isInside = false;
+
+            // If label would collide with top safe area or header, put it INSIDE the box!
+            if (labelTop < TOP_SAFE_BOUNDARY + 6) {
+              labelTop = boxY + 6;
+              isInside = true;
+            }
+
+            // Clamp horizontally to prevent clipping off screen edges
+            const labelLeft = Math.max(8, Math.min(boxX, SCREEN_WIDTH - 150));
+
+            return (
+              <React.Fragment key={item.id || item.word_id || idx}>
+                {/* SVG Corner-Bracket Style Box */}
+                <CornerBracketBox
+                  x={boxX}
+                  y={boxY}
+                  width={boxWidth}
+                  height={boxHeight}
+                  color={colorTheme.stroke}
+                  isSelected={isPlaying || isSelected}
+                />
+
+                {/* Touch Hit Area */}
+                <Pressable
+                  onPress={() => handlePlayAudio(item.word_id, item.word)}
+                  style={[
+                    s.boxHitArea,
+                    {
+                      left: boxX,
+                      top: boxY,
+                      width: boxWidth,
+                      height: boxHeight,
+                      zIndex: isSelected ? 40 : 20,
+                    },
+                  ]}
+                />
+
+                {/* Dynamic Safe-Positioned Label Pill */}
+                <AnimatedPressable
+                  entering={FadeIn.delay(120 * idx).duration(260)}
+                  onPress={() => handlePlayAudio(item.word_id, item.word)}
+                  style={[
+                    s.labelPill,
+                    {
+                      left: labelLeft,
+                      top: labelTop,
+                      backgroundColor: colorTheme.soft,
+                      borderColor: colorTheme.stroke,
+                      zIndex: isSelected ? 50 : 30,
+                    },
+                    (isPlaying || isSelected) && s.labelPillActive,
+                  ]}
+                >
+                  <View
+                    style={[
+                      s.labelNumberCircle,
+                      { backgroundColor: colorTheme.stroke },
+                    ]}
+                  >
+                    <Text style={s.labelNumberText}>{idx + 1}</Text>
+                  </View>
+                  <Text
+                    style={[s.labelText, { color: colorTheme.stroke }]}
+                    numberOfLines={1}
+                  >
+                    {item.word}
+                  </Text>
+                  {isSaved && (
+                    <Text style={[s.labelSavedTick, { color: colorTheme.stroke }]}>
+                      ✓
+                    </Text>
+                  )}
+                </AnimatedPressable>
+              </React.Fragment>
+            );
+          })}
         </View>
 
-        {/* Word Cards List with Corresponding Colors */}
-        <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-          <View className="gap-3 pb-8">
+        {/* ─── Bottom Sheet: Vocabulary List with Gesture Drag ─── */}
+        <Animated.View style={[s.bottomSheet, animatedSheetStyle]}>
+          {/* Pan Drag Handle */}
+          <GestureDetector gesture={panGesture}>
+            <View style={s.dragHandleBar}>
+              <View style={s.dragIndicator} />
+            </View>
+          </GestureDetector>
+
+          {/* Header Row */}
+          <View style={s.sheetHeaderRow}>
+            <View>
+              <Text style={s.sheetTitle}>Từ Vựng Phát Hiện</Text>
+              <Text style={s.sheetSub}>Nhấn vào thẻ hoặc khung để nghe phát âm</Text>
+            </View>
+
+            {/* Batch Save All Button */}
+            <AnimatedPressable
+              onPress={handleBatchSaveAll}
+              onPressIn={saveAllSpring.onPressIn}
+              onPressOut={saveAllSpring.onPressOut}
+              style={[s.saveAllBtn, saveAllSpring.animatedStyle]}
+            >
+              <Plus color={colors.primary} size={15} />
+              <Text style={s.saveAllText}>Lưu Tất Cả</Text>
+            </AnimatedPressable>
+          </View>
+
+          {/* Cards List: Surface White, 3px Left Border, Color Dot */}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={s.cardsScrollContent}
+          >
             {objects.map((item: any, idx: number) => {
-              const colorTheme = OBJECT_COLORS[idx % OBJECT_COLORS.length];
-              const isVerb = item.pos === 'Verb';
-              const isAdj = item.pos === 'Adj' || item.pos === 'Adjective';
-              const badgeBg = isVerb ? 'bg-red-100 text-red-600' : isAdj ? 'bg-amber-100 text-amber-700' : 'bg-cyan-100 text-cyan-700';
+              const colorTheme = getDetectionColor(idx);
               const isPlayingThis = playingWordId === item.word_id;
               const isSelected = selectedBoxId === item.word_id;
               const isSaved = isWordSaved(item.word_id);
 
               return (
-                <View
-                  key={item.id}
-                  className={`p-3 rounded-2xl border-2 flex-row justify-between items-center shadow-sm overflow-hidden ${colorTheme.cardBg} ${colorTheme.cardBorder} ${
-                    isSelected ? 'scale-[1.01]' : ''
-                  }`}
+                <Animated.View
+                  key={item.id || item.word_id || idx}
+                  entering={FadeInDown.delay(120 * idx).duration(300)}
+                  style={[
+                    s.vocabCard,
+                    { borderLeftColor: colorTheme.stroke },
+                    isSelected && s.vocabCardSelected,
+                  ]}
                 >
                   <Pressable
                     onPress={() => {
                       setSelectedBoxId(item.word_id);
-                      handleOpenDetail(item);
+                      handlePlayAudio(item.word_id, item.word);
                     }}
-                    className="flex-1 flex-row items-center gap-2 mr-2 overflow-hidden"
+                    style={s.vocabCardMain}
                   >
-                    {/* Object Color Identifier Pill */}
-                    <View className={`w-4 h-4 rounded-full ${colorTheme.cardDot} justify-center items-center shadow-xs shrink-0`}>
-                      <Text className="text-[9px] font-extrabold text-white">{idx + 1}</Text>
+                    {/* Number Identifier Dot */}
+                    <View
+                      style={[
+                        s.indexBadge,
+                        { backgroundColor: colorTheme.stroke },
+                      ]}
+                    >
+                      <Text style={s.indexBadgeText}>{idx + 1}</Text>
                     </View>
 
-                    {/* Audio Speaker Icon Button */}
+                    {/* Audio Speaker Button */}
                     <Pressable
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handlePlayAudio(item.word_id, item.word);
-                      }}
-                      className={`w-9 h-9 rounded-full justify-center items-center shrink-0 ${
-                        isPlayingThis ? 'bg-[#FF6B35]' : 'bg-white border border-gray-200 active:bg-gray-100'
-                      }`}
+                      onPress={() => handlePlayAudio(item.word_id, item.word)}
+                      style={[
+                        s.speakerBtn,
+                        { backgroundColor: colorTheme.soft },
+                        isPlayingThis && { backgroundColor: colorTheme.stroke },
+                      ]}
                     >
                       {isPlayingThis ? (
-                        <VolumeX color="#FFFFFF" size={16} />
+                        <VolumeX color="#FFFFFF" size={17} />
                       ) : (
-                        <Volume2 color={colorTheme.borderColor} size={16} />
+                        <Volume2 color={colorTheme.stroke} size={17} />
                       )}
                     </Pressable>
 
-                    <View className="flex-1 mr-1">
-                      <View className="flex-row items-center gap-1.5 mb-0.5 flex-wrap">
-                        <Text className="text-sm font-extrabold text-neutralInk" numberOfLines={1}>{item.word}</Text>
-                        <View className={`px-1.5 py-0.5 rounded-full ${badgeBg.split(' ')[0]}`}>
-                          <Text className={`text-[9px] font-bold ${badgeBg.split(' ')[1]}`}>{item.pos}</Text>
+                    {/* Vocabulary Content */}
+                    <View style={s.wordContent}>
+                      <View style={s.wordTitleRow}>
+                        <Text style={s.wordHeading} numberOfLines={1}>
+                          {item.word}
+                        </Text>
+                        <View
+                          style={[
+                            s.posChip,
+                            { backgroundColor: colorTheme.soft },
+                          ]}
+                        >
+                          <Text
+                            style={[s.posChipText, { color: colorTheme.stroke }]}
+                          >
+                            {item.pos || 'Noun'}
+                          </Text>
                         </View>
                       </View>
-                      <Text className="text-[11px] text-neutralGray font-medium" numberOfLines={1}>{item.phonetic} • {item.meaning_vi}</Text>
+                      <Text style={s.phoneticText} numberOfLines={1}>
+                        {item.phonetic} • {item.meaning_vi}
+                      </Text>
                     </View>
                   </Pressable>
 
-                  {/* Save / Saved Indicator Button */}
+                  {/* Single Item Save Button */}
                   <Pressable
                     onPress={() => setItemsToSave([item])}
-                    className={`px-2.5 py-1.5 rounded-xl flex-row items-center gap-1 shadow-sm shrink-0 ${
-                      isSaved ? 'bg-emerald-600' : 'bg-[#FF6B35] active:bg-orange-600'
-                    }`}
+                    style={[
+                      s.cardSaveBtn,
+                      isSaved && s.cardSaveBtnDone,
+                    ]}
                   >
                     {isSaved ? (
-                      <>
-                        <CheckCircle2 color="#FFFFFF" size={13} />
-                        <Text className="text-[11px] font-bold text-white">Đã Lưu</Text>
-                      </>
+                      <CheckCircle2 color={colors.success} size={16} />
                     ) : (
-                      <>
-                        <Bookmark color="#FFFFFF" size={13} fill="#FFFFFF" />
-                        <Text className="text-[11px] font-bold text-white">Lưu Thẻ</Text>
-                      </>
+                      <Bookmark color={colors.textSoft} size={16} />
                     )}
                   </Pressable>
-                </View>
+                </Animated.View>
               );
             })}
-          </View>
-        </ScrollView>
+          </ScrollView>
+        </Animated.View>
+
+        {/* Save Word Modal for Deck Integration */}
+        {itemsToSave && (
+          <SaveWordSheetModal
+            visible={!!itemsToSave}
+            itemsToSave={itemsToSave}
+            onClose={() => setItemsToSave(null)}
+            onSaved={(deckName) => {
+              setItemsToSave(null);
+              setSavedConfirmToast(`Đã lưu từ vựng vào bộ thẻ "${deckName}"! ✨`);
+              setTimeout(() => setSavedConfirmToast(null), 3000);
+            }}
+          />
+        )}
+
+        {/* Confirmation Toast */}
+        {savedConfirmToast && (
+          <Animated.View entering={FadeIn.duration(200)} style={s.toastPill}>
+            <CheckCircle2 color="#FFFFFF" size={16} />
+            <Text style={s.toastText}>{savedConfirmToast}</Text>
+          </Animated.View>
+        )}
       </View>
-
-      <SaveWordSheetModal
-        visible={!!itemsToSave}
-        itemsToSave={itemsToSave || []}
-        onClose={() => setItemsToSave(null)}
-      />
-
-      {/* Word Detail In-Screen Bottom Sheet Modal */}
-      <Modal
-        visible={!!selectedDetailItem}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSelectedDetailItem(null)}
-      >
-        <View className="flex-1 bg-black/50 justify-end">
-          <Pressable className="flex-1" onPress={() => setSelectedDetailItem(null)} />
-          
-          <View className="bg-white rounded-t-3xl p-6 border-t border-gray-100 shadow-2xl max-h-[80%]">
-            <View className="flex-row justify-between items-center mb-4">
-              <View className="flex-row items-center gap-2">
-                <Sparkles color="#FF6B35" size={18} />
-                <Text className="text-lg font-bold text-neutralInk">Chi Tiết Từ Vựng AI</Text>
-              </View>
-
-              <Pressable
-                onPress={() => setSelectedDetailItem(null)}
-                className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center active:bg-gray-200"
-              >
-                <X color="#64748B" size={18} />
-              </Pressable>
-            </View>
-
-            {selectedDetailItem && (
-              <ScrollView showsVerticalScrollIndicator={false}>
-                {/* Word Header Card */}
-                <View className="bg-[#F8FAF9] p-5 rounded-2xl border border-gray-100 items-center mb-4">
-                  <Text className="text-2xl font-black text-neutralInk mb-1">{selectedDetailItem.word}</Text>
-                  <View className="flex-row items-center gap-2 mb-3">
-                    <Text className="text-sm text-neutralGray font-medium">{selectedDetailItem.phonetic}</Text>
-                    <Pressable
-                      onPress={() => handlePlayAudio(selectedDetailItem.word_id, selectedDetailItem.word)}
-                      className="w-8 h-8 rounded-full bg-[#FF6B35] items-center justify-center active:bg-orange-600"
-                    >
-                      <Volume2 color="#FFFFFF" size={16} />
-                    </Pressable>
-                  </View>
-                  <View className="bg-cyan-100 px-3 py-1 rounded-full">
-                    <Text className="text-xs font-bold text-cyan-800">{selectedDetailItem.pos}</Text>
-                  </View>
-                </View>
-
-                {/* Meaning Section */}
-                <View className="mb-4">
-                  <Text className="text-xs font-bold text-neutralGray uppercase mb-1">Nghĩa tiếng Việt</Text>
-                  <View className="bg-white p-3.5 rounded-xl border border-gray-100">
-                    <Text className="text-sm font-semibold text-neutralInk">{selectedDetailItem.meaning_vi}</Text>
-                  </View>
-                </View>
-
-                {/* Example Sentences */}
-                {selectedDetailItem.examples && (
-                  <View className="mb-6">
-                    <Text className="text-xs font-bold text-neutralGray uppercase mb-1.5">Câu ví dụ ngữ cảnh</Text>
-                    <View className="gap-2">
-                      {selectedDetailItem.examples.easy && (
-                        <View className="bg-orange-50 p-3 rounded-xl border border-orange-100">
-                          <Text className="text-[10px] font-bold text-orange-600 uppercase mb-0.5">Dễ (Beginner)</Text>
-                          <Text className="text-xs font-medium text-slate-700">{selectedDetailItem.examples.easy}</Text>
-                        </View>
-                      )}
-                      {selectedDetailItem.examples.medium && (
-                        <View className="bg-cyan-50 p-3 rounded-xl border border-cyan-100">
-                          <Text className="text-[10px] font-bold text-cyan-600 uppercase mb-0.5">Trung Bình (Medium)</Text>
-                          <Text className="text-xs font-medium text-slate-700">{selectedDetailItem.examples.medium}</Text>
-                        </View>
-                      )}
-                      {selectedDetailItem.examples.hard && (
-                        <View className="bg-purple-50 p-3 rounded-xl border border-purple-100">
-                          <Text className="text-[10px] font-bold text-purple-600 uppercase mb-0.5">Nâng Cao (Advanced)</Text>
-                          <Text className="text-xs font-medium text-slate-700">{selectedDetailItem.examples.hard}</Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                )}
-
-                {/* Save Button */}
-                <Pressable
-                  onPress={() => {
-                    setItemsToSave([selectedDetailItem]);
-                    setSelectedDetailItem(null);
-                  }}
-                  className="bg-[#FF6B35] py-3 rounded-2xl items-center flex-row justify-center gap-2 shadow-md active:bg-orange-600 mb-2"
-                >
-                  <Bookmark color="#FFFFFF" size={16} fill="#FFFFFF" />
-                  <Text className="text-sm font-bold text-white">Lưu Vào Bộ Thẻ Flashcard</Text>
-                </Pressable>
-              </ScrollView>
-            )}
-          </View>
-        </View>
-      </Modal>
-    </View>
+    </GestureHandlerRootView>
   );
 };
+
+const s = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#090A10',
+  },
+  container: {
+    flex: 1,
+    position: 'relative',
+  },
+  imageContainer: {
+    width: SCREEN_WIDTH,
+    height: IMAGE_HEIGHT,
+    position: 'relative',
+    overflow: 'hidden',
+    backgroundColor: '#0A0B12',
+  },
+  imageBackground: {
+    width: '100%',
+    height: '100%',
+  },
+  floatingHeader: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    zIndex: 50,
+  },
+  backBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(10, 10, 16, 0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  countBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(10, 10, 16, 0.72)',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+  },
+  countDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: colors.success,
+  },
+  countBadgeText: {
+    fontSize: 12,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  boxHitArea: {
+    position: 'absolute',
+  },
+  labelPill: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  labelPillActive: {
+    transform: [{ scale: 1.05 }],
+  },
+  labelNumberCircle: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  labelNumberText: {
+    fontSize: 10,
+    fontFamily: font.family,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  labelText: {
+    fontSize: 11,
+    fontFamily: font.family,
+    fontWeight: '800',
+    letterSpacing: -0.1,
+  },
+  labelSavedTick: {
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  bottomSheet: {
+    flex: 1,
+    backgroundColor: colors.bg,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    marginTop: -20,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  dragHandleBar: {
+    width: '100%',
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  dragIndicator: {
+    width: 44,
+    height: 4.5,
+    borderRadius: 3,
+    backgroundColor: colors.border,
+  },
+  sheetHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  sheetTitle: {
+    fontSize: 17,
+    fontFamily: font.family,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  sheetSub: {
+    fontSize: 12,
+    fontFamily: font.family,
+    color: colors.textSoft,
+    marginTop: 2,
+  },
+  saveAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    borderRadius: 14,
+  },
+  saveAllText: {
+    fontSize: 12,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  cardsScrollContent: {
+    paddingBottom: 40,
+    gap: 12,
+  },
+  vocabCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderLeftWidth: 4,
+    shadowColor: colors.text,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  vocabCardSelected: {
+    borderColor: colors.primary,
+    shadowOpacity: 0.08,
+  },
+  vocabCardFlyAway: {
+    transform: [{ translateY: 20 }, { scale: 0.9 }],
+    opacity: 0,
+  },
+  vocabCardMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    marginRight: 10,
+  },
+  indexBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  indexBadgeText: {
+    fontSize: 11,
+    fontFamily: font.family,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  speakerBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wordContent: {
+    flex: 1,
+  },
+  wordTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 2,
+  },
+  wordHeading: {
+    fontSize: 15,
+    fontFamily: font.family,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  posChip: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  posChipText: {
+    fontSize: 10,
+    fontFamily: font.family,
+    fontWeight: '700',
+  },
+  phoneticText: {
+    fontSize: 12,
+    fontFamily: font.family,
+    color: colors.textSoft,
+  },
+  cardSaveBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardSaveBtnDone: {
+    backgroundColor: colors.successSoft,
+  },
+  toastPill: {
+    position: 'absolute',
+    bottom: 30,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.text,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+    zIndex: 99,
+  },
+  toastText: {
+    fontSize: 13,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+});

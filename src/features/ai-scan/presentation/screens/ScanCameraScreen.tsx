@@ -1,108 +1,179 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, Pressable, ActivityIndicator, Image as RNImage, Alert } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  View,
+  Text,
+  Pressable,
+  Image as RNImage,
+  Alert,
+  StyleSheet,
+  Dimensions,
+  Platform,
+} from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { ArrowLeft, HelpCircle, Image as ImageIcon, Zap, Flashlight, Camera, Scan, Sparkles, Target, Layers } from 'lucide-react-native';
+import {
+  ArrowLeft,
+  HelpCircle,
+  Image as ImageIcon,
+  Flashlight,
+  Scan,
+  Sparkles,
+  CheckCircle2,
+} from 'lucide-react-native';
 import Animated, {
   useAnimatedStyle,
   withRepeat,
   withTiming,
   useSharedValue,
   withSequence,
-  Easing
+  withDelay,
+  Easing,
+  interpolate,
+  FadeIn,
+  FadeOut,
 } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
 import { submitScanImageApi } from '../../data/scanApi';
+import { colors, font } from '@/src/theme';
+import { usePressSpring } from '@/src/hooks/usePressSpring';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const VIEWFINDER_SIZE = Math.min(SCREEN_WIDTH - 48, 330);
+const CORNER_SIZE = 34;
+const CORNER_WIDTH = 3.5;
+const CORNER_RADIUS = 16;
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+// ─── Scan Line Beam Component (ScanProcessing) ───
+const ScanLaserBeam = ({ height }: { height: number }) => {
+  const translateY = useSharedValue(-40);
+
+  useEffect(() => {
+    translateY.value = withRepeat(
+      withTiming(height + 40, {
+        duration: 1300,
+        easing: Easing.linear,
+      }),
+      -1,
+      false
+    );
+  }, [height]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        s.laserBeamContainer,
+        { width: VIEWFINDER_SIZE },
+        animatedStyle,
+      ]}
+    >
+      {/* Soft Glow Gradient Veil */}
+      <View style={s.laserVeil} />
+      {/* Crisp Main Laser Line */}
+      <View style={s.laserLine} />
+    </Animated.View>
+  );
+};
 
 export const ScanCameraScreen = () => {
   const router = useRouter();
-  const [activeMode, setActiveMode] = useState<'document' | 'id_card' | 'book'>('id_card');
   const [isFlashOn, setIsFlashOn] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
-  const [scanStepIndex, setScanStepIndex] = useState(0);
+  const [detectedTargetActive, setDetectedTargetActive] = useState(false);
+  const [processingStage, setProcessingStage] = useState(0);
 
-  // Clear previous scan image & reset states every time user focuses/re-enters camera screen
+  // Springs for interactive buttons
+  const shutterSpring = usePressSpring(0.94);
+  const flashSpring = usePressSpring(0.92);
+  const gallerySpring = usePressSpring(0.92);
+  const backSpring = usePressSpring(0.92);
+
+  // ─── Viewfinder Breathing Animation (Scale 1.03 -> 1 with smooth sine, cycle 2.2s) ───
+  const breatheScale = useSharedValue(1);
+  // Bracket highlight color animation (neutral -> primary highlight)
+  const bracketHighlight = useSharedValue(0);
+  // Shutter button periodic pulse ring (once every 3s)
+  const shutterRingPulse = useSharedValue(1);
+  const shutterRingOpacity = useSharedValue(0);
+
+  // Processing stage messages
+  const STAGE_TEXTS = [
+    'Đang phân tích khung hình...',
+    'Đang nhận diện vật thể AI...',
+    'Đang tra từ vựng & ngữ cảnh...',
+  ];
+
   useFocusEffect(
     useCallback(() => {
       setCapturedImageUri(null);
       setIsScanning(false);
+      setProcessingStage(0);
     }, [])
   );
 
-  // Futuristic scanning animation values
-  const scanY = useSharedValue(0);
-  const cornerPulse = useSharedValue(1);
-  const reticleRotate = useSharedValue(0);
-  const shutterPulse = useSharedValue(1);
-
-  const scanProgressSteps = [
-    '⚡ Khởi tạo Loxera Vision Neural Engine...',
-    '🔍 Phân tích 5 vật thể & Quét vùng ảnh...',
-    '📖 Trích xuất IPA, Từ vựng & Nghĩa tiếng Việt...',
-    '✨ Hoàn tất sinh thẻ từ vựng thông minh!'
-  ];
-
+  // Start breathing animation
   useEffect(() => {
-    // Pulse shutter button subtly when idle
-    shutterPulse.value = withRepeat(
+    breatheScale.value = withRepeat(
       withSequence(
-        withTiming(1.06, { duration: 1000 }),
-        withTiming(1, { duration: 1000 })
+        withTiming(1.028, { duration: 1100, easing: Easing.inOut(Easing.sin) }),
+        withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.sin) })
       ),
       -1,
       true
     );
+
+    // Subtle edge-detection simulation: after 1.5s in viewfinder, highlight brackets to signal object locked
+    const timer = setTimeout(() => {
+      setDetectedTargetActive(true);
+      bracketHighlight.value = withTiming(1, { duration: 300 });
+    }, 1400);
+
+    return () => clearTimeout(timer);
   }, []);
 
+  // Periodic Shutter Ring Pulse: 1 subtle pulse every 3 seconds
   useEffect(() => {
-    if (isScanning) {
-      // Smooth radar laser scan line moving up and down continuously
-      scanY.value = withRepeat(
-        withTiming(290, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
-        -1,
-        true
-      );
+    const triggerPulse = () => {
+      shutterRingPulse.value = 1;
+      shutterRingOpacity.value = 0.8;
 
-      // Keep frame stationary (no pulsing/pumping effect)
-      cornerPulse.value = 1;
+      shutterRingPulse.value = withTiming(1.32, { duration: 750, easing: Easing.out(Easing.quad) });
+      shutterRingOpacity.value = withTiming(0, { duration: 750, easing: Easing.out(Easing.quad) });
+    };
 
-      // Center crosshair rotating
-      reticleRotate.value = withRepeat(
-        withTiming(360, { duration: 2500, easing: Easing.linear }),
-        -1,
-        false
-      );
-    } else {
-      scanY.value = 0;
-      cornerPulse.value = 1;
-      reticleRotate.value = 0;
-    }
-  }, [isScanning]);
+    triggerPulse();
+    const interval = setInterval(triggerPulse, 3200);
+    return () => clearInterval(interval);
+  }, []);
 
-  const animatedScanLineStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: scanY.value }]
+  const animatedViewfinderStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: isScanning ? 1 : breatheScale.value }],
   }));
 
-  const animatedCornerStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: cornerPulse.value }]
-  }));
-
-  const animatedReticleStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${reticleRotate.value}deg` }]
-  }));
-
-  const animatedShutterStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: shutterPulse.value }]
+  const animatedShutterRingStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: shutterRingPulse.value }],
+    opacity: shutterRingOpacity.value,
   }));
 
   const processAndNavigate = async (uri: string, base64?: string | null) => {
     setIsScanning(true);
     setCapturedImageUri(uri);
+    setProcessingStage(0);
+
+    // Multi-stage text pipeline progression with smooth crossfade
+    const stage1Timer = setTimeout(() => setProcessingStage(1), 600);
+    const stage2Timer = setTimeout(() => setProcessingStage(2), 1400);
 
     try {
-      const scanResult = await submitScanImageApi(base64 || undefined, activeMode);
-      
-      // Fast transition to results screen
+      const scanResult = await submitScanImageApi(base64 || undefined, 'object');
+
+      // Finish & transition smoothly to results
       setTimeout(() => {
         setIsScanning(false);
         router.push({
@@ -112,8 +183,10 @@ export const ScanCameraScreen = () => {
             scanData: JSON.stringify(scanResult),
           },
         });
-      }, 700);
+      }, 1900);
     } catch (err) {
+      clearTimeout(stage1Timer);
+      clearTimeout(stage2Timer);
       setIsScanning(false);
       Alert.alert('Lỗi Quét AI', 'Không thể phân tích ảnh lúc này. Vui lòng thử lại.');
     }
@@ -123,13 +196,13 @@ export const ScanCameraScreen = () => {
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Cần Quyền Camera', 'Vui lòng cấp quyền truy cập Camera để sử dụng tính năng quét ảnh AI.');
+        Alert.alert('Cần Quyền Camera', 'Vui lòng cấp quyền camera trong Cài đặt để quét từ vựng.');
         return;
       }
 
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['images'],
-        quality: 0.8,
+        quality: 0.5,
         base64: true,
         allowsEditing: false,
       });
@@ -148,13 +221,13 @@ export const ScanCameraScreen = () => {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Cần Quyền Thư Viện', 'Vui lòng cấp quyền truy cập Thư viện ảnh để chọn hình quét.');
+        Alert.alert('Cần Quyền Thư Viện', 'Vui lòng cấp quyền thư viện để chọn ảnh.');
         return;
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        quality: 0.8,
+        quality: 0.5,
         base64: true,
         allowsEditing: false,
       });
@@ -169,156 +242,407 @@ export const ScanCameraScreen = () => {
     }
   };
 
+  const bracketColor = detectedTargetActive ? colors.primary : 'rgba(255, 255, 255, 0.85)';
+
   return (
-    <View className="flex-1 bg-[#090A0F] pt-12 justify-between pb-8">
-      {/* Top Header Bar */}
-      <View className="px-6 flex-row justify-between items-center z-20">
-        <Pressable
+    <View style={s.container}>
+      {/* ─── Top Header Bar ─── */}
+      <View style={s.topBar}>
+        <AnimatedPressable
           onPress={() => router.back()}
-          className="w-11 h-11 rounded-full bg-black/60 justify-center items-center backdrop-blur-md border border-gray-800"
+          onPressIn={backSpring.onPressIn}
+          onPressOut={backSpring.onPressOut}
+          style={[s.iconCircleBtn, backSpring.animatedStyle]}
         >
           <ArrowLeft color="#FFFFFF" size={20} />
-        </Pressable>
+        </AnimatedPressable>
 
-        {/* Clean Header Title Badge */}
-        <View className="bg-black/60 px-4 py-2 rounded-full border border-gray-800 backdrop-blur-md flex-row items-center gap-2 shadow-lg">
-          <Zap color="#FF6B35" size={15} fill="#FF6B35" />
-          <Text className="text-xs font-bold text-gray-100 tracking-wide">Quét Từ Vựng AI</Text>
+        {/* Minimalist AI Lens Title Badge */}
+        <View style={s.titleBadge}>
+          <Sparkles color="#FFFFFF" size={14} />
+          <Text style={s.titleBadgeText}>AI Object Scanner</Text>
         </View>
 
         <Pressable
-          onPress={() => Alert.alert('Hướng Dẫn Quét AI', 'Đưa camera hoặc chọn ảnh vật thể/văn bản. AI Gemini sẽ tự động nhận diện tối đa 5 vật thể tốt nhất và tạo thẻ từ vựng.')}
-          className="w-11 h-11 rounded-full bg-black/60 justify-center items-center backdrop-blur-md border border-gray-800"
+          onPress={() =>
+            Alert.alert(
+              'Hướng Dẫn Quét Từ Vựng',
+              'Đặt vật thể (sách, chai nước, laptop...) vào giữa khung ngắm hoặc chọn ảnh từ thư viện. AI sẽ nhận diện tối đa 5 vật thể và tạo thẻ flashcard học tập.'
+            )
+          }
+          style={s.iconCircleBtn}
         >
           <HelpCircle color="#FFFFFF" size={20} />
         </Pressable>
       </View>
 
-      {/* Main Camera Viewfinder Frame */}
-      <View className="items-center justify-center relative my-auto">
-        {/* Outer Frame Viewfinder Container */}
-        <Animated.View
-          style={animatedCornerStyle}
-          className="w-80 h-80 relative justify-center items-center rounded-3xl overflow-hidden bg-black/50 border border-white/10 shadow-2xl"
-        >
-          {/* Captured Image Preview or Live Camera Target Placeholder */}
+      {/* ─── Central Viewfinder Area ─── */}
+      <View style={s.viewfinderWrapper}>
+        <Animated.View style={[s.viewfinderBox, animatedViewfinderStyle]}>
+          {/* Captured Image Preview (SÁNG RÕ trong lúc quét, không tối om) */}
           {capturedImageUri ? (
             <RNImage
               source={{ uri: capturedImageUri }}
-              className="w-full h-full"
+              style={s.capturedImage}
               resizeMode="cover"
             />
           ) : (
-            <View className="items-center justify-center relative">
-              {/* Rotating Center Cyber HUD Target Ring */}
-              <Animated.View style={animatedReticleStyle} className="w-28 h-28 rounded-full border-2 border-dashed border-[#FF6B35]/70 justify-center items-center relative">
-                <View className="w-20 h-20 rounded-full border border-[#00F2FE]/50 justify-center items-center">
-                  <View className="w-12 h-12 rounded-full bg-[#FF6B35]/15 border border-[#FF6B35] justify-center items-center shadow-md">
-                    <Camera color="#FF6B35" size={24} />
-                  </View>
-                </View>
-                {/* HUD Compass Tick Marks */}
-                <View className="absolute -top-1 w-2 h-2 bg-[#00F2FE] rounded-full" />
-                <View className="absolute -bottom-1 w-2 h-2 bg-[#00F2FE] rounded-full" />
-                <View className="absolute -left-1 w-2 h-2 bg-[#FF6B35] rounded-full" />
-                <View className="absolute -right-1 w-2 h-2 bg-[#FF6B35] rounded-full" />
-              </Animated.View>
+            /* Live Camera Aim Space — Dark glass translucent background */
+            <View style={s.cameraAimSpace}>
+              {/* Target lock hint tag */}
+              {detectedTargetActive && (
+                <Animated.View entering={FadeIn.duration(250)} style={s.lockBadge}>
+                  <CheckCircle2 color={colors.primary} size={13} />
+                  <Text style={s.lockBadgeText}>Đã khóa mục tiêu</Text>
+                </Animated.View>
+              )}
             </View>
           )}
 
-          {/* High-Tech Glowing Corner Brackets */}
-          <View className="absolute top-3 left-3 w-8 h-8 border-t-4 border-l-4 border-[#FF6B35] rounded-tl-2xl z-20 shadow-md shadow-[#FF6B35]" />
-          <View className="absolute top-3 right-3 w-8 h-8 border-t-4 border-r-4 border-[#FF6B35] rounded-tr-2xl z-20 shadow-md shadow-[#FF6B35]" />
-          <View className="absolute bottom-3 left-3 w-8 h-8 border-b-4 border-l-4 border-[#FF6B35] rounded-bl-2xl z-20 shadow-md shadow-[#FF6B35]" />
-          <View className="absolute bottom-3 right-3 w-8 h-8 border-b-4 border-r-4 border-[#FF6B35] rounded-br-2xl z-20 shadow-md shadow-[#FF6B35]" />
+          {/* ─── PURE CORNER-ONLY BRACKETS (Google Lens Style) ─── */}
+          {/* Top-Left */}
+          <View
+            style={[
+              s.cornerBracket,
+              s.cornerTL,
+              { borderColor: bracketColor },
+            ]}
+          />
+          {/* Top-Right */}
+          <View
+            style={[
+              s.cornerBracket,
+              s.cornerTR,
+              { borderColor: bracketColor },
+            ]}
+          />
+          {/* Bottom-Left */}
+          <View
+            style={[
+              s.cornerBracket,
+              s.cornerBL,
+              { borderColor: bracketColor },
+            ]}
+          />
+          {/* Bottom-Right */}
+          <View
+            style={[
+              s.cornerBracket,
+              s.cornerBR,
+              { borderColor: bracketColor },
+            ]}
+          />
 
-          {/* Dynamic Cyber HUD Grid lines overlay */}
-          <View className="absolute inset-0 border border-white/5 opacity-25 flex-row justify-between pointer-events-none">
-            <View className="w-1/3 border-r border-white/10" />
-            <View className="w-1/3 border-r border-white/10" />
-          </View>
-
-          {/* Laser Scanning Beam & Multi-Step AI Overlay */}
-          {isScanning ? (
-            <View className="absolute inset-0 bg-black/80 items-center justify-center px-6 z-30 backdrop-blur-md">
-              {/* Dual Glowing Animated Laser Scanning Beam */}
-              <Animated.View
-                className="absolute left-0 right-0 h-1.5 bg-[#FF6B35] z-40"
-                style={[
-                  animatedScanLineStyle,
-                  {
-                    shadowColor: '#FF6B35',
-                    shadowOffset: { width: 0, height: 0 },
-                    shadowOpacity: 1,
-                    shadowRadius: 16,
-                    elevation: 12,
-                  }
-                ]}
-              />
-
-              <View className="w-16 h-16 rounded-full bg-[#FF6B35]/20 border border-[#FF6B35]/60 justify-center items-center mb-4 shadow-lg shadow-orange-500">
-                <ActivityIndicator color="#FF6B35" size="large" />
-              </View>
-
-              <Text className="text-white font-extrabold text-sm text-center mb-1 tracking-wide">
-                Đang nhận diện hình ảnh...
-              </Text>
-            </View>
-          ) : (
-            /* Vertical Laser Beam moving subtly when ready */
-            <Animated.View
-              className="absolute left-0 right-0 h-0.5 bg-[#FF6B35]/60 z-10 opacity-70"
-              style={[
-                animatedScanLineStyle,
-                {
-                  shadowColor: '#FF6B35',
-                  shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: 0.8,
-                  shadowRadius: 8,
-                }
-              ]}
-            />
-          )}
+          {/* ─── REAL SCAN LINE OVERLAY (Khi đang xử lý ảnh vừa chụp) ─── */}
+          {isScanning && <ScanLaserBeam height={VIEWFINDER_SIZE} />}
         </Animated.View>
+
+        {/* Dynamic Multi-Step Pipeline Text Bar */}
+        {isScanning ? (
+          <View style={s.processingPill}>
+            <View style={s.spinnerDot} />
+            <Text style={s.processingText}>
+              {STAGE_TEXTS[processingStage]}
+            </Text>
+          </View>
+        ) : (
+          <Text style={s.viewfinderHint}>
+            Căn chỉnh vật thể vào khung ngắm để AI nhận diện
+          </Text>
+        )}
       </View>
 
-      {/* Bottom Shutter Controls & Gallery Upload */}
-      <View className="items-center px-6 z-20 w-full mb-2">
-        {/* Controls Row */}
-        <View className="w-full flex-row justify-between items-center px-6">
+      {/* ─── Bottom Shutter & Tool Controls ─── */}
+      <View style={s.bottomControls}>
+        <View style={s.controlsRow}>
           {/* Flash Toggle */}
-          <Pressable
+          <AnimatedPressable
             onPress={() => setIsFlashOn(!isFlashOn)}
-            className={`w-13 h-13 rounded-2xl justify-center items-center border ${
-              isFlashOn ? 'bg-[#FF6B35]/20 border-[#FF6B35]' : 'bg-gray-900/90 border-gray-800'
-            }`}
+            onPressIn={flashSpring.onPressIn}
+            onPressOut={flashSpring.onPressOut}
+            style={[
+              s.auxToolBtn,
+              isFlashOn && s.auxToolBtnActive,
+              flashSpring.animatedStyle,
+            ]}
           >
-            <Flashlight color={isFlashOn ? '#FF6B35' : '#FFFFFF'} size={22} />
-          </Pressable>
+            <Flashlight color={isFlashOn ? colors.primary : '#FFFFFF'} size={22} />
+          </AnimatedPressable>
 
-          {/* Shutter Capture Button */}
-          <Animated.View style={animatedShutterStyle}>
-            <Pressable
+          {/* Shutter Capture Button with 3s Periodic Pulse Ring */}
+          <View style={s.shutterContainer}>
+            {/* Ambient Pulse Ring */}
+            {!isScanning && (
+              <Animated.View style={[s.pulseRing, animatedShutterRingStyle]} />
+            )}
+
+            <AnimatedPressable
               onPress={handleCaptureCamera}
               disabled={isScanning}
-              className="w-22 h-22 rounded-full border-4 border-white/90 justify-center items-center active:scale-95 shadow-2xl"
+              onPressIn={shutterSpring.onPressIn}
+              onPressOut={shutterSpring.onPressOut}
+              style={[s.shutterOuterBtn, shutterSpring.animatedStyle]}
             >
-              <View className="w-18 h-18 rounded-full bg-[#FF6B35] justify-center items-center shadow-lg shadow-orange-600">
+              <View style={s.shutterInnerCircle}>
                 <Scan color="#FFFFFF" size={28} />
               </View>
-            </Pressable>
-          </Animated.View>
+            </AnimatedPressable>
+          </View>
 
-          {/* Image Gallery Upload Button */}
-          <Pressable
+          {/* Image Library Picker */}
+          <AnimatedPressable
             onPress={handlePickLibrary}
             disabled={isScanning}
-            className="w-13 h-13 rounded-2xl overflow-hidden border border-gray-800 bg-gray-900/90 justify-center items-center active:bg-gray-800"
+            onPressIn={gallerySpring.onPressIn}
+            onPressOut={gallerySpring.onPressOut}
+            style={[s.auxToolBtn, gallerySpring.animatedStyle]}
           >
             <ImageIcon color="#FFFFFF" size={22} />
-          </Pressable>
+          </AnimatedPressable>
         </View>
       </View>
     </View>
   );
 };
+
+const s = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0A0A12',
+    justifyContent: 'space-between',
+    paddingTop: Platform.OS === 'ios' ? 54 : 44,
+    paddingBottom: Platform.OS === 'ios' ? 44 : 32,
+  },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    zIndex: 30,
+  },
+  iconCircleBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+  },
+  titleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+  },
+  titleBadgeText: {
+    fontSize: 13,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
+  viewfinderWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 'auto',
+  },
+  viewfinderBox: {
+    width: VIEWFINDER_SIZE,
+    height: VIEWFINDER_SIZE,
+    borderRadius: 24,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: 'rgba(25, 26, 40, 0.45)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  capturedImage: {
+    width: '100%',
+    height: '100%',
+  },
+  cameraAimSpace: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lockBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  lockBadgeText: {
+    fontSize: 11,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  cornerBracket: {
+    position: 'absolute',
+    width: CORNER_SIZE,
+    height: CORNER_SIZE,
+    zIndex: 20,
+  },
+  cornerTL: {
+    top: 10,
+    left: 10,
+    borderTopWidth: CORNER_WIDTH,
+    borderLeftWidth: CORNER_WIDTH,
+    borderTopLeftRadius: CORNER_RADIUS,
+  },
+  cornerTR: {
+    top: 10,
+    right: 10,
+    borderTopWidth: CORNER_WIDTH,
+    borderRightWidth: CORNER_WIDTH,
+    borderTopRightRadius: CORNER_RADIUS,
+  },
+  cornerBL: {
+    bottom: 10,
+    left: 10,
+    borderBottomWidth: CORNER_WIDTH,
+    borderLeftWidth: CORNER_WIDTH,
+    borderBottomLeftRadius: CORNER_RADIUS,
+  },
+  cornerBR: {
+    bottom: 10,
+    right: 10,
+    borderBottomWidth: CORNER_WIDTH,
+    borderRightWidth: CORNER_WIDTH,
+    borderBottomRightRadius: CORNER_RADIUS,
+  },
+  laserBeamContainer: {
+    position: 'absolute',
+    left: 0,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 25,
+  },
+  laserVeil: {
+    position: 'absolute',
+    width: '100%',
+    height: 38,
+    backgroundColor: colors.primarySoft,
+    opacity: 0.28,
+  },
+  laserLine: {
+    width: '100%',
+    height: 2.5,
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  processingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  spinnerDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
+  },
+  processingText: {
+    fontSize: 13,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
+  viewfinderHint: {
+    marginTop: 20,
+    fontSize: 12,
+    fontFamily: font.family,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.65)',
+    textAlign: 'center',
+  },
+  bottomControls: {
+    paddingHorizontal: 28,
+    zIndex: 20,
+  },
+  controlsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  auxToolBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+  },
+  auxToolBtnActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: colors.primary,
+  },
+  shutterContainer: {
+    width: 86,
+    height: 86,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  pulseRing: {
+    position: 'absolute',
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  shutterOuterBtn: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    borderWidth: 3.5,
+    borderColor: '#FFFFFF',
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shutterInnerCircle: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+});

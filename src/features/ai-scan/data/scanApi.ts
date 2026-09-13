@@ -41,33 +41,34 @@ export const submitScanImageApi = async (
   objects: DetectedObjectItem[];
 }> => {
   const uid = userId || getCurrentUserId();
+  const cleanBase64 = base64Image?.includes(',') ? base64Image.split(',')[1] : base64Image;
+
   try {
     const response = await apiClient.post<any>(`/api/v1/ai-practice/image-scan/analyze?userId=${uid}`, {
-      imageUrl: base64Image ? `data:image/jpeg;base64,${base64Image.substring(0, 100)}...` : 'https://cdn.smartenglish.com/scans/desk_workspace.jpg',
-      sourceType: 'CAMERA',
-      maxObjects: 5
+      imageBase64: cleanBase64,
+      source: mode === 'document' ? 'GALLERY' : 'CAMERA'
     });
 
     const data = response.data?.data || response.data;
     if (data && data.detectedObjects && Array.isArray(data.detectedObjects)) {
       return {
-        scan_id: String(data.scanId || 1),
+        scan_id: String(data.scanId || Date.now()),
         detected_count: data.detectedCount || data.detectedObjects.length,
         objects: data.detectedObjects.map((item: any, idx: number) => {
-          const ex = item.examples || {};
+          const ex = item.generatedExamples || item.examples || {};
           return {
             id: String(item.id || idx + 1),
-            word_id: String(item.wordId || idx + 101),
-            word: ex.wordEn || 'Vocabulary Item',
-            phonetic: ex.ipaUs || '/ˈlæp.tɑːp/',
+            word_id: String(item.wordId || item.id || `w-${idx + 101}`),
+            word: ex.wordEn || item.word || 'Vocabulary Item',
+            phonetic: ex.ipaUs || item.phonetic || '/.../',
             pos: 'Noun',
-            confidence: item.confidence || 0.95,
-            bounding_box: item.boundingBox || { x: 100, y: 150, width: 200, height: 150 },
-            meaning_vi: ex.wordVi || 'Từ vựng tiếng Việt',
+            confidence: item.confidence ? Number(item.confidence) : 0.95,
+            bounding_box: item.boundingBox || { x: 40 + idx * 50, y: 50 + idx * 40, width: 150, height: 120 },
+            meaning_vi: ex.wordVi || item.meaning_vi || 'Từ vựng tiếng Việt',
             examples: {
-              easy: ex.sentenceEn || 'This is a sample sentence.',
-              medium: ex.sentenceVi || 'Đây là câu ví dụ tiếng Việt.',
-              hard: 'Mastering words like this enhances your academic fluency.'
+              easy: ex.sentenceEn || `Example sentence for ${ex.wordEn || 'word'}.`,
+              medium: ex.sentenceVi || `Ví dụ câu tiếng Việt.`,
+              hard: 'Mastering words like this enhances your fluency.'
             }
           };
         })
@@ -77,9 +78,9 @@ export const submitScanImageApi = async (
     console.warn('Real Image Scan API error, falling back to Gemini client / mock:', err);
   }
 
-  if (base64Image && base64Image.trim() !== '') {
+  if (cleanBase64 && cleanBase64.trim() !== '') {
     try {
-      const aiResult = await analyzeImageWithGemini(base64Image, mode);
+      const aiResult = await analyzeImageWithGemini(cleanBase64, mode);
       if (aiResult.success && aiResult.objects && aiResult.objects.length > 0) {
         return {
           scan_id: `scan-${Date.now()}`,
@@ -108,7 +109,7 @@ export const submitScanImageApi = async (
 
   return {
     scan_id: `scan-${Date.now()}`,
-    detected_count: 2,
+    detected_count: 4,
     objects: [
       {
         id: '101',
@@ -139,17 +140,49 @@ export const submitScanImageApi = async (
           medium: 'Một tách cà phê nóng đặt bên cạnh bàn phím.',
           hard: 'Coffee helps maintain focus during long study sessions.'
         }
+      },
+      {
+        id: '103',
+        word_id: '103',
+        word: 'Notebook',
+        phonetic: "/ˈnoʊt.bʊk/",
+        pos: 'Noun',
+        confidence: 0.91,
+        bounding_box: { x: 60, y: 240, width: 150, height: 120 },
+        meaning_vi: 'Sổ tay ghi chép',
+        examples: {
+          easy: 'He wrote important notes in his notebook.',
+          medium: 'Anh ấy viết ghi chú vào sổ tay.',
+          hard: 'Keeping a notebook organizes your daily learning.'
+        }
+      },
+      {
+        id: '104',
+        word_id: '104',
+        word: 'Headphones',
+        phonetic: "/ˈhed.foʊnz/",
+        pos: 'Noun',
+        confidence: 0.88,
+        bounding_box: { x: 220, y: 150, width: 120, height: 120 },
+        meaning_vi: 'Tai nghe chụp tai',
+        examples: {
+          easy: 'Headphones help her concentrate while listening.',
+          medium: 'Tai nghe giúp cô ấy tập trung nghe tiếng Anh.',
+          hard: 'Noise-canceling headphones enhance focus.'
+        }
       }
     ]
   };
 };
 
-export const saveScanWordsToDeckApi = async (deckId: number, detectedObjectIds: number[], userId?: string) => {
+export const saveScanWordsToDeckApi = async (deckId: number | string, detectedObjectIds: (number | string)[], userId?: string) => {
   const uid = userId || getCurrentUserId();
   try {
+    const numericDeckId = typeof deckId === 'number' ? deckId : parseInt(deckId.replace(/\D/g, '')) || 1;
+    const numericObjectIds = detectedObjectIds.map(id => typeof id === 'number' ? id : parseInt(String(id).replace(/\D/g, '')) || 1);
     const response = await apiClient.post<any>(`/api/v1/ai-practice/image-scan/save-to-deck?userId=${uid}`, {
-      deckId,
-      detectedObjectIds
+      deckId: numericDeckId,
+      detectedObjectIds: numericObjectIds
     });
     return response.data;
   } catch (err) {
@@ -157,3 +190,4 @@ export const saveScanWordsToDeckApi = async (deckId: number, detectedObjectIds: 
     return { success: true };
   }
 };
+
