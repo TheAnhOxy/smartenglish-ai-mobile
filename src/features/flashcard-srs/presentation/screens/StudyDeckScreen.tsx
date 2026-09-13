@@ -31,11 +31,13 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Speech from 'expo-speech';
 import { useAuthStore } from '@/src/core/flows/authStore';
-import { palette, font } from '@/src/theme';
+import { colors, palette, font, spring } from '@/src/theme';
 import { exploreWordsApi } from '../../data/vocabularyApi';
 import { fetchDeckByIdApi, submitSrsReviewApi } from '../../data/deckApi';
+import { useDeckStore } from '../../data/deckStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 const SWIPE_THRESHOLD = 90;
 
 export interface StudyCard {
@@ -126,14 +128,14 @@ export const StudyDeckScreen = () => {
           if (deckDetail) {
             if (deckDetail.name) setTopicTitle(deckDetail.name);
             if (deckDetail.cards && deckDetail.cards.length > 0) {
-              cards = deckDetail.cards.map((c, idx) => {
+              cards = deckDetail.cards.map((c: any, idx: number) => {
                 const frontParts = (c.customFront || '').trim().split(/\s{2,}|\t|\//);
                 const wordText = frontParts[0]?.replace('/', '').trim() || `Từ #${idx + 1}`;
                 const ipaText = c.customFront?.includes('/') ? '/' + c.customFront.split('/')[1] + '/' : '';
 
                 const backLines = (c.customBack || '').split('\n');
                 const meaningText = backLines[0] || 'Nghĩa từ vựng';
-                const exampleLine = backLines.find((l) =>
+                const exampleLine = backLines.find((l: string) =>
                   l.toLowerCase().startsWith('ví dụ:') || l.toLowerCase().startsWith('example:')
                 );
                 const exampleText = exampleLine ? exampleLine.replace(/^(ví dụ:|example:)\s*/i, '') : '';
@@ -157,7 +159,30 @@ export const StudyDeckScreen = () => {
           }
         }
 
+        // 3. Fallback: if cards is empty, load from local deckStore savedWords
+        if (cards.length === 0 && deckId) {
+          const { savedWords, decks } = useDeckStore.getState();
+          const targetDeck = decks.find((d: any) => d.id === deckId);
+          if (targetDeck) setTopicTitle(targetDeck.name);
+
+          const localSaved = savedWords.filter((w: any) => w.deck_id === deckId);
+          if (localSaved.length > 0) {
+            cards = localSaved.map((w: any, idx: number) => ({
+              id: w.id || String(idx + 1),
+              word: w.word,
+              ipa: w.phonetic || '',
+              type: w.pos || 'Từ vựng',
+              cefrLevel: 'B1',
+              meaning: w.meaning_vi || 'Nghĩa từ vựng',
+              example: w.examples?.easy || w.examples?.medium || `Learn to use "${w.word}" in daily conversation.`,
+              exampleVi: w.examples?.medium || '',
+            }));
+          }
+        }
+
+
         if (isMounted) {
+
           setStudyQueue(cards);
         }
       } catch (err) {
@@ -224,7 +249,7 @@ export const StudyDeckScreen = () => {
         cardId: card.cardId,
         rating,
         userId: currentUser?.id?.toString(),
-      }).catch((e) => console.log('SRS submit error:', e));
+      }).catch((e: any) => console.log('SRS submit error:', e));
     }
 
     translateX.value = 0;
@@ -396,7 +421,7 @@ export const StudyDeckScreen = () => {
         </View>
 
         <View style={styles.streakBadge}>
-          <Flame color={palette.accent} size={14} fill={palette.accent} />
+          <Flame color={colors.streak} size={14} fill={colors.streak} />
           <Text style={styles.streakText}>4 Ngày</Text>
         </View>
       </View>
@@ -601,7 +626,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(67, 59, 255, 0.08)',
+    backgroundColor: colors.streakSoft,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 12,
@@ -610,7 +635,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: font.family,
     fontWeight: '700',
-    color: palette.text,
+    color: colors.streakDeep,
   },
   progressSection: {
     marginBottom: 10,
@@ -833,7 +858,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   speakerBtnActive: {
-    backgroundColor: palette.accent,
+    backgroundColor: colors.primaryDeep,
     transform: [{ scale: 1.05 }],
   },
   speakerHint: {

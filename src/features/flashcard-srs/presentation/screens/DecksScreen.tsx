@@ -33,7 +33,8 @@ import {
   DeckItemDTO,
 } from '../../data/deckApi';
 import { getTopicsApi } from '../../data/vocabularyApi';
-import { palette, font } from '@/src/theme';
+import { colors, palette, font } from '@/src/theme';
+import { DatabaseLoader } from '@/src/components/ui/DatabaseLoader';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - 48 - 12) / 2;
@@ -177,7 +178,7 @@ export const DecksScreen = () => {
         <Text style={styles.headerTitle}>SmartEnglish AI</Text>
 
         <Pressable onPress={handleOpenPremium} style={styles.zapBtn}>
-          <Zap color="#C23B00" size={20} fill="#C23B00" />
+          <Zap color={colors.xpDeep} size={20} fill={colors.xpDeep} />
         </Pressable>
       </View>
 
@@ -190,7 +191,7 @@ export const DecksScreen = () => {
 
         {activeTab === 'MY_DECKS' && (
           <Pressable onPress={() => setShowCreateModal(true)} style={styles.createBadgeBtn}>
-            <Plus color="#FF6B35" size={14} />
+            <Plus color={colors.primary} size={14} />
             <Text style={styles.createBadgeText}>Tạo Thẻ</Text>
           </Pressable>
         )}
@@ -202,7 +203,7 @@ export const DecksScreen = () => {
           onPress={() => setActiveTab('SYSTEM')}
           style={[styles.segmentBtn, activeTab === 'SYSTEM' && styles.segmentBtnActive]}
         >
-          <Layers color={activeTab === 'SYSTEM' ? '#FF6B35' : '#64748B'} size={16} />
+          <Layers color={activeTab === 'SYSTEM' ? colors.primary : colors.textSoft} size={16} />
           <Text style={[styles.segmentBtnText, activeTab === 'SYSTEM' && styles.segmentBtnTextActive]}>
             Chủ Đề Hệ Thống
           </Text>
@@ -212,19 +213,20 @@ export const DecksScreen = () => {
           onPress={() => setActiveTab('MY_DECKS')}
           style={[styles.segmentBtn, activeTab === 'MY_DECKS' && styles.segmentBtnActive]}
         >
-          <BookOpen color={activeTab === 'MY_DECKS' ? '#FF6B35' : '#64748B'} size={16} />
+          <BookOpen color={activeTab === 'MY_DECKS' ? colors.primary : colors.textSoft} size={16} />
           <Text style={[styles.segmentBtnText, activeTab === 'MY_DECKS' && styles.segmentBtnTextActive]}>
             Bộ Thẻ Của Tôi ({myDecks.length})
           </Text>
         </Pressable>
       </View>
 
-      {/* Loading state */}
+      {/* Loading state với custom DatabaseLoader */}
       {loading ? (
-        <View style={styles.loadingBox}>
-          <ActivityIndicator size="large" color="#FF6B35" />
-          <Text style={styles.loadingText}>Đang tải danh sách bộ thẻ từ máy chủ...</Text>
-        </View>
+        <DatabaseLoader
+          message="Đang tải danh sách bộ thẻ..."
+          subMessage="Đồng bộ tiến độ học tập với đám mây"
+          size="sm"
+        />
       ) : (
         /* Decks 2x2 Grid */
         <View style={styles.gridContainer}>
@@ -337,7 +339,7 @@ export const DecksScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAF9',
+    backgroundColor: colors.bg,
   },
   scrollContent: {
     paddingTop: 16,
@@ -355,19 +357,19 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#9A2C00',
+    color: colors.primary,
     letterSpacing: -0.3,
   },
   zapBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: colors.xpSoft,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -383,12 +385,12 @@ const styles = StyleSheet.create({
   screenTitle: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#1E293B',
+    color: colors.text,
     letterSpacing: -0.5,
   },
   screenSub: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textSoft,
     marginTop: 4,
     fontWeight: '500',
   },
@@ -396,21 +398,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: colors.primarySoft,
   },
   createBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FF6B35',
+    color: colors.primary,
   },
   segmentedContainer: {
     flexDirection: 'row',
-    backgroundColor: '#E2E8F0',
+    backgroundColor: colors.surfaceMuted,
     padding: 4,
     borderRadius: 16,
     marginBottom: 20,
@@ -425,20 +427,20 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   segmentBtnActive: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
+    backgroundColor: colors.surface,
+    shadowColor: colors.text,
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 2,
     elevation: 2,
   },
   segmentBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#64748B',
+    color: colors.textSoft,
   },
   segmentBtnTextActive: {
-    color: '#FF6B35',
+    color: colors.primary,
   },
   loadingBox: {
     paddingVertical: 48,
