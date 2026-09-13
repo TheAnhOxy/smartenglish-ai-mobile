@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
+import { colors } from '@/src/theme';
 
 const CHALLENGE_TASKS = [
   { id: 't1', title: 'Ôn 15 Thẻ Từ Vựng SRS', xp: 15, done: true },
@@ -35,8 +36,8 @@ export const DailyChallengeScreen = () => {
                   {task.title}
                 </Text>
               </View>
-              <View className="bg-accent/20 px-2.5 py-1 rounded-full">
-                <Text className="text-xs font-bold text-amber-700">+{task.xp} XP</Text>
+              <View style={{ backgroundColor: colors.xpSoft, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: colors.xpBorder }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: colors.xpDeep }}>+{task.xp} XP</Text>
               </View>
             </View>
           ))}

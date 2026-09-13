@@ -37,7 +37,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import Svg, { Polygon, Line, Circle, Path, Defs, LinearGradient, Stop } from 'react-native-svg';
-import { palette } from '@/src/theme/colors';
+import { colors, palette } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -265,7 +265,7 @@ export const AnalyticsScreen = () => {
             {/* Streak Navy Card (Matching Screenshot) */}
             <Animated.View entering={FadeInDown.delay(100)} style={s.streakNavyCard}>
               <View style={s.streakFlameCircle}>
-                <Flame color="#00BCD4" size={26} fill="#00BCD4" />
+                <Flame color={colors.streak} size={26} fill={colors.streak} />
               </View>
 
               <Text style={s.streakMainTitle}>🔥 15 ngày liên tiếp</Text>
@@ -744,8 +744,8 @@ const s = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   streakCheckSquareActive: {
-    backgroundColor: palette.accent,
-    borderColor: palette.accent,
+    backgroundColor: colors.streak,
+    borderColor: colors.streak,
   },
 
   // 3 Summary Stat Cards Row

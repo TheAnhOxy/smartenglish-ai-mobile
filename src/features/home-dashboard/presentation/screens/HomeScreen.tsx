@@ -23,7 +23,7 @@ import { useAuthStore } from '@/src/core/flows/authStore';
 import { LoxeraFoxMascot } from '@/src/core/components/LoxeraFoxMascot';
 import { speakText } from '@/src/core/services/speechService';
 import { useDeckStore } from '@/src/features/flashcard-srs/data/deckStore';
-import { palette, font } from '@/src/theme';
+import { colors, palette, font } from '@/src/theme';
 import { usePressSpring } from '@/src/hooks/usePressSpring';
 import { useStaggerReveal } from '@/src/hooks/useStaggerReveal';
 
@@ -103,18 +103,18 @@ export const HomeScreen = () => {
         </Pressable>
       </Animated.View>
 
-      {/* Stats Bar */}
+      {/* Stats Bar — Họ màu ấm tách biệt với Brand */}
       <Animated.View style={[s.statsBar, animStats]}>
-        {/* Streak */}
+        {/* Streak: Lửa cam + nền streakSoft */}
         <View style={s.streakChip}>
-          <Flame color={palette.accent} size={18} fill={palette.accent} />
+          <Flame color={colors.streak} size={18} fill={colors.streak} />
           <Text style={s.streakText}>{userStats?.streak_current ?? 0} ngày</Text>
         </View>
 
-        {/* XP Progress */}
+        {/* XP Progress: Vàng-cam + nền xpSoft */}
         <View style={s.xpSection}>
           <View style={s.xpRow}>
-            <Zap color={palette.accent} size={14} fill={palette.accent} />
+            <Zap color={colors.xpDeep} size={14} fill={colors.xpDeep} />
             <Text style={s.xpText}>{(userStats?.xp_total ?? 0).toLocaleString('vi-VN')} XP</Text>
             <Text style={s.levelTag}>LVL {userStats?.level ?? 1}</Text>
           </View>
@@ -123,9 +123,9 @@ export const HomeScreen = () => {
           </View>
         </View>
 
-        {/* Coins */}
+        {/* Coins: Vàng kim + nền coinSoft */}
         <View style={s.coinChip}>
-          <Coins color={palette.primary} size={16} />
+          <Coins color={colors.coin} size={16} />
           <Text style={s.coinText}>{userStats?.coins ?? 0}</Text>
         </View>
       </Animated.View>
@@ -408,7 +408,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(67, 59, 255, 0.08)',
+    backgroundColor: colors.streakSoft,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
@@ -417,7 +417,7 @@ const s = StyleSheet.create({
     fontSize: 12,
     fontFamily: font.family,
     fontWeight: '700',
-    color: palette.text,
+    color: colors.streakDeep,
   },
   xpSection: {
     flex: 1,
@@ -434,31 +434,31 @@ const s = StyleSheet.create({
     fontSize: 12,
     fontFamily: font.family,
     fontWeight: '700',
-    color: palette.accent,
+    color: colors.xpDeep,
   },
   levelTag: {
     fontSize: 10,
     fontFamily: font.family,
     fontWeight: '600',
-    color: palette.textSoft,
+    color: colors.textSoft,
   },
   xpProgressBg: {
     width: '100%',
     height: 6,
-    backgroundColor: palette.primarySoft,
+    backgroundColor: colors.xpSoft,
     borderRadius: 3,
     overflow: 'hidden',
   },
   xpProgressFill: {
     height: '100%',
-    backgroundColor: palette.accent,
+    backgroundColor: colors.xp,
     borderRadius: 3,
   },
   coinChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(227, 166, 62, 0.1)',
+    backgroundColor: colors.coinSoft,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
@@ -467,7 +467,7 @@ const s = StyleSheet.create({
     fontSize: 12,
     fontFamily: font.family,
     fontWeight: '700',
-    color: palette.warning,
+    color: colors.coin,
   },
   heroBanner: {
     backgroundColor: palette.primary,
