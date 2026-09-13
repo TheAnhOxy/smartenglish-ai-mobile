@@ -1,7 +1,9 @@
 import React from 'react';
-import { View, Text, FlatList, Image, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, Image, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useLeagueLeaderboardQuery } from '../../application/useGamification';
+import { colors } from '@/src/theme';
+import { DatabaseLoader } from '@/src/components/ui/DatabaseLoader';
 
 export const LeagueScreen = () => {
   const router = useRouter();
@@ -20,10 +22,10 @@ export const LeagueScreen = () => {
 
         <Pressable
           onPress={() => router.push('/(student)/shop' as any)}
-          className="bg-accent/20 px-3.5 py-1.5 rounded-full border border-accent/40 flex-row items-center gap-1"
+          style={{ backgroundColor: '#DEDCFF', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 4 }}
         >
-          <Text className="text-xs">🛒</Text>
-          <Text className="text-xs font-bold text-amber-700">Cửa Hàng</Text>
+          <Text style={{ fontSize: 12 }}>🛒</Text>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: '#2F27CE' }}>Cửa Hàng</Text>
         </Pressable>
       </View>
 
@@ -55,7 +57,9 @@ export const LeagueScreen = () => {
       </View>
 
       {isLoading ? (
-        <ActivityIndicator color="#FF6B35" size="large" />
+        <View className="py-12 items-center">
+          <DatabaseLoader size="md" message="Đang tải bảng xếp hạng..." />
+        </View>
       ) : (
         <FlatList
           data={memberList}

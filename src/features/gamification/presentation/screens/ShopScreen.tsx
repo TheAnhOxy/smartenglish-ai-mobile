@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
+import { colors } from '@/src/theme';
 
 const SHOP_ITEMS = [
   { id: 'item-1', name: 'Đông Băng Streak (Streak Freeze)', desc: 'Bảo vệ chuỗi Streak trong 1 ngày bỏ lỡ học', price: 200, icon: '❄️' },
@@ -29,9 +30,9 @@ export const ShopScreen = () => {
               <Text className="text-xs text-neutralGray mb-2">{item.desc}</Text>
               <Pressable
                 onPress={() => alert(`Đã mua ${item.name} thành công!`)}
-                className="bg-accent/20 px-3.5 py-1.5 rounded-full border border-accent/40 self-start"
+                style={{ backgroundColor: colors.coinSoft, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: colors.coinBorder, alignSelf: 'flex-start' }}
               >
-                <Text className="text-xs font-bold text-amber-700">Mua ({item.price} 🪙)</Text>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: colors.coinDeep }}>Mua ({item.price} 🪙)</Text>
               </Pressable>
             </View>
           </View>
