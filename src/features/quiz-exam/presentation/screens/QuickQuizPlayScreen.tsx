@@ -12,7 +12,7 @@ import Animated, {
   withSpring,
   FadeInDown,
 } from 'react-native-reanimated';
-import { palette } from '@/src/theme/colors';
+import { colors, palette } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
 import { usePressSpring } from '@/src/hooks/usePressSpring';
 
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     backgroundColor: palette.primary,
   },
   dotCompleted: {
-    backgroundColor: palette.accent,
+    backgroundColor: colors.success,
   },
   timerBadge: {
     flexDirection: 'row',
@@ -424,16 +424,16 @@ const styles = StyleSheet.create({
     backgroundColor: palette.primarySoft,
   },
   optionCorrect: {
-    borderColor: palette.success,
-    backgroundColor: '#ECFDF5',
+    borderColor: colors.success,
+    backgroundColor: colors.successSoft,
   },
   optionCorrectHint: {
-    borderColor: palette.success,
+    borderColor: colors.success,
     borderStyle: 'dashed',
   },
   optionWrong: {
-    borderColor: palette.danger,
-    backgroundColor: '#FEF2F2',
+    borderColor: colors.danger,
+    backgroundColor: colors.dangerSoft,
   },
   optionDimmed: {
     opacity: 0.45,
