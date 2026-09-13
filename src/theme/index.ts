@@ -1,8 +1,9 @@
-import { palette } from './colors';
+import { colors, palette } from './colors';
+import { spring, timing, easings } from './motion';
 import { font } from './typography';
 
 export const theme = {
-  colors: palette,
+  colors,
   font,
   radius: {
     xs: 8,
@@ -33,7 +34,15 @@ export const theme = {
       shadowRadius: 16,
       elevation: 4,
     },
+    warm: {
+      shadowColor: '#FF7A45',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.2,
+      shadowRadius: 12,
+      elevation: 3,
+    },
   },
 };
 
-export { palette, font };
+export { colors, palette, spring, timing, easings, font };
+export * from './detection';
