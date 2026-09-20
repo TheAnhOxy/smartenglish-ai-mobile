@@ -6,7 +6,8 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
-  StyleSheet
+  StyleSheet,
+  Linking
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -19,7 +20,10 @@ import {
   Award,
   Clock,
   Check,
-  X
+  X,
+  Video,
+  Play,
+  ExternalLink
 } from 'lucide-react-native';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import {
@@ -28,6 +32,31 @@ import {
   LessonDetailData
 } from '@/src/features/learning-path/data/knowledgeGapApi';
 import { palette } from '@/src/theme';
+
+const flattenDialogues = (dialogues: any[]): Array<{ speaker: string; textEn: string; textVi: string }> => {
+  if (!Array.isArray(dialogues)) return [];
+  const result: Array<{ speaker: string; textEn: string; textVi: string }> = [];
+  for (const item of dialogues) {
+    if (!item) continue;
+    if (Array.isArray(item.lines)) {
+      for (const line of item.lines) {
+        if (!line) continue;
+        result.push({
+          speaker: String(line.speaker || 'A'),
+          textEn: String(line.text || line.textEn || ''),
+          textVi: String(line.translation || line.textVi || ''),
+        });
+      }
+    } else {
+      result.push({
+        speaker: String(item.speaker || 'A'),
+        textEn: String(item.textEn || item.text || ''),
+        textVi: String(item.textVi || item.translation || ''),
+      });
+    }
+  }
+  return result;
+};
 
 export const LessonDetailScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -69,14 +98,21 @@ export const LessonDetailScreen = () => {
       const res = await completeLessonApi(id || 'u-1', currentUser?.id?.toString());
       if (res && res.isCompleted) {
         setIsCompleted(true);
+        const xp = Number(res.xpEarned || 0);
+        const coins = Number(res.coinsEarned || 0);
+        if (xp > 0 || coins > 0) {
+          useAuthStore.getState().addReward(xp, coins);
+        }
         setEarnedModal({
-          xp: res.xpEarned || 30,
-          coins: res.coinsEarned || 10,
-          message: res.congratulationMessage || 'Chúc mừng bạn đã hoàn thành bài học!'
+          xp,
+          coins,
+          message: res.congratulationMessage || (xp > 0 
+            ? 'Chúc mừng bạn đã hoàn thành xuất sắc bài học!' 
+            : 'Bạn đã hoàn thành bài học này trước đó rồi! Hệ thống đã ghi nhận tiến độ ôn tập của bạn.')
         });
       } else {
         setIsCompleted(true);
-        Alert.alert('Thành công!', 'Bạn đã hoàn thành bài học và nhận được +30 XP!');
+        Alert.alert('Hoàn thành', 'Hệ thống đã lưu tiến độ bài học của bạn!');
         router.back();
       }
     } catch (err) {
@@ -147,6 +183,43 @@ export const LessonDetailScreen = () => {
             <Text style={s.summaryText}>{lesson.summaryVi}</Text>
           )}
         </View>
+
+        {/* Video Bài Giảng Trực Tuyến */}
+        {lesson.videos && lesson.videos.length > 0 && (
+          <View style={s.section}>
+            <View style={s.sectionHeader}>
+              <View style={[s.sectionTag, { backgroundColor: '#FEE2E2' }]}>
+                <Video size={16} color="#DC2626" />
+              </View>
+              <Text style={s.sectionTitle}>Video Bài Giảng Thực Tế</Text>
+            </View>
+
+            {lesson.videos.map((vid, vIdx) => (
+              <View key={vIdx} style={s.videoCard}>
+                <View style={s.videoCardTop}>
+                  <View style={s.videoIconBox}>
+                    <Play size={20} color="#FFFFFF" fill="#FFFFFF" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={s.videoTitle} numberOfLines={2}>{vid.title || 'Video hướng dẫn học'}</Text>
+                    <Text style={s.videoSubtitle}>
+                      {vid.isR2 ? 'Video Cloud R2 • Tốc độ cao' : 'YouTube Video • Trực quan'}
+                      {vid.durationSeconds ? ` • ${Math.round(vid.durationSeconds / 60)} phút` : ''}
+                    </Text>
+                  </View>
+                </View>
+                <Pressable
+                  onPress={() => vid.videoUrl && Linking.openURL(vid.videoUrl)}
+                  style={s.playVideoBtn}
+                >
+                  <Play size={16} color="#FFFFFF" fill="#FFFFFF" />
+                  <Text style={s.playVideoBtnText}>Mở Xem Video Ngay</Text>
+                  <ExternalLink size={14} color="#FFFFFF" style={{ marginLeft: 6 }} />
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* 1. Lý Thuyết Trọng Tâm & Ngữ Pháp */}
         {lesson.grammarNotes && lesson.grammarNotes.length > 0 && (
@@ -231,18 +304,22 @@ export const LessonDetailScreen = () => {
             </View>
 
             <View style={s.dialogueContainer}>
-              {lesson.dialogues.map((dlg, idx) => (
-                <View key={idx} style={s.dialogueTurn}>
-                  <View style={s.speakerAvatar}>
-                    <Text style={s.speakerInitial}>{dlg.speaker.charAt(0).toUpperCase()}</Text>
+              {flattenDialogues(lesson.dialogues).map((dlg, idx) => {
+                const speakerName = dlg.speaker || 'Speaker';
+                const initial = speakerName.trim().length > 0 ? speakerName.trim().charAt(0).toUpperCase() : 'A';
+                return (
+                  <View key={idx} style={s.dialogueTurn}>
+                    <View style={s.speakerAvatar}>
+                      <Text style={s.speakerInitial}>{initial}</Text>
+                    </View>
+                    <View style={s.dialogueBubble}>
+                      <Text style={s.speakerName}>{speakerName}</Text>
+                      <Text style={s.dialogueEn}>{dlg.textEn}</Text>
+                      {Boolean(dlg.textVi) && <Text style={s.dialogueVi}>{dlg.textVi}</Text>}
+                    </View>
                   </View>
-                  <View style={s.dialogueBubble}>
-                    <Text style={s.speakerName}>{dlg.speaker}</Text>
-                    <Text style={s.dialogueEn}>{dlg.textEn}</Text>
-                    <Text style={s.dialogueVi}>{dlg.textVi}</Text>
-                  </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           </View>
         )}
@@ -257,16 +334,20 @@ export const LessonDetailScreen = () => {
               <Text style={s.sectionTitle}>4. Bài Tập Vận Dụng Nhanh</Text>
             </View>
 
-            {lesson.practiceQuestions.map((q) => {
-              const userAns = selectedAnswers[q.id];
+            {lesson.practiceQuestions.map((q, qIndex) => {
+              const qId = q.id ?? (qIndex + 1);
+              const qText = q.questionText || (q as any).question || '';
+              const qOptions = Array.isArray(q.options) ? q.options : [];
+              const qExplanation = q.explanationVi || (q as any).explanation || '';
+              const userAns = selectedAnswers[qId];
               const isAnswered = Boolean(userAns);
               const isCorrect = userAns === q.correctAnswer;
 
               return (
-                <View key={q.id} style={s.quizCard}>
-                  <Text style={s.quizQuestionText}>Câu {q.id}: {q.questionText}</Text>
+                <View key={qId} style={s.quizCard}>
+                  <Text style={s.quizQuestionText}>Câu {qIndex + 1}: {qText}</Text>
                   <View style={s.optionsList}>
-                    {q.options.map((opt, oIdx) => {
+                    {qOptions.map((opt, oIdx) => {
                       const isSelected = userAns === opt;
                       const isOptionCorrect = opt === q.correctAnswer;
 
@@ -281,7 +362,7 @@ export const LessonDetailScreen = () => {
                       return (
                         <Pressable
                           key={oIdx}
-                          onPress={() => handleSelectOption(q.id, opt)}
+                          onPress={() => handleSelectOption(qId, opt)}
                           style={optStyle}
                         >
                           <Text style={s.optionLetter}>{String.fromCharCode(65 + oIdx)}.</Text>
@@ -298,7 +379,9 @@ export const LessonDetailScreen = () => {
                       <Text style={s.feedbackTitle}>
                         {isCorrect ? '✓ Chính xác!' : '✗ Chưa chính xác!'}
                       </Text>
-                      <Text style={s.feedbackExplanation}>{q.explanationVi}</Text>
+                      {Boolean(qExplanation) && (
+                        <Text style={s.feedbackExplanation}>{qExplanation}</Text>
+                      )}
                     </View>
                   )}
                 </View>
@@ -332,19 +415,33 @@ export const LessonDetailScreen = () => {
       {earnedModal && (
         <View style={s.modalOverlay}>
           <View style={s.modalContent}>
-            <View style={s.celebrateIconWrap}>
-              <Award size={48} color="#F59E0B" />
+            <View style={[s.celebrateIconWrap, earnedModal.xp === 0 && { backgroundColor: '#ECFDF5' }]}>
+              {earnedModal.xp === 0 ? (
+                <CheckCircle2 size={48} color="#10B981" />
+              ) : (
+                <Award size={48} color="#F59E0B" />
+              )}
             </View>
-            <Text style={s.modalTitle}>Hoàn Thành Xuất Sắc!</Text>
+            <Text style={s.modalTitle}>
+              {earnedModal.xp === 0 ? 'Đã Hoàn Thành Bài Học' : 'Hoàn Thành Xuất Sắc!'}
+            </Text>
             <Text style={s.modalMessage}>{earnedModal.message}</Text>
             <View style={s.rewardsRow}>
               <View style={s.rewardItem}>
-                <Text style={s.rewardVal}>+{earnedModal.xp}</Text>
-                <Text style={s.rewardLbl}>XP</Text>
+                <Text style={[s.rewardVal, earnedModal.xp === 0 && { color: '#64748B' }]}>
+                  +{earnedModal.xp}
+                </Text>
+                <Text style={s.rewardLbl}>
+                  {earnedModal.xp === 0 ? 'XP (Đã nhận)' : 'XP'}
+                </Text>
               </View>
               <View style={s.rewardItem}>
-                <Text style={s.rewardVal}>+{earnedModal.coins}</Text>
-                <Text style={s.rewardLbl}>Coins</Text>
+                <Text style={[s.rewardVal, earnedModal.coins === 0 && { color: '#64748B' }]}>
+                  +{earnedModal.coins}
+                </Text>
+                <Text style={s.rewardLbl}>
+                  {earnedModal.coins === 0 ? 'Coins (Đã nhận)' : 'Coins'}
+                </Text>
               </View>
             </View>
             <Pressable
@@ -883,5 +980,55 @@ const s = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF'
+  },
+  videoCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  videoCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  videoIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  videoSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  playVideoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#DC2626',
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  playVideoBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginLeft: 6,
   }
 });
