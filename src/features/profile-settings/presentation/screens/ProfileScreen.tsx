@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, Image } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import {
   Star,
   Pencil,
@@ -14,7 +14,8 @@ import {
   ChevronRight,
   CheckCircle2,
   Target,
-  GraduationCap
+  GraduationCap,
+  User,
 } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
@@ -24,10 +25,11 @@ import Animated, {
   FadeInUp
 } from 'react-native-reanimated';
 import { useAuthStore } from '@/src/core/flows/authStore';
+import { getProfileApi } from '@/src/features/profile-settings/data/profileApi';
 
 export const ProfileScreen = () => {
   const router = useRouter();
-  const { currentUser, logout, userStats } = useAuthStore();
+  const { currentUser, logout, userStats, updateCurrentUser } = useAuthStore();
 
   // Progress Bar Animation
   const progressWidth = useSharedValue(0);
@@ -35,6 +37,28 @@ export const ProfileScreen = () => {
   useEffect(() => {
     progressWidth.value = withTiming(45, { duration: 1200 });
   }, []);
+
+  // Refresh profile from Neon backend whenever screen gains focus
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+      const fetchLatestProfile = async () => {
+        try {
+          const userId = currentUser?.id ? String(currentUser.id) : '1';
+          const fresh = await getProfileApi(userId);
+          if (isMounted && fresh && Object.keys(fresh).length > 0) {
+            updateCurrentUser(fresh);
+          }
+        } catch (e) {
+          // Silent fallback to cached store
+        }
+      };
+      fetchLatestProfile();
+      return () => {
+        isMounted = false;
+      };
+    }, [currentUser?.id])
+  );
 
   const animatedProgressStyle = useAnimatedStyle(() => ({
     width: `${progressWidth.value}%`
@@ -46,15 +70,19 @@ export const ProfileScreen = () => {
   };
 
   return (
-    <ScrollView className="flex-1 bg-[#F8FAF9]" showsVerticalScrollIndicator={false}>
-      {/* Top Dark Hero Curved Header */}
-      <Animated.View
-        entering={FadeInDown.duration(400)}
-        className="bg-[#0D3B73] pt-14 px-6 pb-8 rounded-b-3xl shadow-xl relative"
-      >
+    <ScrollView className="flex-1 bg-[#F8FAFC]" showsVerticalScrollIndicator={false}>
+      <View className="w-full max-w-xl mx-auto">
+        {/* Top Dark Hero Curved Header */}
+        <Animated.View
+          entering={FadeInDown.duration(400)}
+          className="bg-gradient-to-b from-[#0F172A] to-[#0D3B73] pt-14 px-6 pb-8 rounded-b-3xl shadow-xl relative"
+        >
         {/* User Info Row */}
         <View className="flex-row justify-between items-center mb-6">
-          <View className="flex-row items-center gap-4">
+          <Pressable
+            onPress={() => router.push('/(student)/profile/edit' as any)}
+            className="flex-row items-center gap-4 flex-1 mr-2"
+          >
             {/* Avatar with Verified Badge */}
             <View className="relative">
               <Image
@@ -71,15 +99,15 @@ export const ProfileScreen = () => {
             </View>
 
             {/* Name & Scholar Level Badge */}
-            <View>
-              <Text className="text-xl font-bold text-white mb-1">
+            <View className="flex-1">
+              <Text className="text-xl font-bold text-white mb-1" numberOfLines={1}>
                 {currentUser?.display_name || 'Nguyễn Minh'}
               </Text>
               <View className="bg-white/15 px-3 py-1 rounded-full border border-white/20 self-start">
                 <Text className="text-xs font-semibold text-gray-200">Level {userStats?.level ?? 1} — Scholar 🎓</Text>
               </View>
             </View>
-          </View>
+          </Pressable>
 
           {/* Action Buttons (Edit & Settings) */}
           <View className="flex-row items-center gap-2">
@@ -91,7 +119,7 @@ export const ProfileScreen = () => {
             </Pressable>
 
             <Pressable
-              onPress={() => alert('Chỉnh sửa thông tin cá nhân...')}
+              onPress={() => router.push('/(student)/profile/edit' as any)}
               className="w-10 h-10 rounded-xl bg-white/15 justify-center items-center border border-white/20 active:bg-white/25"
             >
               <Pencil color="#FFFFFF" size={18} />
@@ -237,6 +265,23 @@ export const ProfileScreen = () => {
         {/* Settings Menu Card List */}
         <Animated.View entering={FadeInDown.delay(450).duration(400)}>
           <View className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden mb-6">
+            {/* My Profile Entry */}
+            <Pressable
+              onPress={() => router.push('/(student)/profile/edit' as any)}
+              className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50 bg-sky-50/30"
+            >
+              <View className="flex-row items-center gap-3">
+                <View className="w-9 h-9 rounded-2xl bg-[#0D3B73]/10 justify-center items-center">
+                  <User color="#0D3B73" size={18} />
+                </View>
+                <View>
+                  <Text className="text-sm font-bold text-neutralInk">Hồ sơ của tôi</Text>
+                  <Text className="text-[11px] text-gray-500 font-medium">Chỉnh sửa thông tin cá nhân & đổi ảnh đại diện</Text>
+                </View>
+              </View>
+              <ChevronRight color="#94A3B8" size={18} />
+            </Pressable>
+
             {/* Community Entry */}
             <Pressable
               onPress={() => router.push('/(student)/feed' as any)}
@@ -339,6 +384,7 @@ export const ProfileScreen = () => {
           </Pressable>
         </Animated.View>
       </View>
-    </ScrollView>
-  );
+    </View>
+  </ScrollView>
+);
 };
