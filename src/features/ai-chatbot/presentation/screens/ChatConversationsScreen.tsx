@@ -651,7 +651,7 @@ export const ChatConversationsScreen = () => {
 };
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F8FAFC' },
+  root: { flex: 1, backgroundColor: '#F8FAFC', maxWidth: 600, width: '100%', alignSelf: 'center' },
 
   // Quota Banner
   quotaBanner: {
