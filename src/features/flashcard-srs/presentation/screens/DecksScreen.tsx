@@ -128,13 +128,13 @@ export const DecksScreen = () => {
   };
 
   const getDeckColors = (index: number) => {
-    const colors = [
-      { bg: '#FFF7ED', ring: '#FF6B35' },
-      { bg: '#ECFEFF', ring: '#00BCD4' },
-      { bg: '#FAF5FF', ring: '#A855F7' },
-      { bg: '#ECFDF5', ring: '#10B981' },
+    const deckTheme = [
+      { bg: colors.primarySoft, ring: colors.primary },
+      { bg: colors.secondarySoft, ring: colors.secondary },
+      { bg: '#F1F5F9', ring: colors.primaryDeep },
+      { bg: colors.primarySoft, ring: colors.secondaryDeep },
     ];
-    return colors[index % colors.length];
+    return deckTheme[index % deckTheme.length];
   };
 
   const handleOpenStudy = (deck: DeckItemDTO) => {

@@ -343,23 +343,16 @@ export const ChatConversationsScreen = () => {
     });
   };
 
+  const safeTop = Math.max(insets.top, 48) + 8;
+
   return (
     <KeyboardAvoidingView
       style={s.root}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}
     >
-      {/* Quota Banner */}
-      {!isPremium && (
-        <View style={s.quotaBanner}>
-          <Text style={s.quotaText}>
-            ⚡ Quota hôm nay: còn {dailyLimit - usedMessages}/{dailyLimit} tin nhắn Gemini AI
-          </Text>
-        </View>
-      )}
-
       {/* Header */}
-      <View style={[s.header, { paddingTop: insets.top + 8 }]}>
+      <View style={[s.header, { paddingTop: safeTop }]}>
         <View style={s.headerTopRow}>
           <View style={s.headerLeft}>
             <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={8}>
@@ -456,6 +449,15 @@ export const ChatConversationsScreen = () => {
           </View>
         </ScrollView>
       </View>
+
+      {/* Quota Banner — Safe below header */}
+      {!isPremium && (
+        <View style={s.quotaBanner}>
+          <Text style={s.quotaText}>
+            Quota hôm nay: còn {dailyLimit - usedMessages}/{dailyLimit} tin nhắn Gemini AI
+          </Text>
+        </View>
+      )}
 
       {/* Messages Scroll Area */}
       <ScrollView

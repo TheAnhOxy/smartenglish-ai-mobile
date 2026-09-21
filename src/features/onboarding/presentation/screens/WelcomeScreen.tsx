@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
-import { View, Text, Pressable, Image, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LoxeraFoxMascot } from '@/src/core/components/LoxeraFoxMascot';
 import Animated, {
   useSharedValue,
@@ -13,11 +14,14 @@ import Animated, {
   Easing,
   FadeInDown,
 } from 'react-native-reanimated';
+import { colors } from '@/src/theme/colors';
+import { ArrowRight, PlayCircle } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
 
 export const WelcomeScreen = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   // Logo entrance animations
   const logoScale = useSharedValue(0.3);
@@ -42,16 +46,16 @@ export const WelcomeScreen = () => {
     // Glow pulse loop
     glowScale.value = withRepeat(
       withSequence(
-        withTiming(1.15, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+        withTiming(1.15, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.ease) })
       ),
       -1,
       true
     );
     glowOpacity.value = withRepeat(
       withSequence(
-        withTiming(0.5, { duration: 1500 }),
-        withTiming(0.15, { duration: 1500 })
+        withTiming(0.45, { duration: 1800 }),
+        withTiming(0.12, { duration: 1800 })
       ),
       -1,
       true
@@ -60,29 +64,29 @@ export const WelcomeScreen = () => {
     // Floating particles
     particle1Y.value = withRepeat(
       withSequence(
-        withTiming(-15, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(15, { duration: 2000, easing: Easing.inOut(Easing.ease) })
+        withTiming(-16, { duration: 2200, easing: Easing.inOut(Easing.ease) }),
+        withTiming(16, { duration: 2200, easing: Easing.inOut(Easing.ease) })
       ),
       -1,
       true
     );
     particle2Y.value = withDelay(
-      500,
+      600,
       withRepeat(
         withSequence(
-          withTiming(12, { duration: 2500, easing: Easing.inOut(Easing.ease) }),
-          withTiming(-12, { duration: 2500, easing: Easing.inOut(Easing.ease) })
+          withTiming(14, { duration: 2600, easing: Easing.inOut(Easing.ease) }),
+          withTiming(-14, { duration: 2600, easing: Easing.inOut(Easing.ease) })
         ),
         -1,
         true
       )
     );
     particle3Y.value = withDelay(
-      1000,
+      1200,
       withRepeat(
         withSequence(
-          withTiming(-10, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
-          withTiming(10, { duration: 1800, easing: Easing.inOut(Easing.ease) })
+          withTiming(-10, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+          withTiming(10, { duration: 2000, easing: Easing.inOut(Easing.ease) })
         ),
         -1,
         true
@@ -110,21 +114,30 @@ export const WelcomeScreen = () => {
     transform: [{ translateY: particle3Y.value }],
   }));
 
+  const safeTop = Math.max(insets.top, 48) + 12;
+  const safeBottom = Math.max(insets.bottom, 24) + 12;
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: safeTop, paddingBottom: safeBottom }]}>
       {/* Floating Decorative Particles */}
       <Animated.View style={[styles.particle, styles.particle1, particle1Style]} />
       <Animated.View style={[styles.particle, styles.particle2, particle2Style]} />
       <Animated.View style={[styles.particle, styles.particle3, particle3Style]} />
+
+      {/* Top Brand Badge */}
+      <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.brandBadge}>
+        <View style={styles.brandBadgeDot} />
+        <Text style={styles.brandBadgeText}>SmartEnglish AI</Text>
+      </Animated.View>
 
       {/* Logo Section */}
       <View style={styles.logoSection}>
         {/* Glow Ring Behind Logo */}
         <Animated.View style={[styles.glowRing, glowAnimStyle]} />
 
-        {/* Transparent Large Loxera Fox Logo Mascot */}
+        {/* Loxera Fox Logo Mascot */}
         <Animated.View style={[styles.logoCard, logoAnimStyle]}>
-          <LoxeraFoxMascot size={210} showGlow showBook animated />
+          <LoxeraFoxMascot size={200} showGlow showBook animated />
         </Animated.View>
 
         {/* App Title */}
@@ -142,35 +155,56 @@ export const WelcomeScreen = () => {
         >
           Trợ lý đồng hành thông minh giúp bạn{'\n'}làm chủ tiếng Anh với lộ trình cá nhân hóa.
         </Animated.Text>
+
+        {/* Feature Pills — text only, no emoji */}
+        <Animated.View entering={FadeInDown.delay(550).duration(500)} style={styles.pillsRow}>
+          <View style={styles.featurePill}>
+            <Text style={styles.featurePillText}>Cá nhân hóa</Text>
+          </View>
+          <View style={styles.featurePill}>
+            <Text style={styles.featurePillText}>AI Tutor</Text>
+          </View>
+          <View style={styles.featurePill}>
+            <Text style={styles.featurePillText}>Placement Test</Text>
+          </View>
+        </Animated.View>
       </View>
 
       {/* Bottom CTA Buttons */}
       <View style={styles.ctaSection}>
-        <Animated.View entering={FadeInDown.delay(600).duration(500)}>
-          <Pressable
+        {/* Primary CTA — Register */}
+        <Animated.View entering={FadeInDown.delay(650).duration(500)}>
+          <TouchableOpacity
             onPress={() => router.push('/(auth)/register' as any)}
+            activeOpacity={0.85}
             style={styles.primaryBtn}
           >
-            <Text style={styles.primaryBtnText}>Tạo Tài Khoản Mới ➔</Text>
-          </Pressable>
+            <Text style={styles.primaryBtnText}>Tạo Tài Khoản Mới</Text>
+            <ArrowRight color="#FFFFFF" size={18} strokeWidth={2.5} />
+          </TouchableOpacity>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(750).duration(500)}>
-          <Pressable
+        {/* Secondary CTA — Placement Test */}
+        <Animated.View entering={FadeInDown.delay(780).duration(500)}>
+          <TouchableOpacity
             onPress={() => router.push('/(auth)/choose-goal' as any)}
+            activeOpacity={0.85}
             style={styles.secondaryBtn}
           >
+            <PlayCircle color={colors.primary} size={18} strokeWidth={2} />
             <Text style={styles.secondaryBtnText}>Bắt Đầu Ngay (Placement Test)</Text>
-          </Pressable>
+          </TouchableOpacity>
         </Animated.View>
 
+        {/* Login link */}
         <Animated.View entering={FadeInDown.delay(900).duration(500)}>
-          <Pressable
+          <TouchableOpacity
             onPress={() => router.push('/(auth)/login' as any)}
+            activeOpacity={0.8}
             style={styles.outlineBtn}
           >
             <Text style={styles.outlineBtnText}>Đã Có Tài Khoản? Đăng Nhập</Text>
-          </Pressable>
+          </TouchableOpacity>
         </Animated.View>
       </View>
     </View>
@@ -180,129 +214,175 @@ export const WelcomeScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F0F7FF',
+    backgroundColor: '#EEF2F7',  // rõ ràng hơn #F8FAFC, dễ phân biệt với trắng thuần
     paddingHorizontal: 24,
     justifyContent: 'space-between',
-    paddingTop: 56,
-    paddingBottom: 48,
   },
+  // Brand badge top
+  brandBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'center',
+    backgroundColor: colors.primary,  // nền navy đậm — chữ trắng contrast tốt
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  brandBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.secondary,
+  },
+  brandBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',  // chữ trắng trên nền navy — dễ đọc
+    letterSpacing: 0.3,
+  },
+  // Logo section
   logoSection: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
     flex: 1,
+    marginTop: 8,
   },
   glowRing: {
     position: 'absolute',
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: 'rgba(14, 165, 233, 0.15)',
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: colors.primarySoft,
     top: 10,
   },
   logoCard: {
-    width: 240,
-    height: 240,
+    width: 230,
+    height: 230,
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2,
   },
-  logoImage: {
-    width: 150,
-    height: 150,
-  },
   appTitle: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: '800',
-    color: '#1E3A5F',
-    marginTop: 20,
-    letterSpacing: 0.3,
+    color: colors.primary,
+    marginTop: 16,
+    letterSpacing: -0.3,
   },
   tagline: {
     fontSize: 14,
-    color: '#475569',
+    color: colors.textSoft,
     textAlign: 'center',
     lineHeight: 22,
     marginTop: 8,
     fontWeight: '500',
     paddingHorizontal: 16,
   },
+  pillsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 16,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  featurePill: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  featurePillText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  // CTA section
   ctaSection: {
-    gap: 12,
+    gap: 10,
   },
   primaryBtn: {
-    backgroundColor: '#0EA5E9',
+    backgroundColor: colors.primary,
+    borderWidth: 1.5,
+    borderColor: colors.primaryDeep,
     paddingVertical: 16,
     borderRadius: 18,
     alignItems: 'center',
-    shadowColor: '#0EA5E9',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 5,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    elevation: 6,
   },
   primaryBtnText: {
     color: '#FFFFFF',
-    fontWeight: '800',
+    fontWeight: '700',
     fontSize: 16,
+    letterSpacing: 0.2,
   },
   secondaryBtn: {
-    backgroundColor: '#1E3A5F',
-    paddingVertical: 15,
+    backgroundColor: colors.secondarySoft,
+    borderWidth: 1.5,
+    borderColor: colors.secondary,
+    paddingVertical: 14,
     borderRadius: 18,
     alignItems: 'center',
-    shadowColor: '#1E3A5F',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
   },
   secondaryBtnText: {
-    color: '#FFFFFF',
+    color: colors.primary,
     fontWeight: '700',
     fontSize: 15,
   },
   outlineBtn: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
-    borderColor: '#DBEAFE',
-    paddingVertical: 14,
+    borderColor: '#CBD5E1',
+    paddingVertical: 13,
     borderRadius: 18,
     alignItems: 'center',
   },
   outlineBtnText: {
-    color: '#1E3A5F',
-    fontWeight: '700',
+    color: colors.primary,
+    fontWeight: '600',
     fontSize: 14,
   },
+  // Decorative particles
   particle: {
     position: 'absolute',
     borderRadius: 50,
     zIndex: 0,
   },
   particle1: {
-    width: 12,
-    height: 12,
-    backgroundColor: '#93C5FD',
-    top: 100,
-    left: 40,
-    opacity: 0.6,
-  },
-  particle2: {
-    width: 8,
-    height: 8,
-    backgroundColor: '#60A5FA',
-    top: 180,
-    right: 50,
+    width: 10,
+    height: 10,
+    backgroundColor: colors.secondary,
+    top: 140,
+    left: 32,
     opacity: 0.5,
   },
+  particle2: {
+    width: 7,
+    height: 7,
+    backgroundColor: colors.primary,
+    top: 220,
+    right: 44,
+    opacity: 0.3,
+  },
   particle3: {
-    width: 16,
-    height: 16,
-    backgroundColor: '#BFDBFE',
-    top: 320,
-    left: width * 0.75,
-    opacity: 0.4,
+    width: 14,
+    height: 14,
+    backgroundColor: colors.primarySoft,
+    top: 380,
+    left: width * 0.72,
+    opacity: 0.6,
   },
 });

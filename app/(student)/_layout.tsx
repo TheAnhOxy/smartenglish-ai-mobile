@@ -1,43 +1,55 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { View } from 'react-native';
+import { View, Platform } from 'react-native';
 import { GraduationCap, BarChart2, Home, Bot, User } from 'lucide-react-native';
-import { AppColors } from '@/src/core/theme/colors';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors } from '@/src/theme/colors';
 
 export default function StudentTabsLayout() {
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 10);
+  const tabBarHeight = 56 + bottomInset;
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#06B6D4',
-        tabBarInactiveTintColor: '#64748B',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textFaint,
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
-          borderTopColor: '#F1F5F9',
-          height: 64,
-          paddingBottom: 8,
-          paddingTop: 8,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.05,
-          shadowRadius: 10,
-          elevation: 5
-        }
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+          height: tabBarHeight,
+          paddingBottom: bottomInset,
+          paddingTop: 6,
+          // Soft shadow upward
+          shadowColor: colors.text,
+          shadowOffset: { width: 0, height: -3 },
+          shadowOpacity: 0.06,
+          shadowRadius: 12,
+          elevation: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '500',
+          marginTop: 2,
+        },
       }}
     >
-      {/* 5 Main Bottom Tabs matching design image */}
+      {/* 5 Main Bottom Tabs */}
       <Tabs.Screen
         name="learn"
         options={{
           title: 'Learn',
-          tabBarIcon: ({ color, size }) => <GraduationCap color={color} size={size || 22} />
+          tabBarIcon: ({ color, size }) => <GraduationCap color={color} size={size || 22} strokeWidth={1.8} />,
         }}
       />
       <Tabs.Screen
         name="stats"
         options={{
           title: 'Stats',
-          tabBarIcon: ({ color, size }) => <BarChart2 color={color} size={size || 22} />
+          tabBarIcon: ({ color, size }) => <BarChart2 color={color} size={size || 22} strokeWidth={1.8} />,
         }}
       />
       <Tabs.Screen
@@ -47,31 +59,31 @@ export default function StudentTabsLayout() {
           tabBarIcon: ({ color, focused }) => (
             <View
               style={{
-                backgroundColor: focused ? '#06B6D4' : 'transparent',
-                paddingHorizontal: focused ? 14 : 0,
+                backgroundColor: focused ? colors.primary : 'transparent',
+                paddingHorizontal: focused ? 16 : 0,
                 paddingVertical: focused ? 6 : 0,
-                borderRadius: 16,
+                borderRadius: 20,
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
               }}
             >
-              <Home color={focused ? '#FFFFFF' : color} size={22} />
+              <Home color={focused ? '#FFFFFF' : color} size={22} strokeWidth={1.8} />
             </View>
-          )
+          ),
         }}
       />
       <Tabs.Screen
         name="assistant"
         options={{
           title: 'Trợ lý',
-          tabBarIcon: ({ color, size }) => <Bot color={color} size={size || 22} />
+          tabBarIcon: ({ color, size }) => <Bot color={color} size={size || 22} strokeWidth={1.8} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color, size }) => <User color={color} size={size || 22} />
+          tabBarIcon: ({ color, size }) => <User color={color} size={size || 22} strokeWidth={1.8} />,
         }}
       />
 

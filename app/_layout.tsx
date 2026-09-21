@@ -5,7 +5,9 @@ import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
+import { StatusBar } from 'expo-status-bar';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/src/core/flows/authStore';
@@ -69,9 +71,11 @@ export default function RootLayout() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <RootLayoutNav />
-    </QueryClientProvider>
+    <SafeAreaProvider>
+      <QueryClientProvider client={queryClient}>
+        <RootLayoutNav />
+      </QueryClientProvider>
+    </SafeAreaProvider>
   );
 }
 
@@ -109,8 +113,9 @@ function RootLayoutNav() {
   }, [currentUser, isHydrated, segments]);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack screenOptions={{ headerShown: false }}>
+    <ThemeProvider value={DefaultTheme}>
+      <StatusBar style="dark" />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#F8FAFC' } }}>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(student)" options={{ headerShown: false }} />
         <Stack.Screen name="(teacher-companion)" options={{ headerShown: false }} />
