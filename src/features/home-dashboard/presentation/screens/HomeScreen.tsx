@@ -347,6 +347,9 @@ const s = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,   // overridden dynamically via insets
     paddingBottom: 48,
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
   },
   headerRow: {
     flexDirection: 'row',

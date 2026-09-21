@@ -1,12 +1,18 @@
+import { Platform } from 'react-native';
 import { apiClient, getCurrentUserId } from '@/src/core/api/client';
 import { User } from '@/src/core/types/schema';
 
 export interface UpdateProfilePayload {
   displayName?: string;
+  username?: string;
   phone?: string;
   bio?: string;
   avatarUrl?: string;
   countryCode?: string;
+  cefrLevel?: string;
+  targetGoal?: string;
+  dailyGoalXp?: number;
+  uiLanguage?: string;
 }
 
 export interface LearningSettingsPayload {
@@ -20,28 +26,66 @@ export interface LearningSettingsPayload {
 }
 
 export interface ChangePasswordPayload {
-  currentPassword: string;
+  oldPassword: string;
   newPassword: string;
-  confirmPassword: string;
 }
 
 const mapUserProfile = (data: any): Partial<User> => ({
   id: String(data.id || ''),
   email: data.email || '',
+  username: data.username || '',
+  phone: data.phone || '',
+  bio: data.bio || '',
+  country_code: data.countryCode || 'VN',
   display_name: data.displayName || '',
   avatar_url: data.avatarUrl || null,
   role: ((data.role || 'STUDENT') as string).toLowerCase() as any,
   plan: ((data.plan || 'FREE') as string).toLowerCase() as any,
   cefr_level: data.learningSettings?.cefrLevel || data.cefrLevel || 'B1',
   target_goal: data.learningSettings?.targetGoal || data.targetGoal || '',
-  ui_language: data.learningSettings?.uiLanguage || 'vi',
-  timezone: data.learningSettings?.timezone || 'Asia/Ho_Chi_Minh',
+  ui_language: data.learningSettings?.uiLanguage || data.uiLanguage || 'vi',
+  timezone: data.learningSettings?.timezone || data.timezone || 'Asia/Ho_Chi_Minh',
   tts_speed: data.learningSettings?.ttsSpeed ? Number(data.learningSettings.ttsSpeed) : 1.0,
   is_active: data.isActive !== false,
   is_email_verified: Boolean(data.isEmailVerified),
-  daily_goal_xp: data.learningSettings?.dailyGoalXp || 50,
+  daily_goal_xp: data.learningSettings?.dailyGoalXp || data.dailyGoalXp || 50,
   onboarding_completed: Boolean(data.onboardingCompleted)
 });
+
+/**
+ * Tải ảnh đại diện người dùng lên AWS S3 qua Content Service & API Gateway
+ * Endpoint: POST /admin/upload/image?folder=avatars
+ * Trả về: URL công khai trên AWS S3
+ */
+export const uploadAvatarApi = async (fileUri: string, fileName?: string, mimeType?: string): Promise<string> => {
+  const formData = new FormData();
+
+  if (Platform.OS === 'web') {
+    const res = await fetch(fileUri);
+    const blob = await res.blob();
+    const cleanName = fileName || 'avatar.jpg';
+    formData.append('file', blob, cleanName);
+  } else {
+    formData.append('file', {
+      uri: fileUri,
+      name: fileName || 'avatar.jpg',
+      type: mimeType || 'image/jpeg',
+    } as any);
+  }
+
+  const response = await apiClient.post<any>('/admin/upload/image?folder=avatars', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+
+  const resData = response.data?.data || response.data;
+  const url = resData?.url;
+  if (!url) {
+    throw new Error(resData?.message || 'Không nhận được đường dẫn ảnh từ AWS S3');
+  }
+  return url;
+};
 
 /**
  * GET /api/v1/users/me?userId=...

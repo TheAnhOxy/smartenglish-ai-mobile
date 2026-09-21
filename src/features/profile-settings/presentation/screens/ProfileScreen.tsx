@@ -1,6 +1,12 @@
+<<<<<<< HEAD
 import React, { useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, Image, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+=======
+import React, { useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, Pressable, Image } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+>>>>>>> f37f8517a898417072d6c4330feeb6bc3c7ceabc
 import {
   Star,
   Pencil,
@@ -15,9 +21,13 @@ import {
   CheckCircle2,
   Target,
   GraduationCap,
+<<<<<<< HEAD
   Flame,
   BookOpen,
   Trophy,
+=======
+  User,
+>>>>>>> f37f8517a898417072d6c4330feeb6bc3c7ceabc
 } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
@@ -27,6 +37,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/src/core/flows/authStore';
+<<<<<<< HEAD
 import { colors } from '@/src/theme/colors';
 
 const MENU_ITEMS = [
@@ -49,11 +60,44 @@ export const ProfileScreen = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { currentUser, logout, userStats } = useAuthStore();
+=======
+import { getProfileApi } from '@/src/features/profile-settings/data/profileApi';
+
+export const ProfileScreen = () => {
+  const router = useRouter();
+  const { currentUser, logout, userStats, updateCurrentUser } = useAuthStore();
+>>>>>>> f37f8517a898417072d6c4330feeb6bc3c7ceabc
 
   const progressWidth = useSharedValue(0);
   useEffect(() => {
     progressWidth.value = withTiming(45, { duration: 1200 });
   }, []);
+<<<<<<< HEAD
+=======
+
+  // Refresh profile from Neon backend whenever screen gains focus
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+      const fetchLatestProfile = async () => {
+        try {
+          const userId = currentUser?.id ? String(currentUser.id) : '1';
+          const fresh = await getProfileApi(userId);
+          if (isMounted && fresh && Object.keys(fresh).length > 0) {
+            updateCurrentUser(fresh);
+          }
+        } catch (e) {
+          // Silent fallback to cached store
+        }
+      };
+      fetchLatestProfile();
+      return () => {
+        isMounted = false;
+      };
+    }, [currentUser?.id])
+  );
+
+>>>>>>> f37f8517a898417072d6c4330feeb6bc3c7ceabc
   const animatedProgressStyle = useAnimatedStyle(() => ({
     width: `${progressWidth.value}%` as any,
   }));
@@ -73,6 +117,7 @@ export const ProfileScreen = () => {
   const safeTop = Math.max(insets.top, 48) + 12;
 
   return (
+<<<<<<< HEAD
     <ScrollView style={s.container} showsVerticalScrollIndicator={false}>
       {/* Hero Header — Navy deep */}
       <Animated.View
@@ -91,8 +136,46 @@ export const ProfileScreen = () => {
             />
             <View style={s.verifiedBadge}>
               <CheckCircle2 color="#FFFFFF" size={10} strokeWidth={3} />
+=======
+    <ScrollView className="flex-1 bg-[#F8FAFC]" showsVerticalScrollIndicator={false}>
+      <View className="w-full max-w-xl mx-auto">
+        {/* Top Dark Hero Curved Header */}
+        <Animated.View
+          entering={FadeInDown.duration(400)}
+          className="bg-gradient-to-b from-[#0F172A] to-[#0D3B73] pt-14 px-6 pb-8 rounded-b-3xl shadow-xl relative"
+        >
+        {/* User Info Row */}
+        <View className="flex-row justify-between items-center mb-6">
+          <Pressable
+            onPress={() => router.push('/(student)/profile/edit' as any)}
+            className="flex-row items-center gap-4 flex-1 mr-2"
+          >
+            {/* Avatar with Verified Badge */}
+            <View className="relative">
+              <Image
+                source={{
+                  uri:
+                    currentUser?.avatar_url ||
+                    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300'
+                }}
+                className="w-18 h-18 rounded-full border-2 border-white/40"
+              />
+              <View className="w-5 h-5 rounded-full bg-[#00BCD4] justify-center items-center absolute bottom-0 right-0 border-2 border-[#0D3B73]">
+                <CheckCircle2 color="#FFFFFF" size={12} strokeWidth={3} />
+              </View>
             </View>
-          </View>
+
+            {/* Name & Scholar Level Badge */}
+            <View className="flex-1">
+              <Text className="text-xl font-bold text-white mb-1" numberOfLines={1}>
+                {currentUser?.display_name || 'Nguyễn Minh'}
+              </Text>
+              <View className="bg-white/15 px-3 py-1 rounded-full border border-white/20 self-start">
+                <Text className="text-xs font-semibold text-gray-200">Level {userStats?.level ?? 1} — Scholar 🎓</Text>
+              </View>
+>>>>>>> f37f8517a898417072d6c4330feeb6bc3c7ceabc
+            </View>
+          </Pressable>
 
           <View style={s.userInfo}>
             <Text style={s.userName}>
@@ -113,8 +196,13 @@ export const ProfileScreen = () => {
               <Settings color="#FFFFFF" size={17} strokeWidth={1.8} />
             </Pressable>
             <Pressable
+<<<<<<< HEAD
               onPress={() => alert('Chỉnh sửa thông tin cá nhân...')}
               style={s.heroActionBtn}
+=======
+              onPress={() => router.push('/(student)/profile/edit' as any)}
+              className="w-10 h-10 rounded-xl bg-white/15 justify-center items-center border border-white/20 active:bg-white/25"
+>>>>>>> f37f8517a898417072d6c4330feeb6bc3c7ceabc
             >
               <Pencil color="#FFFFFF" size={17} strokeWidth={1.8} />
             </Pressable>
@@ -204,6 +292,7 @@ export const ProfileScreen = () => {
 
         {/* Menu List */}
         <Animated.View entering={FadeInDown.delay(450).duration(400)}>
+<<<<<<< HEAD
           <View style={s.menuCard}>
             {MENU_ITEMS.map((item, i) => {
               const Icon = item.icon;
@@ -225,6 +314,114 @@ export const ProfileScreen = () => {
                 </Pressable>
               );
             })}
+=======
+          <View className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden mb-6">
+            {/* My Profile Entry */}
+            <Pressable
+              onPress={() => router.push('/(student)/profile/edit' as any)}
+              className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50 bg-sky-50/30"
+            >
+              <View className="flex-row items-center gap-3">
+                <View className="w-9 h-9 rounded-2xl bg-[#0D3B73]/10 justify-center items-center">
+                  <User color="#0D3B73" size={18} />
+                </View>
+                <View>
+                  <Text className="text-sm font-bold text-neutralInk">Hồ sơ của tôi</Text>
+                  <Text className="text-[11px] text-gray-500 font-medium">Chỉnh sửa thông tin cá nhân & đổi ảnh đại diện</Text>
+                </View>
+              </View>
+              <ChevronRight color="#94A3B8" size={18} />
+            </Pressable>
+
+            {/* Community Entry */}
+            <Pressable
+              onPress={() => router.push('/(student)/feed' as any)}
+              className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50"
+            >
+              <View className="flex-row items-center gap-3">
+                <Globe color="#0EA5E9" size={20} />
+                <Text className="text-sm font-bold text-neutralInk">Cộng Đồng Học Viên</Text>
+              </View>
+              <View className="flex-row items-center gap-1.5">
+                <View className="bg-[#E0F2FE] px-2 py-0.5 rounded-full">
+                  <Text className="text-[10px] font-bold text-[#0EA5E9]">Mới</Text>
+                </View>
+                <ChevronRight color="#94A3B8" size={18} />
+              </View>
+            </Pressable>
+
+            {/* My Classes Entry */}
+            <Pressable
+              onPress={() => router.push('/(student)/classes' as any)}
+              className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50"
+            >
+              <View className="flex-row items-center gap-3">
+                <GraduationCap color="#475569" size={20} />
+                <Text className="text-sm font-semibold text-neutralInk">Lớp Học Của Tôi</Text>
+              </View>
+              <ChevronRight color="#94A3B8" size={18} />
+            </Pressable>
+
+            {/* Notifications */}
+            <Pressable
+              onPress={() => router.push('/(student)/notifications' as any)}
+              className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50"
+            >
+              <View className="flex-row items-center gap-3">
+                <Bell color="#475569" size={20} />
+                <Text className="text-sm font-semibold text-neutralInk">Thông báo</Text>
+              </View>
+              <ChevronRight color="#94A3B8" size={18} />
+            </Pressable>
+
+            {/* TTS Voice Settings */}
+            <Pressable
+              onPress={() => router.push('/(student)/profile/settings' as any)}
+              className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50"
+            >
+              <View className="flex-row items-center gap-3">
+                <Mic color="#475569" size={20} />
+                <Text className="text-sm font-semibold text-neutralInk">Giọng đọc TTS</Text>
+              </View>
+              <ChevronRight color="#94A3B8" size={18} />
+            </Pressable>
+
+            {/* Theme Toggle */}
+            <Pressable
+              onPress={() => router.push('/(student)/profile/settings' as any)}
+              className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50"
+            >
+              <View className="flex-row items-center gap-3">
+                <Palette color="#475569" size={20} />
+                <Text className="text-sm font-semibold text-neutralInk">Giao diện (Light/Dark)</Text>
+              </View>
+              <ChevronRight color="#94A3B8" size={18} />
+            </Pressable>
+
+            {/* Language Selection */}
+            <Pressable
+              onPress={() => router.push('/(student)/profile/settings' as any)}
+              className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50"
+            >
+              <View className="flex-row items-center gap-3">
+                <Globe color="#475569" size={20} />
+                <Text className="text-sm font-semibold text-neutralInk">Ngôn ngữ</Text>
+              </View>
+              <ChevronRight color="#94A3B8" size={18} />
+            </Pressable>
+
+            {/* Data Export */}
+            <Pressable
+              onPress={() => router.push('/(student)/profile/settings' as any)}
+              className="p-4 flex-row justify-between items-center active:bg-gray-50"
+            >
+              <View className="flex-row items-center gap-3">
+                <Download color="#475569" size={20} />
+                <Text className="text-sm font-semibold text-neutralInk">Xuất dữ liệu</Text>
+              </View>
+              <ChevronRight color="#94A3B8" size={18} />
+            </Pressable>
+>>>>>>> f37f8517a898417072d6c4330feeb6bc3c7ceabc
           </View>
         </Animated.View>
 
@@ -239,8 +436,9 @@ export const ProfileScreen = () => {
           </Pressable>
         </Animated.View>
       </View>
-    </ScrollView>
-  );
+    </View>
+  </ScrollView>
+);
 };
 
 const s = StyleSheet.create({

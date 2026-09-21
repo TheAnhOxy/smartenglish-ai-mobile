@@ -9,6 +9,8 @@ interface AuthState {
   isHydrated: boolean;
   setAuthUser: (user: User, accessToken?: string) => void;
   setUserStats: (stats: UserStats) => void;
+  addReward: (xp: number, coins: number) => void;
+  updateCurrentUser: (updatedFields: Partial<User>) => void;
   loginAsRole: (role: 'student' | 'teacher' | 'admin') => void;
   logout: () => void;
   setHydrated: (val: boolean) => void;
@@ -19,6 +21,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   userStats: null,
   accessToken: null,
   isHydrated: true,
+
+  updateCurrentUser: (updatedFields: Partial<User>) => {
+    set((state) => ({
+      currentUser: state.currentUser ? { ...state.currentUser, ...updatedFields } : null
+    }));
+  },
 
   setAuthUser: (user: User, token?: string) => {
     set({
@@ -42,6 +50,21 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   setUserStats: (stats: UserStats) => {
     set({ userStats: stats });
+  },
+
+  addReward: (xp: number, coins: number) => {
+    set((state) => {
+      if (!state.userStats) return state;
+      const newXp = (state.userStats.xp_total || 0) + xp;
+      const newCoins = (state.userStats.coins || 0) + coins;
+      return {
+        userStats: {
+          ...state.userStats,
+          xp_total: newXp,
+          coins: newCoins,
+        }
+      };
+    });
   },
 
   loginAsRole: (role) => {

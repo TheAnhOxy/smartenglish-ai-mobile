@@ -14,60 +14,58 @@ export default function StudentTabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textFaint,
-        tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopWidth: 1,
-          borderTopColor: colors.border,
-          height: tabBarHeight,
-          paddingBottom: bottomInset,
-          paddingTop: 6,
-          // Soft shadow upward
-          shadowColor: colors.text,
-          shadowOffset: { width: 0, height: -3 },
-          shadowOpacity: 0.06,
-          shadowRadius: 12,
-          elevation: 8,
-        },
+        tabBarActiveTintColor: '#0284C7',
+        tabBarInactiveTintColor: '#94A3B8',
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: '500',
-          marginTop: 2,
+          fontWeight: '700',
+          marginTop: -2,
         },
+        tabBarStyle: {
+          backgroundColor: '#FFFFFF',
+          borderTopColor: '#F1F5F9',
+          borderTopWidth: 1,
+          height: 68,
+          paddingBottom: 10,
+          paddingTop: 8,
+          shadowColor: '#0F172A',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.04,
+          shadowRadius: 12,
+          elevation: 8
+        }
       }}
     >
-      {/* 5 Main Bottom Tabs */}
+      {/* 5 Main Bottom Tabs matching design */}
       <Tabs.Screen
         name="learn"
         options={{
-          title: 'Learn',
-          tabBarIcon: ({ color, size }) => <GraduationCap color={color} size={size || 22} strokeWidth={1.8} />,
+          title: 'Lộ trình',
+          tabBarIcon: ({ color, focused }) => (
+            <View className={`w-10 h-7 rounded-xl items-center justify-center ${focused ? 'bg-sky-50' : 'bg-transparent'}`}>
+              <GraduationCap color={color} size={22} strokeWidth={focused ? 2.5 : 2} />
+            </View>
+          )
         }}
       />
       <Tabs.Screen
         name="stats"
         options={{
-          title: 'Stats',
-          tabBarIcon: ({ color, size }) => <BarChart2 color={color} size={size || 22} strokeWidth={1.8} />,
+          title: 'Thống kê',
+          tabBarIcon: ({ color, focused }) => (
+            <View className={`w-10 h-7 rounded-xl items-center justify-center ${focused ? 'bg-sky-50' : 'bg-transparent'}`}>
+              <BarChart2 color={color} size={22} strokeWidth={focused ? 2.5 : 2} />
+            </View>
+          )
         }}
       />
       <Tabs.Screen
         name="home"
         options={{
-          title: 'Home',
+          title: 'Khám phá',
           tabBarIcon: ({ color, focused }) => (
-            <View
-              style={{
-                backgroundColor: focused ? colors.primary : 'transparent',
-                paddingHorizontal: focused ? 16 : 0,
-                paddingVertical: focused ? 6 : 0,
-                borderRadius: 20,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Home color={focused ? '#FFFFFF' : color} size={22} strokeWidth={1.8} />
+            <View className={`w-12 h-7 rounded-2xl items-center justify-center ${focused ? 'bg-[#0284C7]' : 'bg-transparent'}`}>
+              <Home color={focused ? '#FFFFFF' : color} size={22} strokeWidth={focused ? 2.5 : 2} />
             </View>
           ),
         }}
@@ -75,19 +73,28 @@ export default function StudentTabsLayout() {
       <Tabs.Screen
         name="assistant"
         options={{
-          title: 'Trợ lý',
-          tabBarIcon: ({ color, size }) => <Bot color={color} size={size || 22} strokeWidth={1.8} />,
+          title: 'Trợ lý AI',
+          tabBarIcon: ({ color, focused }) => (
+            <View className={`w-10 h-7 rounded-xl items-center justify-center ${focused ? 'bg-sky-50' : 'bg-transparent'}`}>
+              <Bot color={color} size={22} strokeWidth={focused ? 2.5 : 2} />
+            </View>
+          )
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, size }) => <User color={color} size={size || 22} strokeWidth={1.8} />,
+          title: 'Cá nhân',
+          tabBarIcon: ({ color, focused }) => (
+            <View className={`w-10 h-7 rounded-xl items-center justify-center ${focused ? 'bg-sky-50' : 'bg-transparent'}`}>
+              <User color={color} size={22} strokeWidth={focused ? 2.5 : 2} />
+            </View>
+          )
         }}
       />
 
       {/* Hide Non-Tab Subroutes from Bottom Navigation Bar */}
+      <Tabs.Screen name="profile/edit" options={{ href: null }} />
       <Tabs.Screen name="profile/premium" options={{ href: null }} />
       <Tabs.Screen name="profile/settings" options={{ href: null }} />
       <Tabs.Screen name="league" options={{ href: null }} />

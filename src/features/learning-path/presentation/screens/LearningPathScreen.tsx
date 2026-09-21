@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, Modal, StyleSheet, Dimensions } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -9,7 +9,7 @@ import Animated, {
   withDelay,
 } from 'react-native-reanimated';
 import Svg, { Path, Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import {
   GraduationCap,
   Star,
@@ -225,31 +225,47 @@ export const LearningPathScreen = () => {
   // Motion press spring hook for modal CTA
   const ctaSpring = usePressSpring(0.97);
 
-  // Fetch roadmap from backend
-  useEffect(() => {
-    let cancelled = false;
-    fetchLearningPathRoadmapApi(currentUser?.id?.toString())
+  // Fetch roadmap from backend and refresh when focused
+  const loadRoadmap = useCallback(() => {
+    const uid = currentUser?.id ? String(currentUser.id) : '1';
+    fetchLearningPathRoadmapApi(uid)
       .then((milestones: any[]) => {
-        if (cancelled || !milestones || milestones.length === 0) return;
+        if (!milestones || milestones.length === 0) return;
         const mapped: Chapter[] = milestones.map((m: any, idx: number) => ({
           id: String(m.id || `ch-${idx + 1}`),
           chapter_number: m.chapterNumber || idx + 1,
           title_vi: m.titleVi || m.title || `Chương ${idx + 1}`,
           title_en: m.titleEn || m.title || `Chapter ${idx + 1}`,
           is_premium: Boolean(m.isPremium),
-          units: (m.units || m.modules || []).map((u: any, uIdx: number) => ({
-            id: String(u.id || `u-${idx * 10 + uIdx + 1}`),
-            unit_number: u.unitNumber || uIdx + 1,
-            title_vi: u.titleVi || u.nameVi || u.title || `Unit ${uIdx + 1}`,
-            title_en: u.titleEn || u.nameEn || u.title || `Unit ${uIdx + 1}`,
-            description_vi: u.descriptionVi || u.description || '',
-            is_premium: Boolean(u.isPremium),
-            status: (u.status || (u.isCompleted ? 'completed' : uIdx === 0 ? 'current' : 'unlocked')).toLowerCase() as UnitNode['status'],
-            icon_type: (u.iconType || (['star', 'grad', 'book', 'speech', 'crown'] as const)[uIdx % 5]),
-            total_lessons: Number(u.totalLessons || 5),
-            completed_lessons: Number(u.completedLessons || (u.isCompleted ? 5 : 0)),
-            xp_reward: Number(u.xpReward || 50),
-          })),
+          units: (m.units || m.modules || []).map((u: any, uIdx: number) => {
+            let titleVi = u.titleVi || u.nameVi || u.title || `Unit ${uIdx + 1}`;
+            let titleEn = u.titleEn || u.nameEn || u.title || `Unit ${uIdx + 1}`;
+            let descVi = u.descriptionVi || u.description || '';
+
+            if (titleVi.trim() === 'Unit 7:') {
+              titleVi = 'Unit 7: Video & Luyện Phản Xạ Nâng Cao';
+              if (!descVi) descVi = 'Luyện nghe nói phản xạ chuyên sâu qua video bài học sinh động.';
+            } else if (titleVi.trim() === 'Unit 8:') {
+              titleVi = 'Unit 8: Video & Đánh Giá Tổng Hợp';
+              if (!descVi) descVi = 'Đánh giá toàn diện kiến thức qua bài học video tương tác chuẩn quốc tế.';
+            }
+
+            const isDone = u.status === 'completed' || Boolean(u.isCompleted) || (u.completedLessons != null && u.completedLessons >= (u.totalLessons || 1));
+
+            return {
+              id: String(u.id || `u-${idx * 10 + uIdx + 1}`),
+              unit_number: u.unitNumber || uIdx + 1,
+              title_vi: titleVi,
+              title_en: titleEn,
+              description_vi: descVi,
+              is_premium: Boolean(u.isPremium),
+              status: (isDone ? 'completed' : u.status || (uIdx === 0 ? 'current' : 'unlocked')).toLowerCase() as UnitNode['status'],
+              icon_type: (isDone ? 'star' : u.iconType || (['star', 'grad', 'book', 'speech', 'crown'] as const)[uIdx % 5]),
+              total_lessons: Number(u.totalLessons || 1),
+              completed_lessons: Number(isDone ? (u.totalLessons || 1) : (u.completedLessons || 0)),
+              xp_reward: Number(u.xpReward || 50),
+            };
+          }),
         }));
         if (mapped.length > 0 && mapped.some((c) => c.units.length > 0)) {
           setCurriculum(mapped);
@@ -257,12 +273,15 @@ export const LearningPathScreen = () => {
       })
       .catch((err) => console.warn('[LearningPath] API load failed:', err))
       .finally(() => {
-        if (!cancelled) setIsLoading(false);
+        setIsLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
   }, [currentUser?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadRoadmap();
+    }, [loadRoadmap])
+  );
 
   // Pulse animation for currently active unit
   useEffect(() => {
@@ -567,6 +586,9 @@ const s = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 56,
     paddingBottom: 40,
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
   },
   headerRow: {
     flexDirection: 'row',
