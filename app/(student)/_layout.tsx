@@ -1,10 +1,15 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { View } from 'react-native';
+import { View, Platform } from 'react-native';
 import { GraduationCap, BarChart2, Home, Bot, User } from 'lucide-react-native';
-import { AppColors } from '@/src/core/theme/colors';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors } from '@/src/theme/colors';
 
 export default function StudentTabsLayout() {
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 10);
+  const tabBarHeight = 56 + bottomInset;
+
   return (
     <Tabs
       screenOptions={{
@@ -62,7 +67,7 @@ export default function StudentTabsLayout() {
             <View className={`w-12 h-7 rounded-2xl items-center justify-center ${focused ? 'bg-[#0284C7]' : 'bg-transparent'}`}>
               <Home color={focused ? '#FFFFFF' : color} size={22} strokeWidth={focused ? 2.5 : 2} />
             </View>
-          )
+          ),
         }}
       />
       <Tabs.Screen

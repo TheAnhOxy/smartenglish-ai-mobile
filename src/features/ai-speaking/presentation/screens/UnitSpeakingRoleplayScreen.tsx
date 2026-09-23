@@ -7,9 +7,21 @@ import {
   Image,
   StyleSheet,
   Platform,
+  Modal,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Mic, ArrowLeft, Bot, Star, Zap, Square, Play, Volume2 } from 'lucide-react-native';
+import {
+  Mic,
+  ArrowLeft,
+  Bot,
+  Star,
+  Zap,
+  Square,
+  Play,
+  Volume2,
+  Flame,
+  Sparkles,
+} from 'lucide-react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -26,11 +38,19 @@ import {
   useAudioRecorder,
 } from 'expo-audio';
 import * as Speech from 'expo-speech';
+import {
+  useSpeakingQuotaStore,
+  FREE_SPEAKING_DAILY_LIMIT,
+} from '../../data/speakingApi';
 
 export const UnitSpeakingRoleplayScreen = () => {
   const { scenarioName } = useLocalSearchParams<{ scenarioName?: string }>();
   const router = useRouter();
   const { currentUser } = useAuthStore();
+  const isPremium = currentUser?.plan !== 'free';
+
+  const { getQuota, consumeTurn, canChat } = useSpeakingQuotaStore();
+  const quota = getQuota(isPremium);
 
   const [isRecording, setIsRecording] = useState(false);
   const [hasRecorded, setHasRecorded] = useState(true);
@@ -38,6 +58,7 @@ export const UnitSpeakingRoleplayScreen = () => {
   const [recordTime, setRecordTime] = useState(0);
   const [isPlayingUserVoice, setIsPlayingUserVoice] = useState(false);
   const [isPlayingAiVoice, setIsPlayingAiVoice] = useState(false);
+  const [showQuotaModal, setShowQuotaModal] = useState(false);
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const player = useAudioPlayer(recordedUri);
@@ -70,6 +91,12 @@ export const UnitSpeakingRoleplayScreen = () => {
 
   // Start Real Microphone Recording
   const startRecording = async () => {
+    // 1. Enforce Daily Free Limit of 20 chats across all speaking lessons
+    if (!canChat(isPremium)) {
+      setShowQuotaModal(true);
+      return;
+    }
+
     try {
       if (Platform.OS === 'web' && typeof window !== 'undefined' && navigator.mediaDevices) {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -86,6 +113,7 @@ export const UnitSpeakingRoleplayScreen = () => {
           webAudioBlobUrlRef.current = url;
           setRecordedUri(url);
           setHasRecorded(true);
+          consumeTurn(isPremium);
         };
 
         mediaRecorderRef.current.start();
@@ -121,6 +149,7 @@ export const UnitSpeakingRoleplayScreen = () => {
         setRecordedUri(recorder.uri);
         setHasRecorded(true);
         setIsRecording(false);
+        consumeTurn(isPremium);
       } else {
         setIsRecording(false);
       }
@@ -177,9 +206,23 @@ export const UnitSpeakingRoleplayScreen = () => {
 
         <Text style={s.headerTitle}>SmartEnglish AI Roleplay</Text>
 
-        <View style={s.streakBadge}>
-          <Zap color="#FF6B35" size={14} fill="#FF6B35" />
-          <Text style={s.streakText}>12 Days</Text>
+        <View style={s.headerRightRow}>
+          {isPremium ? (
+            <View style={s.premiumBadge}>
+              <Sparkles color="#A855F7" size={13} />
+              <Text style={s.premiumText}>👑 Không giới hạn</Text>
+            </View>
+          ) : (
+            <Pressable onPress={() => setShowQuotaModal(true)} style={s.quotaBadge}>
+              <Flame color="#FF6B35" size={13} />
+              <Text style={s.quotaText}>Còn {quota.remaining}/{FREE_SPEAKING_DAILY_LIMIT}</Text>
+            </Pressable>
+          )}
+
+          <View style={s.streakBadge}>
+            <Zap color="#FF6B35" size={13} fill="#FF6B35" />
+            <Text style={s.streakText}>12D</Text>
+          </View>
         </View>
       </View>
 
@@ -275,7 +318,58 @@ export const UnitSpeakingRoleplayScreen = () => {
         <Text style={s.micHintText}>
           {isRecording ? `ĐANG THU ÂM... 00:0${recordTime}s 🔴` : 'CHẠM NÚT MICRO ĐỂ NÓI TRỰC TIẾP'}
         </Text>
+        {!isPremium && (
+          <Text style={s.dailyLimitSubHint}>
+            Hôm nay: còn {quota.remaining}/{FREE_SPEAKING_DAILY_LIMIT} lượt nói AI (tất cả các bài)
+          </Text>
+        )}
       </View>
+
+      {/* Quota Exceeded Modal */}
+      <Modal visible={showQuotaModal} transparent animationType="fade">
+        <View style={s.modalOverlay}>
+          <View style={s.modalCard}>
+            <View style={s.modalIconWrap}>
+              <Flame color="#FF6B35" size={32} />
+            </View>
+
+            <Text style={s.modalTitle}>Hết Lượt Luyện Nói Hôm Nay! 🔥</Text>
+            <Text style={s.modalDesc}>
+              Tài khoản Miễn phí được tối đa <Text style={s.boldHighlight}>20 lượt chat AI / ngày</Text> dùng chung cho <Text style={s.boldHighlight}>tất cả các bài luyện nói</Text>.
+            </Text>
+
+            <View style={s.quotaBox}>
+              <View style={s.quotaRow}>
+                <Text style={s.quotaRowLabel}>Hạn mức miễn phí:</Text>
+                <Text style={s.quotaRowVal}>20 lượt / ngày</Text>
+              </View>
+              <View style={s.quotaRow}>
+                <Text style={s.quotaRowLabel}>Đã sử dụng hôm nay:</Text>
+                <Text style={[s.quotaRowVal, { color: '#EA580C' }]}>{quota.usedToday} / 20 lượt</Text>
+              </View>
+              <View style={s.quotaRow}>
+                <Text style={s.quotaRowLabel}>Còn lại hôm nay:</Text>
+                <Text style={[s.quotaRowVal, { color: '#EF4444' }]}>0 lượt</Text>
+              </View>
+            </View>
+
+            <Pressable
+              onPress={() => {
+                setShowQuotaModal(false);
+                router.push('/(student)/profile/premium' as any);
+              }}
+              style={s.upgradeBtn}
+            >
+              <Sparkles color="#FFFFFF" size={16} />
+              <Text style={s.upgradeBtnText}>Nâng Cấp Premium 👑</Text>
+            </Pressable>
+
+            <Pressable onPress={() => setShowQuotaModal(false)} style={s.dismissBtn}>
+              <Text style={s.dismissBtnText}>Để sau (Quay lại vào ngày mai)</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -284,9 +378,15 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F8FAF9', paddingTop: 48, paddingHorizontal: 20, paddingBottom: 24, justifyContent: 'space-between' },
   headerBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   backBtn: { padding: 4 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#9A2C00', letterSpacing: -0.5 },
-  streakBadge: { backgroundColor: '#FEF3C7', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100, borderWidth: 1, borderColor: '#FDE68A', flexDirection: 'row', alignItems: 'center', gap: 4 },
+  headerTitle: { fontSize: 16, fontWeight: '800', color: '#9A2C00', letterSpacing: -0.5 },
+  headerRightRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  streakBadge: { backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100, borderWidth: 1, borderColor: '#FDE68A', flexDirection: 'row', alignItems: 'center', gap: 3 },
   streakText: { fontSize: 11, fontWeight: '800', color: '#FF6B35' },
+  quotaBadge: { backgroundColor: '#FFEDD5', paddingHorizontal: 9, paddingVertical: 5, borderRadius: 100, borderWidth: 1, borderColor: '#FED7AA', flexDirection: 'row', alignItems: 'center', gap: 4 },
+  quotaText: { fontSize: 10, fontWeight: '800', color: '#C2410C' },
+  premiumBadge: { backgroundColor: '#F3E8FF', paddingHorizontal: 9, paddingVertical: 5, borderRadius: 100, borderWidth: 1, borderColor: '#E9D5FF', flexDirection: 'row', alignItems: 'center', gap: 4 },
+  premiumText: { fontSize: 10, fontWeight: '800', color: '#7E22CE' },
+
   scenarioSubHeader: { marginBottom: 12 },
   scenarioCategoryText: { fontSize: 10, fontWeight: '800', color: '#0F7173', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 },
   scenarioTitle: { fontSize: 18, fontWeight: '800', color: '#1E293B' },
@@ -318,4 +418,20 @@ const s = StyleSheet.create({
   micBtnNormal: { backgroundColor: '#FF6B35', shadowColor: '#FF6B35', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 6 },
   micBtnRecording: { backgroundColor: '#EF4444', shadowColor: '#EF4444', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 14, elevation: 7 },
   micHintText: { fontSize: 11, fontWeight: '800', color: '#9A2C00', letterSpacing: 1.2 },
+  dailyLimitSubHint: { fontSize: 11, fontWeight: '600', color: '#64748B', marginTop: 4 },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalCard: { backgroundColor: '#FFFFFF', borderRadius: 28, padding: 24, width: '100%', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 10 },
+  modalIconWrap: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#FFEDD5', justifyContent: 'center', alignItems: 'center', marginBottom: 16, borderWidth: 1, borderColor: '#FED7AA' },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: '#1E293B', marginBottom: 8, textAlign: 'center' },
+  modalDesc: { fontSize: 13, color: '#475569', textAlign: 'center', lineHeight: 20, marginBottom: 18 },
+  boldHighlight: { fontWeight: '700', color: '#C2410C' },
+  quotaBox: { width: '100%', backgroundColor: '#F8FAFC', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 20, gap: 8 },
+  quotaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  quotaRowLabel: { fontSize: 12, color: '#64748B', fontWeight: '500' },
+  quotaRowVal: { fontSize: 12, fontWeight: '700', color: '#1E293B' },
+  upgradeBtn: { width: '100%', backgroundColor: '#FF6B35', paddingVertical: 14, borderRadius: 16, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: 10 },
+  upgradeBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+  dismissBtn: { paddingVertical: 8 },
+  dismissBtnText: { fontSize: 12, fontWeight: '600', color: '#94A3B8' },
 });

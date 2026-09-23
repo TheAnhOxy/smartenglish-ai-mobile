@@ -1,51 +1,55 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LearningPathScreen } from '@/src/features/learning-path/presentation/screens/LearningPathScreen';
 import { DecksScreen } from '@/src/features/flashcard-srs/presentation/screens/DecksScreen';
-import { SpeakingTopicsListScreen } from '@/src/features/ai-speaking/presentation/screens/SpeakingTopicsListScreen';
+import { SpeakingHomeScreen } from '@/src/features/ai-speaking/presentation/screens/SpeakingHomeScreen';
 import { QuickQuizSetupScreen } from '@/src/features/quiz-exam/presentation/screens/QuickQuizSetupScreen';
+import { colors } from '@/src/theme/colors';
 
 export default function LearnTabContainer() {
   const [activeSegment, setActiveSegment] = useState<'path' | 'decks' | 'speaking' | 'quiz'>('path');
+  const insets = useSafeAreaInsets();
+  const safeTop = Math.max(insets.top, 48) + 8;
 
   return (
     <View style={styles.container}>
-      {/* Top 4-Segment Switcher Bar */}
-      <View style={styles.switcherBar}>
+      {/* Top Segment Switcher Bar */}
+      <View style={[styles.switcherBar, { paddingTop: safeTop }]}>
         <View style={styles.switcherRow}>
           <Pressable
             onPress={() => setActiveSegment('path')}
-            style={[styles.segmentBtn, activeSegment === 'path' && styles.segmentActive1]}
+            style={[styles.segmentBtn, activeSegment === 'path' && styles.segmentActive]}
           >
             <Text style={[styles.segmentText, activeSegment === 'path' && styles.segmentTextActive]}>
-              🗺️ Lộ Trình
+              Lộ Trình
             </Text>
           </Pressable>
 
           <Pressable
             onPress={() => setActiveSegment('decks')}
-            style={[styles.segmentBtn, activeSegment === 'decks' && styles.segmentActive2]}
+            style={[styles.segmentBtn, activeSegment === 'decks' && styles.segmentActive]}
           >
             <Text style={[styles.segmentText, activeSegment === 'decks' && styles.segmentTextActive]}>
-              🎴 Bộ Thẻ
+              Bộ Thẻ
             </Text>
           </Pressable>
 
           <Pressable
             onPress={() => setActiveSegment('speaking')}
-            style={[styles.segmentBtn, activeSegment === 'speaking' && styles.segmentActive3]}
+            style={[styles.segmentBtn, activeSegment === 'speaking' && styles.segmentActive]}
           >
             <Text style={[styles.segmentText, activeSegment === 'speaking' && styles.segmentTextActive]}>
-              🗣️ Luyện Nói
+              Luyện Nói
             </Text>
           </Pressable>
 
           <Pressable
             onPress={() => setActiveSegment('quiz')}
-            style={[styles.segmentBtn, activeSegment === 'quiz' && styles.segmentActive4]}
+            style={[styles.segmentBtn, activeSegment === 'quiz' && styles.segmentActive]}
           >
             <Text style={[styles.segmentText, activeSegment === 'quiz' && styles.segmentTextActive]}>
-              ⚡ Quiz
+              Quiz
             </Text>
           </Pressable>
         </View>
@@ -55,7 +59,7 @@ export default function LearnTabContainer() {
       <View style={styles.content}>
         {activeSegment === 'path' && <LearningPathScreen />}
         {activeSegment === 'decks' && <DecksScreen />}
-        {activeSegment === 'speaking' && <SpeakingTopicsListScreen />}
+        {activeSegment === 'speaking' && <SpeakingHomeScreen />}
         {activeSegment === 'quiz' && <QuickQuizSetupScreen />}
       </View>
     </View>
@@ -65,19 +69,18 @@ export default function LearnTabContainer() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAF9',
+    backgroundColor: colors.bg,
   },
   switcherBar: {
-    paddingTop: 48,
     paddingHorizontal: 12,
-    paddingBottom: 8,
-    backgroundColor: '#FFFFFF',
+    paddingBottom: 10,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: colors.border,
   },
   switcherRow: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surfaceMuted,
     padding: 4,
     borderRadius: 16,
   },
@@ -87,22 +90,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
   },
-  segmentActive1: {
-    backgroundColor: '#4F46E5',
-  },
-  segmentActive2: {
-    backgroundColor: '#FF6B35',
-  },
-  segmentActive3: {
-    backgroundColor: '#00BCD4',
-  },
-  segmentActive4: {
-    backgroundColor: '#1E3A5F',
+  // Đồng nhất: tất cả active dùng navy primary
+  segmentActive: {
+    backgroundColor: colors.primary,
   },
   segmentText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
-    color: '#9CA3AF',
+    color: colors.textFaint,
   },
   segmentTextActive: {
     color: '#FFFFFF',

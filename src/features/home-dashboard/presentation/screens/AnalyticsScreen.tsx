@@ -37,6 +37,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import Svg, { Polygon, Line, Circle, Path, Defs, LinearGradient, Stop } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, palette } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
 
@@ -73,6 +74,7 @@ const ChartBarItem: React.FC<ChartBarItemProps> = ({ item, idx, barHeight }) => 
 
 export const AnalyticsScreen = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'progress' | 'analytics' | 'ranking'>('progress');
   const [selectedFilter, setSelectedFilter] = useState('Tuần này');
   const [selectedAnalysisCategory, setSelectedAnalysisCategory] = useState('Tất cả');
@@ -194,10 +196,12 @@ export const AnalyticsScreen = () => {
         .join(' ')
     : '';
 
+  const safeTop = Math.max(insets.top, 48) + 12;
+
   return (
     <View style={s.root}>
       {/* Header */}
-      <View style={s.header}>
+      <View style={[s.header, { paddingTop: safeTop }]}>
         <View style={s.headerTopRow}>
           <Text style={s.headerTitle}>SmartEnglish AI</Text>
           <Image
@@ -687,7 +691,7 @@ export const AnalyticsScreen = () => {
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F8FAF9' },
-  header: { paddingTop: 48, paddingHorizontal: 20, paddingBottom: 14, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  header: { paddingHorizontal: 20, paddingBottom: 14, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
   headerTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#1E3A5F' },
   headerAvatar: { width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: '#0EA5E9' },

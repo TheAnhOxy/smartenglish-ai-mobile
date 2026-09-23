@@ -10,6 +10,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { BookOpen, Sparkles } from 'lucide-react-native';
+import { colors } from '@/src/theme/colors';
 
 interface LoxeraFoxMascotProps {
   size?: number;
@@ -181,10 +182,7 @@ export const LoxeraFoxMascot: React.FC<LoxeraFoxMascotProps> = ({
       {showBook && (
         <>
           <Animated.View style={[styles.sparkleLeft, sparkle1AnimStyle]}>
-            <Sparkles color="#FFD166" size={18} />
-          </Animated.View>
-          <Animated.View style={[styles.sparkleRight, sparkle2AnimStyle]}>
-            <Text style={styles.sparkleText}>📖</Text>
+            <Sparkles color={colors.primary} size={15} />
           </Animated.View>
         </>
       )}
@@ -201,9 +199,9 @@ export const LoxeraFoxMascot: React.FC<LoxeraFoxMascotProps> = ({
         {showBook && (
           <Animated.View style={[styles.bookBadge, bookAnimStyle]}>
             <View style={styles.bookIconWrap}>
-              <BookOpen color="#0EA5E9" size={16} strokeWidth={2.5} />
+              <BookOpen color={colors.primary} size={14} strokeWidth={2} />
             </View>
-            <Text style={styles.bookBadgeText}>Đang Học Tiếng Anh ✨</Text>
+            <Text style={styles.bookBadgeText}>Đang Học Tiếng Anh</Text>
           </Animated.View>
         )}
       </Animated.View>
@@ -219,12 +217,12 @@ const styles = StyleSheet.create({
   },
   glowRing: {
     position: 'absolute',
-    backgroundColor: 'rgba(14, 165, 233, 0.25)',
-    shadowColor: '#0EA5E9',
+    backgroundColor: colors.primarySoft,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7,
-    shadowRadius: 30,
-    elevation: 12,
+    shadowOpacity: 0.4,
+    shadowRadius: 24,
+    elevation: 10,
   },
   foxContainer: {
     alignItems: 'center',
@@ -242,10 +240,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     borderWidth: 1.5,
-    borderColor: '#BAE6FD',
-    shadowColor: '#0284C7',
+    borderColor: colors.border,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.12,
     shadowRadius: 8,
     elevation: 6,
   },
@@ -253,14 +251,14 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#E0F2FE',
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   bookBadgeText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#0284C7',
+    color: colors.primary,
   },
   sparkleLeft: {
     position: 'absolute',

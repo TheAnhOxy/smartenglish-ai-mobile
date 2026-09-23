@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, Image, StyleSheet } from 'react-native';
 import Animated from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
   Bell,
@@ -31,6 +32,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export const HomeScreen = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { currentUser, userStats } = useAuthStore();
   const { saveWordsToDeck } = useDeckStore();
 
@@ -77,8 +79,10 @@ export const HomeScreen = () => {
     setIsDailyWordSaved(true);
   };
 
+  const safeTop = Math.max(insets.top, 48) + 12;
+
   return (
-    <ScrollView style={s.container} contentContainerStyle={s.contentContainer} showsVerticalScrollIndicator={false}>
+    <ScrollView style={s.container} contentContainerStyle={[s.contentContainer, { paddingTop: safeTop }]} showsVerticalScrollIndicator={false}>
       {/* Top Header Row */}
       <Animated.View style={[s.headerRow, animHeader]}>
         <Pressable onPress={() => router.push('/(student)/profile' as any)} style={s.profileTouch}>
@@ -89,7 +93,7 @@ export const HomeScreen = () => {
             style={s.avatar}
           />
           <View>
-            <Text style={s.greetingText}>Chào buổi sáng, {currentUser?.display_name || 'Học Viên'} 👋</Text>
+            <Text style={s.greetingText}>Chào buổi sáng, {currentUser?.display_name || 'Học Viên'}</Text>
             <Text style={s.brandTitle}>Loxera English</Text>
           </View>
         </Pressable>
@@ -341,7 +345,7 @@ const s = StyleSheet.create({
   },
   contentContainer: {
     paddingHorizontal: 20,
-    paddingTop: 56,
+    paddingTop: 16,   // overridden dynamically via insets
     paddingBottom: 48,
     maxWidth: 600,
     width: '100%',

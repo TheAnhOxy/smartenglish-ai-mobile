@@ -4,50 +4,53 @@ import {
   Text,
   TextInput,
   Pressable,
+  TouchableOpacity,
   ActivityIndicator,
-  Image,
   ScrollView,
   StyleSheet,
 } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthFlow } from '../../application/useAuthFlow';
 import { LoxeraFoxMascot } from '@/src/core/components/LoxeraFoxMascot';
-import { palette, font } from '@/src/theme';
+import { colors } from '@/src/theme/colors';
 import { usePressSpring } from '@/src/hooks/usePressSpring';
 import { useStaggerReveal } from '@/src/hooks/useStaggerReveal';
-import { User, GraduationCap, ShieldAlert } from 'lucide-react-native';
+import { ShieldAlert, Eye, EyeOff, Mail, Lock } from 'lucide-react-native';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export const LoginScreen = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const { login, isPending, isError, error } = useAuthFlow();
 
   const handleLogin = () => {
-    if (!email.trim() || !password.trim()) {
-      return;
-    }
+    if (!email.trim() || !password.trim()) return;
     login({ email: email.trim(), password: password.trim() });
   };
 
   const loginSpring = usePressSpring(0.97);
-
   const cardAnim0 = useStaggerReveal(0, 60);
   const cardAnim1 = useStaggerReveal(1, 60);
+
+  const safeTop = Math.max(insets.top, 48) + 12;
 
   return (
     <ScrollView
       style={s.container}
-      contentContainerStyle={s.contentContainer}
+      contentContainerStyle={[s.contentContainer, { paddingTop: safeTop }]}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
     >
       {/* Header & Logo */}
       <Animated.View style={[s.header, cardAnim0]}>
         <View style={s.logoWrapper}>
-          <LoxeraFoxMascot size={92} showGlow animated />
+          <LoxeraFoxMascot size={88} showGlow animated />
         </View>
         <Text style={s.appTitle}>Loxera</Text>
         <Text style={s.appSubtitle}>
@@ -55,57 +58,81 @@ export const LoginScreen = () => {
         </Text>
       </Animated.View>
 
-      {/* Login Form */}
+      {/* Login Form Card */}
       <Animated.View style={[s.card, cardAnim1]}>
         <Text style={s.formTitle}>Đăng nhập tài khoản</Text>
 
+        {/* Error Box */}
         {isError && (
           <View style={s.errorBox}>
-            <ShieldAlert color={palette.danger} size={18} />
+            <ShieldAlert color={colors.danger} size={16} strokeWidth={2} />
             <Text style={s.errorText}>
               {(error as any)?.response?.data?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại.'}
             </Text>
           </View>
         )}
 
+        {/* Email Field */}
         <View style={s.inputGroup}>
           <Text style={s.inputLabel}>Email</Text>
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            placeholder="email@example.com"
-            placeholderTextColor={palette.textSoft}
-            style={s.input}
-          />
+          <View style={s.inputWrapper}>
+            <Mail color={colors.textFaint} size={16} strokeWidth={1.8} style={s.inputIcon} />
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              placeholder="email@example.com"
+              placeholderTextColor={colors.textFaint}
+              style={s.inputField}
+            />
+          </View>
         </View>
 
+        {/* Password Field */}
         <View style={s.inputGroupLarge}>
           <Text style={s.inputLabel}>Mật khẩu</Text>
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            placeholder="••••••••"
-            placeholderTextColor={palette.textSoft}
-            style={s.input}
-          />
+          <View style={s.inputWrapper}>
+            <Lock color={colors.textFaint} size={16} strokeWidth={1.8} style={s.inputIcon} />
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              placeholder="••••••••"
+              placeholderTextColor={colors.textFaint}
+              style={s.inputFieldPassword}
+            />
+            <Pressable
+              onPress={() => setShowPassword(v => !v)}
+              style={s.eyeBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              {showPassword
+                ? <EyeOff color={colors.textFaint} size={16} strokeWidth={1.8} />
+                : <Eye color={colors.textFaint} size={16} strokeWidth={1.8} />
+              }
+            </Pressable>
+          </View>
         </View>
 
-        <AnimatedPressable
+        {/* Forgot Password */}
+        <Pressable style={s.forgotRow}>
+          <Text style={s.forgotText}>Quên mật khẩu?</Text>
+        </Pressable>
+
+        {/* Login Button */}
+        <TouchableOpacity
           onPress={handleLogin}
-          onPressIn={loginSpring.onPressIn}
-          onPressOut={loginSpring.onPressOut}
           disabled={isPending}
-          style={[s.loginBtn, loginSpring.animatedStyle]}
+          activeOpacity={0.85}
+          style={s.loginBtn}
         >
           {isPending ? (
             <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
             <Text style={s.loginBtnText}>Đăng Nhập</Text>
           )}
-        </AnimatedPressable>
+        </TouchableOpacity>
       </Animated.View>
 
       {/* Social Login Dividers */}
@@ -117,17 +144,11 @@ export const LoginScreen = () => {
 
       <View style={s.socialRow}>
         <Pressable style={s.socialBtn}>
-          <Image
-            source={{ uri: 'https://www.google.com/favicon.ico' }}
-            style={s.socialIcon}
-          />
+          <Text style={s.socialBtnLabel}>G</Text>
           <Text style={s.socialText}>Google</Text>
         </Pressable>
         <Pressable style={s.socialBtn}>
-          <Image
-            source={{ uri: 'https://cdn-icons-png.flaticon.com/512/0/747.png' }}
-            style={s.socialIcon}
-          />
+          <Text style={s.socialBtnLabel}></Text>
           <Text style={s.socialText}>Apple</Text>
         </Pressable>
       </View>
@@ -146,104 +167,60 @@ export const LoginScreen = () => {
 const s = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: palette.bg,
+    backgroundColor: colors.bg,
   },
   contentContainer: {
     paddingHorizontal: 24,
-    paddingTop: 60,
     paddingBottom: 48,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 28,
   },
   logoWrapper: {
-    width: 110,
-    height: 110,
+    width: 100,
+    height: 100,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   appTitle: {
     fontSize: 28,
-    fontFamily: font.family,
-    fontWeight: '700',
-    color: palette.text,
+    fontWeight: '800',
+    color: colors.primary,
     letterSpacing: -0.5,
   },
   appSubtitle: {
-    fontSize: 14,
-    fontFamily: font.family,
-    color: palette.textSoft,
+    fontSize: 13,
+    color: colors.textSoft,
     marginTop: 4,
     textAlign: 'center',
+    lineHeight: 19,
   },
   card: {
-    backgroundColor: palette.surface,
+    backgroundColor: colors.surface,
     padding: 20,
-    borderRadius: 20,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: palette.border,
-    shadowColor: palette.text,
+    borderColor: colors.border,
+    shadowColor: colors.text,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
     elevation: 2,
     marginBottom: 20,
   },
-  sectionLabel: {
-    fontSize: 12,
-    fontFamily: font.family,
-    fontWeight: '500',
-    color: palette.textSoft,
-    marginBottom: 14,
-  },
-  roleRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  roleBtn: {
-    flex: 1,
-    backgroundColor: palette.bg,
-    borderWidth: 1,
-    borderColor: palette.border,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    alignItems: 'center',
-    gap: 6,
-  },
-  roleIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: palette.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  roleTitle: {
-    fontSize: 14,
-    fontFamily: font.family,
-    fontWeight: '600',
-    color: palette.text,
-  },
-  roleSub: {
-    fontSize: 11,
-    fontFamily: font.family,
-    color: palette.textSoft,
-  },
   formTitle: {
     fontSize: 18,
-    fontFamily: font.family,
     fontWeight: '700',
-    color: palette.text,
+    color: colors.text,
     marginBottom: 16,
   },
   errorBox: {
-    backgroundColor: 'rgba(225, 84, 63, 0.08)',
+    backgroundColor: colors.dangerSoft,
     padding: 12,
     borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: 'rgba(225, 84, 63, 0.2)',
     flexDirection: 'row',
@@ -252,66 +229,93 @@ const s = StyleSheet.create({
   },
   errorText: {
     fontSize: 13,
-    fontFamily: font.family,
-    color: palette.danger,
+    color: colors.danger,
     flex: 1,
+    lineHeight: 18,
   },
   inputGroup: {
     marginBottom: 14,
   },
   inputGroupLarge: {
-    marginBottom: 20,
+    marginBottom: 8,
   },
   inputLabel: {
     fontSize: 13,
-    fontFamily: font.family,
-    fontWeight: '500',
-    color: palette.textSoft,
-    marginBottom: 6,
+    fontWeight: '600',
+    color: colors.textSoft,
+    marginBottom: 7,
   },
-  input: {
-    backgroundColor: palette.bg,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 14,
-    fontSize: 15,
-    fontFamily: font.family,
-    color: palette.text,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: colors.border,
+    paddingHorizontal: 14,
+  },
+  inputIcon: {
+    marginRight: 8,
+  },
+  inputField: {
+    flex: 1,
+    paddingVertical: 13,
+    fontSize: 15,
+    color: colors.text,
+  },
+  inputFieldPassword: {
+    flex: 1,
+    paddingVertical: 13,
+    fontSize: 15,
+    color: colors.text,
+  },
+  eyeBtn: {
+    paddingLeft: 8,
+    paddingVertical: 4,
+  },
+  forgotRow: {
+    alignSelf: 'flex-end',
+    marginBottom: 18,
+  },
+  forgotText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.secondary,
   },
   loginBtn: {
-    backgroundColor: palette.primary,
+    backgroundColor: colors.primary,
+    borderWidth: 1.5,
+    borderColor: colors.primaryDeep,
     paddingVertical: 15,
     borderRadius: 16,
     alignItems: 'center',
-    shadowColor: palette.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 3,
+    justifyContent: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
+    elevation: 4,
   },
   loginBtnText: {
     color: '#FFFFFF',
-    fontFamily: font.family,
     fontWeight: '700',
     fontSize: 16,
+    letterSpacing: 0.2,
   },
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 18,
+    marginVertical: 16,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: palette.border,
+    backgroundColor: colors.border,
   },
   dividerText: {
     paddingHorizontal: 12,
     fontSize: 12,
-    fontFamily: font.family,
-    color: palette.textSoft,
+    color: colors.textFaint,
   },
   socialRow: {
     flexDirection: 'row',
@@ -327,19 +331,19 @@ const s = StyleSheet.create({
     gap: 8,
     height: 46,
     borderRadius: 14,
-    backgroundColor: palette.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: colors.border,
   },
-  socialIcon: {
-    width: 18,
-    height: 18,
+  socialBtnLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
   },
   socialText: {
     fontSize: 14,
-    fontFamily: font.family,
     fontWeight: '600',
-    color: palette.text,
+    color: colors.text,
   },
   registerRow: {
     flexDirection: 'row',
@@ -349,15 +353,11 @@ const s = StyleSheet.create({
   },
   registerText: {
     fontSize: 14,
-    fontFamily: font.family,
-    color: palette.textSoft,
+    color: colors.textSoft,
   },
   registerLink: {
     fontSize: 14,
-    fontFamily: font.family,
     fontWeight: '700',
-    color: palette.primary,
+    color: colors.primary,
   },
 });
-
-
