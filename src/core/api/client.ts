@@ -4,17 +4,17 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
 const getGatewayUrl = () => {
+  // 1. Nếu chạy trên Web browser của máy tính
+  if (Platform.OS === 'web') {
+    return 'http://localhost:8080';
+  }
+
   const rawEnv = process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_GATEWAY_URL;
   const envUrl = rawEnv ? rawEnv.trim() : '';
 
-  // 1. Nếu có biến môi trường chỉ định rõ (IP LAN hoặc ngrok HTTPS)
+  // 2. Nếu có biến môi trường chỉ định rõ (IP LAN hoặc ngrok HTTPS)
   if (envUrl) {
     return envUrl.replace(/\/$/, '');
-  }
-
-  // 2. Nếu chạy trên Web browser của máy tính
-  if (Platform.OS === 'web') {
-    return 'http://localhost:8080';
   }
 
   // 3. Tự động lấy IP máy tính đang chạy Expo server từ hostUri nếu là IPv4 hợp lệ

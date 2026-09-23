@@ -3,7 +3,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LearningPathScreen } from '@/src/features/learning-path/presentation/screens/LearningPathScreen';
 import { DecksScreen } from '@/src/features/flashcard-srs/presentation/screens/DecksScreen';
-import { SpeakingTopicsListScreen } from '@/src/features/ai-speaking/presentation/screens/SpeakingTopicsListScreen';
+import { SpeakingHomeScreen } from '@/src/features/ai-speaking/presentation/screens/SpeakingHomeScreen';
 import { QuickQuizSetupScreen } from '@/src/features/quiz-exam/presentation/screens/QuickQuizSetupScreen';
 import { colors } from '@/src/theme/colors';
 
@@ -59,7 +59,7 @@ export default function LearnTabContainer() {
       <View style={styles.content}>
         {activeSegment === 'path' && <LearningPathScreen />}
         {activeSegment === 'decks' && <DecksScreen />}
-        {activeSegment === 'speaking' && <SpeakingTopicsListScreen />}
+        {activeSegment === 'speaking' && <SpeakingHomeScreen />}
         {activeSegment === 'quiz' && <QuickQuizSetupScreen />}
       </View>
     </View>
