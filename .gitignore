@@ -5,4 +5,66 @@
 expo-env.d.ts
 # @end expo-cli
 
-node_modules
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Expo & Metro cache
+.expo/
+.expo-shared/
+web-build/
+dist/
+
+# Logs
+*.log
+.expo*.log
+
+# Environment variables & secrets (Bảo mật API key, credentials)
+.env
+.env.*
+!.env.example
+
+# Local tools & Binaries (Tránh push file binary nặng vào repo)
+*.exe
+ngrok.exe
+
+# Android native build files (nếu có prebuild / eject sau này)
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/.cxx/
+
+# iOS native build files
+ios/Pods/
+ios/build/
+ios/*.xcworkspace/xcuserdata/
+ios/*.xcodeproj/xcuserdata/
+ios/*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Certificates, keys and Keystores (Tuyệt đối không push file ký app)
+*.jks
+*.keystore
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Mobile build outputs
+*.apk
+*.aab
+*.ipa
+
+# Testing & Coverage
+coverage/
+.nyc_output/
+
+# OS and Editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
