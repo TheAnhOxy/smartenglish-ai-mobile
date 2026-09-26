@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   Platform,
   Modal,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import {
   Mic,
   ArrowLeft,
@@ -38,6 +38,7 @@ import {
   useAudioRecorder,
 } from 'expo-audio';
 import * as Speech from 'expo-speech';
+import { stopSpeech } from '@/src/core/services/speechService';
 import {
   useSpeakingQuotaStore,
   FREE_SPEAKING_DAILY_LIMIT,
@@ -88,6 +89,41 @@ export const UnitSpeakingRoleplayScreen = () => {
   useEffect(() => {
     setIsPlayingUserVoice(playerStatus.playing);
   }, [playerStatus.playing]);
+
+  // Ngắt toàn bộ âm thanh và micro khi unmount hoặc rời màn hình
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        stopSpeech();
+        Speech.stop();
+        try {
+          player.pause();
+        } catch (_) {}
+        if (Platform.OS === 'web' && mediaRecorderRef.current) {
+          try {
+            mediaRecorderRef.current.stop();
+            mediaRecorderRef.current.stream?.getTracks?.().forEach((t: any) => t.stop());
+          } catch (_) {}
+        }
+      };
+    }, [player])
+  );
+
+  useEffect(() => {
+    return () => {
+      stopSpeech();
+      Speech.stop();
+      try {
+        player.pause();
+      } catch (_) {}
+      if (Platform.OS === 'web' && mediaRecorderRef.current) {
+        try {
+          mediaRecorderRef.current.stop();
+          mediaRecorderRef.current.stream?.getTracks?.().forEach((t: any) => t.stop());
+        } catch (_) {}
+      }
+    };
+  }, [player]);
 
   // Start Real Microphone Recording
   const startRecording = async () => {
@@ -200,7 +236,23 @@ export const UnitSpeakingRoleplayScreen = () => {
     <View style={s.root}>
       {/* Top Header Bar */}
       <View style={s.headerBar}>
-        <Pressable onPress={() => router.back()} style={s.backBtn}>
+        <Pressable
+          onPress={() => {
+            stopSpeech();
+            Speech.stop();
+            try {
+              player.pause();
+            } catch (_) {}
+            if (Platform.OS === 'web' && mediaRecorderRef.current) {
+              try {
+                mediaRecorderRef.current.stop();
+                mediaRecorderRef.current.stream?.getTracks?.().forEach((t: any) => t.stop());
+              } catch (_) {}
+            }
+            router.back();
+          }}
+          style={s.backBtn}
+        >
           <ArrowLeft color="#1E293B" size={20} />
         </Pressable>
 

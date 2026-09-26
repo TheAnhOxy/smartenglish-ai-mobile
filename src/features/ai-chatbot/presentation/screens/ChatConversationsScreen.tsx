@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
   Alert,
   Modal,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -43,6 +43,7 @@ import {
   Key,
 } from 'lucide-react-native';
 import * as Speech from 'expo-speech';
+import { stopSpeech } from '@/src/core/services/speechService';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -324,6 +325,7 @@ export const ChatConversationsScreen = () => {
    * Text to Speech playback for English messages
    */
   const handleSpeak = (msgId: string, text: string) => {
+    stopSpeech();
     Speech.stop();
     if (isSpeaking === msgId) {
       setIsSpeaking(null);
@@ -343,6 +345,25 @@ export const ChatConversationsScreen = () => {
     });
   };
 
+  // Ngắt toàn bộ âm thanh khi người dùng rời màn hình (unmount hoặc chuyển tab/back)
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        stopSpeech();
+        Speech.stop();
+        setIsSpeaking(null);
+      };
+    }, [])
+  );
+
+  useEffect(() => {
+    return () => {
+      stopSpeech();
+      Speech.stop();
+      setIsSpeaking(null);
+    };
+  }, []);
+
   const safeTop = Math.max(insets.top, 48) + 8;
 
   return (
@@ -355,7 +376,16 @@ export const ChatConversationsScreen = () => {
       <View style={[s.header, { paddingTop: safeTop }]}>
         <View style={s.headerTopRow}>
           <View style={s.headerLeft}>
-            <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={8}>
+            <Pressable
+              onPress={() => {
+                stopSpeech();
+                Speech.stop();
+                setIsSpeaking(null);
+                router.back();
+              }}
+              style={s.backBtn}
+              hitSlop={8}
+            >
               <ArrowLeft color="#1E293B" size={22} />
             </Pressable>
 

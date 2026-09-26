@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import {
   X,
   Play,
@@ -29,6 +29,7 @@ import Animated, {
   withRepeat,
 } from 'react-native-reanimated';
 import * as Speech from 'expo-speech';
+import { stopSpeech } from '@/src/core/services/speechService';
 import {
   AudioModule,
   RecordingPresets,
@@ -82,6 +83,41 @@ export const SpeakingFeedbackScreen = () => {
   useEffect(() => {
     setIsPlayingUserVoice(playerStatus.playing);
   }, [playerStatus.playing]);
+
+  // Ngắt toàn bộ âm thanh và micro khi unmount hoặc rời màn hình
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        stopSpeech();
+        Speech.stop();
+        try {
+          player.pause();
+        } catch (_) {}
+        if (Platform.OS === 'web' && mediaRecorderRef.current) {
+          try {
+            mediaRecorderRef.current.stop();
+            mediaRecorderRef.current.stream?.getTracks?.().forEach((t: any) => t.stop());
+          } catch (_) {}
+        }
+      };
+    }, [player])
+  );
+
+  useEffect(() => {
+    return () => {
+      stopSpeech();
+      Speech.stop();
+      try {
+        player.pause();
+      } catch (_) {}
+      if (Platform.OS === 'web' && mediaRecorderRef.current) {
+        try {
+          mediaRecorderRef.current.stop();
+          mediaRecorderRef.current.stream?.getTracks?.().forEach((t: any) => t.stop());
+        } catch (_) {}
+      }
+    };
+  }, [player]);
 
   // Play Native Audio Target (No alert popup)
   const playNativeTargetAudio = () => {
@@ -213,7 +249,23 @@ export const SpeakingFeedbackScreen = () => {
     <View style={s.root}>
       {/* Top Header Bar */}
       <View style={s.headerBar}>
-        <Pressable onPress={() => router.back()} style={s.closeBtn}>
+        <Pressable
+          onPress={() => {
+            stopSpeech();
+            Speech.stop();
+            try {
+              player.pause();
+            } catch (_) {}
+            if (Platform.OS === 'web' && mediaRecorderRef.current) {
+              try {
+                mediaRecorderRef.current.stop();
+                mediaRecorderRef.current.stream?.getTracks?.().forEach((t: any) => t.stop());
+              } catch (_) {}
+            }
+            router.back();
+          }}
+          style={s.closeBtn}
+        >
           <X color="#475569" size={22} />
         </Pressable>
 

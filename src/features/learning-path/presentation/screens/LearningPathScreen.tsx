@@ -216,7 +216,7 @@ export const LearningPathScreen = () => {
   const isPremium = currentUser?.plan !== 'free';
 
   const [selectedUnit, setSelectedUnit] = useState<UnitNode | null>(null);
-  const [curriculum, setCurriculum] = useState<Chapter[]>(MOCK_CURRICULUM);
+  const [curriculum, setCurriculum] = useState<Chapter[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Active Node Pulse Animation
@@ -227,10 +227,14 @@ export const LearningPathScreen = () => {
 
   // Fetch roadmap from backend and refresh when focused
   const loadRoadmap = useCallback(() => {
+    setIsLoading(true);
     const uid = currentUser?.id ? String(currentUser.id) : '1';
     fetchLearningPathRoadmapApi(uid)
       .then((milestones: any[]) => {
-        if (!milestones || milestones.length === 0) return;
+        if (!milestones || milestones.length === 0) {
+          setCurriculum((prev) => (prev.length > 0 ? prev : MOCK_CURRICULUM));
+          return;
+        }
         const mapped: Chapter[] = milestones.map((m: any, idx: number) => ({
           id: String(m.id || `ch-${idx + 1}`),
           chapter_number: m.chapterNumber || idx + 1,
@@ -269,9 +273,14 @@ export const LearningPathScreen = () => {
         }));
         if (mapped.length > 0 && mapped.some((c) => c.units.length > 0)) {
           setCurriculum(mapped);
+        } else {
+          setCurriculum(MOCK_CURRICULUM);
         }
       })
-      .catch((err) => console.warn('[LearningPath] API load failed:', err))
+      .catch((err) => {
+        console.warn('[LearningPath] API load failed:', err);
+        setCurriculum((prev) => (prev.length > 0 ? prev : MOCK_CURRICULUM));
+      })
       .finally(() => {
         setIsLoading(false);
       });

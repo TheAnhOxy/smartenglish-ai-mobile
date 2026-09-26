@@ -34,7 +34,7 @@ export const useAuthFlow = () => {
       loginApi(email, password),
     onSuccess: (data: LoginResponse) => {
       setRole(data.user.role);
-      setAuthUser(data.user, data.access_token);
+      setAuthUser(data.user, data.access_token, data.refresh_token);
       if (typeof window !== 'undefined') {
         (globalThis as any).__loginMeta = {
           onboarding_completed: data.user.onboarding_completed,
@@ -50,7 +50,7 @@ export const useAuthFlow = () => {
     mutationFn: (payload: RegisterPayload) => registerApi(payload),
     onSuccess: (data: LoginResponse) => {
       setRole(data.user.role);
-      setAuthUser(data.user, data.access_token);
+      setAuthUser(data.user, data.access_token, data.refresh_token);
       if (typeof window !== 'undefined') {
         (globalThis as any).__loginMeta = {
           onboarding_completed: data.user.onboarding_completed,

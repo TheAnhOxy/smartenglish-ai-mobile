@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,7 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Mic, Square, Volume2, Sparkles, ChevronLeft, Play, RefreshCw } from 'lucide-react-native';
 import Animated, {
   useAnimatedStyle,
@@ -26,6 +26,7 @@ import {
   useAudioRecorder,
 } from 'expo-audio';
 import * as Speech from 'expo-speech';
+import { stopSpeech } from '@/src/core/services/speechService';
 import { colors, palette } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
 import { ProgressRing } from '@/src/components/ui/ProgressRing';
@@ -71,6 +72,29 @@ export const SingleWordSpeakingScreen = () => {
   useEffect(() => {
     setIsPlayingUserVoice(playerStatus.playing);
   }, [playerStatus.playing]);
+
+  // Ngắt toàn bộ âm thanh khi người dùng rời màn hình hoặc unmount
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        stopSpeech();
+        Speech.stop();
+        try {
+          player.pause();
+        } catch (_) {}
+      };
+    }, [player])
+  );
+
+  useEffect(() => {
+    return () => {
+      stopSpeech();
+      Speech.stop();
+      try {
+        player.pause();
+      } catch (_) {}
+    };
+  }, [player]);
 
   const playNativeAudio = () => {
     setIsPlayingNative(true);
@@ -176,7 +200,17 @@ export const SingleWordSpeakingScreen = () => {
       <View>
         {/* Top Header */}
         <Animated.View entering={FadeInDown.duration(300)} style={s.headerRow}>
-          <Pressable onPress={() => router.back()} style={s.backBtn}>
+          <Pressable
+            onPress={() => {
+              stopSpeech();
+              Speech.stop();
+              try {
+                player.pause();
+              } catch (_) {}
+              router.back();
+            }}
+            style={s.backBtn}
+          >
             <ChevronLeft color={palette.text} size={20} />
             <Text style={s.backBtnText}>Chế độ Luyện nói</Text>
           </Pressable>
