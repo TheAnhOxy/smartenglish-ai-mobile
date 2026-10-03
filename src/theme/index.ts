@@ -46,3 +46,4 @@ export const theme = {
 
 export { colors, palette, spring, timing, easings, font };
 export * from './detection';
+export * from './gradients';
