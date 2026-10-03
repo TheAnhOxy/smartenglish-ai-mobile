@@ -135,8 +135,14 @@ export default function StudentTabsLayout() {
       <Tabs.Screen name="practice/quiz/play" options={{ href: null }} />
       <Tabs.Screen name="practice/quiz/result" options={{ href: null }} />
       <Tabs.Screen name="practice/quiz/[quizId]" options={{ href: null }} />
-      <Tabs.Screen name="practice/exam/[examId]" options={{ href: null }} />
-      <Tabs.Screen name="practice/exam/result" options={{ href: null }} />
+      <Tabs.Screen
+        name="practice/exam/[examId]"
+        options={{ href: null, tabBarStyle: { display: 'none' } }}
+      />
+      <Tabs.Screen
+        name="practice/exam/result"
+        options={{ href: null, tabBarStyle: { display: 'none' } }}
+      />
       <Tabs.Screen name="practice/reading/[passageId]" options={{ href: null }} />
       <Tabs.Screen name="practice/reading/generate" options={{ href: null }} />
       <Tabs.Screen name="practice/listening/[audioId]" options={{ href: null }} />

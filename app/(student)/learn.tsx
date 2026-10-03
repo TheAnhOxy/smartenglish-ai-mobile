@@ -1,14 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LearningPathScreen } from '@/src/features/learning-path/presentation/screens/LearningPathScreen';
 import { DecksScreen } from '@/src/features/flashcard-srs/presentation/screens/DecksScreen';
 import { SpeakingHomeScreen } from '@/src/features/ai-speaking/presentation/screens/SpeakingHomeScreen';
-import { QuickQuizSetupScreen } from '@/src/features/quiz-exam/presentation/screens/QuickQuizSetupScreen';
+import { ExamCatalogScreen } from '@/src/features/quiz-exam/presentation/screens/ExamCatalogScreen';
 import { colors } from '@/src/theme/colors';
 
 export default function LearnTabContainer() {
-  const [activeSegment, setActiveSegment] = useState<'path' | 'decks' | 'speaking' | 'quiz'>('path');
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const [activeSegment, setActiveSegment] = useState<'path' | 'decks' | 'speaking' | 'quiz'>(
+    params.tab === 'quiz' ? 'quiz' : 'path'
+  );
+
+  useEffect(() => {
+    if (params.tab === 'quiz' || params.tab === 'decks' || params.tab === 'speaking' || params.tab === 'path') {
+      setActiveSegment(params.tab as any);
+    }
+  }, [params.tab]);
+
   const insets = useSafeAreaInsets();
   const safeTop = Math.max(insets.top, 48) + 8;
 
@@ -60,7 +71,7 @@ export default function LearnTabContainer() {
         {activeSegment === 'path' && <LearningPathScreen />}
         {activeSegment === 'decks' && <DecksScreen />}
         {activeSegment === 'speaking' && <SpeakingHomeScreen />}
-        {activeSegment === 'quiz' && <QuickQuizSetupScreen />}
+        {activeSegment === 'quiz' && <ExamCatalogScreen />}
       </View>
     </View>
   );

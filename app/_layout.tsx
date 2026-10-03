@@ -104,7 +104,7 @@ function RootLayoutNav() {
         router.replace('/(teacher-companion)/classes' as any);
       } else if (role === 'student' && (inAuthGroup || inTeacherGroup || inAdminRoute || currentSegment === '' || currentSegment === 'index')) {
         router.replace('/(student)/home' as any);
-      } else if (!role && !inAuthGroup) {
+      } else if (!role && !inAuthGroup && !(segments as string[]).includes('practice')) {
         router.replace('/(auth)/welcome' as any);
       }
     }, 0);

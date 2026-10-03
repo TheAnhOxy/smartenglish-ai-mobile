@@ -78,7 +78,7 @@ export const QuickQuizSetupScreen = () => {
             </View>
             <Text style={styles.heroSub}>AI tự chọn 10 từ vựng cần ôn tập nhất cho bạn</Text>
             <Pressable onPress={handleStartQuiz} style={styles.heroBtn}>
-              <Text style={styles.heroBtnText}>Bắt đầu ngay →</Text>
+              <Text style={styles.heroBtnText}>Bắt đầu</Text>
             </Pressable>
           </Card>
         </Animated.View>

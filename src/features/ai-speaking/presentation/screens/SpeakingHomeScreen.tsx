@@ -132,22 +132,7 @@ export const SpeakingHomeScreen = () => {
           <Text style={s.appBarHeading}>Luyện Nói Tiếng Anh</Text>
         </View>
 
-        {/* Quota Indicator thanh lịch ở góc phải */}
-        <View style={s.quotaPill}>
-          {isPremium ? (
-            <>
-              <Sparkles color="#6366F1" size={13} />
-              <Text style={s.quotaPillTextPremium}>VIP</Text>
-            </>
-          ) : (
-            <>
-              <Flame color="#EA580C" size={13} />
-              <Text style={s.quotaPillTextFree}>
-                {quota.remaining}/{FREE_SPEAKING_DAILY_LIMIT} lượt
-              </Text>
-            </>
-          )}
-        </View>
+
       </View>
 
       <ScrollView

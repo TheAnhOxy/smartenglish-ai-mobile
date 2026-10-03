@@ -1,2 +1,2 @@
-import { QuickQuizResultScreen } from '@/src/features/quiz-exam/presentation/screens/QuickQuizResultScreen';
-export default QuickQuizResultScreen;
+import { QuizResultScreen } from '@/src/features/quiz-exam/presentation/screens/QuizResultScreen';
+export default QuizResultScreen;
