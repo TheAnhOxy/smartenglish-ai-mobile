@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, Image, StyleSheet } from 'react-native';
-import Animated from 'react-native-reanimated';
+import {
+  View, Text, ScrollView, Pressable, Image,
+  StyleSheet,
+} from 'react-native';
+import Animated, { useAnimatedReaction, runOnJS } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
@@ -10,7 +14,6 @@ import {
   BookOpen,
   MessageSquare,
   BrainCircuit,
-  Sparkles,
   Zap,
   ChevronRight,
   Compass,
@@ -19,16 +22,59 @@ import {
   Volume2,
   Bookmark,
   Coins,
+  Target,
+  Sparkles,
+  Timer,
+  Play,
+  Gift,
+  Award,
 } from 'lucide-react-native';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { LoxeraFoxMascot } from '@/src/core/components/LoxeraFoxMascot';
 import { speakText } from '@/src/core/services/speechService';
 import { useDeckStore } from '@/src/features/flashcard-srs/data/deckStore';
 import { colors, palette, font } from '@/src/theme';
+import { cardGradients, cardShadowColors, heroGradient } from '@/src/theme/gradients';
 import { usePressSpring } from '@/src/hooks/usePressSpring';
 import { useStaggerReveal } from '@/src/hooks/useStaggerReveal';
+import { usePulseRing } from '@/src/hooks/usePulseRing';
+import { useCountUp } from '@/src/hooks/useCountUp';
+
+const AnimatedText = Animated.createAnimatedComponent(Text);
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+// GradientCard: card tính năng với gradient màu riêng và icon trắng
+type GradientCardProps = {
+  gradient: readonly [string, string];
+  shadowColor: string;
+  icon: React.ReactNode;
+  label: string;
+  onPress: () => void;
+  animatedStyle: object;
+  onPressIn: () => void;
+  onPressOut: () => void;
+};
+function GradientCard({ gradient, shadowColor, icon, label, onPress, animatedStyle, onPressIn, onPressOut }: GradientCardProps) {
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={[s.gradientCardWrap, { shadowColor }, animatedStyle]}
+    >
+      <LinearGradient
+        colors={gradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={s.gradientCardInner}
+      >
+        <View style={s.gradientIconBox}>{icon}</View>
+        <Text style={s.gradientCardLabel}>{label}</Text>
+      </LinearGradient>
+    </AnimatedPressable>
+  );
+}
 
 export const HomeScreen = () => {
   const router = useRouter();
@@ -39,20 +85,95 @@ export const HomeScreen = () => {
   const [isPlayingDailyWord, setIsPlayingDailyWord] = useState(false);
   const [isDailyWordSaved, setIsDailyWordSaved] = useState(false);
 
-  // Motion Springs
-  const scanSpring = usePressSpring(0.97);
-  const flashcardSpring = usePressSpring(0.97);
-  const chatSpring = usePressSpring(0.97);
-  const quizSpring = usePressSpring(0.97);
+  // Greeting theo giờ
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? '🌅 Buổi sáng' : hour < 18 ? '☀️ Buổi chiều' : '🌙 Buổi tối';
+
+  // Pulse ring cho avatar
+  const { ringStyle } = usePulseRing(true);
+
+  // XP count-up: sync DerivedValue -> React state
+  const [displayXp, setDisplayXp] = useState(0);
+  const animatedXp = useCountUp(userStats?.xp_total ?? 0, 800);
+  useAnimatedReaction(
+    () => animatedXp.value,
+    (current) => runOnJS(setDisplayXp)(current)
+  );
+
+  // Motion Springs — grid cards dùng 0.93 cho cảm giác chắc hơn
+  const scanSpring = usePressSpring(0.93);
+  const flashcardSpring = usePressSpring(0.93);
+  const chatSpring = usePressSpring(0.93);
+  const quizSpring = usePressSpring(0.93);
   const heroSpring = usePressSpring(0.98);
   const continueSpring = usePressSpring(0.98);
+  const blitzSpring = usePressSpring(0.97);
 
   // Stagger Animations
   const animHeader = useStaggerReveal(0, 50);
   const animStats = useStaggerReveal(1, 50);
   const animHero = useStaggerReveal(2, 50);
   const animGrid = useStaggerReveal(3, 50);
-  const animDaily = useStaggerReveal(4, 50);
+  const animQuests = useStaggerReveal(4, 50);
+  const animDaily = useStaggerReveal(5, 50);
+  const animBlitz = useStaggerReveal(6, 50);
+
+  // Daily Quests Data & State
+  type DailyQuest = {
+    id: string;
+    icon: string;
+    title: string;
+    current: number;
+    target: number;
+    xp: number;
+    unit: string;
+    claimed: boolean;
+    route: string;
+  };
+
+  const [quests, setQuests] = useState<DailyQuest[]>([
+    {
+      id: 'q1',
+      icon: '🗂️',
+      title: 'Ôn tập thẻ Flashcard SRS',
+      current: 8,
+      target: 10,
+      xp: 20,
+      unit: 'thẻ',
+      claimed: false,
+      route: '/(student)/review',
+    },
+    {
+      id: 'q2',
+      icon: '🎯',
+      title: 'Hoàn thành 1 bài Quiz đạt 80%+',
+      current: 1,
+      target: 1,
+      xp: 30,
+      unit: 'bài',
+      claimed: false,
+      route: '/(student)/practice/quiz/quiz-101',
+    },
+    {
+      id: 'q3',
+      icon: '🎙️',
+      title: 'Luyện phát âm & giao tiếp',
+      current: 3,
+      target: 3,
+      xp: 25,
+      unit: 'phút',
+      claimed: true,
+      route: '/(student)/learn',
+    },
+  ]);
+
+  const handleClaimQuest = (id: string) => {
+    setQuests((prev) =>
+      prev.map((q) => (q.id === id ? { ...q, claimed: true } : q))
+    );
+  };
+
+  const completedQuestsCount = quests.filter((q) => q.current >= q.target).length;
 
   // Featured Daily Word
   const dailyWord = {
@@ -61,7 +182,8 @@ export const HomeScreen = () => {
     phonetic: '/juːˈbɪkwɪtəs/',
     pos: 'Adj',
     meaning_vi: 'Có mặt ở khắp mọi nơi, phổ biến rộng rãi',
-    example: 'Mobile phones and AI tools have become ubiquitous in daily life.'
+    example: 'Mobile phones and AI tools have become ubiquitous in daily life.',
+    example_vi: 'Điện thoại di động và các công cụ AI đã trở nên phổ biến khắp nơi trong đời sống.',
   };
 
   const handlePlayDailyWord = () => {
@@ -86,14 +208,18 @@ export const HomeScreen = () => {
       {/* Top Header Row */}
       <Animated.View style={[s.headerRow, animHeader]}>
         <Pressable onPress={() => router.push('/(student)/profile' as any)} style={s.profileTouch}>
-          <Image
-            source={{
-              uri: currentUser?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200'
-            }}
-            style={s.avatar}
-          />
+          {/* Avatar + pulse ring */}
+          <View style={s.avatarContainer}>
+            <Animated.View style={[s.avatarRing, ringStyle]} />
+            <Image
+              source={{
+                uri: currentUser?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200'
+              }}
+              style={s.avatar}
+            />
+          </View>
           <View>
-            <Text style={s.greetingText}>Chào buổi sáng, {currentUser?.display_name || 'Học Viên'}</Text>
+            <Text style={s.greetingText}>{greeting}, {currentUser?.display_name || 'Học Viên'}</Text>
             <Text style={s.brandTitle}>Loxera English</Text>
           </View>
         </Pressable>
@@ -115,11 +241,11 @@ export const HomeScreen = () => {
           <Text style={s.streakText}>{userStats?.streak_current ?? 0} ngày</Text>
         </View>
 
-        {/* XP Progress: Vàng-cam + nền xpSoft */}
+        {/* XP Progress: Vàng-cam + count-up animation */}
         <View style={s.xpSection}>
           <View style={s.xpRow}>
             <Zap color={colors.xpDeep} size={14} fill={colors.xpDeep} />
-            <Text style={s.xpText}>{(userStats?.xp_total ?? 0).toLocaleString('vi-VN')} XP</Text>
+            <Text style={s.xpText}>{displayXp.toLocaleString('vi-VN')} XP</Text>
             <Text style={s.levelTag}>LVL {userStats?.level ?? 1}</Text>
           </View>
           <View style={s.xpProgressBg}>
@@ -134,113 +260,196 @@ export const HomeScreen = () => {
         </View>
       </Animated.View>
 
-      {/* HERO FEATURED BANNER: AI Camera Scanner */}
+      {/* HERO FEATURED BANNER: Brand gradient */}
       <Animated.View style={animHero}>
         <AnimatedPressable
           onPress={() => router.push('/(student)/practice/scan' as any)}
           onPressIn={heroSpring.onPressIn}
           onPressOut={heroSpring.onPressOut}
-          style={[s.heroBanner, heroSpring.animatedStyle]}
+          style={[s.heroBannerWrapper, heroSpring.animatedStyle]}
         >
-          <View style={s.heroContent}>
-            <View style={s.heroBadge}>
-              <Sparkles color="#FFFFFF" size={13} />
-              <Text style={s.heroBadgeText}>AI Smart Scanner</Text>
+          <LinearGradient
+            colors={heroGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={s.heroBannerGradient}
+          >
+            <View style={s.heroContent}>
+              <View style={s.heroBadge}>
+                <Text style={s.heroBadgeText}>✨ Tính năng nổi bật</Text>
+              </View>
+
+              <Text style={s.heroTitle}>Khám phá từ vựng qua ảnh</Text>
+              <Text style={s.heroSub}>
+                Chụp hoặc tải ảnh vật thể để tự động tạo thẻ ghi nhớ.
+              </Text>
+
+              <View style={s.heroCta}>
+                <Aperture color={palette.primary} size={16} />
+                <Text style={s.heroCtaText}>Thử ngay</Text>
+              </View>
             </View>
 
-            <Text style={s.heroTitle}>Quét Ảnh Nhận Diện Từ Vựng AI</Text>
-            <Text style={s.heroSub}>
-              Chụp hoặc tải ảnh vật thể để AI tự động khoanh vùng & tạo thẻ ghi nhớ.
-            </Text>
-
-            <View style={s.heroCta}>
-              <Aperture color={palette.primary} size={16} />
-              <Text style={s.heroCtaText}>Quét Ảnh Ngay</Text>
+            <View style={s.mascotWrap}>
+              <LoxeraFoxMascot size={110} showGlow={false} showBook={false} animated />
             </View>
-          </View>
-
-          <View style={s.mascotWrap}>
-            <LoxeraFoxMascot size={110} showGlow={false} showBook={false} animated />
-          </View>
+          </LinearGradient>
         </AnimatedPressable>
       </Animated.View>
 
-      {/* 4 Quick Action Cards Grid */}
+      {/* 4 Quick Action Cards Grid — gradient màu riêng mỗi card */}
       <Animated.View style={animGrid}>
-        <Text style={s.sectionHeader}>Tính năng nổi bật</Text>
+        <Text style={s.sectionHeader}>Tính năng</Text>
         <View style={s.gridRow}>
-          {/* Card 1: AI Quét Ảnh */}
-          <AnimatedPressable
+          <GradientCard
+            gradient={cardGradients.scan}
+            shadowColor={cardShadowColors.scan}
+            icon={<ScanText color="#FFFFFF" size={24} strokeWidth={2} />}
+            label="Quét Ảnh"
             onPress={() => router.push('/(student)/practice/scan' as any)}
+            animatedStyle={scanSpring.animatedStyle}
             onPressIn={scanSpring.onPressIn}
             onPressOut={scanSpring.onPressOut}
-            style={[s.gridCard, scanSpring.animatedStyle]}
-          >
-            <View style={s.gridIconCircle}>
-              <ScanText color={palette.primary} size={22} />
-            </View>
-            <View style={s.gridCardTextWrap}>
-              <Text style={s.gridCardTitle}>Quét Ảnh AI</Text>
-              <Text style={s.gridCardSub}>Nhận diện vật thể</Text>
-            </View>
-          </AnimatedPressable>
-
-          {/* Card 2: Flashcard */}
-          <AnimatedPressable
+          />
+          <GradientCard
+            gradient={cardGradients.flashcard}
+            shadowColor={cardShadowColors.flashcard}
+            icon={<BookOpen color="#FFFFFF" size={24} strokeWidth={2} />}
+            label="Flashcard"
             onPress={() => router.push('/(student)/review' as any)}
+            animatedStyle={flashcardSpring.animatedStyle}
             onPressIn={flashcardSpring.onPressIn}
             onPressOut={flashcardSpring.onPressOut}
-            style={[s.gridCard, flashcardSpring.animatedStyle]}
-          >
-            <View style={s.gridIconCircle}>
-              <BookOpen color={palette.primary} size={22} />
-            </View>
-            <View style={s.gridCardTextWrap}>
-              <Text style={s.gridCardTitle}>Flashcard</Text>
-              <Text style={s.gridCardSub}>Ôn tập SM-2</Text>
-            </View>
-          </AnimatedPressable>
-
-          {/* Card 3: AI Chat */}
-          <AnimatedPressable
+          />
+          <GradientCard
+            gradient={cardGradients.chat}
+            shadowColor={cardShadowColors.chat}
+            icon={<MessageSquare color="#FFFFFF" size={24} strokeWidth={2} />}
+            label="Hội Thoại"
             onPress={() => router.push('/(student)/assistant' as any)}
+            animatedStyle={chatSpring.animatedStyle}
             onPressIn={chatSpring.onPressIn}
             onPressOut={chatSpring.onPressOut}
-            style={[s.gridCard, chatSpring.animatedStyle]}
-          >
-            <View style={s.gridIconCircle}>
-              <MessageSquare color={palette.primary} size={22} />
-            </View>
-            <View style={s.gridCardTextWrap}>
-              <Text style={s.gridCardTitle}>Trợ Lý AI Chat</Text>
-              <Text style={s.gridCardSub}>Giao tiếp Loxera</Text>
-            </View>
-          </AnimatedPressable>
-
-          {/* Card 4: Quiz */}
-          <AnimatedPressable
+          />
+          <GradientCard
+            gradient={cardGradients.quiz}
+            shadowColor={cardShadowColors.quiz}
+            icon={<BrainCircuit color="#FFFFFF" size={24} strokeWidth={2} />}
+            label="Kiểm Tra"
             onPress={() => router.push('/(student)/practice/quiz/quiz-101' as any)}
+            animatedStyle={quizSpring.animatedStyle}
             onPressIn={quizSpring.onPressIn}
             onPressOut={quizSpring.onPressOut}
-            style={[s.gridCard, quizSpring.animatedStyle]}
-          >
-            <View style={s.gridIconCircle}>
-              <BrainCircuit color={palette.primary} size={22} />
-            </View>
-            <View style={s.gridCardTextWrap}>
-              <Text style={s.gridCardTitle}>Quiz 10 Câu</Text>
-              <Text style={s.gridCardSub}>Luyện tập từ vựng</Text>
-            </View>
-          </AnimatedPressable>
+          />
         </View>
       </Animated.View>
 
-      {/* Daily Vocabulary Card */}
+      {/* Daily Quests Section (Nhiệm vụ hàng ngày) */}
+      <Animated.View style={[s.questsCard, animQuests]}>
+        <View style={s.questsHeaderRow}>
+          <View style={s.questsHeaderLeft}>
+            <View style={s.targetIconWrap}>
+              <Target color={palette.primary} size={18} strokeWidth={2.5} />
+            </View>
+            <View>
+              <Text style={s.questsHeaderTitle}>Nhiệm vụ hôm nay</Text>
+              <Text style={s.questsHeaderSub}>{completedQuestsCount}/3 nhiệm vụ đã hoàn thành</Text>
+            </View>
+          </View>
+
+          <View style={s.questsRewardPill}>
+            <Gift color={colors.xpDeep} size={14} />
+            <Text style={s.questsRewardText}>+75 XP</Text>
+          </View>
+        </View>
+
+        {/* Quests List */}
+        <View style={s.questList}>
+          {quests.map((quest) => {
+            const isDone = quest.current >= quest.target;
+            const progressPct = Math.min((quest.current / quest.target) * 100, 100);
+
+            return (
+              <View key={quest.id} style={s.questItem}>
+                <View style={s.questIconBox}>
+                  <Text style={{ fontSize: 20 }}>{quest.icon}</Text>
+                </View>
+
+                <View style={s.questCenter}>
+                  <Text style={s.questTitle} numberOfLines={1}>{quest.title}</Text>
+                  <View style={s.questProgressRow}>
+                    <View style={s.questProgressBg}>
+                      <View style={[s.questProgressFill, { width: `${progressPct}%`, backgroundColor: isDone ? palette.success : palette.primary }]} />
+                    </View>
+                    <Text style={s.questProgressLabel}>{quest.current}/{quest.target} {quest.unit}</Text>
+                  </View>
+                </View>
+
+                {quest.claimed ? (
+                  <View style={s.questClaimedBadge}>
+                    <CheckCircle2 color={palette.success} size={14} />
+                    <Text style={s.questClaimedText}>Đã nhận</Text>
+                  </View>
+                ) : isDone ? (
+                  <Pressable
+                    onPress={() => handleClaimQuest(quest.id)}
+                    style={s.questClaimBtn}
+                  >
+                    <Zap color="#FFFFFF" size={12} fill="#FFFFFF" />
+                    <Text style={s.questClaimBtnText}>+{quest.xp} XP</Text>
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    onPress={() => router.push(quest.route as any)}
+                    style={s.questGoBtn}
+                  >
+                    <Text style={s.questGoBtnText}>Làm</Text>
+                    <ChevronRight color={palette.primary} size={13} />
+                  </Pressable>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      </Animated.View>
+
+      {/* ⚡ Blitz 60s Mini Challenge Banner */}
+      <Animated.View style={animBlitz}>
+        <AnimatedPressable
+          onPress={() => router.push('/(student)/practice/quiz/quiz-101' as any)}
+          onPressIn={blitzSpring.onPressIn}
+          onPressOut={blitzSpring.onPressOut}
+          style={[s.blitzBannerWrap, blitzSpring.animatedStyle]}
+        >
+          <LinearGradient
+            colors={['#7C3AED', '#6366F1']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={s.blitzBannerInner}
+          >
+            <View style={s.blitzLeftCol}>
+              <View style={s.blitzTag}>
+                <Timer color="#FFFFFF" size={12} />
+                <Text style={s.blitzTagText}>Thử thách chớp nhoáng</Text>
+              </View>
+              <Text style={s.blitzTitle}>⚡ Blitz 60 Giây — Phản Xạ Từ</Text>
+              <Text style={s.blitzSub}>Đoán nhanh 10 từ vựng để nhân đôi điểm XP!</Text>
+            </View>
+
+            <View style={s.blitzPlayBtn}>
+              <Play color="#7C3AED" size={16} fill="#7C3AED" />
+              <Text style={s.blitzPlayText}>Chơi</Text>
+            </View>
+          </LinearGradient>
+        </AnimatedPressable>
+      </Animated.View>
+
+      {/* Daily Vocabulary Card (Nâng cấp tương tác) */}
       <Animated.View style={[s.dailyCard, animDaily]}>
         <View style={s.dailyTopRow}>
           <View style={s.dailyTag}>
-            <Sparkles color={palette.primary} size={12} />
-            <Text style={s.dailyTagText}>Từ Vựng Mỗi Ngày</Text>
+            <Sparkles color={palette.primary} size={13} />
+            <Text style={s.dailyTagText}>Từ vựng hôm nay</Text>
           </View>
 
           <Pressable
@@ -283,8 +492,12 @@ export const HomeScreen = () => {
           </Pressable>
         </View>
 
-        <Text style={s.phoneticText}>{dailyWord.phonetic} • {dailyWord.meaning_vi}</Text>
-        <Text style={s.exampleText}>"{dailyWord.example}"</Text>
+        <Text style={s.phoneticText}>{dailyWord.phonetic} • <Text style={s.meaningText}>{dailyWord.meaning_vi}</Text></Text>
+        
+        <View style={s.exampleBox}>
+          <Text style={s.exampleText}>"{dailyWord.example}"</Text>
+          <Text style={s.exampleViText}>➔ {dailyWord.example_vi}</Text>
+        </View>
       </Animated.View>
 
       {/* Continue Learning Section */}
@@ -361,6 +574,21 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  avatarContainer: {
+    position: 'relative',
+    width: 44,
+    height: 44,
+  },
+  avatarRing: {
+    position: 'absolute',
+    top: -5,
+    left: -5,
+    right: -5,
+    bottom: -5,
+    borderRadius: 27,
+    borderWidth: 2.5,
+    borderColor: colors.secondary,
   },
   avatar: {
     width: 44,
@@ -476,19 +704,21 @@ const s = StyleSheet.create({
     fontWeight: '700',
     color: colors.coin,
   },
-  heroBanner: {
-    backgroundColor: palette.primary,
+  heroBannerWrapper: {
+    marginBottom: 24,
+    borderRadius: 24,
+    shadowColor: colors.primaryDeep,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.22,
+    shadowRadius: 20,
+    elevation: 6,
+  },
+  heroBannerGradient: {
     padding: 20,
     borderRadius: 24,
-    marginBottom: 24,
     flexDirection: 'row',
     alignItems: 'center',
     overflow: 'hidden',
-    shadowColor: palette.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 4,
   },
   heroContent: {
     flex: 1,
@@ -560,39 +790,37 @@ const s = StyleSheet.create({
     gap: 12,
     marginBottom: 24,
   },
-  gridCard: {
+  // Gradient card styles
+  gradientCardWrap: {
     width: '48%',
-    backgroundColor: palette.surface,
-    padding: 14,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: palette.border,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    borderRadius: 20,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    elevation: 5,
   },
-  gridIconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: palette.primarySoft,
+  gradientCardInner: {
+    borderRadius: 20,
+    padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 110,
   },
-  gridCardTextWrap: {
-    flex: 1,
+  gradientIconBox: {
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
   },
-  gridCardTitle: {
+  gradientCardLabel: {
     fontSize: 13,
     fontFamily: font.family,
-    fontWeight: '600',
-    color: palette.text,
-  },
-  gridCardSub: {
-    fontSize: 11,
-    fontFamily: font.family,
-    color: palette.textSoft,
-    marginTop: 2,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
   dailyCard: {
     backgroundColor: palette.surface,
@@ -646,10 +874,11 @@ const s = StyleSheet.create({
     gap: 8,
   },
   wordText: {
-    fontSize: 20,
+    fontSize: 32,
     fontFamily: font.family,
-    fontWeight: '700',
+    fontWeight: '800',
     color: palette.text,
+    letterSpacing: -0.5,
   },
   posTag: {
     backgroundColor: palette.primarySoft,
@@ -693,15 +922,255 @@ const s = StyleSheet.create({
     color: palette.textSoft,
     marginBottom: 8,
   },
+  // Daily Quests Styles
+  questsCard: {
+    backgroundColor: palette.surface,
+    padding: 16,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: palette.border,
+    marginBottom: 20,
+    shadowColor: palette.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  questsHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  questsHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  targetIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: palette.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  questsHeaderTitle: {
+    fontSize: 15,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.text,
+  },
+  questsHeaderSub: {
+    fontSize: 11,
+    fontFamily: font.family,
+    color: palette.textSoft,
+  },
+  questsRewardPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.xpSoft,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.xpBorder,
+  },
+  questsRewardText: {
+    fontSize: 11,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: colors.xpDeep,
+  },
+  questList: {
+    gap: 10,
+  },
+  questItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: palette.bg,
+    padding: 10,
+    borderRadius: 14,
+    gap: 10,
+  },
+  questIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: palette.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  questCenter: {
+    flex: 1,
+  },
+  questTitle: {
+    fontSize: 12,
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: palette.text,
+    marginBottom: 4,
+  },
+  questProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  questProgressBg: {
+    flex: 1,
+    height: 5,
+    backgroundColor: palette.border,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  questProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  questProgressLabel: {
+    fontSize: 10,
+    fontFamily: font.family,
+    color: palette.textSoft,
+    fontWeight: '600',
+  },
+  questClaimedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
+  questClaimedText: {
+    fontSize: 10,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.success,
+  },
+  questClaimBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.xpDeep,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  questClaimBtnText: {
+    fontSize: 11,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  questGoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: palette.surface,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  questGoBtnText: {
+    fontSize: 11,
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: palette.primary,
+  },
+
+  // Blitz Banner Styles
+  blitzBannerWrap: {
+    marginBottom: 20,
+    borderRadius: 20,
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  blitzBannerInner: {
+    padding: 16,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  blitzLeftCol: {
+    flex: 1,
+    marginRight: 10,
+  },
+  blitzTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginBottom: 6,
+  },
+  blitzTagText: {
+    fontSize: 10,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+  },
+  blitzTitle: {
+    fontSize: 15,
+    fontFamily: font.family,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  blitzSub: {
+    fontSize: 11,
+    fontFamily: font.family,
+    color: 'rgba(255, 255, 255, 0.85)',
+  },
+  blitzPlayBtn: {
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  blitzPlayText: {
+    fontSize: 12,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: '#7C3AED',
+  },
+
+  meaningText: {
+    color: palette.text,
+    fontWeight: '600',
+  },
+  exampleBox: {
+    backgroundColor: palette.bg,
+    padding: 12,
+    borderRadius: 14,
+    gap: 4,
+  },
   exampleText: {
     fontSize: 13,
     fontFamily: font.family,
     color: palette.text,
-    backgroundColor: palette.bg,
-    padding: 12,
-    borderRadius: 12,
     fontStyle: 'italic',
   },
+  exampleViText: {
+    fontSize: 12,
+    fontFamily: font.family,
+    color: palette.textSoft,
+  },
+
   sectionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

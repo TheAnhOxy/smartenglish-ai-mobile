@@ -1,51 +1,59 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { View, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { GraduationCap, BarChart2, Home, Bot, User } from 'lucide-react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/src/theme/colors';
+import { useTabBounce } from '@/src/hooks/useTabBounce';
+
+// AnimatedTabIcon: icon nảy lên khi tab active
+type AnimatedTabIconProps = { focused: boolean; children: React.ReactNode };
+function AnimatedTabIcon({ focused, children }: AnimatedTabIconProps) {
+  const { animatedStyle } = useTabBounce(focused);
+  return <Animated.View style={[tabStyles.iconWrap, animatedStyle]}>{children}</Animated.View>;
+}
+
+const tabStyles = StyleSheet.create({
+  iconWrap: { alignItems: 'center', justifyContent: 'center', width: 32, height: 28 },
+});
 
 export default function StudentTabsLayout() {
-  const insets = useSafeAreaInsets();
-  const bottomInset = Math.max(insets.bottom, 10);
-  const tabBarHeight = 56 + bottomInset;
-
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#0284C7',
-        tabBarInactiveTintColor: '#94A3B8',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textFaint,
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '700',
-          marginTop: -2,
+          fontSize: 10,
+          fontWeight: '600',
+          marginTop: 2,
+          letterSpacing: 0.1,
         },
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
-          borderTopColor: '#F1F5F9',
-          borderTopWidth: 1,
-          height: 68,
-          paddingBottom: 10,
-          paddingTop: 8,
+          borderTopWidth: 0,
+          height: 72,
+          paddingBottom: 12,
+          paddingTop: 6,
           shadowColor: '#0F172A',
           shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.04,
-          shadowRadius: 12,
-          elevation: 8
-        }
+          shadowOpacity: 0.08,
+          shadowRadius: 20,
+          elevation: 16,
+        },
       }}
     >
-      {/* 5 Main Bottom Tabs matching design */}
+      {/* 5 Main Bottom Tabs — AnimatedTabIcon với bounce spring */}
       <Tabs.Screen
         name="learn"
         options={{
           title: 'Lộ trình',
           tabBarIcon: ({ color, focused }) => (
-            <View className={`w-10 h-7 rounded-xl items-center justify-center ${focused ? 'bg-sky-50' : 'bg-transparent'}`}>
-              <GraduationCap color={color} size={22} strokeWidth={focused ? 2.5 : 2} />
-            </View>
-          )
+            <AnimatedTabIcon focused={focused}>
+              <GraduationCap color={color} size={22} strokeWidth={focused ? 2.5 : 1.8} />
+            </AnimatedTabIcon>
+          ),
         }}
       />
       <Tabs.Screen
@@ -53,10 +61,10 @@ export default function StudentTabsLayout() {
         options={{
           title: 'Thống kê',
           tabBarIcon: ({ color, focused }) => (
-            <View className={`w-10 h-7 rounded-xl items-center justify-center ${focused ? 'bg-sky-50' : 'bg-transparent'}`}>
-              <BarChart2 color={color} size={22} strokeWidth={focused ? 2.5 : 2} />
-            </View>
-          )
+            <AnimatedTabIcon focused={focused}>
+              <BarChart2 color={color} size={22} strokeWidth={focused ? 2.5 : 1.8} />
+            </AnimatedTabIcon>
+          ),
         }}
       />
       <Tabs.Screen
@@ -64,21 +72,21 @@ export default function StudentTabsLayout() {
         options={{
           title: 'Khám phá',
           tabBarIcon: ({ color, focused }) => (
-            <View className={`w-12 h-7 rounded-2xl items-center justify-center ${focused ? 'bg-[#0284C7]' : 'bg-transparent'}`}>
-              <Home color={focused ? '#FFFFFF' : color} size={22} strokeWidth={focused ? 2.5 : 2} />
-            </View>
+            <AnimatedTabIcon focused={focused}>
+              <Home color={color} size={24} strokeWidth={focused ? 2.5 : 1.8} />
+            </AnimatedTabIcon>
           ),
         }}
       />
       <Tabs.Screen
         name="assistant"
         options={{
-          title: 'Trợ lý AI',
+          title: 'Trợ lý',
           tabBarIcon: ({ color, focused }) => (
-            <View className={`w-10 h-7 rounded-xl items-center justify-center ${focused ? 'bg-sky-50' : 'bg-transparent'}`}>
-              <Bot color={color} size={22} strokeWidth={focused ? 2.5 : 2} />
-            </View>
-          )
+            <AnimatedTabIcon focused={focused}>
+              <Bot color={color} size={22} strokeWidth={focused ? 2.5 : 1.8} />
+            </AnimatedTabIcon>
+          ),
         }}
       />
       <Tabs.Screen
@@ -86,10 +94,10 @@ export default function StudentTabsLayout() {
         options={{
           title: 'Cá nhân',
           tabBarIcon: ({ color, focused }) => (
-            <View className={`w-10 h-7 rounded-xl items-center justify-center ${focused ? 'bg-sky-50' : 'bg-transparent'}`}>
-              <User color={color} size={22} strokeWidth={focused ? 2.5 : 2} />
-            </View>
-          )
+            <AnimatedTabIcon focused={focused}>
+              <User color={color} size={22} strokeWidth={focused ? 2.5 : 1.8} />
+            </AnimatedTabIcon>
+          ),
         }}
       />
 
