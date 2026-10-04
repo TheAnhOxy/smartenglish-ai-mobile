@@ -3,7 +3,22 @@ import { Platform } from 'react-native';
 const STORAGE_PREFIX = 'se_trans_';
 const memoryStore: Record<string, string> = {};
 
+let mmkvInstance: any = null;
+try {
+  const { createMMKV, MMKV } = require('react-native-mmkv');
+  if (typeof createMMKV === 'function') {
+    mmkvInstance = createMMKV();
+  } else if (typeof MMKV === 'function') {
+    mmkvInstance = new MMKV();
+  }
+} catch (_) {}
+
 function getStorageItem(key: string): string | null {
+  try {
+    if (mmkvInstance) {
+      return mmkvInstance.getString(key) || null;
+    }
+  } catch (_) {}
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       return window.localStorage.getItem(key);
@@ -13,6 +28,12 @@ function getStorageItem(key: string): string | null {
 }
 
 function setStorageItem(key: string, value: string): void {
+  try {
+    if (mmkvInstance) {
+      mmkvInstance.set(key, value);
+      return;
+    }
+  } catch (_) {}
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.setItem(key, value);

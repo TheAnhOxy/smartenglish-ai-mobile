@@ -6,9 +6,10 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
-  withDelay,
+  withSpring,
 } from 'react-native-reanimated';
 import Svg, { Path, Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useFocusEffect } from 'expo-router';
 import {
   GraduationCap,
@@ -16,41 +17,108 @@ import {
   BookOpen,
   Crown,
   Check,
-  Sparkles,
   Play,
   X,
   Flame,
   MessageCircle,
   Zap,
+  Lock,
+  Gift,
+  Compass,
+  Sparkles,
 } from 'lucide-react-native';
 import { MOCK_CURRICULUM, UnitNode, Chapter } from '../../data/curriculumData';
 import { fetchLearningPathRoadmapApi } from '../../data/knowledgeGapApi';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { colors, palette, font } from '@/src/theme';
-import { spring, timing, easings } from '@/src/theme/motion';
+import { easings } from '@/src/theme/motion';
 import { usePressSpring } from '@/src/hooks/usePressSpring';
+import { usePulseRing } from '@/src/hooks/usePulseRing';
 import { DatabaseLoader } from '@/src/components/ui/DatabaseLoader';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CONTENT_WIDTH = SCREEN_WIDTH - 40;
-const NODE_SIZE = 72;
-const VERTICAL_GAP = 110;
+const CONTENT_WIDTH = SCREEN_WIDTH - 48;
+const NODE_SIZE = 76;
+const VERTICAL_GAP = 115;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-// ─── DYNAMIC ANIMATED BACKGROUND ───
-// Tạo các hạt ánh sáng & quầng sáng gradient trôi nhẹ nhàng trên UI thread
+// ─── THEMATIC CHAPTER BIOMES (PHÂN VÙNG BẢN ĐỒ THẾ GIỚI HỌC TẬP) ───
+interface ChapterBiome {
+  name: string;
+  subtitle: string;
+  gradient: [string, string];
+  islandBg: string;
+  islandBorder: string;
+  badgeBg: string;
+  badgeText: string;
+  pathCompleted: string;
+  chestAccent: string;
+}
+
+const CHAPTER_BIOMES: ChapterBiome[] = [
+  {
+    name: 'Thung Lũng Khởi Động',
+    subtitle: 'Nền tảng giao tiếp cơ bản & phản xạ ban đầu',
+    gradient: ['#059669', '#10B981'],
+    islandBg: 'rgba(236, 253, 245, 0.7)',
+    islandBorder: 'rgba(16, 185, 129, 0.25)',
+    badgeBg: '#D1FAE5',
+    badgeText: '#065F46',
+    pathCompleted: '#10B981',
+    chestAccent: '#059669',
+  },
+  {
+    name: 'Vịnh Tri Thức Phản Xạ',
+    subtitle: 'Từ vựng chuyên sâu & phản xạ tình huống nhanh',
+    gradient: ['#1E1B4B', '#3B82F6'],
+    islandBg: 'rgba(238, 242, 255, 0.7)',
+    islandBorder: 'rgba(99, 102, 241, 0.25)',
+    badgeBg: '#E0E7FF',
+    badgeText: '#3730A3',
+    pathCompleted: '#3B82F6',
+    chestAccent: '#4F46E5',
+  },
+  {
+    name: 'Hoàng Hôn Bứt Phá',
+    subtitle: 'Luyện nói thực chiến & ngữ pháp tự nhiên',
+    gradient: ['#D97706', '#EA580C'],
+    islandBg: 'rgba(255, 251, 235, 0.7)',
+    islandBorder: 'rgba(245, 158, 11, 0.25)',
+    badgeBg: '#FEF3C7',
+    badgeText: '#92400E',
+    pathCompleted: '#F59E0B',
+    chestAccent: '#EA580C',
+  },
+  {
+    name: 'Đỉnh Cao Tinh Vân',
+    subtitle: 'Master phản xạ AI chuẩn quốc tế',
+    gradient: ['#6D28D9', '#9333EA'],
+    islandBg: 'rgba(250, 245, 255, 0.7)',
+    islandBorder: 'rgba(168, 85, 247, 0.25)',
+    badgeBg: '#F3E8FF',
+    badgeText: '#6B21A8',
+    pathCompleted: '#9333EA',
+    chestAccent: '#7C3AED',
+  },
+];
+
+const getBiomeForChapter = (chapterNum: number): ChapterBiome => {
+  const index = Math.max(0, chapterNum - 1) % CHAPTER_BIOMES.length;
+  return CHAPTER_BIOMES[index];
+};
+
+// ─── AMBIENT ATMOSPHERIC BACKGROUND ───
 const DynamicPathBackground = () => {
   const orb1Y = useSharedValue(0);
   const orb2Y = useSharedValue(0);
   const orb3Y = useSharedValue(0);
-  const orbScale = useSharedValue(1);
 
   useEffect(() => {
     orb1Y.value = withRepeat(
       withSequence(
-        withTiming(40, { duration: 4000, easing: easings.inOut }),
-        withTiming(-30, { duration: 4500, easing: easings.inOut })
+        withTiming(35, { duration: 4200, easing: easings.inOut }),
+        withTiming(-35, { duration: 4600, easing: easings.inOut })
       ),
       -1,
       true
@@ -58,8 +126,8 @@ const DynamicPathBackground = () => {
 
     orb2Y.value = withRepeat(
       withSequence(
-        withTiming(-50, { duration: 5000, easing: easings.inOut }),
-        withTiming(40, { duration: 4200, easing: easings.inOut })
+        withTiming(-45, { duration: 5200, easing: easings.inOut }),
+        withTiming(35, { duration: 4500, easing: easings.inOut })
       ),
       -1,
       true
@@ -67,17 +135,8 @@ const DynamicPathBackground = () => {
 
     orb3Y.value = withRepeat(
       withSequence(
-        withTiming(35, { duration: 3800, easing: easings.inOut }),
-        withTiming(-40, { duration: 4800, easing: easings.inOut })
-      ),
-      -1,
-      true
-    );
-
-    orbScale.value = withRepeat(
-      withSequence(
-        withTiming(1.15, { duration: 3500, easing: easings.inOut }),
-        withTiming(0.92, { duration: 3500, easing: easings.inOut })
+        withTiming(30, { duration: 4000, easing: easings.inOut }),
+        withTiming(-30, { duration: 4900, easing: easings.inOut })
       ),
       -1,
       true
@@ -85,11 +144,11 @@ const DynamicPathBackground = () => {
   }, []);
 
   const orb1Style = useAnimatedStyle(() => ({
-    transform: [{ translateY: orb1Y.value }, { scale: orbScale.value }],
+    transform: [{ translateY: orb1Y.value }],
   }));
 
   const orb2Style = useAnimatedStyle(() => ({
-    transform: [{ translateY: orb2Y.value }, { scale: orbScale.value }],
+    transform: [{ translateY: orb2Y.value }],
   }));
 
   const orb3Style = useAnimatedStyle(() => ({
@@ -98,45 +157,24 @@ const DynamicPathBackground = () => {
 
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      {/* Orb 1: Soft Primary Indigo Glow */}
       <Animated.View
         style={[
           s.ambientOrb,
-          {
-            top: 100,
-            left: -40,
-            width: 220,
-            height: 220,
-            backgroundColor: `${colors.primarySoft}60`,
-          },
+          { top: 80, left: -50, width: 240, height: 240, backgroundColor: 'rgba(59, 130, 246, 0.12)' },
           orb1Style,
         ]}
       />
-      {/* Orb 2: Soft Streak Orange Glow */}
       <Animated.View
         style={[
           s.ambientOrb,
-          {
-            top: 380,
-            right: -50,
-            width: 240,
-            height: 240,
-            backgroundColor: `${colors.streakSoft}50`,
-          },
+          { top: 400, right: -60, width: 260, height: 260, backgroundColor: 'rgba(245, 158, 11, 0.12)' },
           orb2Style,
         ]}
       />
-      {/* Orb 3: Soft XP Yellow Glow */}
       <Animated.View
         style={[
           s.ambientOrb,
-          {
-            top: 700,
-            left: 20,
-            width: 200,
-            height: 200,
-            backgroundColor: `${colors.xpSoft}60`,
-          },
+          { top: 780, left: -20, width: 220, height: 220, backgroundColor: 'rgba(16, 185, 129, 0.12)' },
           orb3Style,
         ]}
       />
@@ -144,16 +182,16 @@ const DynamicPathBackground = () => {
   );
 };
 
-// ─── DUOLINGO PATH BRANCH CONNECTORS (SVG) ───
-// Tính toạ độ X cho serpentine path (Left, Center, Right, Center...)
+// ─── TÍNH TOẠ ĐỘ X CHO SERPENTINE PATH (DUOLINGO S-CURVE) ───
 const getNodeX = (index: number): number => {
   const mod = index % 4;
-  if (mod === 0) return CONTENT_WIDTH * 0.5; // Center
-  if (mod === 1) return CONTENT_WIDTH * 0.76; // Right
-  if (mod === 2) return CONTENT_WIDTH * 0.5; // Center
-  return CONTENT_WIDTH * 0.24; // Left
+  if (mod === 0) return CONTENT_WIDTH * 0.5; // Giữa
+  if (mod === 1) return CONTENT_WIDTH * 0.78; // Phải
+  if (mod === 2) return CONTENT_WIDTH * 0.5; // Giữa
+  return CONTENT_WIDTH * 0.22; // Trái
 };
 
+// ─── SVG BRANCH CONNECTORS ───
 interface BranchProps {
   fromX: number;
   fromY: number;
@@ -161,52 +199,170 @@ interface BranchProps {
   toY: number;
   isCompleted: boolean;
   isUpcoming: boolean;
+  completedColor: string;
 }
 
-const DuolingoBranch: React.FC<BranchProps> = ({ fromX, fromY, toX, toY, isCompleted, isUpcoming }) => {
-  // Cubic Bezier curve control points
+const DuolingoBranch: React.FC<BranchProps> = ({
+  fromX,
+  fromY,
+  toX,
+  toY,
+  isCompleted,
+  isUpcoming,
+  completedColor,
+}) => {
   const midY = (fromY + toY) / 2;
   const pathD = `M ${fromX} ${fromY} C ${fromX} ${midY}, ${toX} ${midY}, ${toX} ${toY}`;
-
-  // Tọa độ điểm ngọc trang trí giữa nhánh
   const dotX = (fromX + toX) / 2;
   const dotY = midY;
 
   const strokeColor = isCompleted
-    ? colors.success
+    ? completedColor
     : isUpcoming
     ? colors.primarySoft
-    : colors.border;
+    : '#CBD5E1';
 
   return (
     <>
-      {/* Background shadow stroke for depth */}
+      {/* Lớp shadow stroke dày tạo chiều sâu 3D */}
       <Path
         d={pathD}
         fill="none"
-        stroke={isCompleted ? `${colors.success}30` : `${colors.border}80`}
-        strokeWidth={12}
+        stroke={isCompleted ? `${completedColor}35` : 'rgba(203, 213, 225, 0.45)'}
+        strokeWidth={14}
         strokeLinecap="round"
       />
-      {/* Main branch trunk */}
+      {/* Lớp stroke chính */}
       <Path
         d={pathD}
         fill="none"
         stroke={strokeColor}
-        strokeWidth={6}
+        strokeWidth={7}
         strokeLinecap="round"
-        strokeDasharray={isUpcoming || isCompleted ? undefined : '6, 8'}
+        strokeDasharray={isUpcoming || isCompleted ? undefined : '7, 9'}
       />
-      {/* Decorative leaf / stone node on branch */}
+      {/* Viên ngọc trang trí ở giữa nhánh */}
       <Circle
         cx={dotX}
         cy={dotY}
-        r={5}
-        fill={isCompleted ? colors.success : colors.surface}
+        r={6}
+        fill={isCompleted ? completedColor : '#FFFFFF'}
         stroke={strokeColor}
         strokeWidth={3}
       />
     </>
+  );
+};
+
+// ─── TACTILE 3D DUOLINGO NODE COMPONENT ───
+interface TactileNodeProps {
+  unit: UnitNode;
+  index: number;
+  isCurrent: boolean;
+  isCompleted: boolean;
+  isLocked: boolean;
+  onPress: (unit: UnitNode) => void;
+  activePulseStyle: any;
+  biomeCompletedColor: string;
+}
+
+const TactileDuolingoNode: React.FC<TactileNodeProps> = ({
+  unit,
+  index,
+  isCurrent,
+  isCompleted,
+  isLocked,
+  onPress,
+  activePulseStyle,
+  biomeCompletedColor,
+}) => {
+  const pressDown = useSharedValue(0);
+
+  const animatedFaceStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: pressDown.value }],
+  }));
+
+  const handlePressIn = () => {
+    pressDown.value = withSpring(5, { damping: 15, stiffness: 300 });
+  };
+
+  const handlePressOut = () => {
+    pressDown.value = withSpring(0, { damping: 15, stiffness: 300 });
+  };
+
+  // Màu sắc theo trạng thái
+  const faceBg = isCompleted
+    ? biomeCompletedColor
+    : isCurrent
+    ? colors.primary
+    : isLocked
+    ? '#E2E8F0'
+    : '#FFFFFF';
+
+  const baseBg = isCompleted
+    ? '#047857'
+    : isCurrent
+    ? '#1E1B4B'
+    : isLocked
+    ? '#CBD5E1'
+    : '#CBD5E1';
+
+  const borderColor = isCompleted
+    ? 'rgba(255, 255, 255, 0.35)'
+    : isCurrent
+    ? colors.streak
+    : isLocked
+    ? '#CBD5E1'
+    : colors.primarySoft;
+
+  return (
+    <View style={s.nodeWrapper}>
+      {/* Lớp đế 3D tạo độ dày đáy nổi */}
+      <View style={[s.nodeBase3D, { backgroundColor: baseBg }]} />
+
+      {/* Lớp mặt nút bấm lún */}
+      <AnimatedPressable
+        onPress={() => onPress(unit)}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={[
+          s.nodeFace3D,
+          {
+            backgroundColor: faceBg,
+            borderColor: borderColor,
+            borderWidth: isCurrent ? 5 : 3.5,
+          },
+          isCurrent && activePulseStyle,
+          animatedFaceStyle,
+        ]}
+      >
+        {isCompleted ? (
+          <Star color="#FFFFFF" size={30} fill="#FDE047" />
+        ) : isCurrent ? (
+          <GraduationCap color="#FFFFFF" size={34} />
+        ) : isLocked ? (
+          <Lock color="#94A3B8" size={24} />
+        ) : unit.icon_type === 'speech' ? (
+          <MessageCircle color={colors.primary} size={28} />
+        ) : (
+          <BookOpen color={colors.primary} size={28} />
+        )}
+
+        {/* Checkmark Badge cho Node hoàn thành */}
+        {isCompleted && (
+          <View style={[s.checkBadge, { backgroundColor: biomeCompletedColor }]}>
+            <Check color="#FFFFFF" size={13} strokeWidth={3.5} />
+          </View>
+        )}
+
+        {/* Crown Badge cho Node Premium */}
+        {unit.is_premium && !isCompleted && (
+          <View style={s.crownBadge}>
+            <Crown color="#FFFFFF" size={11} />
+          </View>
+        )}
+      </AnimatedPressable>
+    </View>
   );
 };
 
@@ -219,13 +375,11 @@ export const LearningPathScreen = () => {
   const [curriculum, setCurriculum] = useState<Chapter[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Active Node Pulse Animation
+  // Pulse animation cho node hiện tại
   const pulseScale = useSharedValue(1);
-
-  // Motion press spring hook for modal CTA
   const ctaSpring = usePressSpring(0.97);
 
-  // Fetch roadmap from backend and refresh when focused
+  // Fetch roadmap API
   const loadRoadmap = useCallback(() => {
     setIsLoading(true);
     const uid = currentUser?.id ? String(currentUser.id) : '1';
@@ -254,7 +408,10 @@ export const LearningPathScreen = () => {
               if (!descVi) descVi = 'Đánh giá toàn diện kiến thức qua bài học video tương tác chuẩn quốc tế.';
             }
 
-            const isDone = u.status === 'completed' || Boolean(u.isCompleted) || (u.completedLessons != null && u.completedLessons >= (u.totalLessons || 1));
+            const isDone =
+              u.status === 'completed' ||
+              Boolean(u.isCompleted) ||
+              (u.completedLessons != null && u.completedLessons >= (u.totalLessons || 1));
 
             return {
               id: String(u.id || `u-${idx * 10 + uIdx + 1}`),
@@ -292,11 +449,10 @@ export const LearningPathScreen = () => {
     }, [loadRoadmap])
   );
 
-  // Pulse animation for currently active unit
   useEffect(() => {
     pulseScale.value = withRepeat(
       withSequence(
-        withTiming(1.06, { duration: 900, easing: easings.inOut }),
+        withTiming(1.08, { duration: 900, easing: easings.inOut }),
         withTiming(1, { duration: 900, easing: easings.inOut })
       ),
       -1,
@@ -325,8 +481,8 @@ export const LearningPathScreen = () => {
     return (
       <DatabaseLoader
         fullscreen
-        message="Đang tải lộ trình học phản xạ..."
-        subMessage="Đồng bộ tiến độ học tập với Loxera AI Cloud"
+        message="Đang đồng bộ lộ trình học phản xạ..."
+        subMessage="Tải dữ liệu từ Loxera AI Cloud"
         color={colors.primary}
       />
     );
@@ -334,18 +490,17 @@ export const LearningPathScreen = () => {
 
   return (
     <View style={s.container}>
-      {/* Background động với các quầng sáng mềm chuyển động */}
       <DynamicPathBackground />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={s.scrollContent}
-      >
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollContent}>
         {/* Header Bar */}
         <View style={s.headerRow}>
           <View>
-            <Text style={s.subHeader}>LỘ TRÌNH HỌC PHẢN XẠ</Text>
-            <Text style={s.mainHeader}>Chương & Bài Học</Text>
+            <View style={s.badgeRow}>
+              <Compass color={colors.primary} size={14} />
+              <Text style={s.subHeader}>BẢN ĐỒ LỘ TRÌNH DUOLINGO</Text>
+            </View>
+            <Text style={s.mainHeader}>Hành Trình Chinh Phục</Text>
           </View>
 
           {!isPremium && (
@@ -354,48 +509,61 @@ export const LearningPathScreen = () => {
               style={s.premiumTag}
             >
               <Crown color={colors.warning} size={14} />
-              <Text style={s.premiumTagText}>Mở khóa Premium</Text>
+              <Text style={s.premiumTagText}>Mở khóa Pro</Text>
             </Pressable>
           )}
         </View>
 
-        {/* Chapters List */}
+        {/* Chapters List with Thematic Biomes */}
         {curriculum.map((chapter) => {
+          const biome = getBiomeForChapter(chapter.chapter_number);
           const totalUnits = chapter.units.length;
           const chapterHeight = (totalUnits - 1) * VERTICAL_GAP + NODE_SIZE + 40;
+          const isChapterAllDone =
+            totalUnits > 0 && chapter.units.every((u) => u.status === 'completed');
 
           return (
-            <View key={chapter.id} style={s.chapterSection}>
+            <View
+              key={chapter.id}
+              style={[
+                s.chapterIsland,
+                {
+                  backgroundColor: biome.islandBg,
+                  borderColor: biome.islandBorder,
+                },
+              ]}
+            >
               {/* Chapter Header Banner */}
-              <View style={s.chapterBanner}>
-                <View style={s.chapterBannerLeft}>
-                  <View style={s.chapterBadgeRow}>
-                    <Text style={s.chapterNumber}>Chương {chapter.chapter_number}</Text>
-                    {chapter.is_premium && (
-                      <View style={s.premiumBadge}>
-                        <Text style={s.premiumBadgeText}>PREMIUM</Text>
-                      </View>
-                    )}
+              <LinearGradient
+                colors={biome.gradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0.8 }}
+                style={s.chapterBanner}
+              >
+                <View style={s.chapterBannerTop}>
+                  <View style={[s.biomeBadge, { backgroundColor: biome.badgeBg }]}>
+                    <Text style={[s.biomeBadgeText, { color: biome.badgeText }]}>
+                      {biome.name}
+                    </Text>
                   </View>
-                  <Text style={s.chapterTitle}>{chapter.title_vi}</Text>
+
+                  {chapter.is_premium && (
+                    <View style={s.premiumBadge}>
+                      <Crown color="#FFFFFF" size={10} />
+                      <Text style={s.premiumBadgeText}>PREMIUM</Text>
+                    </View>
+                  )}
                 </View>
-              </View>
 
-              {/* Serpentine Connected Path Container */}
+                <Text style={s.chapterNumberText}>Chương {chapter.chapter_number}</Text>
+                <Text style={s.chapterTitle}>{chapter.title_vi}</Text>
+                <Text style={s.chapterSub}>{biome.subtitle}</Text>
+              </LinearGradient>
+
+              {/* Serpentine Path Container */}
               <View style={[s.pathContainer, { height: chapterHeight }]}>
-                {/* SVG Branch Layer — Kết nối từng Unit như Duolingo */}
-                <Svg
-                  width={CONTENT_WIDTH}
-                  height={chapterHeight}
-                  style={StyleSheet.absoluteFill}
-                >
-                  <Defs>
-                    <SvgGradient id="pathGradient" x1="0" y1="0" x2="0" y2="1">
-                      <Stop offset="0%" stopColor={colors.success} />
-                      <Stop offset="100%" stopColor={colors.primary} />
-                    </SvgGradient>
-                  </Defs>
-
+                {/* SVG Branch Layer */}
+                <Svg width={CONTENT_WIDTH} height={chapterHeight} style={StyleSheet.absoluteFill}>
                   {chapter.units.map((unit, idx) => {
                     if (idx >= totalUnits - 1) return null;
                     const nextUnit = chapter.units[idx + 1];
@@ -418,6 +586,7 @@ export const LearningPathScreen = () => {
                         toY={toY}
                         isCompleted={isCompleted}
                         isUpcoming={isUpcoming}
+                        completedColor={biome.pathCompleted}
                       />
                     );
                   })}
@@ -453,50 +622,24 @@ export const LearningPathScreen = () => {
                         </Animated.View>
                       )}
 
-                      {/* Interactive Circular Node Button */}
-                      <AnimatedPressable
-                        onPress={() => handleNodePress(unit)}
-                        style={[
-                          s.nodeCircle,
-                          isCompleted && s.completedNode,
-                          isCurrent && s.currentNode,
-                          isCurrent && activePulseStyle,
-                          isLocked && s.lockedNode,
-                        ]}
-                      >
-                        {isCompleted ? (
-                          <Star color="#FFFFFF" size={28} fill="#FFFFFF" />
-                        ) : isCurrent ? (
-                          <GraduationCap color="#FFFFFF" size={32} />
-                        ) : isLocked ? (
-                          <Crown color={colors.textSoft} size={24} />
-                        ) : unit.icon_type === 'speech' ? (
-                          <MessageCircle color={colors.primary} size={26} />
-                        ) : (
-                          <BookOpen color={colors.primary} size={26} />
-                        )}
+                      {/* Tactile 3D Duolingo Node */}
+                      <TactileDuolingoNode
+                        unit={unit}
+                        index={index}
+                        isCurrent={isCurrent}
+                        isCompleted={isCompleted}
+                        isLocked={isLocked}
+                        onPress={handleNodePress}
+                        activePulseStyle={activePulseStyle}
+                        biomeCompletedColor={biome.pathCompleted}
+                      />
 
-                        {/* Checkmark Badge for Completed */}
-                        {isCompleted && (
-                          <View style={s.checkBadge}>
-                            <Check color="#FFFFFF" size={12} strokeWidth={3} />
-                          </View>
-                        )}
-
-                        {/* Crown Badge for Premium */}
-                        {unit.is_premium && (
-                          <View style={s.crownBadge}>
-                            <Crown color="#FFFFFF" size={11} />
-                          </View>
-                        )}
-                      </AnimatedPressable>
-
-                      {/* Label Text below node */}
+                      {/* Tên bài học bên dưới node */}
                       <Text
                         style={[
                           s.nodeLabel,
                           isCurrent && s.nodeLabelCurrent,
-                          isCompleted && s.nodeLabelCompleted,
+                          isCompleted && { color: biome.pathCompleted, fontWeight: '800' },
                         ]}
                         numberOfLines={1}
                       >
@@ -505,6 +648,31 @@ export const LearningPathScreen = () => {
                     </View>
                   );
                 })}
+              </View>
+
+              {/* End of Chapter Milestone: Rương kho báu mở khóa XP */}
+              <View style={s.chestMilestoneRow}>
+                <View style={[s.chestIconBox, { backgroundColor: biome.badgeBg }]}>
+                  {isChapterAllDone ? (
+                    <Sparkles color={biome.chestAccent} size={24} />
+                  ) : (
+                    <Gift color={biome.chestAccent} size={24} />
+                  )}
+                </View>
+                <View style={s.chestInfo}>
+                  <Text style={s.chestTitle}>
+                    {isChapterAllDone ? '🎉 Đã Hoàn Thành Chương!' : 'Rương Thưởng Cuối Chương'}
+                  </Text>
+                  <Text style={s.chestSub}>
+                    {isChapterAllDone
+                      ? 'Bạn đã nhận trọn vẹn phần thưởng XP của chương này'
+                      : 'Hoàn thành tất cả các bài học để nhận +100 XP'}
+                  </Text>
+                </View>
+                <View style={s.xpBonusBadge}>
+                  <Zap color={colors.xpDeep} size={13} fill={colors.xpDeep} />
+                  <Text style={s.xpBonusText}>+100 XP</Text>
+                </View>
               </View>
             </View>
           );
@@ -536,10 +704,7 @@ export const LearningPathScreen = () => {
                     {selectedUnit.is_premium ? 'Premium 👑' : 'Miễn Phí'}
                   </Text>
                 </View>
-                <Pressable
-                  onPress={() => setSelectedUnit(null)}
-                  style={s.closeModalBtn}
-                >
+                <Pressable onPress={() => setSelectedUnit(null)} style={s.closeModalBtn}>
                   <X color={colors.textSoft} size={20} />
                 </Pressable>
               </View>
@@ -552,18 +717,16 @@ export const LearningPathScreen = () => {
                 <View>
                   <Text style={s.modalProgressLabel}>Tiến độ bài học</Text>
                   <Text style={s.modalProgressVal}>
-                    {selectedUnit.completed_lessons} / {selectedUnit.total_lessons} Bài đã
-                    hoàn thành
+                    {selectedUnit.completed_lessons} / {selectedUnit.total_lessons} Bài hoàn thành
                   </Text>
                 </View>
-                {/* Gamification XP Chip: Warm yellow/orange */}
                 <View style={s.xpChip}>
                   <Zap color={colors.xpDeep} size={14} fill={colors.xpDeep} />
                   <Text style={s.xpChipText}>+{selectedUnit.xp_reward} XP</Text>
                 </View>
               </View>
 
-              {/* Start CTA Button */}
+              {/* Start Lesson CTA */}
               <AnimatedPressable
                 onPress={() => handleStartLesson(selectedUnit.id)}
                 onPressIn={ctaSpring.onPressIn}
@@ -589,12 +752,11 @@ const s = StyleSheet.create({
   ambientOrb: {
     position: 'absolute',
     borderRadius: 999,
-    opacity: 0.35,
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 56,
-    paddingBottom: 40,
+    paddingTop: 24,
+    paddingBottom: 48,
     maxWidth: 600,
     width: '100%',
     alignSelf: 'center',
@@ -603,20 +765,27 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 2,
   },
   subHeader: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: font.family,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.primary,
-    letterSpacing: 0.6,
+    letterSpacing: 0.8,
   },
   mainHeader: {
     fontSize: 22,
     fontFamily: font.family,
     fontWeight: '800',
     color: colors.text,
+    letterSpacing: -0.3,
   },
   premiumTag: {
     flexDirection: 'row',
@@ -624,7 +793,7 @@ const s = StyleSheet.create({
     gap: 4,
     backgroundColor: colors.warningSoft,
     borderWidth: 1,
-    borderColor: `${colors.warning}50`,
+    borderColor: `${colors.warning}60`,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 14,
@@ -635,65 +804,143 @@ const s = StyleSheet.create({
     fontWeight: '700',
     color: colors.warning,
   },
-  chapterSection: {
-    marginBottom: 32,
+  chapterIsland: {
+    borderRadius: 28,
+    borderWidth: 1.5,
+    padding: 16,
+    marginBottom: 36,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.04,
+    shadowRadius: 16,
+    elevation: 3,
   },
   chapterBanner: {
-    backgroundColor: colors.primary,
-    padding: 16,
     borderRadius: 20,
-    marginBottom: 20,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
+    padding: 18,
+    marginBottom: 16,
+    shadowColor: colors.text,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
     elevation: 4,
   },
-  chapterBannerLeft: {
-    flex: 1,
+  chapterBannerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  chapterBadgeRow: {
+  biomeBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  biomeBadgeText: {
+    fontSize: 11,
+    fontFamily: font.family,
+    fontWeight: '800',
+  },
+  premiumBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
+    gap: 3,
+    backgroundColor: colors.warning,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
   },
-  chapterNumber: {
+  premiumBadgeText: {
+    fontSize: 9,
+    fontFamily: font.family,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  chapterNumberText: {
     fontSize: 12,
     fontFamily: font.family,
     fontWeight: '600',
     color: 'rgba(255, 255, 255, 0.85)',
   },
-  premiumBadge: {
-    backgroundColor: colors.warning,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  premiumBadgeText: {
-    fontSize: 10,
+  chapterTitle: {
+    fontSize: 18,
     fontFamily: font.family,
     fontWeight: '800',
     color: '#FFFFFF',
+    marginTop: 2,
   },
-  chapterTitle: {
-    fontSize: 16,
+  chapterSub: {
+    fontSize: 12,
     fontFamily: font.family,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginTop: 4,
+    lineHeight: 16,
   },
   pathContainer: {
     width: CONTENT_WIDTH,
     position: 'relative',
+    alignSelf: 'center',
   },
   unitPositioner: {
     position: 'absolute',
     width: NODE_SIZE,
     alignItems: 'center',
   },
+  nodeWrapper: {
+    width: NODE_SIZE,
+    height: NODE_SIZE + 6,
+    position: 'relative',
+    alignItems: 'center',
+  },
+  nodeBase3D: {
+    position: 'absolute',
+    bottom: 0,
+    width: NODE_SIZE,
+    height: NODE_SIZE,
+    borderRadius: NODE_SIZE / 2,
+  },
+  nodeFace3D: {
+    position: 'absolute',
+    top: 0,
+    width: NODE_SIZE,
+    height: NODE_SIZE,
+    borderRadius: NODE_SIZE / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  checkBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    borderWidth: 2.5,
+    borderColor: '#FFFFFF',
+  },
+  crownBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.warning,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
   startTooltip: {
     position: 'absolute',
-    top: -40,
+    top: -42,
     alignItems: 'center',
     zIndex: 30,
   },
@@ -701,13 +948,13 @@ const s = StyleSheet.create({
     backgroundColor: colors.streak,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
     shadowColor: colors.streak,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 5,
   },
@@ -727,63 +974,8 @@ const s = StyleSheet.create({
     borderTopWidth: 6,
     borderTopColor: colors.streak,
   },
-  nodeCircle: {
-    width: NODE_SIZE,
-    height: NODE_SIZE,
-    borderRadius: NODE_SIZE / 2,
-    backgroundColor: colors.surface,
-    borderWidth: 4,
-    borderColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    shadowColor: colors.text,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  completedNode: {
-    backgroundColor: colors.success,
-    borderColor: colors.successSoft,
-  },
-  currentNode: {
-    backgroundColor: colors.primary,
-    borderColor: colors.streak,
-    borderWidth: 5,
-  },
-  lockedNode: {
-    backgroundColor: colors.surfaceMuted,
-    borderColor: colors.border,
-  },
-  checkBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: colors.success,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  crownBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: colors.warning,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
   nodeLabel: {
-    marginTop: 6,
+    marginTop: 8,
     fontSize: 12,
     fontFamily: font.family,
     fontWeight: '600',
@@ -794,9 +986,58 @@ const s = StyleSheet.create({
     fontWeight: '800',
     color: colors.primary,
   },
-  nodeLabelCompleted: {
-    fontWeight: '700',
-    color: colors.success,
+  chestMilestoneRow: {
+    marginTop: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    borderRadius: 18,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(203, 213, 225, 0.6)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  chestIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chestInfo: {
+    flex: 1,
+  },
+  chestTitle: {
+    fontSize: 13,
+    fontFamily: font.family,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  chestSub: {
+    fontSize: 11,
+    fontFamily: font.family,
+    color: colors.textSoft,
+    marginTop: 2,
+  },
+  xpBonusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: colors.xpSoft,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
+  xpBonusText: {
+    fontSize: 11,
+    fontFamily: font.family,
+    fontWeight: '800',
+    color: colors.xpDeep,
   },
   modalOverlay: {
     flex: 1,
@@ -812,6 +1053,11 @@ const s = StyleSheet.create({
     width: '100%',
     borderWidth: 1,
     borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -833,7 +1079,7 @@ const s = StyleSheet.create({
     padding: 6,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 19,
     fontFamily: font.family,
     fontWeight: '800',
     color: colors.text,
@@ -891,18 +1137,18 @@ const s = StyleSheet.create({
     color: colors.xpDeep,
   },
   startLessonBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.streak,
     paddingVertical: 15,
     borderRadius: 16,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    shadowColor: colors.primary,
+    shadowColor: colors.streak,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.3,
     shadowRadius: 10,
-    elevation: 3,
+    elevation: 4,
   },
   startLessonBtnText: {
     fontSize: 16,
