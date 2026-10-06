@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,16 @@ import {
   Modal,
   StyleSheet,
   Dimensions,
+  Alert,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
-  Menu,
+  ArrowLeft,
   Search,
   UserPlus,
-  UserCheck,
   Check,
   Plus,
   Heart,
@@ -23,11 +26,9 @@ import {
   Share2,
   Trophy,
   BookOpen,
-  HelpCircle,
   Clock,
   Globe,
   Users,
-  User,
   History,
   Image as ImageIcon,
   Smile,
@@ -37,130 +38,555 @@ import {
   X,
   MessageCircle,
   Sparkles,
+  Send,
+  UserCheck,
 } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/src/core/flows/authStore';
+import { DatabaseLoader } from '@/src/components/ui/DatabaseLoader';
+import { apiClient } from '@/src/core/api/client';
+import {
+  CommunityPostDto,
+  ChatConversationDto,
+  ChatMessageDto,
+  FriendshipRequestDto,
+  fetchCommunityPostsApi,
+  createCommunityPostApi,
+  togglePostLikeApi,
+  fetchUserConversationsApi,
+  fetchConversationMessagesApi,
+  sendMessageApi,
+  createDirectConversationApi,
+  fetchFriendRequestsApi,
+  fetchSentFriendRequestsApi,
+  fetchFriendsApi,
+  respondFriendRequestApi,
+} from '../../data/socialApi';
+import { PostImageViewerModal } from '../components/PostImageViewerModal';
+import { PostCommentModal } from '../components/PostCommentModal';
+import { SharePostModal } from '../components/SharePostModal';
+import { ChatDetailModal } from '../components/ChatDetailModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-type ActiveTab = 'feed' | 'friends' | 'requests';
+type ActiveTab = 'feed' | 'messages' | 'requests';
+
+interface SocialTabItem {
+  key: ActiveTab;
+  label: string;
+  icon: React.ComponentType<{ size?: number; color?: string }>;
+}
+
+const SOCIAL_TABS: SocialTabItem[] = [
+  { key: 'feed', label: 'Cộng Đồng', icon: Globe },
+  { key: 'messages', label: 'Tin Nhắn', icon: MessageCircle },
+  { key: 'requests', label: 'Lời Mời', icon: UserPlus },
+];
+
+export const cleanAvatarUrl = (
+  url?: string | null,
+  fallback = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'
+): string => {
+  if (!url || typeof url !== 'string' || !url.trim()) return fallback;
+  const trimmed = url.trim();
+  const mdMatch = trimmed.match(/\((https?:\/\/[^\)]+)\)/);
+  if (mdMatch) return mdMatch[1];
+  const urlMatch = trimmed.match(/https?:\/\/[^\s\)\'\"\]]+/);
+  if (urlMatch) return urlMatch[0];
+  return fallback;
+};
+
+const TEACHERS_LIST = [
+  {
+    id: 2,
+    name: 'Thầy John Smith',
+    role: 'Senior Instructor',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
+  },
+  {
+    id: 3,
+    name: 'Cô Hoàng Thị Mai',
+    role: 'IELTS Speaking C2',
+    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200',
+  },
+  {
+    id: 1,
+    name: 'Quản trị viên',
+    role: 'Hỗ trợ học viên 24/7',
+    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
+  },
+];
 
 export const SocialFeedScreen = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { currentUser } = useAuthStore();
+  const chatScrollRef = useRef<ScrollView>(null);
+
+  const currentUserId = Number(currentUser?.id) || 1;
+  const currentUserName = currentUser?.display_name || 'Học viên SmartEnglish';
+  const currentUserAvatar = cleanAvatarUrl(currentUser?.avatar_url);
+  const currentUserRole = (currentUser?.role || 'STUDENT').toUpperCase();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('feed');
   const [feedSubTab, setFeedSubTab] = useState<'explore' | 'following'>('explore');
-  const [friendsSubTab, setFriendsSubTab] = useState<'all' | 'requests' | 'suggestions'>('all');
   const [requestsSubTab, setRequestsSubTab] = useState<'pending' | 'suggestions' | 'sent'>('pending');
 
   const [searchQuery, setSearchQuery] = useState('');
+
+  // ─── 1. Feed State ───
+  const [posts, setPosts] = useState<CommunityPostDto[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(true);
+  const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newPostContent, setNewPostContent] = useState('');
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [isSubmittingPost, setIsSubmittingPost] = useState(false);
 
-  // Likes state tracking for feed posts
-  const [likesCount, setLikesCount] = useState<Record<string, { count: number; liked: boolean }>>({
-    p1: { count: 124, liked: false },
-    p2: { count: 89, liked: false },
-    p3: { count: 12, liked: false },
-    p4: { count: 45, liked: false },
-  });
+  // ─── 2. Messages & Chat State ───
+  const [conversations, setConversations] = useState<ChatConversationDto[]>([]);
+  const [loadingConversations, setLoadingConversations] = useState(true);
+  const [activeConversation, setActiveConversation] = useState<ChatConversationDto | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessageDto[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [chatInputText, setChatInputText] = useState('');
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
 
-  const toggleLike = (id: string) => {
-    setLikesCount((prev) => {
-      const current = prev[id] || { count: 0, liked: false };
-      return {
-        ...prev,
-        [id]: {
-          count: current.liked ? current.count - 1 : current.count + 1,
-          liked: !current.liked,
-        },
-      };
-    });
-  };
+  // ─── 3. Requests State ───
+  const [pendingRequests, setPendingRequests] = useState<FriendshipRequestDto[]>([]);
+  const [sentRequests, setSentRequests] = useState<FriendshipRequestDto[]>([]);
+  const [friendsList, setFriendsList] = useState<any[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(true);
 
-  // Mock Friends List for Screenshot 1
-  const [friendsList, setFriendsList] = useState([
-    { id: 'f1', name: 'Nguyen Van A', level: 'B2 Intermediate', status: 'none', avatar: 'https://i.pravatar.cc/100?img=5' },
-    { id: 'f2', name: 'Tran Thi B', level: 'C1 Advanced', status: 'sent', avatar: 'https://i.pravatar.cc/100?img=12' },
-    { id: 'f3', name: 'Le Van C', level: 'A2 Elementary', status: 'friends', avatar: 'https://i.pravatar.cc/100?img=9' },
-  ]);
+  // ─── 4. Modals State ───
+  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
+  const [viewingImageCaption, setViewingImageCaption] = useState<string | null>(null);
+  const [viewingImageAuthor, setViewingImageAuthor] = useState<string | null>(null);
+  const [commentingPost, setCommentingPost] = useState<CommunityPostDto | null>(null);
+  const [sharingPost, setSharingPost] = useState<CommunityPostDto | null>(null);
 
-  // Mock Requests List for Screenshot 2
-  const [requestsList, setRequestsList] = useState([
-    { id: 'r1', name: 'Nguyễn Văn A', level: 'Level B1 · 12 bạn chung', time: 'Vừa gửi 5 phút trước', isOnline: true, status: 'pending', avatar: 'https://i.pravatar.cc/100?img=33' },
-    { id: 'r2', name: 'Trần Thị B', level: 'Level A2 · 3 bạn chung', time: '2 giờ trước', isOnline: false, status: 'pending', avatar: 'https://i.pravatar.cc/100?img=20' },
-    { id: 'r3', name: 'Lê Minh C', level: 'Đã trở thành bạn bè!', time: '', isOnline: true, status: 'accepted', avatar: 'https://i.pravatar.cc/100?img=15' },
-  ]);
+  // ─── Load Real Feed Posts ───
+  const loadPosts = useCallback(async () => {
+    try {
+      const data = await fetchCommunityPostsApi(0, 20);
+      setPosts(data);
+      const initialLikes = new Set<string>();
+      data.forEach((p: CommunityPostDto) => {
+        if (p.likedUserIds && p.likedUserIds.includes(currentUserId)) {
+          initialLikes.add(p.id);
+        }
+      });
+      setLikedPostIds(initialLikes);
+    } catch (err) {
+      console.warn('loadPosts error:', err);
+    } finally {
+      setLoadingPosts(false);
+    }
+  }, [currentUserId]);
 
-  const handleAcceptRequest = (id: string) => {
-    setRequestsList((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: 'accepted', level: 'Đã trở thành bạn bè!' } : r))
+  // ─── Load Real Conversations (Always includes Community Group) ───
+  const loadConversations = useCallback(async () => {
+    try {
+      let list = await fetchUserConversationsApi(currentUserId);
+
+      // Đảm bảo Nhóm học tập chung luôn hiển thị để học viên giao lưu cùng thầy cô
+      const hasGroup = list.some((c) => c.type === 'GROUP' || c.id === '6aa25b62dedd11425c017e6a');
+      if (!hasGroup) {
+        try {
+          const groupRes = await apiClient.get<any>('/api/v1/social/conversations/6aa25b62dedd11425c017e6a');
+          const groupData = groupRes.data?.data || groupRes.data;
+          if (groupData && groupData.id) {
+            list = [groupData, ...list];
+          }
+        } catch {
+          // Bỏ qua nếu không lấy được nhóm
+        }
+      }
+
+      setConversations(list);
+    } catch (err) {
+      console.warn('loadConversations error:', err);
+    } finally {
+      setLoadingConversations(false);
+    }
+  }, [currentUserId]);
+
+  // ─── Load Real Friend Requests ───
+  const loadRequests = useCallback(async () => {
+    try {
+      const [pending, sent, friends] = await Promise.all([
+        fetchFriendRequestsApi(currentUserId),
+        fetchSentFriendRequestsApi(currentUserId),
+        fetchFriendsApi(currentUserId),
+      ]);
+      setPendingRequests(pending);
+      setSentRequests(sent);
+      setFriendsList(friends);
+    } catch (err) {
+      console.warn('loadRequests error:', err);
+    } finally {
+      setLoadingRequests(false);
+    }
+  }, [currentUserId]);
+
+  useEffect(() => {
+    loadPosts();
+    loadConversations();
+    loadRequests();
+  }, [loadPosts, loadConversations, loadRequests]);
+
+  // Realtime Polling for Outside Conversations List
+  useEffect(() => {
+    if (activeTab === 'messages') {
+      const timer = setInterval(() => {
+        loadConversations();
+      }, 3500);
+      return () => clearInterval(timer);
+    }
+  }, [activeTab, loadConversations]);
+
+
+
+  const handleCommentAdded = (postId: string, newComment: any) => {
+    setPosts((prev) =>
+      prev.map((p) => {
+        if (p.id === postId) {
+          const currentCount = p.commentsCount ?? (p.comments ? p.comments.length : 0);
+          return {
+            ...p,
+            commentsCount: currentCount + 1,
+            comments: [...(p.comments || []), newComment],
+          };
+        }
+        return p;
+      })
     );
   };
 
-  const handleDeclineRequest = (id: string) => {
-    setRequestsList((prev) => prev.filter((r) => r.id !== id));
+  const handleNavigateToPost = (postId: string) => {
+    setActiveConversation(null);
+    setActiveTab('feed');
+    const target = posts.find((p) => p.id === postId);
+    if (target) {
+      Alert.alert(
+        'Đã chuyển đến bài viết',
+        `Bài viết của ${target.authorName || 'Người dùng'}:\n"${target.content.slice(0, 80)}..."`
+      );
+    }
   };
+
+  const formatLastMessage = (conv: ChatConversationDto) => {
+    const raw = conv.lastMessage;
+    if (!raw || raw === 'Bắt đầu cuộc trò chuyện') return 'Bắt đầu cuộc trò chuyện...';
+
+    const isMe = conv.lastMessageSenderId === currentUserId;
+    const isGroup = conv.type === 'GROUP';
+    const prefix = isMe
+      ? 'Bạn: '
+      : isGroup && conv.lastMessageSenderName
+      ? `${conv.lastMessageSenderName}: `
+      : '';
+
+    if (raw.startsWith('[Hình ảnh]')) return `${prefix}📷 [Hình ảnh]`;
+    if (raw.startsWith('[Chia sẻ bài viết]') || raw.includes('chia sẻ một bài viết'))
+      return `${prefix}🔗 [Đã chia sẻ một bài viết]`;
+    if (raw.startsWith('[Tệp đính kèm]') || raw.startsWith('[Tệp]')) {
+      const fileName = raw.replace(/^\[Tệp( đính kèm)?\]\s*/, '').trim();
+      return fileName ? `${prefix}📄 [Tệp] ${fileName}` : `${prefix}📄 [Tệp đính kèm]`;
+    }
+    return `${prefix}${raw}`;
+  };
+
+  // ─── Action: Toggle Like ───
+  const handleToggleLike = async (postId: string) => {
+    const isCurrentlyLiked = likedPostIds.has(postId);
+    const newLiked = !isCurrentlyLiked;
+
+    setLikedPostIds((prev) => {
+      const next = new Set(prev);
+      if (newLiked) next.add(postId);
+      else next.delete(postId);
+      return next;
+    });
+
+    setPosts((prev) =>
+      prev.map((p) => {
+        if (p.id === postId) {
+          const currentCount = p.likesCount || 0;
+          return {
+            ...p,
+            likesCount: newLiked ? currentCount + 1 : Math.max(0, currentCount - 1),
+            likedUserIds: newLiked
+              ? [...(p.likedUserIds || []), currentUserId]
+              : (p.likedUserIds || []).filter((uid: number) => uid !== currentUserId),
+          };
+        }
+        return p;
+      })
+    );
+
+    await togglePostLikeApi(postId, currentUserId);
+  };
+
+  // ─── Action: Create Real Post ───
+  const handleCreatePost = async () => {
+    if (!newPostContent.trim()) {
+      Alert.alert('Thông báo', 'Vui lòng nhập nội dung bài viết trước khi đăng.');
+      return;
+    }
+    setIsSubmittingPost(true);
+    try {
+      const created = await createCommunityPostApi({
+        authorId: currentUserId,
+        authorName: currentUserName,
+        authorEmail: currentUser?.email || undefined,
+        authorAvatar: currentUserAvatar,
+        authorRole: currentUserRole === 'TEACHER' ? 'Giáo viên' : currentUserRole === 'ADMIN' ? 'Quản trị viên' : 'Học viên',
+        authorTitle: currentUserRole === 'TEACHER' ? 'Giáo viên SmartEnglish AI' : 'Thành viên SmartEnglish',
+        content: newPostContent.trim(),
+        tags: selectedTag ? [selectedTag] : ['SmartEnglish'],
+      });
+
+      if (created) {
+        setPosts((prev) => [created, ...prev]);
+        Alert.alert('Thành công', 'Bài viết của bạn đã được đăng lên cộng đồng! 🎉');
+      } else {
+        await loadPosts();
+      }
+      setNewPostContent('');
+      setSelectedTag(null);
+      setShowCreateModal(false);
+    } catch {
+      Alert.alert('Lỗi', 'Không thể đăng bài viết lúc này. Vui lòng thử lại sau.');
+    } finally {
+      setIsSubmittingPost(false);
+    }
+  };
+
+  // ─── Action: Open Real Chat ───
+  const handleOpenConversation = async (conv: ChatConversationDto) => {
+    setActiveConversation(conv);
+    setLoadingMessages(true);
+    try {
+      const msgs = await fetchConversationMessagesApi(conv.id);
+      setChatMessages(msgs);
+    } catch {
+      setChatMessages([]);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
+  // ─── Action: Quick Message Teacher ───
+  const handleStartTeacherChat = async (teacher: typeof TEACHERS_LIST[0]) => {
+    try {
+      setLoadingConversations(true);
+      const conv = await createDirectConversationApi({
+        myId: currentUserId,
+        myName: currentUserName,
+        myAvatar: currentUserAvatar,
+        friendId: teacher.id,
+        friendName: teacher.name,
+        friendAvatar: teacher.avatar,
+      });
+      if (conv) {
+        await loadConversations();
+        await handleOpenConversation(conv);
+      }
+    } catch {
+      Alert.alert('Thông báo', 'Không thể kết nối trò chuyện với giáo viên lúc này.');
+    } finally {
+      setLoadingConversations(false);
+    }
+  };
+
+  // ─── Action: Send Real Message ───
+  const handleSendMessage = async () => {
+    if (!chatInputText.trim() || !activeConversation || isSendingMessage) return;
+    const text = chatInputText.trim();
+    setChatInputText('');
+    setIsSendingMessage(true);
+
+    const tempId = `temp-${Date.now()}`;
+    const tempMsg: ChatMessageDto = {
+      id: tempId,
+      conversationId: activeConversation.id,
+      senderId: currentUserId,
+      senderName: currentUserName,
+      senderAvatar: currentUserAvatar,
+      type: 'TEXT',
+      content: text,
+      createdAt: new Date().toISOString(),
+    };
+
+    setChatMessages((prev) => [...prev, tempMsg]);
+
+    try {
+      const sent = await sendMessageApi(activeConversation.id, {
+        senderId: currentUserId,
+        senderName: currentUserName,
+        senderAvatar: currentUserAvatar,
+        content: text,
+        type: 'TEXT',
+      });
+
+      if (sent) {
+        setChatMessages((prev) => prev.map((m) => (m.id === tempId ? sent : m)));
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === activeConversation.id
+              ? { ...c, lastMessage: text, lastMessageAt: new Date().toISOString() }
+              : c
+          )
+        );
+      }
+    } catch {
+      Alert.alert('Lỗi', 'Gửi tin nhắn không thành công.');
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+
+  // ─── Action: Respond Friend Request ───
+  const handleAcceptRequest = async (friendshipId: string) => {
+    const ok = await respondFriendRequestApi({
+      friendshipId,
+      currentUserId,
+      accept: true,
+    });
+    if (ok) {
+      setPendingRequests((prev) =>
+        prev.map((r) => (r.id === friendshipId ? { ...r, status: 'ACCEPTED' } : r))
+      );
+      loadRequests();
+      loadConversations();
+    } else {
+      Alert.alert('Lỗi', 'Không thể xử lý yêu cầu kết bạn lúc này.');
+    }
+  };
+
+  const handleDeclineRequest = async (friendshipId: string) => {
+    const ok = await respondFriendRequestApi({
+      friendshipId,
+      currentUserId,
+      accept: false,
+    });
+    if (ok) {
+      setPendingRequests((prev) => prev.filter((r) => r.id !== friendshipId));
+    }
+  };
+
+  // ─── Helper: Format Time ───
+  const formatTimeAgo = (dateStr?: string) => {
+    if (!dateStr) return '';
+    try {
+      const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+      if (diff < 60) return 'Vừa xong';
+      if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
+      if (diff < 86400 * 7) return `${Math.floor(diff / 86400)} ngày trước`;
+      return new Date(dateStr).toLocaleDateString('vi-VN');
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const displayedPosts = posts.filter((p) => {
+    if (feedSubTab === 'following') {
+      const roleUpper = (p.authorRole || '').toUpperCase();
+      return roleUpper.includes('GIÁO') || roleUpper.includes('TEACHER') || roleUpper.includes('ADMIN');
+    }
+    return true;
+  });
+
+  const filteredConversations = conversations.filter((c) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    const name = (c.name || '').toLowerCase();
+    const lastMsg = (c.lastMessage || '').toLowerCase();
+    return name.includes(q) || lastMsg.includes(q);
+  });
 
   return (
     <View style={s.root}>
-      {/* Top Header */}
-      <View style={s.header}>
-        <View style={s.headerLeft}>
-          <Pressable onPress={() => router.back()} style={s.headerIconBtn}>
-            <Menu color="#1E3A5F" size={22} />
+      {/* Community Main Navigation Bar — Capsule Track matching Learn tab */}
+      <View style={[s.switcherBar, { paddingTop: Math.max(insets.top, 14) + 6 }]}>
+        <View style={s.topNavRow}>
+          <Pressable
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace('/(student)/home');
+              }
+            }}
+            hitSlop={10}
+            style={s.backBtn}
+          >
+            <ArrowLeft size={20} color="#334155" strokeWidth={2.5} />
           </Pressable>
-          <Text style={s.headerTitle}>SmartEnglish AI</Text>
+
+          <View style={s.capsuleTrack}>
+            {SOCIAL_TABS.map((tab) => {
+            const isActive = activeTab === tab.key;
+            const IconComp = tab.icon;
+            const pendingCount =
+              tab.key === 'requests'
+                ? pendingRequests.filter((r) => r.status === 'PENDING').length
+                : 0;
+
+            return (
+              <Pressable
+                key={tab.key}
+                onPress={() => setActiveTab(tab.key)}
+                style={[s.tabBtn, isActive ? s.tabBtnActive : s.tabBtnInactive]}
+              >
+                {isActive && (
+                  <LinearGradient
+                    colors={['#1E1B4B', '#3B82F6']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={s.activePillBackground}
+                  />
+                )}
+                <View style={s.tabContentRow}>
+                  <View style={{ position: 'relative' }}>
+                    <IconComp
+                      size={17}
+                      color={isActive ? '#FFFFFF' : '#64748B'}
+                    />
+                    {pendingCount > 0 && !isActive && (
+                      <View style={s.tabBadgeDot} />
+                    )}
+                  </View>
+                  {isActive && (
+                    <Text
+                      style={[s.tabLabel, s.tabLabelActive]}
+                      numberOfLines={1}
+                    >
+                      {tab.label}
+                    </Text>
+                  )}
+                  {pendingCount > 0 && isActive && (
+                    <View style={s.tabBadgeCount}>
+                      <Text style={s.tabBadgeCountText}>{pendingCount}</Text>
+                    </View>
+                  )}
+                </View>
+              </Pressable>
+            );
+          })}
         </View>
-
-        <Image
-          source={{
-            uri: currentUser?.avatar_url || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200',
-          }}
-          style={s.headerAvatar}
-        />
-      </View>
-
-      {/* Community Main Navigation Bar */}
-      <View style={s.navRow}>
-        <Pressable
-          onPress={() => setActiveTab('feed')}
-          style={[s.navBtn, activeTab === 'feed' && s.navBtnActive]}
-        >
-          <Globe color={activeTab === 'feed' ? '#FFFFFF' : '#64748B'} size={15} />
-          <Text style={[s.navBtnText, activeTab === 'feed' && s.navBtnTextActive]}>
-            Cộng Đồng
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={() => setActiveTab('friends')}
-          style={[s.navBtn, activeTab === 'friends' && s.navBtnActive]}
-        >
-          <Users color={activeTab === 'friends' ? '#FFFFFF' : '#64748B'} size={15} />
-          <Text style={[s.navBtnText, activeTab === 'friends' && s.navBtnTextActive]}>
-            Bạn Bè
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={() => setActiveTab('requests')}
-          style={[s.navBtn, activeTab === 'requests' && s.navBtnActive]}
-        >
-          <UserPlus color={activeTab === 'requests' ? '#FFFFFF' : '#64748B'} size={15} />
-          <Text style={[s.navBtnText, activeTab === 'requests' && s.navBtnTextActive]}>
-            Lời Mời
-          </Text>
-          <View style={s.badgeRed}><Text style={s.badgeRedText}>3</Text></View>
-        </Pressable>
+        </View>
       </View>
 
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* SCREENSHOT 3: BẢNG TIN CỘNG ĐỒNG (FEED) */}
+      {/* TAB 1: BẢNG TIN CỘNG ĐỒNG (FEED REAL DATA) */}
       {/* ───────────────────────────────────────────────────────────── */}
       {activeTab === 'feed' && (
         <View style={{ flex: 1 }}>
-          {/* Sub-tabs: Khám phá / Đang theo dõi */}
           <View style={s.subTabsRow}>
             <Pressable
               onPress={() => setFeedSubTab('explore')}
@@ -176,320 +602,281 @@ export const SocialFeedScreen = () => {
               style={[s.subTabItem, feedSubTab === 'following' && s.subTabItemActive]}
             >
               <Text style={[s.subTabText, feedSubTab === 'following' && s.subTabTextActive]}>
-                Đang theo dõi
+                Giáo viên & Quản trị
               </Text>
             </Pressable>
           </View>
 
-          <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-            {/* Post 1: Linh Nguyen - Achievement */}
-            <Animated.View entering={FadeInDown.delay(100)} style={s.postCard}>
-              <View style={s.postHeader}>
-                <Image source={{ uri: 'https://i.pravatar.cc/100?img=33' }} style={s.postAvatar} />
-                <View style={{ flex: 1 }}>
-                  <Text style={s.postAuthor}>Linh Nguyen</Text>
-                  <Text style={s.postTime}>2 hours ago</Text>
+          {loadingPosts ? (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+              <DatabaseLoader size="sm" message="Đang tải..." />
+            </View>
+          ) : (
+            <ScrollView
+              style={{ flex: 1 }}
+              showsVerticalScrollIndicator={false}
+            >
+              {displayedPosts.length === 0 ? (
+                <View style={s.emptyBox}>
+                  <Globe color="#94A3B8" size={40} />
+                  <Text style={s.emptyTitle}>Chưa có bài viết nào</Text>
+                  <Text style={s.emptySub}>Hãy là người đầu tiên chia sẻ cảm nghĩ hoặc tài liệu nhé!</Text>
                 </View>
-                <View style={s.badgeAchievement}>
-                  <Trophy color="#B45309" size={12} />
-                  <Text style={s.badgeAchievementText}>Achievement</Text>
-                </View>
-              </View>
+              ) : (
+                displayedPosts.map((post, index) => {
+                  const isLiked = likedPostIds.has(post.id);
+                  const isTeacher = (post.authorRole || '').toUpperCase().includes('GIÁO') || (post.authorRole || '').toUpperCase().includes('TEACHER');
+                  const isAdmin = (post.authorRole || '').toUpperCase().includes('QUẢN') || (post.authorRole || '').toUpperCase().includes('ADMIN');
 
-              <Text style={s.postContent}>
-                Just finished my 30-day streak on SmartEnglish! 🎉 I can finally watch movies without subtitles. Consistency really is key. Next goal: C1 level!
-              </Text>
+                  return (
+                    <Animated.View
+                      key={post.id || `post-${index}`}
+                      entering={FadeInDown.delay(index * 60)}
+                      style={s.postCard}
+                    >
+                      <View style={s.postHeader}>
+                        {post.authorAvatar ? (
+                          <Image
+                            source={{ uri: cleanAvatarUrl(post.authorAvatar) }}
+                            style={s.postAvatar}
+                          />
+                        ) : (
+                          <View style={s.avatarLetterBg}>
+                            <Text style={s.avatarLetter}>
+                              {(post.authorName || 'S').charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                        )}
+                        <View style={{ flex: 1 }}>
+                          <Text style={s.postAuthor}>{post.authorName || 'Người dùng SmartEnglish'}</Text>
+                          <Text style={s.postTime}>{formatTimeAgo(post.createdAt)}</Text>
+                        </View>
 
-              {/* Achievement Banner Graphic */}
-              <View style={s.achievementGraphicBox}>
-                <Image
-                  source={{ uri: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600' }}
-                  style={s.achievementGraphicImg}
-                />
-                <View style={s.achievementOverlay}>
-                  <Text style={s.achievementTitle}>ConnectWell</Text>
-                  <Text style={s.achievementSub}>🏆 30 DAY STREAK!</Text>
-                </View>
-              </View>
+                        {isTeacher && (
+                          <View style={s.badgeSharedDeck}>
+                            <BookOpen color="#0369A1" size={12} />
+                            <Text style={s.badgeSharedDeckText}>Giáo viên</Text>
+                          </View>
+                        )}
+                        {isAdmin && (
+                          <View style={s.badgeAchievement}>
+                            <Award color="#B45309" size={12} />
+                            <Text style={s.badgeAchievementText}>Quản trị viên</Text>
+                          </View>
+                        )}
+                      </View>
 
-              {/* Actions Footer */}
-              <View style={s.postFooter}>
-                <Pressable onPress={() => toggleLike('p1')} style={s.actionBtn}>
-                  <Heart
-                    color={likesCount.p1?.liked ? '#EF4444' : '#64748B'}
-                    fill={likesCount.p1?.liked ? '#EF4444' : 'none'}
-                    size={18}
-                  />
-                  <Text style={[s.actionText, likesCount.p1?.liked && { color: '#EF4444' }]}>
-                    {likesCount.p1?.count}
-                  </Text>
-                </Pressable>
+                      <Text style={s.postContent}>{post.content}</Text>
 
-                <Pressable style={s.actionBtn}>
-                  <MessageSquare color="#64748B" size={18} />
-                  <Text style={s.actionText}>18</Text>
-                </Pressable>
+                      {post.mediaUrl && (
+                        <Pressable
+                          onPress={() => {
+                            setViewingImageUrl(cleanAvatarUrl(post.mediaUrl));
+                            setViewingImageCaption(post.mediaCaption || post.content);
+                            setViewingImageAuthor(post.authorName || null);
+                          }}
+                          style={s.achievementGraphicBox}
+                        >
+                          <Image
+                            source={{ uri: cleanAvatarUrl(post.mediaUrl) }}
+                            style={s.achievementGraphicImg}
+                            resizeMode="cover"
+                          />
+                          {post.mediaCaption && (
+                            <View style={s.achievementOverlay}>
+                              <Text style={s.achievementSub}>{post.mediaCaption}</Text>
+                            </View>
+                          )}
+                        </Pressable>
+                      )}
 
-                <Pressable style={s.actionBtn}>
-                  <Share2 color="#64748B" size={18} />
-                </Pressable>
-              </View>
-            </Animated.View>
+                      {post.tags && post.tags.length > 0 && (
+                        <View style={s.tagsRow}>
+                          {post.tags.map((t: string, tIdx: number) => (
+                            <View key={tIdx} style={s.tagPill}>
+                              <Text style={s.tagPillText}>#{t}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
 
-            {/* Post 2: Teacher Mark - Shared Deck */}
-            <Animated.View entering={FadeInDown.delay(200)} style={s.postCard}>
-              <View style={s.postHeader}>
-                <Image source={{ uri: 'https://i.pravatar.cc/100?img=12' }} style={s.postAvatar} />
-                <View style={{ flex: 1 }}>
-                  <Text style={s.postAuthor}>Teacher Mark</Text>
-                  <Text style={s.postTime}>5 hours ago</Text>
-                </View>
-                <View style={s.badgeSharedDeck}>
-                  <BookOpen color="#0369A1" size={12} />
-                  <Text style={s.badgeSharedDeckText}>Shared Deck</Text>
-                </View>
-              </View>
+                      <View style={s.postFooter}>
+                        <Pressable onPress={() => handleToggleLike(post.id)} style={s.actionBtn}>
+                          <Heart
+                            color={isLiked ? '#EF4444' : '#64748B'}
+                            fill={isLiked ? '#EF4444' : 'none'}
+                            size={18}
+                          />
+                          <Text style={[s.actionText, isLiked && { color: '#EF4444', fontWeight: '700' }]}>
+                            {post.likesCount || 0}
+                          </Text>
+                        </Pressable>
 
-              <Text style={s.postContent}>
-                I've compiled a new flashcard deck for IELTS Academic Writing Task 1 vocabulary. It covers trends, comparisons, and processes. Hope this helps your preparation!
-              </Text>
+                        <Pressable onPress={() => setCommentingPost(post)} style={s.actionBtn}>
+                          <MessageSquare color="#64748B" size={18} />
+                          <Text style={s.actionText}>
+                            {post.commentsCount ?? (post.comments ? post.comments.length : 0)}
+                          </Text>
+                        </Pressable>
 
-              <View style={s.postFooter}>
-                <Pressable onPress={() => toggleLike('p2')} style={s.actionBtn}>
-                  <Heart
-                    color={likesCount.p2?.liked ? '#EF4444' : '#64748B'}
-                    fill={likesCount.p2?.liked ? '#EF4444' : 'none'}
-                    size={18}
-                  />
-                  <Text style={[s.actionText, likesCount.p2?.liked && { color: '#EF4444' }]}>
-                    {likesCount.p2?.count}
-                  </Text>
-                </Pressable>
+                        <Pressable onPress={() => setSharingPost(post)} style={s.actionBtn}>
+                          <Share2 color="#64748B" size={18} />
+                        </Pressable>
+                      </View>
+                    </Animated.View>
+                  );
+                })
+              )}
+              <View style={{ height: 80 }} />
+            </ScrollView>
+          )}
 
-                <Pressable style={s.actionBtn}>
-                  <MessageSquare color="#64748B" size={18} />
-                  <Text style={s.actionText}>5</Text>
-                </Pressable>
-
-                <Pressable style={s.actionBtn}>
-                  <Share2 color="#64748B" size={18} />
-                </Pressable>
-              </View>
-            </Animated.View>
-
-            {/* Post 3: Tran Minh - Question */}
-            <Animated.View entering={FadeInDown.delay(300)} style={s.postCard}>
-              <View style={s.postHeader}>
-                <View style={s.avatarLetterBg}><Text style={s.avatarLetter}>T</Text></View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.postAuthor}>Tran Minh</Text>
-                  <Text style={s.postTime}>Yesterday</Text>
-                </View>
-                <View style={s.badgeQuestion}>
-                  <HelpCircle color="#0D9488" size={12} />
-                  <Text style={s.badgeQuestionText}>Question</Text>
-                </View>
-              </View>
-
-              <Text style={s.postContent}>
-                What's the difference between "affect" and "effect"? I keep making mistakes in my essays. Any easy way to remember?
-              </Text>
-
-              <View style={s.postFooter}>
-                <Pressable onPress={() => toggleLike('p3')} style={s.actionBtn}>
-                  <Heart
-                    color={likesCount.p3?.liked ? '#EF4444' : '#64748B'}
-                    fill={likesCount.p3?.liked ? '#EF4444' : 'none'}
-                    size={18}
-                  />
-                  <Text style={[s.actionText, likesCount.p3?.liked && { color: '#EF4444' }]}>
-                    {likesCount.p3?.count}
-                  </Text>
-                </Pressable>
-
-                <Pressable style={s.actionBtn}>
-                  <MessageSquare color="#64748B" size={18} />
-                  <Text style={s.actionText}>24</Text>
-                </Pressable>
-
-                <Pressable style={s.actionBtn}>
-                  <Share2 color="#64748B" size={18} />
-                </Pressable>
-              </View>
-            </Animated.View>
-
-            {/* Post 4: Hoa Le - Study Log */}
-            <Animated.View entering={FadeInDown.delay(400)} style={s.postCard}>
-              <View style={s.postHeader}>
-                <Image source={{ uri: 'https://i.pravatar.cc/100?img=5' }} style={s.postAvatar} />
-                <View style={{ flex: 1 }}>
-                  <Text style={s.postAuthor}>Hoa Le</Text>
-                  <Text style={s.postTime}>2 days ago</Text>
-                </View>
-                <View style={s.badgeStudyLog}>
-                  <Clock color="#475569" size={12} />
-                  <Text style={s.badgeStudyLogText}>Study Log</Text>
-                </View>
-              </View>
-
-              <Text style={s.postContent}>
-                Completed Chapter 4 of the Grammar module today. The AI tutor really helped clarify the passive voice rules. Feeling confident!
-              </Text>
-
-              <View style={s.postFooter}>
-                <Pressable onPress={() => toggleLike('p4')} style={s.actionBtn}>
-                  <Heart
-                    color={likesCount.p4?.liked ? '#EF4444' : '#64748B'}
-                    fill={likesCount.p4?.liked ? '#EF4444' : 'none'}
-                    size={18}
-                  />
-                  <Text style={[s.actionText, likesCount.p4?.liked && { color: '#EF4444' }]}>
-                    {likesCount.p4?.count}
-                  </Text>
-                </Pressable>
-
-                <Pressable style={s.actionBtn}>
-                  <MessageSquare color="#64748B" size={18} />
-                  <Text style={s.actionText}>3</Text>
-                </Pressable>
-
-                <Pressable style={s.actionBtn}>
-                  <Share2 color="#64748B" size={18} />
-                </Pressable>
-              </View>
-            </Animated.View>
-
-            <View style={{ height: 80 }} />
-          </ScrollView>
-
-          {/* Floating Action Button (FAB) + */}
-          <Pressable
-            onPress={() => setShowCreateModal(true)}
-            style={s.fabBtn}
-          >
+          <Pressable onPress={() => setShowCreateModal(true)} style={s.fabBtn}>
             <Plus color="#FFFFFF" size={26} />
           </Pressable>
         </View>
       )}
 
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* SCREENSHOT 1: BẠN BÈ & TÌM KIẾM (FRIENDS LIST) */}
+      {/* TAB 2: TIN NHẮN (MESSAGES SYSTEM) */}
       {/* ───────────────────────────────────────────────────────────── */}
-      {activeTab === 'friends' && (
-        <View style={{ flex: 1 }}>
+      {activeTab === 'messages' && (
+        <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
           {/* Search Box */}
           <View style={s.searchBox}>
             <Search color="#94A3B8" size={18} />
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder="Tìm bạn theo tên hoặc số điện thoại..."
+              placeholder="Tìm kiếm tin nhắn, bạn học..."
               placeholderTextColor="#94A3B8"
               style={s.searchInput}
             />
           </View>
 
-          {/* Filter Sub-tabs */}
-          <View style={s.friendsFilterRow}>
-            <Pressable
-              onPress={() => setFriendsSubTab('all')}
-              style={[s.friendsFilterTab, friendsSubTab === 'all' && s.friendsFilterTabActive]}
+          {loadingConversations ? (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+              <DatabaseLoader size="sm" message="Đang tải..." />
+            </View>
+          ) : (
+            <ScrollView
+              style={{ flex: 1, backgroundColor: '#FFFFFF' }}
+              contentContainerStyle={{ paddingBottom: 24 }}
+              showsVerticalScrollIndicator={false}
             >
-              <Text style={[s.friendsFilterText, friendsSubTab === 'all' && s.friendsFilterTextActive]}>
-                Bạn bè
-              </Text>
-            </Pressable>
+              <View style={{ paddingHorizontal: 16, marginBottom: 4, marginTop: 10 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#64748B' }}>
+                  Hội thoại ({filteredConversations.length})
+                </Text>
+              </View>
 
-            <Pressable
-              onPress={() => setFriendsSubTab('requests')}
-              style={[s.friendsFilterTab, friendsSubTab === 'requests' && s.friendsFilterTabActive]}
-            >
-              <Text style={[s.friendsFilterText, friendsSubTab === 'requests' && s.friendsFilterTextActive]}>
-                Lời mời
-              </Text>
-              <View style={s.badgeRedSmall}><Text style={s.badgeRedSmallText}>3</Text></View>
-            </Pressable>
-
-            <Pressable
-              onPress={() => setFriendsSubTab('suggestions')}
-              style={[s.friendsFilterTab, friendsSubTab === 'suggestions' && s.friendsFilterTabActive]}
-            >
-              <Text style={[s.friendsFilterText, friendsSubTab === 'suggestions' && s.friendsFilterTextActive]}>
-                Gợi ý
-              </Text>
-            </Pressable>
-          </View>
-
-          {/* Friends Cards Matching Screenshot 1 */}
-          <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-            {friendsList.map((friend) => (
-              <Animated.View key={friend.id} entering={FadeInRight.delay(100)} style={s.friendCard}>
-                <Image source={{ uri: friend.avatar }} style={s.friendAvatar} />
-                <View style={{ flex: 1 }}>
-                  <Text style={s.friendName}>{friend.name}</Text>
-                  <View style={s.friendLevelBadge}>
-                    <Text style={s.friendLevelText}>{friend.level}</Text>
-                  </View>
+              {filteredConversations.length === 0 ? (
+                <View style={s.emptyBox}>
+                  <MessageCircle color="#94A3B8" size={40} />
+                  <Text style={s.emptyTitle}>Chưa có cuộc trò chuyện nào</Text>
+                  <Text style={s.emptySub}>
+                    Hãy bắt đầu trao đổi bài tập hoặc giải đáp thắc mắc cùng bạn bè nhé!
+                  </Text>
                 </View>
+              ) : (
+                filteredConversations.map((conv, idx) => {
+                  const isGroup = conv.type === 'GROUP';
+                  const displayName = conv.name || (isGroup ? 'Nhóm học tập IELTS 7.0+' : 'Bạn học SmartEnglish');
+                  const avatarUrl = cleanAvatarUrl(
+                    conv.avatar,
+                    isGroup
+                      ? 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=200'
+                      : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'
+                  );
 
-                {friend.status === 'none' && (
-                  <Pressable
-                    onPress={() => {
-                      setFriendsList((prev) =>
-                        prev.map((f) => (f.id === friend.id ? { ...f, status: 'sent' } : f))
-                      );
-                    }}
-                    style={s.addFriendBtn}
-                  >
-                    <UserPlus color="#FFFFFF" size={16} />
-                    <Text style={s.addFriendBtnText}>Kết bạn</Text>
-                  </Pressable>
-                )}
+                  return (
+                    <Animated.View
+                      key={conv.id || idx}
+                      entering={FadeInRight.delay(idx * 40)}
+                      style={s.chatItemWrapper}
+                    >
+                      <Pressable
+                        onPress={() => handleOpenConversation(conv)}
+                        style={({ pressed }) => [
+                          s.chatItemPressable,
+                          pressed && s.chatItemPressed,
+                        ]}
+                      >
+                        <View style={s.chatItemRow}>
+                          {/* Avatar with bottom-right online dot intersecting circle */}
+                          <View style={s.chatAvatarWrap}>
+                            <Image source={{ uri: avatarUrl }} style={s.chatAvatar} />
+                            <View style={s.chatOnlineDot} />
+                          </View>
 
-                {friend.status === 'sent' && (
-                  <View style={s.sentFriendBtn}>
-                    <UserCheck color="#64748B" size={16} />
-                    <Text style={s.sentFriendBtnText}>Đã gửi</Text>
-                  </View>
-                )}
+                          {/* Info: Row 1 (Name + Time) & Row 2 (Last Msg + Unread) */}
+                          <View style={s.chatInfoWrap}>
+                            <View style={s.chatNameRow}>
+                              <Text style={s.chatNameText} numberOfLines={1} ellipsizeMode="tail">
+                                {displayName}
+                              </Text>
+                              <Text style={s.chatTimeText}>{formatTimeAgo(conv.lastMessageAt)}</Text>
+                            </View>
 
-                {friend.status === 'friends' && (
-                  <View style={s.isFriendBtn}>
-                    <Check color="#0EA5E9" size={16} />
-                    <Text style={s.isFriendBtnText}>Bạn bè</Text>
-                  </View>
-                )}
-              </Animated.View>
-            ))}
-          </ScrollView>
+                            <View style={s.chatLastMsgRow}>
+                              <Text
+                                style={[
+                                  s.chatLastMsgText,
+                                  (conv.unreadCount || 0) > 0 && s.chatLastMsgUnread,
+                                ]}
+                                numberOfLines={1}
+                                ellipsizeMode="tail"
+                              >
+                                {formatLastMessage(conv)}
+                              </Text>
+                              {(conv.unreadCount || 0) > 0 && (
+                                <View style={s.chatUnreadBadge}>
+                                  <Text style={s.chatUnreadText}>{conv.unreadCount}</Text>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+                        </View>
+                      </Pressable>
+                    </Animated.View>
+                  );
+                })
+              )}
+            </ScrollView>
+          )}
         </View>
       )}
 
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* SCREENSHOT 2: LỜI MỜI KẾT BẠN (FRIEND REQUESTS) */}
+      {/* TAB 3: LỜI MỜI KẾT BẠN (REQUESTS REAL DATA) */}
       {/* ───────────────────────────────────────────────────────────── */}
       {activeTab === 'requests' && (
         <View style={{ flex: 1 }}>
-          {/* Header Title Row */}
           <View style={s.reqHeaderRow}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={s.reqTitle}>Lời mời kết bạn</Text>
-              <View style={s.reqBadgeCount}><Text style={s.reqBadgeCountText}>3</Text></View>
+              <View style={s.reqBadgeCount}>
+                <Text style={s.reqBadgeCountText}>
+                  {pendingRequests.filter((r) => r.status === 'PENDING').length}
+                </Text>
+              </View>
             </View>
-            <Pressable style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Pressable
+              onPress={loadRequests}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+            >
               <History color="#4F46E5" size={16} />
-              <Text style={s.reqHistoryText}>Lịch sử</Text>
+              <Text style={s.reqHistoryText}>Làm mới</Text>
             </Pressable>
           </View>
 
-          {/* Filter Chips */}
           <View style={s.chipsRow}>
             <Pressable
               onPress={() => setRequestsSubTab('pending')}
               style={[s.chipPill, requestsSubTab === 'pending' && s.chipPillActive]}
             >
               <Text style={[s.chipPillText, requestsSubTab === 'pending' && s.chipPillTextActive]}>
-                Đang chờ (3)
+                Đang chờ ({pendingRequests.filter((r) => r.status === 'PENDING').length})
               </Text>
             </Pressable>
 
@@ -498,7 +885,7 @@ export const SocialFeedScreen = () => {
               style={[s.chipPill, requestsSubTab === 'suggestions' && s.chipPillActive]}
             >
               <Text style={[s.chipPillText, requestsSubTab === 'suggestions' && s.chipPillTextActive]}>
-                Gợi ý
+                Bạn bè ({friendsList.length})
               </Text>
             </Pressable>
 
@@ -507,133 +894,246 @@ export const SocialFeedScreen = () => {
               style={[s.chipPill, requestsSubTab === 'sent' && s.chipPillActive]}
             >
               <Text style={[s.chipPillText, requestsSubTab === 'sent' && s.chipPillTextActive]}>
-                Đã gửi
+                Đã gửi ({sentRequests.length})
               </Text>
             </Pressable>
           </View>
 
-          {/* Requests Cards List Matching Screenshot 2 */}
-          <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-            {requestsList.map((req) => (
-              <Animated.View key={req.id} entering={FadeInDown.delay(100)} style={s.reqCard}>
-                {req.status === 'accepted' ? (
-                  /* Accepted State Card */
-                  <View style={s.acceptedCardInner}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                      <View style={{ position: 'relative' }}>
-                        <Image source={{ uri: req.avatar }} style={s.reqAvatar} />
-                        <View style={s.acceptedCheckBadge}>
-                          <Check color="#FFFFFF" size={10} strokeWidth={3} />
-                        </View>
-                      </View>
-                      <View>
-                        <Text style={s.reqName}>{req.name}</Text>
-                        <Text style={s.acceptedSuccessText}>Đã trở thành bạn bè!</Text>
-                      </View>
-                    </View>
-
-                    <Pressable
-                      onPress={() => router.push('/(student)/assistant' as any)}
-                      style={s.chatWithFriendBtn}
-                    >
-                      <MessageCircle color="#4F46E5" size={16} />
-                      <Text style={s.chatWithFriendBtnText}>Nhắn tin</Text>
-                    </Pressable>
+          {loadingRequests ? (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+              <DatabaseLoader size="sm" message="Đang tải..." />
+            </View>
+          ) : (
+            <ScrollView
+              style={{ flex: 1 }}
+              showsVerticalScrollIndicator={false}
+            >
+              {requestsSubTab === 'pending' && (
+                pendingRequests.length === 0 ? (
+                  <View style={s.emptyBox}>
+                    <UserCheck color="#94A3B8" size={40} />
+                    <Text style={s.emptyTitle}>Không có lời mời nào</Text>
+                    <Text style={s.emptySub}>Hiện tại bạn không có lời mời kết bạn nào đang chờ.</Text>
                   </View>
                 ) : (
-                  /* Pending Request Card */
-                  <View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                      <View style={{ position: 'relative' }}>
-                        <Image source={{ uri: req.avatar }} style={s.reqAvatar} />
-                        <View
-                          style={[
-                            s.onlineStatusDot,
-                            { backgroundColor: req.isOnline ? '#22C55E' : '#94A3B8' },
-                          ]}
-                        />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={s.reqName}>{req.name}</Text>
-                        <Text style={s.reqLevelSub}>{req.level}</Text>
-                        {req.time ? <Text style={s.reqTimeText}>{req.time}</Text> : null}
-                      </View>
-                    </View>
+                  pendingRequests.map((req, idx) => (
+                    <Animated.View key={req.id || idx} entering={FadeInDown.delay(idx * 60)} style={s.reqCard}>
+                      {req.status === 'ACCEPTED' ? (
+                        <View style={s.acceptedCardInner}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                            <View style={{ position: 'relative' }}>
+                              <Image
+                                source={{ uri: cleanAvatarUrl(req.requesterAvatar) }}
+                                style={s.reqAvatar}
+                              />
+                              <View style={s.acceptedCheckBadge}>
+                                <Check color="#FFFFFF" size={10} strokeWidth={3} />
+                              </View>
+                            </View>
+                            <View>
+                              <Text style={s.reqName}>{req.requesterName}</Text>
+                              <Text style={s.acceptedSuccessText}>Đã trở thành bạn bè!</Text>
+                            </View>
+                          </View>
 
-                    {/* Dual Action Buttons */}
-                    <View style={s.reqDualActionRow}>
-                      <Pressable
-                        onPress={() => handleAcceptRequest(req.id)}
-                        style={s.acceptBtn}
-                      >
-                        <Text style={s.acceptBtnText}>Chấp nhận</Text>
-                      </Pressable>
+                          <Pressable
+                            onPress={() => setActiveTab('messages')}
+                            style={s.chatWithFriendBtn}
+                          >
+                            <MessageCircle color="#4F46E5" size={16} />
+                            <Text style={s.chatWithFriendBtnText}>Nhắn tin</Text>
+                          </Pressable>
+                        </View>
+                      ) : (
+                        <View>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                            <View style={{ position: 'relative' }}>
+                              <Image
+                                source={{ uri: cleanAvatarUrl(req.requesterAvatar) }}
+                                style={s.reqAvatar}
+                              />
+                              <View style={[s.onlineStatusDot, { backgroundColor: '#22C55E' }]} />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={s.reqName}>{req.requesterName}</Text>
+                              <Text style={s.reqLevelSub}>Học viên SmartEnglish</Text>
+                              <Text style={s.reqTimeText}>{formatTimeAgo(req.createdAt)}</Text>
+                            </View>
+                          </View>
 
-                      <Pressable
-                        onPress={() => handleDeclineRequest(req.id)}
-                        style={s.declineBtn}
-                      >
-                        <Text style={s.declineBtnText}>Từ chối</Text>
-                      </Pressable>
-                    </View>
+                          <View style={s.reqDualActionRow}>
+                            <Pressable
+                              onPress={() => handleAcceptRequest(req.id)}
+                              style={s.acceptBtn}
+                            >
+                              <Text style={s.acceptBtnText}>Chấp nhận</Text>
+                            </Pressable>
+
+                            <Pressable
+                              onPress={() => handleDeclineRequest(req.id)}
+                              style={s.declineBtn}
+                            >
+                              <Text style={s.declineBtnText}>Từ chối</Text>
+                            </Pressable>
+                          </View>
+                        </View>
+                      )}
+                    </Animated.View>
+                  ))
+                )
+              )}
+
+              {requestsSubTab === 'suggestions' && (
+                friendsList.length === 0 ? (
+                  <View style={s.emptyBox}>
+                    <Users color="#94A3B8" size={40} />
+                    <Text style={s.emptyTitle}>Chưa có bạn bè</Text>
+                    <Text style={s.emptySub}>Kết nối với các bạn học viên khác để cùng nhau tiến bộ!</Text>
                   </View>
-                )}
-              </Animated.View>
-            ))}
-          </ScrollView>
+                ) : (
+                  friendsList.map((f, idx) => {
+                    const friendName = f.requesterId === currentUserId ? f.addresseeName : f.requesterName;
+                    const friendAvatar = f.requesterId === currentUserId ? f.addresseeAvatar : f.requesterAvatar;
+                    return (
+                      <Animated.View key={f.id || idx} entering={FadeInDown.delay(idx * 60)} style={s.reqCard}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                          <Image
+                            source={{ uri: cleanAvatarUrl(friendAvatar) }}
+                            style={s.reqAvatar}
+                          />
+                          <View style={{ flex: 1 }}>
+                            <Text style={s.reqName}>{friendName || 'Bạn học'}</Text>
+                            <Text style={s.reqLevelSub}>Đã kết nối bạn bè</Text>
+                            <Text style={s.reqTimeText}>{formatTimeAgo(f.createdAt)}</Text>
+                          </View>
+                          <Pressable
+                            onPress={() => setActiveTab('messages')}
+                            style={{
+                              backgroundColor: '#EEF2FF',
+                              paddingHorizontal: 12,
+                              paddingVertical: 8,
+                              borderRadius: 12,
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              gap: 6,
+                            }}
+                          >
+                            <MessageCircle color="#4F46E5" size={15} />
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: '#4F46E5' }}>Nhắn tin</Text>
+                          </Pressable>
+                        </View>
+                      </Animated.View>
+                    );
+                  })
+                )
+              )}
+
+              {requestsSubTab === 'sent' && (
+                sentRequests.length === 0 ? (
+                  <View style={s.emptyBox}>
+                    <Send color="#94A3B8" size={40} />
+                    <Text style={s.emptyTitle}>Không có yêu cầu đã gửi</Text>
+                    <Text style={s.emptySub}>Bạn chưa gửi lời mời kết bạn nào.</Text>
+                  </View>
+                ) : (
+                  sentRequests.map((sReq, idx) => (
+                    <Animated.View key={sReq.id || idx} entering={FadeInDown.delay(idx * 60)} style={s.reqCard}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <Image
+                          source={{ uri: cleanAvatarUrl(sReq.requesterAvatar) }}
+                          style={s.reqAvatar}
+                        />
+                        <View style={{ flex: 1 }}>
+                          <Text style={s.reqName}>{sReq.addresseeName || 'Người nhận'}</Text>
+                          <Text style={s.reqLevelSub}>Đang chờ phản hồi...</Text>
+                          <Text style={s.reqTimeText}>{formatTimeAgo(sReq.createdAt)}</Text>
+                        </View>
+                        <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
+                          <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '600' }}>Đang chờ</Text>
+                        </View>
+                      </View>
+                    </Animated.View>
+                  ))
+                )
+              )}
+            </ScrollView>
+          )}
         </View>
       )}
 
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* SCREENSHOT 4: TẠO BÀI VIẾT MỚI (CREATE POST MODAL) */}
+      {/* MODAL: TẠO BÀI VIẾT THẬT (CREATE REAL POST) */}
       {/* ───────────────────────────────────────────────────────────── */}
       <Modal visible={showCreateModal} animationType="slide" transparent={false}>
         <View style={s.modalRoot}>
-          {/* Modal Header */}
-          <View style={s.modalHeader}>
+          <View style={[s.modalHeader, { paddingTop: Math.max(insets.top, 20) + 12 }]}>
             <Pressable onPress={() => setShowCreateModal(false)}>
               <Text style={s.modalCancelText}>Hủy</Text>
             </Pressable>
             <Text style={s.modalTitle}>Tạo bài viết</Text>
             <Pressable
-              onPress={() => {
-                alert('Đã đăng bài viết thành công lên cộng đồng! 🎉');
-                setShowCreateModal(false);
-              }}
-              style={s.modalSubmitBtn}
+              onPress={handleCreatePost}
+              disabled={isSubmittingPost}
+              style={[s.modalSubmitBtn, isSubmittingPost && { opacity: 0.6 }]}
             >
-              <Text style={s.modalSubmitText}>Đăng</Text>
+              {isSubmittingPost ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={s.modalSubmitText}>Đăng</Text>
+              )}
             </Pressable>
           </View>
 
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
-            {/* User Info & Privacy Dropdown */}
             <View style={s.createUserRow}>
-              <Image
-                source={{
-                  uri: currentUser?.avatar_url || 'https://i.pravatar.cc/100?img=33',
-                }}
-                style={s.createAvatar}
-              />
+              <Image source={{ uri: currentUserAvatar }} style={s.createAvatar} />
               <View>
-                <Text style={s.createAuthorName}>{currentUser?.display_name || 'Nguyễn Văn A'}</Text>
+                <Text style={s.createAuthorName}>{currentUserName}</Text>
                 <View style={s.privacyDropdownBtn}>
                   <Globe color="#475569" size={12} />
-                  <Text style={s.privacyDropdownText}>Công khai</Text>
+                  <Text style={s.privacyDropdownText}>Công khai cộng đồng</Text>
                   <ChevronDown color="#475569" size={12} />
                 </View>
               </View>
             </View>
 
-            {/* Post Input */}
             <TextInput
               multiline
-              placeholder="Bạn đang nghĩ gì về quá trình học hôm nay?"
+              value={newPostContent}
+              onChangeText={setNewPostContent}
+              placeholder="Bạn muốn chia sẻ điều gì về lộ trình học hôm nay?"
               placeholderTextColor="#94A3B8"
               style={s.createTextInput}
+              autoFocus
             />
 
-            {/* Section 1: Khoe thành tích gần đây */}
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#1E293B', marginBottom: 10 }}>
+                Chủ đề bài viết
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {['IELTS_Tips', 'WritingTips', 'Vocabulary', 'Speaking', 'Achievement'].map((tag) => (
+                  <Pressable
+                    key={tag}
+                    onPress={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                    style={[
+                      s.tagSelectBtn,
+                      selectedTag === tag && s.tagSelectBtnActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        s.tagSelectBtnText,
+                        selectedTag === tag && s.tagSelectBtnTextActive,
+                      ]}
+                    >
+                      #{tag}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
             <View style={s.sectionWrap}>
               <View style={s.sectionHeaderRow}>
                 <Trophy color="#D97706" size={16} />
@@ -641,52 +1141,74 @@ export const SocialFeedScreen = () => {
               </View>
 
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
-                <View style={s.achieveCard}>
+                <Pressable
+                  onPress={() => {
+                    setNewPostContent((prev) => `${prev}\n🔥 Tôi vừa hoàn thành chuỗi streak 30 ngày học liên tục trên SmartEnglish AI!`.trim());
+                    setSelectedTag('Achievement');
+                  }}
+                  style={s.achieveCard}
+                >
                   <View style={s.achieveIconBg}><Flame color="#F97316" size={20} /></View>
                   <View>
                     <Text style={s.achieveCardTitle}>Chuỗi 30 Ngày</Text>
-                    <Text style={s.achieveCardSub}>Hoàn thành bài tập liên tục</Text>
+                    <Text style={s.achieveCardSub}>Chạm để đính kèm vào bài viết</Text>
                   </View>
-                </View>
+                </Pressable>
 
-                <View style={s.achieveCard}>
+                <Pressable
+                  onPress={() => {
+                    setNewPostContent((prev) => `${prev}\n🏆 Mình vừa đạt mục tiêu B2 sau bài thi Toeic Placement Test!`.trim());
+                    setSelectedTag('Achievement');
+                  }}
+                  style={s.achieveCard}
+                >
                   <View style={[s.achieveIconBg, { backgroundColor: '#FEF3C7' }]}><Award color="#D97706" size={20} /></View>
                   <View>
                     <Text style={s.achieveCardTitle}>Chinh phục B2</Text>
-                    <Text style={s.achieveCardSub}>Đạt điểm Placement Test</Text>
+                    <Text style={s.achieveCardSub}>Chạm để đính kèm vào bài viết</Text>
                   </View>
-                </View>
+                </Pressable>
               </ScrollView>
             </View>
 
-            {/* Section 2: Chia sẻ bộ thẻ của bạn */}
             <View style={s.sectionWrap}>
               <View style={s.sectionHeaderRow}>
                 <BookOpen color="#4F46E5" size={16} />
-                <Text style={s.sectionHeaderTitle}>Chia sẻ bộ thẻ của bạn</Text>
+                <Text style={s.sectionHeaderTitle}>Chia sẻ bộ thẻ từ vựng</Text>
               </View>
 
               <View style={s.deckGridRow}>
-                <View style={s.deckCard}>
+                <Pressable
+                  onPress={() => {
+                    setNewPostContent((prev) => `${prev}\n📚 Mình vừa chia sẻ bộ thẻ IELTS Vocabulary 2024 (50 từ vựng cốt lõi), mời các bạn cùng ôn luyện!`.trim());
+                    setSelectedTag('Vocabulary');
+                  }}
+                  style={s.deckCard}
+                >
                   <View style={s.deckHeaderRow}>
                     <View style={s.deckIconBox}><Sparkles color="#4F46E5" size={16} /></View>
                     <View style={s.deckCountBadge}><Text style={s.deckCountText}>50 từ</Text></View>
                   </View>
                   <Text style={s.deckTitle}>IELTS Vocabulary 2024</Text>
-                </View>
+                </Pressable>
 
-                <View style={s.deckCard}>
+                <Pressable
+                  onPress={() => {
+                    setNewPostContent((prev) => `${prev}\n💬 Chia sẻ bộ từ vựng Giao tiếp hàng ngày (120 từ phản xạ nhanh), chúc các bạn học tốt!`.trim());
+                    setSelectedTag('Vocabulary');
+                  }}
+                  style={s.deckCard}
+                >
                   <View style={s.deckHeaderRow}>
                     <View style={[s.deckIconBox, { backgroundColor: '#D1FAE5' }]}><MessageCircle color="#10B981" size={16} /></View>
                     <View style={s.deckCountBadge}><Text style={s.deckCountText}>120 từ</Text></View>
                   </View>
                   <Text style={s.deckTitle}>Giao tiếp hàng ngày</Text>
-                </View>
+                </Pressable>
               </View>
             </View>
           </ScrollView>
 
-          {/* Bottom Attachment Toolbar */}
           <View style={s.createBottomBar}>
             <Pressable style={s.toolIconBtn}><ImageIcon color="#10B981" size={22} /></Pressable>
             <Pressable style={s.toolIconBtn}><Smile color="#F59E0B" size={22} /></Pressable>
@@ -695,51 +1217,187 @@ export const SocialFeedScreen = () => {
           </View>
         </View>
       </Modal>
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* MODAL: CHI TIẾT CUỘC TRÒ CHUYỆN (FULL REALTIME + AVATAR GROUPING + ATTACHMENTS) */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      <ChatDetailModal
+        visible={Boolean(activeConversation)}
+        conversation={activeConversation}
+        currentUserId={currentUserId}
+        currentUserName={currentUserName}
+        currentUserAvatar={currentUserAvatar}
+        onClose={() => setActiveConversation(null)}
+        onConversationUpdated={(convId, lastMsg) => {
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === convId
+                ? {
+                    ...c,
+                    lastMessage: lastMsg,
+                    lastMessageAt: new Date().toISOString(),
+                    unreadCount: 0,
+                  }
+                : c
+            )
+          );
+        }}
+        onNavigateToPost={handleNavigateToPost}
+        onViewImage={(url) => {
+          setViewingImageUrl(url);
+          setViewingImageCaption(null);
+          setViewingImageAuthor('Hình ảnh đính kèm');
+        }}
+      />
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* MODAL: XEM ẢNH BÀI VIẾT PHÓNG TO */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      <PostImageViewerModal
+        visible={Boolean(viewingImageUrl)}
+        imageUrl={viewingImageUrl}
+        caption={viewingImageCaption}
+        authorName={viewingImageAuthor || undefined}
+        onClose={() => setViewingImageUrl(null)}
+      />
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* MODAL: BÌNH LUẬN BÀI VIẾT */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      <PostCommentModal
+        visible={Boolean(commentingPost)}
+        post={commentingPost}
+        currentUserId={currentUserId}
+        currentUserName={currentUserName}
+        currentUserAvatar={currentUserAvatar}
+        currentUserRole={currentUserRole}
+        onClose={() => setCommentingPost(null)}
+        onCommentAdded={handleCommentAdded}
+      />
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* MODAL: CHIA SẺ BÀI VIẾT (COPY LINK & GỬI VÀO HỘI THOẠI) */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      <SharePostModal
+        visible={Boolean(sharingPost)}
+        post={sharingPost}
+        conversations={conversations}
+        currentUserId={currentUserId}
+        currentUserName={currentUserName}
+        currentUserAvatar={currentUserAvatar}
+        onClose={() => setSharingPost(null)}
+        onPostShared={() => {
+          loadConversations();
+        }}
+        onOpenConversation={(conv) => {
+          handleOpenConversation(conv);
+        }}
+      />
     </View>
   );
 };
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F8FAF9' },
-  header: {
-    paddingTop: 48,
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  headerIconBtn: { padding: 2 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#1E3A5F' },
-  headerAvatar: { width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: '#0EA5E9' },
-  navRow: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+  switcherBar: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingBottom: 10,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
-    gap: 8,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 3,
+    zIndex: 10,
   },
-  navBtn: {
-    flex: 1,
+  topNavRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 9,
-    borderRadius: 14,
-    backgroundColor: '#F1F5F9',
+    gap: 10,
   },
-  navBtnActive: { backgroundColor: '#4F46E5' },
-  navBtnText: { fontSize: 12, fontWeight: '700', color: '#64748B' },
-  navBtnTextActive: { color: '#FFFFFF' },
-  badgeRed: { backgroundColor: '#EF4444', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 100 },
-  badgeRedText: { fontSize: 10, fontWeight: '800', color: '#FFFFFF' },
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  capsuleTrack: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    padding: 4,
+    borderRadius: 20,
+    position: 'relative',
+  },
+  tabBtn: {
+    paddingVertical: 10,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  tabBtnActive: {
+    flex: 1.6,
+  },
+  tabBtnInactive: {
+    flex: 1,
+  },
+  activePillBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 16,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  tabContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    zIndex: 2,
+  },
+  tabLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  tabLabelActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  tabBadgeDot: {
+    position: 'absolute',
+    top: -2,
+    right: -4,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#EF4444',
+  },
+  tabBadgeCount: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 10,
+    marginLeft: 2,
+  },
+  tabBadgeCountText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
   subTabsRow: {
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
@@ -753,16 +1411,16 @@ const s = StyleSheet.create({
   subTabTextActive: { fontWeight: '800', color: '#1E3A5F' },
   postCard: {
     backgroundColor: '#FFFFFF',
-    marginHorizontal: 20,
+    marginHorizontal: 16,
     marginTop: 14,
-    borderRadius: 24,
-    padding: 18,
+    borderRadius: 20,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#F1F5F9',
     shadowColor: '#1E3A5F',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
-    shadowRadius: 10,
+    shadowRadius: 8,
     elevation: 2,
   },
   postHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
@@ -775,16 +1433,14 @@ const s = StyleSheet.create({
   badgeAchievementText: { fontSize: 10, fontWeight: '700', color: '#B45309' },
   badgeSharedDeck: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#E0F2FE', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100 },
   badgeSharedDeckText: { fontSize: 10, fontWeight: '700', color: '#0369A1' },
-  badgeQuestion: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#CCFBF1', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100 },
-  badgeQuestionText: { fontSize: 10, fontWeight: '700', color: '#0D9488' },
-  badgeStudyLog: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100 },
-  badgeStudyLogText: { fontSize: 10, fontWeight: '700', color: '#475569' },
-  postContent: { fontSize: 13, color: '#334155', lineHeight: 20, fontWeight: '400', marginBottom: 12 },
-  achievementGraphicBox: { height: 160, borderRadius: 20, overflow: 'hidden', marginBottom: 12, position: 'relative' },
+  postContent: { fontSize: 13.5, color: '#334155', lineHeight: 21, fontWeight: '400', marginBottom: 12 },
+  achievementGraphicBox: { height: 160, borderRadius: 16, overflow: 'hidden', marginBottom: 12, position: 'relative' },
   achievementGraphicImg: { width: '100%', height: '100%' },
-  achievementOverlay: { position: 'absolute', bottom: 12, left: 12, backgroundColor: 'rgba(0,0,0,0.65)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 14 },
-  achievementTitle: { fontSize: 11, fontWeight: '700', color: '#93C5FD' },
-  achievementSub: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', marginTop: 2 },
+  achievementOverlay: { position: 'absolute', bottom: 10, left: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.65)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+  achievementSub: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
+  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
+  tagPill: { backgroundColor: '#EEF2FF', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  tagPillText: { fontSize: 11, fontWeight: '600', color: '#4F46E5' },
   postFooter: { flexDirection: 'row', gap: 24, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   actionText: { fontSize: 12, fontWeight: '600', color: '#64748B' },
@@ -792,68 +1448,231 @@ const s = StyleSheet.create({
     position: 'absolute',
     bottom: 24,
     right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     backgroundColor: '#4F46E5',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#4F46E5',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
-    shadowRadius: 12,
+    shadowRadius: 10,
     elevation: 8,
   },
 
-  // Friends Section Styles (Screenshot 1)
+  // Empty State
+  emptyBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+    gap: 10,
+  },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#1E293B' },
+  emptySub: { fontSize: 13, color: '#64748B', textAlign: 'center', lineHeight: 19 },
+
+  // Teachers quick row
+  teachersSectionWrap: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    marginBottom: 6,
+  },
+  teachersSectionTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#475569',
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  teachersRow: {
+    paddingHorizontal: 16,
+    gap: 10,
+  },
+  teacherChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  teacherAvatarWrap: { position: 'relative' },
+  teacherAvatar: { width: 34, height: 34, borderRadius: 17 },
+  teacherOnlineDot: { width: 9, height: 9, borderRadius: 4.5, backgroundColor: '#22C55E', position: 'absolute', bottom: 0, right: 0, borderWidth: 1.5, borderColor: '#FFFFFF' },
+  teacherNameText: { fontSize: 12, fontWeight: '700', color: '#1E293B' },
+  teacherRoleText: { fontSize: 10, color: '#64748B' },
+  teacherChatIconBox: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center' },
+
+  // Messages & Chat Styles
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    marginHorizontal: 20,
-    marginTop: 14,
-    marginBottom: 10,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 9,
     borderRadius: 100,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     gap: 10,
   },
   searchInput: { flex: 1, fontSize: 13, color: '#1E293B' },
-  friendsFilterRow: { flexDirection: 'row', paddingHorizontal: 20, marginBottom: 12, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-  friendsFilterTab: { paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: 2, borderBottomColor: 'transparent', flexDirection: 'row', alignItems: 'center', gap: 6 },
-  friendsFilterTabActive: { borderBottomColor: '#4F46E5' },
-  friendsFilterText: { fontSize: 13, fontWeight: '600', color: '#64748B' },
-  friendsFilterTextActive: { fontWeight: '800', color: '#4F46E5' },
-  badgeRedSmall: { backgroundColor: '#EF4444', width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
-  badgeRedSmallText: { fontSize: 10, fontWeight: '800', color: '#FFFFFF' },
-  friendCard: {
+  chatItemWrapper: {
+    paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',
-    marginHorizontal: 20,
-    marginBottom: 10,
-    padding: 16,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
+  },
+  chatItemPressable: {
+    borderRadius: 8,
+  },
+  chatItemPressed: {
+    backgroundColor: '#F8FAFC',
+  },
+  chatItemRow: {
+    backgroundColor: 'transparent',
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#F1F5F9',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
   },
-  friendAvatar: { width: 44, height: 44, borderRadius: 22 },
-  friendName: { fontSize: 14, fontWeight: '800', color: '#1E293B', marginBottom: 3 },
-  friendLevelBadge: { backgroundColor: '#F1F5F9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, alignSelf: 'flex-start' },
-  friendLevelText: { fontSize: 10, fontWeight: '600', color: '#64748B' },
-  addFriendBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#4F46E5', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12 },
-  addFriendBtnText: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
-  sentFriendBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F1F5F9', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12 },
-  sentFriendBtnText: { fontSize: 12, fontWeight: '600', color: '#64748B' },
-  isFriendBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F1F5F9', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0' },
-  isFriendBtnText: { fontSize: 12, fontWeight: '700', color: '#1E293B' },
+  chatAvatarWrap: {
+    position: 'relative',
+    width: 52,
+    height: 52,
+    marginRight: 14,
+    flexShrink: 0,
+  },
+  chatAvatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#E2E8F0' },
+  chatOnlineDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#10B981',
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+    borderWidth: 2.5,
+    borderColor: '#FFFFFF',
+    zIndex: 2,
+  },
+  chatInfoWrap: {
+    flex: 1,
+    minWidth: 0,
+    flexShrink: 1,
+    justifyContent: 'center',
+  },
+  chatNameRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  chatNameText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+    flex: 1,
+    marginRight: 10,
+  },
+  chatTimeText: {
+    fontSize: 12.5,
+    color: '#64748B',
+    fontWeight: '500',
+    flexShrink: 0,
+  },
+  chatLastMsgRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  chatLastMsgText: {
+    fontSize: 14,
+    color: '#64748B',
+    flex: 1,
+    marginRight: 8,
+    lineHeight: 20,
+  },
+  chatLastMsgUnread: { color: '#0F172A', fontWeight: '700' },
+  chatUnreadBadge: {
+    backgroundColor: '#2563EB',
+    minWidth: 19,
+    height: 19,
+    borderRadius: 9.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 5,
+    flexShrink: 0,
+  },
+  chatUnreadText: { fontSize: 10, fontWeight: '800', color: '#FFFFFF' },
 
-  // Requests Section Styles (Screenshot 2)
+  // Chat Detail Modal Styles
+  chatDetailHeader: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
+  },
+  chatDetailName: { fontSize: 15, fontWeight: '800', color: '#1E293B' },
+  chatDetailStatus: { fontSize: 11, color: '#64748B', marginTop: 2 },
+  chatDetailAvatar: { width: 38, height: 38, borderRadius: 19 },
+  chatBubbleWrap: { marginBottom: 12, flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  chatBubbleWrapMe: { justifyContent: 'flex-end' },
+  chatBubbleWrapOther: { justifyContent: 'flex-start' },
+  chatBubbleSenderAvatar: { width: 28, height: 28, borderRadius: 14, marginBottom: 2 },
+  chatBubble: { maxWidth: '78%', padding: 12, borderRadius: 18 },
+  chatBubbleMe: { backgroundColor: '#4F46E5', borderBottomRightRadius: 4 },
+  chatBubbleOther: { backgroundColor: '#F1F5F9', borderBottomLeftRadius: 4 },
+  chatBubbleSenderName: { fontSize: 11, fontWeight: '700', color: '#4F46E5', marginBottom: 2 },
+  chatBubbleText: { fontSize: 13.5, lineHeight: 19 },
+  chatBubbleTextMe: { color: '#FFFFFF' },
+  chatBubbleTextOther: { color: '#1E293B' },
+  chatBubbleTime: { fontSize: 9.5, marginTop: 4, alignSelf: 'flex-end' },
+  chatBubbleTimeMe: { color: 'rgba(255,255,255,0.7)' },
+  chatBubbleTimeOther: { color: '#94A3B8' },
+  chatInputBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
+  },
+  chatTextInput: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    fontSize: 13.5,
+    color: '#1E293B',
+  },
+  chatSendBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#4F46E5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Requests Section Styles
   reqHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginTop: 14, marginBottom: 12 },
-  reqTitle: { fontSize: 20, fontWeight: '800', color: '#1E293B' },
+  reqTitle: { fontSize: 18, fontWeight: '800', color: '#1E293B' },
   reqBadgeCount: { backgroundColor: '#4F46E5', width: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
   reqBadgeCountText: { fontSize: 11, fontWeight: '800', color: '#FFFFFF' },
   reqHistoryText: { fontSize: 12, fontWeight: '700', color: '#4F46E5' },
@@ -864,10 +1683,10 @@ const s = StyleSheet.create({
   chipPillTextActive: { color: '#FFFFFF' },
   reqCard: {
     backgroundColor: '#FFFFFF',
-    marginHorizontal: 20,
-    marginBottom: 12,
+    marginHorizontal: 16,
+    marginBottom: 10,
     padding: 16,
-    borderRadius: 20,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#F1F5F9',
   },
@@ -876,7 +1695,7 @@ const s = StyleSheet.create({
   reqName: { fontSize: 14, fontWeight: '800', color: '#1E293B', marginBottom: 2 },
   reqLevelSub: { fontSize: 11, color: '#64748B', fontWeight: '500' },
   reqTimeText: { fontSize: 10, color: '#94A3B8', marginTop: 2 },
-  reqDualActionRow: { flexDirection: 'row', gap: 10 },
+  reqDualActionRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
   acceptBtn: { flex: 1, backgroundColor: '#4F46E5', paddingVertical: 10, borderRadius: 14, alignItems: 'center' },
   acceptBtnText: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
   declineBtn: { flex: 1, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', paddingVertical: 10, borderRadius: 14, alignItems: 'center' },
@@ -887,10 +1706,9 @@ const s = StyleSheet.create({
   chatWithFriendBtn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, backgroundColor: '#FFFFFF', paddingVertical: 10, borderRadius: 14, borderWidth: 1, borderColor: '#C7D2FE' },
   chatWithFriendBtnText: { fontSize: 13, fontWeight: '700', color: '#4F46E5' },
 
-  // Create Post Modal Styles (Screenshot 4)
+  // Create Post Modal Styles
   modalRoot: { flex: 1, backgroundColor: '#FFFFFF' },
   modalHeader: {
-    paddingTop: 48,
     paddingHorizontal: 20,
     paddingBottom: 14,
     flexDirection: 'row',
@@ -901,18 +1719,22 @@ const s = StyleSheet.create({
   },
   modalCancelText: { fontSize: 14, fontWeight: '600', color: '#64748B' },
   modalTitle: { fontSize: 16, fontWeight: '800', color: '#1E293B' },
-  modalSubmitBtn: { backgroundColor: '#4F46E5', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 100 },
+  modalSubmitBtn: { backgroundColor: '#4F46E5', paddingHorizontal: 16, paddingVertical: 7, borderRadius: 100 },
   modalSubmitText: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
   createUserRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   createAvatar: { width: 44, height: 44, borderRadius: 22 },
   createAuthorName: { fontSize: 14, fontWeight: '800', color: '#1E293B', marginBottom: 4 },
   privacyDropdownBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   privacyDropdownText: { fontSize: 11, fontWeight: '600', color: '#475569' },
-  createTextInput: { fontSize: 15, color: '#1E293B', height: 110, textAlignVertical: 'top', marginBottom: 20 },
+  createTextInput: { fontSize: 15, color: '#1E293B', height: 100, textAlignVertical: 'top', marginBottom: 16 },
+  tagSelectBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100, backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#E2E8F0' },
+  tagSelectBtnActive: { backgroundColor: '#EEF2FF', borderColor: '#4F46E5' },
+  tagSelectBtnText: { fontSize: 11.5, fontWeight: '600', color: '#64748B' },
+  tagSelectBtnTextActive: { color: '#4F46E5', fontWeight: '700' },
   sectionWrap: { marginBottom: 20 },
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
   sectionHeaderTitle: { fontSize: 13, fontWeight: '700', color: '#D97706' },
-  achieveCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFFBEB', padding: 12, borderRadius: 16, borderWidth: 1, borderColor: '#FDE68A', marginRight: 10, width: 200 },
+  achieveCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFFBEB', padding: 12, borderRadius: 16, borderWidth: 1, borderColor: '#FDE68A', marginRight: 10, width: 220 },
   achieveIconBg: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFEDD5', justifyContent: 'center', alignItems: 'center' },
   achieveCardTitle: { fontSize: 12, fontWeight: '800', color: '#92400E' },
   achieveCardSub: { fontSize: 10, color: '#B45309', marginTop: 1 },
