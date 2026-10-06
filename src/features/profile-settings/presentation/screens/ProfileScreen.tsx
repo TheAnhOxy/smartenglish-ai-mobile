@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Pressable, Image } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import {
   Star,
+  Crown,
   Pencil,
   Settings,
   Bell,
@@ -32,10 +33,10 @@ import { getProfileApi } from '@/src/features/profile-settings/data/profileApi';
 import { colors } from '@/src/theme/colors';
 
 const BADGES = [
-  { icon: Flame, label: 'Nguoi lua', color: colors.streak, bg: colors.streakSoft },
-  { icon: BookOpen, label: 'Mot sach', color: colors.primary, bg: colors.primarySoft },
-  { icon: Mic, label: 'Xuong ngon', color: colors.secondary, bg: colors.secondarySoft },
-  { icon: Trophy, label: 'Vo dich', color: colors.xpDeep, bg: colors.xpSoft },
+  { icon: Flame, label: 'Người lửa', color: colors.streak, bg: colors.streakSoft },
+  { icon: BookOpen, label: 'Mọt sách', color: colors.primary, bg: colors.primarySoft },
+  { icon: Mic, label: 'Xướng ngôn', color: colors.secondary, bg: colors.secondarySoft },
+  { icon: Trophy, label: 'Vô địch', color: colors.xpDeep, bg: colors.xpSoft },
 ];
 
 export const ProfileScreen = () => {
@@ -81,14 +82,15 @@ export const ProfileScreen = () => {
     { value: String(userStats?.level ?? 1), label: 'Level' },
   ];
 
-  const safeTop = Math.max(insets.top, 48) + 12;
+  const safeTop = (insets.top || 16) + 10;
 
   return (
     <ScrollView className="flex-1 bg-[#F8FAFC]" showsVerticalScrollIndicator={false}>
       <View className="w-full max-w-xl mx-auto">
         <Animated.View
           entering={FadeInDown.duration(400)}
-          className="bg-[#0D3B73] pt-14 px-6 pb-8 rounded-b-3xl shadow-xl"
+          style={{ paddingTop: safeTop }}
+          className="bg-[#0D3B73] px-6 pb-8 rounded-b-3xl shadow-xl"
         >
           <View className="flex-row justify-between items-center mb-6">
             <Pressable
@@ -145,21 +147,23 @@ export const ProfileScreen = () => {
         <View className="px-5 pt-5 pb-10 gap-4">
           <Animated.View entering={FadeInDown.delay(150).duration(400)}>
             <View className="bg-[#143454] rounded-3xl p-4 flex-row items-center gap-3 border border-white/10">
-              <View className="w-12 h-12 rounded-2xl items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
-                <Star color={colors.xp} size={22} fill={colors.xp} strokeWidth={1.5} />
+              <View className="w-12 h-12 rounded-2xl items-center justify-center bg-amber-500/20 border border-amber-400/30">
+                <Crown color="#F59E0B" size={22} strokeWidth={2} />
               </View>
               <View className="flex-1">
-                <Text className="text-[10px] font-bold text-white/60 uppercase tracking-wider mb-0.5">Goi hien tai</Text>
+                <Text className="text-[10px] font-bold text-white/60 uppercase tracking-wider mb-0.5">Gói hiện tại</Text>
                 <Text className="text-base font-extrabold text-white mb-0.5">
-                  {currentUser?.plan === 'premium_yearly' ? 'Premium Yearly' : 'Premium Monthly'}
+                  {currentUser?.plan === 'premium_yearly' ? 'Premium Năm' : currentUser?.plan === 'premium_monthly' ? 'Premium Tháng' : 'Tài khoản Miễn phí'}
                 </Text>
-                <Text className="text-[11px] text-white/60">Het han: 24 Th09, 2026</Text>
+                <Text className="text-[11px] text-white/60">
+                  {currentUser?.plan?.includes('premium') ? 'Hết hạn: 24 Th09, 2026' : 'Nâng cấp để mở khóa toàn bộ'}
+                </Text>
               </View>
               <Pressable
                 onPress={() => router.push('/(student)/profile/premium' as any)}
-                className="px-3 py-2 rounded-2xl border border-white/25 active:bg-white/30" style={{ backgroundColor: 'rgba(255,255,255,0.18)' }}
+                className="px-3.5 py-2 rounded-2xl border border-white/25 active:bg-white/30" style={{ backgroundColor: 'rgba(255,255,255,0.18)' }}
               >
-                <Text className="text-xs font-bold text-white">Quan ly goi</Text>
+                <Text className="text-xs font-bold text-white">Quản lý gói</Text>
               </Pressable>
             </View>
           </Animated.View>
@@ -171,10 +175,10 @@ export const ProfileScreen = () => {
               </View>
               <View className="flex-1">
                 <Text className="text-sm font-bold text-gray-900 mb-0.5">
-                  Muc tieu: {currentUser?.target_goal || 'IELTS 6.5'}
+                  Mục tiêu: {currentUser?.target_goal || 'IELTS 6.5'}
                 </Text>
                 <Text className="text-xs text-gray-500 mb-2.5">
-                  Con 4 thang - Trinh do hien tai: {currentUser?.cefr_level || 'B1'}
+                  Còn 4 tháng - Trình độ hiện tại: {currentUser?.cefr_level || 'B1'}
                 </Text>
                 <View className="h-2 bg-gray-100 rounded-full overflow-hidden">
                   <Animated.View style={[{ height: '100%', backgroundColor: colors.secondary, borderRadius: 4 }, animatedProgressStyle]} />
@@ -185,8 +189,8 @@ export const ProfileScreen = () => {
 
           <Animated.View entering={FadeInDown.delay(350).duration(400)}>
             <View className="flex-row justify-between items-center mb-3">
-              <Text className="text-sm font-bold text-gray-900">Huy hieu cua toi</Text>
-              <Pressable><Text className="text-sm font-semibold text-[#1F4E79]">Tat ca</Text></Pressable>
+              <Text className="text-sm font-bold text-gray-900">Huy hiệu của tôi</Text>
+              <Pressable><Text className="text-sm font-semibold text-[#1F4E79]">Tất cả</Text></Pressable>
             </View>
             <View className="flex-row gap-2">
               {BADGES.map((badge) => {
@@ -211,8 +215,8 @@ export const ProfileScreen = () => {
                     <User color="#0D3B73" size={18} />
                   </View>
                   <View>
-                    <Text className="text-sm font-bold text-neutralInk">Ho so cua toi</Text>
-                    <Text className="text-[11px] text-gray-500 font-medium">Chinh sua thong tin ca nhan</Text>
+                    <Text className="text-sm font-bold text-neutralInk">Hồ sơ của tôi</Text>
+                    <Text className="text-[11px] text-gray-500 font-medium">Chỉnh sửa thông tin cá nhân</Text>
                   </View>
                 </View>
                 <ChevronRight color="#94A3B8" size={18} />
@@ -221,11 +225,11 @@ export const ProfileScreen = () => {
               <Pressable onPress={() => router.push('/(student)/feed' as any)} className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50">
                 <View className="flex-row items-center gap-3">
                   <Globe color="#0EA5E9" size={20} />
-                  <Text className="text-sm font-bold text-neutralInk">Cong Dong Hoc Vien</Text>
+                  <Text className="text-sm font-bold text-neutralInk">Cộng đồng học viên</Text>
                 </View>
                 <View className="flex-row items-center gap-1.5">
                   <View className="bg-[#E0F2FE] px-2 py-0.5 rounded-full">
-                    <Text className="text-[10px] font-bold text-[#0EA5E9]">Moi</Text>
+                    <Text className="text-[10px] font-bold text-[#0EA5E9]">Mới</Text>
                   </View>
                   <ChevronRight color="#94A3B8" size={18} />
                 </View>
@@ -234,7 +238,7 @@ export const ProfileScreen = () => {
               <Pressable onPress={() => router.push('/(student)/classes' as any)} className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50">
                 <View className="flex-row items-center gap-3">
                   <GraduationCap color="#475569" size={20} />
-                  <Text className="text-sm font-semibold text-neutralInk">Lop Hoc Cua Toi</Text>
+                  <Text className="text-sm font-semibold text-neutralInk">Lớp học của tôi</Text>
                 </View>
                 <ChevronRight color="#94A3B8" size={18} />
               </Pressable>
@@ -242,7 +246,7 @@ export const ProfileScreen = () => {
               <Pressable onPress={() => router.push('/(student)/notifications' as any)} className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50">
                 <View className="flex-row items-center gap-3">
                   <Bell color="#475569" size={20} />
-                  <Text className="text-sm font-semibold text-neutralInk">Thong bao</Text>
+                  <Text className="text-sm font-semibold text-neutralInk">Thông báo</Text>
                 </View>
                 <ChevronRight color="#94A3B8" size={18} />
               </Pressable>
@@ -250,7 +254,7 @@ export const ProfileScreen = () => {
               <Pressable onPress={() => router.push('/(student)/profile/settings' as any)} className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50">
                 <View className="flex-row items-center gap-3">
                   <Mic color="#475569" size={20} />
-                  <Text className="text-sm font-semibold text-neutralInk">Giong doc TTS</Text>
+                  <Text className="text-sm font-semibold text-neutralInk">Giọng đọc TTS</Text>
                 </View>
                 <ChevronRight color="#94A3B8" size={18} />
               </Pressable>
@@ -258,7 +262,7 @@ export const ProfileScreen = () => {
               <Pressable onPress={() => router.push('/(student)/profile/settings' as any)} className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50">
                 <View className="flex-row items-center gap-3">
                   <Palette color="#475569" size={20} />
-                  <Text className="text-sm font-semibold text-neutralInk">Giao dien (Light/Dark)</Text>
+                  <Text className="text-sm font-semibold text-neutralInk">Giao diện (Sáng/Tối)</Text>
                 </View>
                 <ChevronRight color="#94A3B8" size={18} />
               </Pressable>
@@ -266,7 +270,7 @@ export const ProfileScreen = () => {
               <Pressable onPress={() => router.push('/(student)/profile/settings' as any)} className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50">
                 <View className="flex-row items-center gap-3">
                   <Globe color="#475569" size={20} />
-                  <Text className="text-sm font-semibold text-neutralInk">Ngon ngu</Text>
+                  <Text className="text-sm font-semibold text-neutralInk">Ngôn ngữ</Text>
                 </View>
                 <ChevronRight color="#94A3B8" size={18} />
               </Pressable>
@@ -274,7 +278,7 @@ export const ProfileScreen = () => {
               <Pressable onPress={() => router.push('/(student)/profile/settings' as any)} className="p-4 flex-row justify-between items-center active:bg-gray-50">
                 <View className="flex-row items-center gap-3">
                   <Download color="#475569" size={20} />
-                  <Text className="text-sm font-semibold text-neutralInk">Xuat du lieu</Text>
+                  <Text className="text-sm font-semibold text-neutralInk">Xuất dữ liệu</Text>
                 </View>
                 <ChevronRight color="#94A3B8" size={18} />
               </Pressable>
@@ -287,7 +291,7 @@ export const ProfileScreen = () => {
               className="bg-red-50 p-4 rounded-2xl border border-red-100 flex-row items-center gap-2.5 active:bg-red-100"
             >
               <LogOut color={colors.danger} size={20} strokeWidth={1.8} />
-              <Text className="text-sm font-bold text-red-500">Dang xuat</Text>
+              <Text className="text-sm font-bold text-red-500">Đăng xuất</Text>
             </Pressable>
           </Animated.View>
         </View>

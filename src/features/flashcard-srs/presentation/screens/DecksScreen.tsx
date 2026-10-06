@@ -38,7 +38,7 @@ import {
 import { getTopicsApi } from '../../data/vocabularyApi';
 import { colors, palette, font } from '@/src/theme';
 import { usePressSpring } from '@/src/hooks/usePressSpring';
-import { DatabaseLoader } from '@/src/components/ui/DatabaseLoader';
+import { TabLoadingState } from '@/src/components/ui/TabLoadingState';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - 48 - 14) / 2;
@@ -296,7 +296,7 @@ export const DecksScreen = () => {
 
   const handleOpenStudy = (deck: DeckItemDTO) => {
     if (deck.isPremium && !isUserPremium) {
-      router.push('/(student)/profile/premium' as any);
+      router.push({ pathname: '/(student)/profile/premium', params: { from: 'learn' } } as any);
       return;
     }
     try {
@@ -315,7 +315,7 @@ export const DecksScreen = () => {
 
   const handleOpenPremium = () => {
     try {
-      router.push('/(student)/profile/premium' as any);
+      router.push({ pathname: '/(student)/profile/premium', params: { from: 'learn' } } as any);
     } catch (err) {
       console.warn('Navigation error:', err);
     }
@@ -343,19 +343,12 @@ export const DecksScreen = () => {
           <Text style={styles.headerTitle}>Kho Thẻ Ghi Nhớ</Text>
         </View>
 
-        <Pressable onPress={handleOpenPremium} style={styles.zapBtn}>
-          <Zap color={colors.xpDeep} size={18} fill={colors.xpDeep} />
+        <Pressable onPress={handleOpenPremium} style={styles.proBtn}>
+          <Crown color="#D97706" size={19} fill="#F59E0B" />
         </Pressable>
       </View>
 
-      {/* Subtitle Banner */}
-      <View style={styles.titleSection}>
-        <Text style={styles.screenSub}>
-          Ôn tập ngắt quãng khoa học Spaced Repetition (SRS) giúp ghi nhớ từ vựng sâu hơn 300%.
-        </Text>
-      </View>
-
-      {/* 2 Segmented Tabs: Chủ Đề Hệ Thống vs Bộ Thẻ Của Tôi */}
+      {/* 2 Segmented Tabs: Hệ thống vs Của tôi */}
       <View style={styles.segmentedContainer}>
         <Pressable
           onPress={() => setActiveTab('SYSTEM')}
@@ -371,7 +364,7 @@ export const DecksScreen = () => {
               activeTab === 'SYSTEM' && styles.segmentBtnTextActive,
             ]}
           >
-            Chủ Đề Hệ Thống
+            Hệ thống
           </Text>
         </Pressable>
 
@@ -389,17 +382,15 @@ export const DecksScreen = () => {
               activeTab === 'MY_DECKS' && styles.segmentBtnTextActive,
             ]}
           >
-            Bộ Thẻ Của Tôi ({myDecks.length})
+            Của tôi
           </Text>
         </Pressable>
       </View>
 
       {/* Loading state */}
       {loading ? (
-        <DatabaseLoader
-          message="Đang đồng bộ danh sách bộ thẻ..."
-          subMessage="Tối ưu hóa dữ liệu SRS từ Lexora AI"
-          size="sm"
+        <TabLoadingState
+          message="Đang tải kho bộ thẻ..."
         />
       ) : (
         /* Decks 2x2 Grid */
@@ -489,7 +480,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   scrollContent: {
-    paddingTop: 16,
+    paddingTop: 10,
     paddingHorizontal: 20,
     paddingBottom: 48,
   },
@@ -523,15 +514,20 @@ const styles = StyleSheet.create({
     color: colors.text,
     letterSpacing: -0.3,
   },
-  zapBtn: {
+  proBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.xpSoft,
+    backgroundColor: '#FEF3C7',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: `${colors.xpDeep}30`,
+    borderWidth: 1.5,
+    borderColor: '#F59E0B',
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
   titleSection: {
     marginBottom: 16,

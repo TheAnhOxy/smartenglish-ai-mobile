@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
   X,
   Play,
@@ -29,6 +29,7 @@ import Animated, {
   withRepeat,
 } from 'react-native-reanimated';
 import * as Speech from 'expo-speech';
+import { stopSpeech } from '@/src/core/services/speechService';
 import {
   AudioModule,
   RecordingPresets,
@@ -40,12 +41,22 @@ import {
 
 export const SpeakingFeedbackScreen = () => {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    word?: string;
+    ipa?: string;
+    score?: string;
+    accuracy?: string;
+    stress?: string;
+    intonation?: string;
+    fluency?: string;
+    audioUri?: string;
+  }>();
 
   const [isPlayingNative, setIsPlayingNative] = useState(false);
   const [isPlayingUserVoice, setIsPlayingUserVoice] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [hasRecording, setHasRecording] = useState(false); // Initially false!
-  const [recordedUri, setRecordedUri] = useState<string | null>(null);
+  const [hasRecording, setHasRecording] = useState(Boolean(params.score || params.audioUri));
+  const [recordedUri, setRecordedUri] = useState<string | null>(params.audioUri || null);
   const [recordTime, setRecordTime] = useState(0);
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
 
@@ -83,12 +94,47 @@ export const SpeakingFeedbackScreen = () => {
     setIsPlayingUserVoice(playerStatus.playing);
   }, [playerStatus.playing]);
 
+  // Ngắt toàn bộ âm thanh và micro khi unmount hoặc rời màn hình
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        stopSpeech();
+        Speech.stop();
+        try {
+          player.pause();
+        } catch (_) {}
+        if (Platform.OS === 'web' && mediaRecorderRef.current) {
+          try {
+            mediaRecorderRef.current.stop();
+            mediaRecorderRef.current.stream?.getTracks?.().forEach((t: any) => t.stop());
+          } catch (_) {}
+        }
+      };
+    }, [player])
+  );
+
+  useEffect(() => {
+    return () => {
+      stopSpeech();
+      Speech.stop();
+      try {
+        player.pause();
+      } catch (_) {}
+      if (Platform.OS === 'web' && mediaRecorderRef.current) {
+        try {
+          mediaRecorderRef.current.stop();
+          mediaRecorderRef.current.stream?.getTracks?.().forEach((t: any) => t.stop());
+        } catch (_) {}
+      }
+    };
+  }, [player]);
+
   // Play Native Audio Target (No alert popup)
   const playNativeTargetAudio = () => {
     try {
       setIsPlayingNative(true);
       Speech.stop();
-      Speech.speak('Phenomenal', {
+      Speech.speak(params.word || 'Phenomenal', {
         language: 'en-US',
         pitch: 1.0,
         rate: 0.85,
@@ -213,7 +259,23 @@ export const SpeakingFeedbackScreen = () => {
     <View style={s.root}>
       {/* Top Header Bar */}
       <View style={s.headerBar}>
-        <Pressable onPress={() => router.back()} style={s.closeBtn}>
+        <Pressable
+          onPress={() => {
+            stopSpeech();
+            Speech.stop();
+            try {
+              player.pause();
+            } catch (_) {}
+            if (Platform.OS === 'web' && mediaRecorderRef.current) {
+              try {
+                mediaRecorderRef.current.stop();
+                mediaRecorderRef.current.stream?.getTracks?.().forEach((t: any) => t.stop());
+              } catch (_) {}
+            }
+            router.back();
+          }}
+          style={s.closeBtn}
+        >
           <X color="#475569" size={22} />
         </Pressable>
 
@@ -237,13 +299,23 @@ export const SpeakingFeedbackScreen = () => {
         {/* Score Gauge Circle */}
         <View style={s.scoreContainer}>
           <View style={s.scoreCircle}>
-            <Text style={s.scoreNumber}>{hasRecording ? '88%' : '--'}</Text>
-            <Text style={s.scoreLabel}>{hasRecording ? 'GREAT' : 'CẦN GHI ÂM'}</Text>
+            <Text style={s.scoreNumber}>
+              {params.score ? `${params.score}%` : hasRecording ? '85%' : '--'}
+            </Text>
+            <Text style={s.scoreLabel}>
+              {params.score
+                ? Number(params.score) >= 80
+                  ? 'GREAT'
+                  : 'GOOD'
+                : hasRecording
+                ? 'GREAT'
+                : 'CẦN GHI ÂM'}
+            </Text>
           </View>
 
           {/* Word Title & Phonetic */}
-          <Text style={s.wordTitle}>Phenomenal</Text>
-          <Text style={s.ipaText}>/fəˈnæmənəl/</Text>
+          <Text style={s.wordTitle}>{params.word || 'Phenomenal'}</Text>
+          <Text style={s.ipaText}>{params.ipa || '/fəˈnæmənəl/'}</Text>
         </View>
 
         {/* Audio Match Card (Native vs Your Voice) */}

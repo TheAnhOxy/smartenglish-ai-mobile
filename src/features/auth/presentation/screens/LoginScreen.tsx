@@ -38,7 +38,7 @@ export const LoginScreen = () => {
   const cardAnim0 = useStaggerReveal(0, 60);
   const cardAnim1 = useStaggerReveal(1, 60);
 
-  const safeTop = Math.max(insets.top, 48) + 12;
+  const safeTop = (insets.top || 16) + 12;
 
   return (
     <ScrollView

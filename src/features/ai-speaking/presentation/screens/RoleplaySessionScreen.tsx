@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,10 @@ import {
   TextInput,
   ActivityIndicator,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import {
   Mic,
+  ArrowLeft,
   Lightbulb,
   X,
   Volume2,
@@ -26,6 +27,7 @@ import {
   Send,
   Trash2,
   Square,
+  Crown,
 } from 'lucide-react-native';
 import * as Speech from 'expo-speech';
 import {
@@ -37,6 +39,7 @@ import {
   FREE_SPEAKING_DAILY_LIMIT,
 } from '../../data/speakingApi';
 import { useAuthStore } from '@/src/core/flows/authStore';
+import { stopSpeech } from '@/src/core/services/speechService';
 
 interface ChatTurn {
   role: 'ai' | 'user';
@@ -62,13 +65,14 @@ export const RoleplaySessionScreen = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [inputText, setInputText] = useState('');
 
-  const [showHint, setShowHint] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showQuotaModal, setShowQuotaModal] = useState(false);
   const [isAiVoiceMuted, setIsAiVoiceMuted] = useState(false);
 
-  // Web SpeechRecognition ref
+  // Web SpeechRecognition ref & auto-scroll ref
   const recognitionRef = useRef<any>(null);
+  const isRecordingRef = useRef(false);
+  const scrollRef = useRef<ScrollView>(null);
 
   // Tải thông tin kịch bản từ backend
   useEffect(() => {
@@ -78,18 +82,22 @@ export const RoleplaySessionScreen = () => {
         setScenario(found);
         setTurns([{ role: 'ai', text: found.opening_line }]);
         if (!isAiVoiceMuted && found.opening_line) {
-          Speech.speak(found.opening_line, { language: 'en-US' });
+          const cleanSpeech = found.opening_line.split(/💡/)[0].trim();
+          Speech.speak(cleanSpeech || found.opening_line, { language: 'en-US' });
         }
       } else {
         setTurns([{ role: 'ai', text: scenario.opening_line }]);
         if (!isAiVoiceMuted && scenario.opening_line) {
-          Speech.speak(scenario.opening_line, { language: 'en-US' });
+          const cleanSpeech = scenario.opening_line.split(/💡/)[0].trim();
+          Speech.speak(cleanSpeech || scenario.opening_line, { language: 'en-US' });
         }
       }
     });
 
     return () => {
+      stopSpeech();
       Speech.stop();
+      isRecordingRef.current = false;
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
@@ -98,30 +106,49 @@ export const RoleplaySessionScreen = () => {
     };
   }, [scenarioId]);
 
-  // Gợi ý câu nói sau 3.5 giây
+  // Ngắt toàn bộ âm thanh và micro khi màn hình unmount hoặc mất focus (chuyển tab/back)
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        stopSpeech();
+        Speech.stop();
+        isRecordingRef.current = false;
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.stop();
+          } catch (_) {}
+        }
+      };
+    }, [])
+  );
+
+
+  // Tự động cuộn xuống cuối khi có tin nhắn mới hoặc khi AI đang suy nghĩ
   useEffect(() => {
     const timer = setTimeout(() => {
-      setShowHint(true);
-    }, 3500);
-
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }, 120);
     return () => clearTimeout(timer);
-  }, [turns]);
+  }, [turns, isProcessing]);
 
-  // Bật / Tắt thu âm micro và nhận diện giọng nói trực tiếp vào ô text
+  // Bật / Tắt thu âm micro và nhận diện giọng nói trực tiếp vào ô text:
+  // Nhấn 1 lần để nói, nhấn lại lần nữa để kết thúc (không tự ngắt khi ngừng nghỉ)
   const toggleRecording = () => {
-    if (isRecording) {
+    if (isRecordingRef.current) {
+      isRecordingRef.current = false;
+      setIsRecording(false);
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
         } catch (_) {}
         recognitionRef.current = null;
       }
-      setIsRecording(false);
     } else {
       if (!canChat(isPremium)) {
         setShowQuotaModal(true);
         return;
       }
+      isRecordingRef.current = true;
       setIsRecording(true);
 
       if (typeof window !== 'undefined') {
@@ -144,15 +171,27 @@ export const RoleplaySessionScreen = () => {
             };
             rec.onerror = (e: any) => {
               console.log('[Roleplay SpeechRecognition] error:', e);
-              setIsRecording(false);
+              if (e.error === 'not-allowed') {
+                isRecordingRef.current = false;
+                setIsRecording(false);
+              }
             };
             rec.onend = () => {
-              setIsRecording(false);
+              // Tiếp tục nghe nếu người dùng chưa bấm tắt
+              if (isRecordingRef.current) {
+                try {
+                  rec.start();
+                } catch (_) {}
+              } else {
+                setIsRecording(false);
+              }
             };
             rec.start();
             recognitionRef.current = rec;
           } catch (e) {
             console.log('[Roleplay SpeechRecognition] start error:', e);
+            isRecordingRef.current = false;
+            setIsRecording(false);
           }
         }
       }
@@ -161,6 +200,7 @@ export const RoleplaySessionScreen = () => {
 
   // Gửi tin nhắn từ ô nhập text (hoặc sau khi nói qua micro)
   const handleSendMessage = () => {
+    isRecordingRef.current = false;
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -183,7 +223,6 @@ export const RoleplaySessionScreen = () => {
 
   // Gửi tin nhắn và xử lý phản hồi từ AI
   const handleSendUserTurn = async (customPrompt?: string) => {
-    setShowHint(false);
 
     // Kiểm tra hạn mức lượt chat hôm nay
     if (!canChat(isPremium)) {
@@ -230,14 +269,16 @@ export const RoleplaySessionScreen = () => {
       setTurns((prev) => [...prev, { role: 'ai', text: aiText }]);
 
       if (!isAiVoiceMuted) {
-        Speech.speak(aiText, { language: 'en-US' });
+        const cleanSpeech = aiText.split(/💡/)[0].trim();
+        Speech.speak(cleanSpeech || aiText, { language: 'en-US' });
       }
     } catch (err: any) {
       console.warn('[RoleplaySession] sendChat error:', err);
       const fallbackAi = 'Understood! Would you like to practice anything else?';
       setTurns((prev) => [...prev, { role: 'ai', text: fallbackAi }]);
       if (!isAiVoiceMuted) {
-        Speech.speak(fallbackAi, { language: 'en-US' });
+        const cleanSpeech = fallbackAi.split(/💡/)[0].trim();
+        Speech.speak(cleanSpeech || fallbackAi, { language: 'en-US' });
       }
     } finally {
       setIsProcessing(false);
@@ -259,7 +300,8 @@ export const RoleplaySessionScreen = () => {
 
   const handleSpeakAiLine = (text: string) => {
     Speech.stop();
-    Speech.speak(text, { language: 'en-US' });
+    const cleanSpeech = text.split(/💡/)[0].trim();
+    Speech.speak(cleanSpeech || text, { language: 'en-US' });
   };
 
   const partnerAvatar =
@@ -272,11 +314,25 @@ export const RoleplaySessionScreen = () => {
       {/* ── TOP BAR (Sạch sẽ, thân thiện, không icon robot) ────────────────── */}
       <View style={s.topBar}>
         <Pressable
-          onPress={() => setShowSummaryModal(true)}
+          onPress={() => {
+            stopSpeech();
+            Speech.stop();
+            if (recognitionRef.current) {
+              try {
+                recognitionRef.current.stop();
+              } catch (_) {}
+            }
+            const userTurnsCount = turns.filter((t) => t.role === 'user').length;
+            if (userTurnsCount === 0) {
+              router.back();
+              return;
+            }
+            setShowSummaryModal(true);
+          }}
           style={({ pressed }) => [s.exitBtn, pressed && { opacity: 0.7 }]}
+          accessibilityLabel="Rời phòng"
         >
-          <X color="#475569" size={17} />
-          <Text style={s.exitBtnText}>Rời phòng</Text>
+          <ArrowLeft color="#EF4444" size={20} strokeWidth={2.4} />
         </Pressable>
 
         {/* AI Partner Profile ở giữa */}
@@ -302,16 +358,19 @@ export const RoleplaySessionScreen = () => {
 
         {/* Cụm chức năng góc phải: Quota + Mute */}
         <View style={s.topRightRow}>
-          <View style={s.quotaPill}>
+          <Pressable
+            onPress={() => !isPremium && setShowQuotaModal(true)}
+            style={s.quotaPill}
+          >
             {isPremium ? (
-              <Sparkles color="#6366F1" size={12} />
+              <Crown color="#6366F1" size={12} strokeWidth={2} />
             ) : (
               <Flame color="#EA580C" size={12} />
             )}
             <Text style={s.quotaPillText}>
               {isPremium ? 'VIP' : `${quota.remaining}/${FREE_SPEAKING_DAILY_LIMIT}`}
             </Text>
-          </View>
+          </Pressable>
 
           <Pressable
             onPress={() => {
@@ -331,18 +390,23 @@ export const RoleplaySessionScreen = () => {
 
       {/* ── KHUNG HỘI THOẠI 2 CHIỀU ───────────────────────────────────────── */}
       <ScrollView
+        ref={scrollRef}
         style={s.chatScroll}
         contentContainerStyle={s.chatContent}
         showsVerticalScrollIndicator={false}
       >
         <View style={s.noticePill}>
           <Text style={s.noticeText}>
-            Đang kết nối hội thoại trực tiếp với {scenario.ai_persona}
+            Đang kết nối hội thoại trực tiếp với {scenario.partner_name || scenario.ai_persona}
           </Text>
         </View>
 
         {turns.map((turn, idx) => {
           const isAi = turn.role === 'ai';
+          const parts = isAi ? turn.text.split(/(?:^|\n+)💡\s*/) : [turn.text];
+          const mainText = parts[0]?.trim() || turn.text;
+          const feedbackText = parts.length > 1 ? parts.slice(1).join('\n').trim() : null;
+
           return (
             <View
               key={idx}
@@ -359,11 +423,11 @@ export const RoleplaySessionScreen = () => {
               <View style={[s.bubble, isAi ? s.bubbleAi : s.bubbleUser]}>
                 <View style={s.bubbleHeader}>
                   <Text style={[s.bubbleSender, isAi ? s.senderAi : s.senderUser]}>
-                    {isAi ? scenario.ai_persona : 'Bạn'}
+                    {isAi ? (scenario.partner_name || scenario.ai_persona) : 'Bạn'}
                   </Text>
                   {isAi && (
                     <Pressable
-                      onPress={() => handleSpeakAiLine(turn.text)}
+                      onPress={() => handleSpeakAiLine(mainText)}
                       style={s.speakerMiniBtn}
                     >
                       <Volume2 color="#64748B" size={14} />
@@ -372,38 +436,45 @@ export const RoleplaySessionScreen = () => {
                 </View>
 
                 <Text style={[s.bubbleText, isAi ? s.textAi : s.textUser]}>
-                  {turn.text}
+                  {mainText}
                 </Text>
+
+                {/* Góp ý tiếng Việt từ AI nếu có */}
+                {isAi && feedbackText && (
+                  <View style={s.inlineFeedbackCard}>
+                    <View style={s.inlineFeedbackHeader}>
+                      <Lightbulb color="#D97706" size={13} />
+                      <Text style={s.inlineFeedbackTitle}>Góp ý tiếng Việt:</Text>
+                    </View>
+                    <Text style={s.inlineFeedbackText}>{feedbackText}</Text>
+                  </View>
+                )}
               </View>
             </View>
           );
         })}
+
+        {/* AI Thinking Indicator (loading ... giống FE admin) */}
+        {isProcessing && (
+          <View style={[s.messageRow, s.messageRowAi]}>
+            <View style={s.aiAvatarSmall}>
+              <Text style={s.aiAvatarInitial}>
+                {(scenario.partner_name || scenario.ai_persona || 'A').charAt(0).toUpperCase()}
+              </Text>
+            </View>
+
+            <View style={[s.bubble, s.bubbleAi, s.bubbleThinking]}>
+              <View style={s.thinkingContent}>
+                <ActivityIndicator color="#4F46E5" size="small" />
+                <Text style={s.thinkingText}>
+                  {scenario.partner_name || scenario.ai_persona || 'AI'} đang suy nghĩ...
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
       </ScrollView>
 
-      {/* ── GỢI Ý CÂU NÓI (HINT BOX) ──────────────────────────────────────── */}
-      {showHint && (
-        <Pressable
-          onPress={() => {
-            const hintPrompt =
-              scenario.suggested_keywords && scenario.suggested_keywords.length > 0
-                ? `I would like to ${scenario.suggested_keywords[0].toLowerCase()}, please.`
-                : 'I understand. Could you tell me more about that?';
-            handleSendUserTurn(hintPrompt);
-          }}
-          style={({ pressed }) => [s.hintCard, pressed && { opacity: 0.85 }]}
-        >
-          <View style={s.hintHeader}>
-            <Lightbulb color="#D97706" size={15} />
-            <Text style={s.hintLabel}>Gợi ý câu trả lời nhanh:</Text>
-            <Text style={s.hintTapText}>Chạm để gửi →</Text>
-          </View>
-          <Text style={s.hintQuote} numberOfLines={2}>
-            "{scenario.suggested_keywords && scenario.suggested_keywords.length > 0
-              ? `I would like to ${scenario.suggested_keywords[0].toLowerCase()}, please.`
-              : 'I understand. Could you tell me more about that?'}"
-          </Text>
-        </Pressable>
-      )}
 
       {/* ── KHU VỰC ĐIỀU KHIỂN DƯỚI CHÂN: THANH NHẬP LIỆU DUY NHẤT (MICRO + TEXT + NÚT GỬI) ── */}
       <View style={s.bottomControl}>
@@ -506,6 +577,8 @@ export const RoleplaySessionScreen = () => {
             <View style={s.modalActions}>
               <Pressable
                 onPress={() => {
+                  stopSpeech();
+                  Speech.stop();
                   setShowSummaryModal(false);
                   setTurns([{ role: 'ai', text: scenario.opening_line }]);
                 }}
@@ -517,6 +590,8 @@ export const RoleplaySessionScreen = () => {
 
               <Pressable
                 onPress={() => {
+                  stopSpeech();
+                  Speech.stop();
                   setShowSummaryModal(false);
                   router.back();
                 }}
@@ -530,28 +605,45 @@ export const RoleplaySessionScreen = () => {
         </View>
       </Modal>
 
-      {/* ── MODAL HẾT LƯỢT CHAT HÔM NAY ──────────────────────────────────── */}
+      {/* ── MODAL NÂNG CẤP GÓI PREMIUM THUẬN TIỆN NGAY TẠI CHỖ ────────────────── */}
       <Modal visible={showQuotaModal} transparent animationType="fade">
         <View style={s.modalOverlay}>
           <View style={s.modalCard}>
             <View style={s.modalQuotaIconWrap}>
-              <Flame color="#EA580C" size={30} />
+              <Crown color="#F59E0B" size={30} strokeWidth={2} />
             </View>
 
-            <Text style={s.modalHeading}>Hết Lượt Luyện Nói Hôm Nay</Text>
-            <Text style={s.modalSubheading}>
-              Tài khoản miễn phí được 20 lượt đàm thoại AI mỗi ngày. Lượt mới sẽ tự động nạp lại sau 00:00!
+            <Text style={s.modalHeading}>
+              {quota.remaining <= 0 ? 'Hết Lượt Luyện Nói Hôm Nay' : 'Nâng Cấp Gói Premium'}
             </Text>
+            <Text style={s.modalSubheading}>
+              {quota.remaining <= 0
+                ? 'Tài khoản Free được 20 lượt đàm thoại AI mỗi ngày. Nâng cấp Premium để tiếp tục luyện nói không giới hạn ngay bây giờ!'
+                : 'Mở khóa toàn bộ kịch bản và luyện nói AI không giới hạn số lượt mỗi ngày.'}
+            </Text>
+
+            <Pressable
+              onPress={() => {
+                useAuthStore.getState().updateCurrentUser({ plan: 'premium_yearly' });
+                setShowQuotaModal(false);
+                alert('🎉 Bạn đã nâng cấp Premium thành công! Bây giờ bạn có thể tiếp tục luyện nói không giới hạn.');
+              }}
+              style={s.btnUpgrade}
+            >
+              <Crown color="#FFFFFF" size={16} strokeWidth={2} />
+              <Text style={s.btnUpgradeText}>Kích hoạt Premium ngay</Text>
+            </Pressable>
 
             <Pressable
               onPress={() => {
                 setShowQuotaModal(false);
                 router.push('/(student)/profile/premium' as any);
               }}
-              style={s.btnUpgrade}
+              style={{ marginTop: 10, paddingVertical: 4 }}
             >
-              <Sparkles color="#FFFFFF" size={16} />
-              <Text style={s.btnUpgradeText}>Nâng cấp Premium — Không giới hạn</Text>
+              <Text style={{ fontSize: 11, color: '#6366F1', textAlign: 'center', fontWeight: '600' }}>
+                Xem chi tiết các gói nâng cấp →
+              </Text>
             </Pressable>
 
             <Pressable
@@ -586,18 +678,14 @@ const s = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   exitBtn: {
-    flexDirection: 'row',
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
-  },
-  exitBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
+    justifyContent: 'center',
   },
   partnerCenter: {
     flexDirection: 'row',
@@ -788,6 +876,49 @@ const s = StyleSheet.create({
   },
   textUser: {
     color: '#FFFFFF',
+  },
+  bubbleThinking: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  thinkingContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  thinkingText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
+    fontStyle: 'italic',
+  },
+  inlineFeedbackCard: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#FDE68A',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 8,
+    padding: 8,
+  },
+  inlineFeedbackHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 3,
+  },
+  inlineFeedbackTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  inlineFeedbackText: {
+    fontSize: 12,
+    color: '#78350F',
+    lineHeight: 17,
   },
 
   // Hint Box

@@ -15,7 +15,7 @@ export const PlacementIntroScreen = () => {
     { Icon: BarChart2, text: 'Nhận kết quả chẩn đoán CEFR ngay lập tức' },
   ];
 
-  const safeTop = Math.max(insets.top, 48) + 12;
+  const safeTop = (insets.top || 16) + 12;
   const safeBottom = Math.max(insets.bottom, 24) + 12;
 
   return (

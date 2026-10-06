@@ -268,7 +268,7 @@ const LoadingDots: React.FC<{ color: string }> = ({ color }) => {
 
 // ─── Main DatabaseLoader Component ───
 export const DatabaseLoader: React.FC<DatabaseLoaderProps> = ({
-  message = 'Đang tải dữ liệu...',
+  message = 'Đang tải...',
   subMessage,
   size = 'md',
   color = colors.primary,

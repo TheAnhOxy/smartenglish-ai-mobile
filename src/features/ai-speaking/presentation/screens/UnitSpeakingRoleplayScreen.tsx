@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,8 +8,9 @@ import {
   StyleSheet,
   Platform,
   Modal,
+  Alert,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import {
   Mic,
   ArrowLeft,
@@ -38,6 +39,7 @@ import {
   useAudioRecorder,
 } from 'expo-audio';
 import * as Speech from 'expo-speech';
+import { stopSpeech } from '@/src/core/services/speechService';
 import {
   useSpeakingQuotaStore,
   FREE_SPEAKING_DAILY_LIMIT,
@@ -88,6 +90,41 @@ export const UnitSpeakingRoleplayScreen = () => {
   useEffect(() => {
     setIsPlayingUserVoice(playerStatus.playing);
   }, [playerStatus.playing]);
+
+  // Ngắt toàn bộ âm thanh và micro khi unmount hoặc rời màn hình
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        stopSpeech();
+        Speech.stop();
+        try {
+          player.pause();
+        } catch (_) {}
+        if (Platform.OS === 'web' && mediaRecorderRef.current) {
+          try {
+            mediaRecorderRef.current.stop();
+            mediaRecorderRef.current.stream?.getTracks?.().forEach((t: any) => t.stop());
+          } catch (_) {}
+        }
+      };
+    }, [player])
+  );
+
+  useEffect(() => {
+    return () => {
+      stopSpeech();
+      Speech.stop();
+      try {
+        player.pause();
+      } catch (_) {}
+      if (Platform.OS === 'web' && mediaRecorderRef.current) {
+        try {
+          mediaRecorderRef.current.stop();
+          mediaRecorderRef.current.stream?.getTracks?.().forEach((t: any) => t.stop());
+        } catch (_) {}
+      }
+    };
+  }, [player]);
 
   // Start Real Microphone Recording
   const startRecording = async () => {
@@ -200,7 +237,23 @@ export const UnitSpeakingRoleplayScreen = () => {
     <View style={s.root}>
       {/* Top Header Bar */}
       <View style={s.headerBar}>
-        <Pressable onPress={() => router.back()} style={s.backBtn}>
+        <Pressable
+          onPress={() => {
+            stopSpeech();
+            Speech.stop();
+            try {
+              player.pause();
+            } catch (_) {}
+            if (Platform.OS === 'web' && mediaRecorderRef.current) {
+              try {
+                mediaRecorderRef.current.stop();
+                mediaRecorderRef.current.stream?.getTracks?.().forEach((t: any) => t.stop());
+              } catch (_) {}
+            }
+            router.back();
+          }}
+          style={s.backBtn}
+        >
           <ArrowLeft color="#1E293B" size={20} />
         </Pressable>
 
@@ -210,7 +263,7 @@ export const UnitSpeakingRoleplayScreen = () => {
           {isPremium ? (
             <View style={s.premiumBadge}>
               <Sparkles color="#A855F7" size={13} />
-              <Text style={s.premiumText}>👑 Không giới hạn</Text>
+              <Text style={s.premiumText}>Không giới hạn</Text>
             </View>
           ) : (
             <Pressable onPress={() => setShowQuotaModal(true)} style={s.quotaBadge}>
@@ -355,13 +408,19 @@ export const UnitSpeakingRoleplayScreen = () => {
 
             <Pressable
               onPress={() => {
-                setShowQuotaModal(false);
-                router.push('/(student)/profile/premium' as any);
+                try {
+                  useAuthStore.getState().updateCurrentUser({ plan: 'premium_yearly' });
+                  Alert.alert('Thành công', 'Đã kích hoạt gói Premium! Bạn có thể tiếp tục luyện nói không giới hạn.');
+                  setShowQuotaModal(false);
+                } catch (e) {
+                  setShowQuotaModal(false);
+                  router.push('/(student)/profile/premium' as any);
+                }
               }}
               style={s.upgradeBtn}
             >
               <Sparkles color="#FFFFFF" size={16} />
-              <Text style={s.upgradeBtnText}>Nâng Cấp Premium 👑</Text>
+              <Text style={s.upgradeBtnText}>Nâng Cấp Premium</Text>
             </Pressable>
 
             <Pressable onPress={() => setShowQuotaModal(false)} style={s.dismissBtn}>

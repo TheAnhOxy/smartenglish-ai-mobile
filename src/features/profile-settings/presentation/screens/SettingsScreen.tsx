@@ -43,7 +43,16 @@ export const SettingsScreen = () => {
     <View style={styles.root}>
       {/* Header */}
       <View style={styles.headerBar}>
-        <Pressable onPress={() => router.back()} style={styles.iconBtn}>
+        <Pressable
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.navigate('/(student)/profile' as any);
+            }
+          }}
+          style={styles.iconBtn}
+        >
           <ArrowLeft color={palette.text} size={20} />
         </Pressable>
 

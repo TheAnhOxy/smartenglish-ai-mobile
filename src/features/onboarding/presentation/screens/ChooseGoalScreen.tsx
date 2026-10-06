@@ -46,7 +46,7 @@ export const ChooseGoalScreen = () => {
     router.push('/(auth)/placement-intro' as any);
   };
 
-  const safeTop = Math.max(insets.top, 48) + 12;
+  const safeTop = (insets.top || 16) + 12;
   const safeBottom = Math.max(insets.bottom, 24) + 12;
 
   return (

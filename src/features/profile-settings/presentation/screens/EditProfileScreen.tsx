@@ -221,7 +221,13 @@ export const EditProfileScreen = () => {
       Alert.alert('Thành công', 'Hồ sơ cá nhân và ảnh đại diện đã được cập nhật thành công!', [
         {
           text: 'Đồng ý',
-          onPress: () => router.back(),
+          onPress: () => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.navigate('/(student)/profile' as any);
+            }
+          },
         },
       ]);
     } catch (err: any) {
@@ -295,8 +301,8 @@ export const EditProfileScreen = () => {
   if (isLoading) {
     return (
       <View className="flex-1 bg-[#F8FAF9] justify-center items-center">
-        <ActivityIndicator size="large" color="#0D3B73" />
-        <Text className="mt-3 text-sm font-semibold text-gray-600">Đang tải hồ sơ của bạn...</Text>
+        <ActivityIndicator size="small" color="#0D3B73" />
+        <Text className="mt-2 text-xs font-semibold text-gray-500">Đang tải...</Text>
       </View>
     );
   }
@@ -304,10 +310,16 @@ export const EditProfileScreen = () => {
   return (
     <View className="flex-1 bg-[#F1F5F9]">
       {/* Top Header */}
-      <View className="bg-[#0D3B73] pt-12 pb-5 px-4 shadow-lg">
+      <View className="bg-[#0D3B73] pt-8 pb-5 px-4 shadow-lg">
         <View className="w-full max-w-xl mx-auto flex-row justify-between items-center">
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.navigate('/(student)/profile' as any);
+              }
+            }}
             className="w-10 h-10 rounded-2xl bg-white/15 justify-center items-center border border-white/20 active:bg-white/25"
           >
             <ArrowLeft color="#FFFFFF" size={20} />

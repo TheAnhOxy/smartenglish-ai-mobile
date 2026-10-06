@@ -1,15 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Compass, Layers, Mic, Zap } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { LearningPathScreen } from '@/src/features/learning-path/presentation/screens/LearningPathScreen';
 import { DecksScreen } from '@/src/features/flashcard-srs/presentation/screens/DecksScreen';
 import { SpeakingHomeScreen } from '@/src/features/ai-speaking/presentation/screens/SpeakingHomeScreen';
-import { QuickQuizSetupScreen } from '@/src/features/quiz-exam/presentation/screens/QuickQuizSetupScreen';
-import { colors, cardGradients } from '@/src/theme';
-import { spring } from '@/src/theme/motion';
+import { ExamCatalogScreen } from '@/src/features/quiz-exam/presentation/screens/ExamCatalogScreen';
+import { colors } from '@/src/theme';
 
 type SegmentKey = 'path' | 'decks' | 'speaking' | 'quiz';
 
@@ -26,10 +25,44 @@ const TABS: TabItem[] = [
   { key: 'quiz', label: 'Quiz', icon: Zap },
 ];
 
+const MemoizedLearningPathScreen = memo(LearningPathScreen);
+const MemoizedDecksScreen = memo(DecksScreen);
+const MemoizedSpeakingHomeScreen = memo(SpeakingHomeScreen);
+const MemoizedExamCatalogScreen = memo(ExamCatalogScreen);
+
 export default function LearnTabContainer() {
-  const [activeSegment, setActiveSegment] = useState<SegmentKey>('path');
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const initialKey: SegmentKey =
+    params.tab === 'quiz' || params.tab === 'decks' || params.tab === 'speaking' || params.tab === 'path'
+      ? (params.tab as SegmentKey)
+      : 'path';
+
+  const [activeSegment, setActiveSegment] = useState<SegmentKey>(initialKey);
+
+  // Lazy tab initialization: only mount screens when their tab is first opened.
+  // This allows instant tab switching and displays the screen's loading state immediately.
+  const [visitedTabs, setVisitedTabs] = useState<Record<SegmentKey, boolean>>(() => ({
+    path: initialKey === 'path',
+    decks: initialKey === 'decks',
+    speaking: initialKey === 'speaking',
+    quiz: initialKey === 'quiz',
+  }));
+
+  useEffect(() => {
+    if (params.tab === 'quiz' || params.tab === 'decks' || params.tab === 'speaking' || params.tab === 'path') {
+      const tabKey = params.tab as SegmentKey;
+      setActiveSegment(tabKey);
+      setVisitedTabs((prev) => (prev[tabKey] ? prev : { ...prev, [tabKey]: true }));
+    }
+  }, [params.tab]);
+
+  const handleTabPress = (key: SegmentKey) => {
+    setActiveSegment(key);
+    setVisitedTabs((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
+  };
+
   const insets = useSafeAreaInsets();
-  const safeTop = Math.max(insets.top, 44) + 6;
+  const safeTop = (insets.top || 12) + 6;
 
   return (
     <View style={styles.container}>
@@ -43,8 +76,8 @@ export default function LearnTabContainer() {
             return (
               <Pressable
                 key={tab.key}
-                onPress={() => setActiveSegment(tab.key)}
-                style={styles.tabBtn}
+                onPress={() => handleTabPress(tab.key)}
+                style={[styles.tabBtn, isActive ? styles.tabBtnActive : styles.tabBtnInactive]}
               >
                 {isActive && (
                   <LinearGradient
@@ -56,18 +89,18 @@ export default function LearnTabContainer() {
                 )}
                 <View style={styles.tabContentRow}>
                   <IconComp
-                    size={16}
+                    size={17}
                     color={isActive ? '#FFFFFF' : colors.textSoft}
                     fill={isActive && tab.key === 'quiz' ? '#FFFFFF' : 'none'}
                   />
-                  <Text
-                    style={[
-                      styles.tabLabel,
-                      isActive ? styles.tabLabelActive : styles.tabLabelInactive,
-                    ]}
-                  >
-                    {tab.label}
-                  </Text>
+                  {isActive && (
+                    <Text
+                      style={[styles.tabLabel, styles.tabLabelActive]}
+                      numberOfLines={1}
+                    >
+                      {tab.label}
+                    </Text>
+                  )}
                 </View>
               </Pressable>
             );
@@ -75,12 +108,28 @@ export default function LearnTabContainer() {
         </View>
       </View>
 
-      {/* Screen Content */}
+      {/* Screen Content with Tab State Preservation & Lazy Loading */}
       <View style={styles.content}>
-        {activeSegment === 'path' && <LearningPathScreen />}
-        {activeSegment === 'decks' && <DecksScreen />}
-        {activeSegment === 'speaking' && <SpeakingHomeScreen />}
-        {activeSegment === 'quiz' && <QuickQuizSetupScreen />}
+        {visitedTabs.path && (
+          <View style={[styles.tabPane, activeSegment === 'path' ? styles.tabPaneActive : styles.tabPaneHidden]}>
+            <MemoizedLearningPathScreen />
+          </View>
+        )}
+        {visitedTabs.decks && (
+          <View style={[styles.tabPane, activeSegment === 'decks' ? styles.tabPaneActive : styles.tabPaneHidden]}>
+            <MemoizedDecksScreen />
+          </View>
+        )}
+        {visitedTabs.speaking && (
+          <View style={[styles.tabPane, activeSegment === 'speaking' ? styles.tabPaneActive : styles.tabPaneHidden]}>
+            <MemoizedSpeakingHomeScreen />
+          </View>
+        )}
+        {visitedTabs.quiz && (
+          <View style={[styles.tabPane, activeSegment === 'quiz' ? styles.tabPaneActive : styles.tabPaneHidden]}>
+            <MemoizedExamCatalogScreen />
+          </View>
+        )}
       </View>
     </View>
   );
@@ -112,13 +161,18 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   tabBtn: {
-    flex: 1,
     paddingVertical: 10,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
     overflow: 'hidden',
+  },
+  tabBtnActive: {
+    flex: 1.6,
+  },
+  tabBtnInactive: {
+    flex: 1,
   },
   activePillBackground: {
     position: 'absolute',
@@ -153,6 +207,15 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  tabPane: {
+    flex: 1,
+  },
+  tabPaneActive: {
+    display: 'flex',
+  },
+  tabPaneHidden: {
+    display: 'none',
   },
 });
 

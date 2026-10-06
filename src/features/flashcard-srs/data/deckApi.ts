@@ -12,35 +12,48 @@ export interface DeckItemDTO {
   isPremium?: boolean;
 }
 
-export const fetchSystemDecksApi = async (): Promise<DeckItemDTO[]> => {
+let memorySystemDecks: { data: DeckItemDTO[]; timestamp: number } | null = null;
+let memoryMyDecks: { data: DeckItemDTO[]; timestamp: number; userId: string } | null = null;
+const DECKS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+export const fetchSystemDecksApi = async (forceRefresh = false): Promise<DeckItemDTO[]> => {
+  if (!forceRefresh && memorySystemDecks && Date.now() - memorySystemDecks.timestamp < DECKS_CACHE_TTL) {
+    return memorySystemDecks.data;
+  }
   try {
     const response = await apiClient.get<any>('/api/v1/learning/decks/system');
     const data = response.data?.data || response.data;
     if (Array.isArray(data) && data.length > 0) {
+      memorySystemDecks = { data, timestamp: Date.now() };
       return data;
     }
   } catch (err) {
     console.warn('[fetchSystemDecksApi] Error:', err);
   }
-  return [];
+  return memorySystemDecks?.data || [];
 };
 
-export const fetchMyDecksApi = async (userId?: string): Promise<DeckItemDTO[]> => {
+export const fetchMyDecksApi = async (userId?: string, forceRefresh = false): Promise<DeckItemDTO[]> => {
   const uid = userId || getCurrentUserId();
+  if (!forceRefresh && memoryMyDecks && memoryMyDecks.userId === uid && Date.now() - memoryMyDecks.timestamp < DECKS_CACHE_TTL) {
+    return memoryMyDecks.data;
+  }
   try {
     const response = await apiClient.get<any>(`/api/v1/learning/decks/my-decks?userId=${uid}`);
     const data = response.data?.data || response.data;
     if (Array.isArray(data) && data.length > 0) {
+      memoryMyDecks = { data, timestamp: Date.now(), userId: uid };
       return data;
     }
   } catch (err) {
     console.warn('[fetchMyDecksApi] Error:', err);
   }
-  return [];
+  return memoryMyDecks?.data || [];
 };
 
 export const createDeckApi = async (name: string, description?: string, userId?: string): Promise<DeckItemDTO | null> => {
   const uid = userId || getCurrentUserId();
+  memoryMyDecks = null;
   try {
     const response = await apiClient.post<any>(`/api/v1/learning/decks?userId=${uid}`, {
       name,

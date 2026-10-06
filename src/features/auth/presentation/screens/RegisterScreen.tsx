@@ -91,7 +91,7 @@ export const RegisterScreen = () => {
         'Email hoặc thông tin đã tồn tại trong hệ thống.'
       : '');
 
-  const safeTop = Math.max(insets.top, 48) + 12;
+  const safeTop = (insets.top || 16) + 12;
 
   return (
     <ScrollView

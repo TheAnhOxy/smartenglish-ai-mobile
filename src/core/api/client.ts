@@ -2,18 +2,28 @@ import axios, { AxiosInstance } from 'axios';
 import { Platform } from 'react-native';
 
 import Constants from 'expo-constants';
+import { getStoredAccessToken } from '../storage/tokenStorage';
 
 const getGatewayUrl = () => {
-  // 1. Nếu chạy trên Web browser của máy tính
-  if (Platform.OS === 'web') {
-    return 'http://localhost:8080';
-  }
-
   const rawEnv = process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_GATEWAY_URL;
   const envUrl = rawEnv ? rawEnv.trim() : '';
 
-  // 2. Nếu có biến môi trường chỉ định rõ (IP LAN hoặc ngrok HTTPS)
-  if (envUrl) {
+  // 1. Nếu chạy trên Web browser của máy tính
+  if (Platform.OS === 'web') {
+    if (typeof window !== 'undefined' && window.location) {
+      const hostname = window.location.hostname;
+      if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
+        return `http://${hostname}:8080`;
+      }
+    }
+    if (envUrl && !envUrl.includes('refurbish-doorframe')) {
+      return envUrl.replace(/\/$/, '');
+    }
+    return 'http://localhost:8080';
+  }
+
+  // 2. Nếu có biến môi trường chỉ định rõ (và không phải link ngrok cũ bị offline)
+  if (envUrl && !envUrl.includes('refurbish-doorframe')) {
     return envUrl.replace(/\/$/, '');
   }
 
@@ -33,9 +43,8 @@ const getGatewayUrl = () => {
   }
 
   // 5. Fallback mặc định cho thiết bị thật trên Wi-Fi LAN
-  return 'http://172.16.0.144:8080';
+  return 'http://192.168.1.25:8080';
 };
-
 
 export const SERVICE_URLS = {
   GATEWAY: getGatewayUrl(),
@@ -50,6 +59,7 @@ export const SERVICE_URLS = {
 export const apiClient: AxiosInstance = axios.create({
   baseURL: getGatewayUrl(),
   timeout: 30000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
     'ngrok-skip-browser-warning': 'true',
@@ -63,11 +73,14 @@ apiClient.interceptors.request.use(
     config.headers = config.headers || {};
     (config.headers as any)['ngrok-skip-browser-warning'] = 'true';
 
-    // Attach Authorization token from Zustand auth store
+    // Attach Authorization token from Zustand auth store or Cookie/LocalStorage tokenStorage
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { useAuthStore } = require('@/src/core/flows/authStore');
-      const accessToken: string | null = useAuthStore.getState().accessToken;
+      let accessToken: string | null = useAuthStore.getState().accessToken;
+      if (!accessToken) {
+        accessToken = getStoredAccessToken();
+      }
       if (accessToken) {
         config.headers = config.headers || {};
         (config.headers as any)['Authorization'] = accessToken.startsWith('Bearer ')

@@ -127,8 +127,8 @@ export const LessonDetailScreen = () => {
   if (loading) {
     return (
       <View style={s.centerContainer}>
-        <ActivityIndicator size="large" color={palette.primary} />
-        <Text style={s.loadingText}>Đang tải nội dung bài học từ hệ thống...</Text>
+        <ActivityIndicator size="small" color={palette.primary} />
+        <Text style={s.loadingText}>Đang tải...</Text>
       </View>
     );
   }

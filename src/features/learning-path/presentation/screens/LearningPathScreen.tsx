@@ -28,13 +28,13 @@ import {
   Sparkles,
 } from 'lucide-react-native';
 import { MOCK_CURRICULUM, UnitNode, Chapter } from '../../data/curriculumData';
-import { fetchLearningPathRoadmapApi } from '../../data/knowledgeGapApi';
+import { fetchLearningPathRoadmapApi, isSystemCourse } from '../../data/knowledgeGapApi';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { colors, palette, font } from '@/src/theme';
 import { easings } from '@/src/theme/motion';
 import { usePressSpring } from '@/src/hooks/usePressSpring';
 import { usePulseRing } from '@/src/hooks/usePulseRing';
-import { DatabaseLoader } from '@/src/components/ui/DatabaseLoader';
+import { TabLoadingState } from '@/src/components/ui/TabLoadingState';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONTENT_WIDTH = SCREEN_WIDTH - 48;
@@ -372,7 +372,7 @@ export const LearningPathScreen = () => {
   const isPremium = currentUser?.plan !== 'free';
 
   const [selectedUnit, setSelectedUnit] = useState<UnitNode | null>(null);
-  const [curriculum, setCurriculum] = useState<Chapter[]>(MOCK_CURRICULUM);
+  const [curriculum, setCurriculum] = useState<Chapter[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Pulse animation cho node hiện tại
@@ -381,11 +381,16 @@ export const LearningPathScreen = () => {
 
   // Fetch roadmap API
   const loadRoadmap = useCallback(() => {
+    setIsLoading(true);
     const uid = currentUser?.id ? String(currentUser.id) : '1';
     fetchLearningPathRoadmapApi(uid)
       .then((milestones: any[]) => {
-        if (!milestones || milestones.length === 0) return;
-        const mapped: Chapter[] = milestones.map((m: any, idx: number) => ({
+        const validMilestones = milestones.filter(isSystemCourse);
+        if (!validMilestones || validMilestones.length === 0) {
+          setCurriculum((prev) => (prev.length > 0 ? prev : MOCK_CURRICULUM));
+          return;
+        }
+        const mapped: Chapter[] = validMilestones.map((m: any, idx: number) => ({
           id: String(m.id || `ch-${idx + 1}`),
           chapter_number: m.chapterNumber || idx + 1,
           title_vi: m.titleVi || m.title || `Chương ${idx + 1}`,
@@ -426,9 +431,14 @@ export const LearningPathScreen = () => {
         }));
         if (mapped.length > 0 && mapped.some((c) => c.units.length > 0)) {
           setCurriculum(mapped);
+        } else {
+          setCurriculum(MOCK_CURRICULUM);
         }
       })
-      .catch((err) => console.warn('[LearningPath] API load failed:', err))
+      .catch((err) => {
+        console.warn('[LearningPath] API load failed:', err);
+        setCurriculum((prev) => (prev.length > 0 ? prev : MOCK_CURRICULUM));
+      })
       .finally(() => {
         setIsLoading(false);
       });
@@ -457,7 +467,7 @@ export const LearningPathScreen = () => {
 
   const handleNodePress = (unit: UnitNode) => {
     if (unit.is_premium && !isPremium) {
-      router.push('/(student)/profile/premium' as any);
+      router.push({ pathname: '/(student)/profile/premium', params: { from: 'learn' } } as any);
       return;
     }
     setSelectedUnit(unit);
@@ -468,17 +478,6 @@ export const LearningPathScreen = () => {
     router.push(`/(student)/lesson/${unitId}` as any);
   };
 
-  if (isLoading) {
-    return (
-      <DatabaseLoader
-        fullscreen
-        message="Đang đồng bộ lộ trình học phản xạ..."
-        subMessage="Tải dữ liệu từ Loxera AI Cloud"
-        color={colors.primary}
-      />
-    );
-  }
-
   return (
     <View style={s.container}>
       <DynamicPathBackground />
@@ -486,17 +485,17 @@ export const LearningPathScreen = () => {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollContent}>
         {/* Header Bar */}
         <View style={s.headerRow}>
-          <View>
+          <View style={{ flex: 1, marginRight: 10 }}>
             <View style={s.badgeRow}>
               <Compass color={colors.primary} size={14} />
-              <Text style={s.subHeader}>BẢN ĐỒ LỘ TRÌNH DUOLINGO</Text>
+              <Text style={s.subHeader}>LỘ TRÌNH HỌC TẬP</Text>
             </View>
-            <Text style={s.mainHeader}>Hành Trình Chinh Phục</Text>
+            <Text style={s.mainHeader} numberOfLines={1}>Hành Trình Chinh Phục</Text>
           </View>
 
           {!isPremium && (
             <Pressable
-              onPress={() => router.push('/(student)/profile/premium' as any)}
+              onPress={() => router.push({ pathname: '/(student)/profile/premium', params: { from: 'learn' } } as any)}
               style={s.premiumTag}
             >
               <Crown color={colors.warning} size={14} />
@@ -505,8 +504,10 @@ export const LearningPathScreen = () => {
           )}
         </View>
 
-        {/* Chapters List with Thematic Biomes */}
-        {curriculum.map((chapter) => {
+        {isLoading ? (
+          <TabLoadingState message="Đang tải lộ trình học..." />
+        ) : (
+          curriculum.map((chapter) => {
           const biome = getBiomeForChapter(chapter.chapter_number);
           const totalUnits = chapter.units.length;
           const chapterHeight = (totalUnits - 1) * VERTICAL_GAP + NODE_SIZE + 40;
@@ -667,7 +668,7 @@ export const LearningPathScreen = () => {
               </View>
             </View>
           );
-        })}
+        }))}
       </ScrollView>
 
       {/* Unit Detail Modal */}
@@ -692,7 +693,7 @@ export const LearningPathScreen = () => {
                         : { color: colors.primary },
                     ]}
                   >
-                    {selectedUnit.is_premium ? 'Premium 👑' : 'Miễn Phí'}
+                    {selectedUnit.is_premium ? 'Gói Premium' : 'Miễn Phí'}
                   </Text>
                 </View>
                 <Pressable onPress={() => setSelectedUnit(null)} style={s.closeModalBtn}>
@@ -746,7 +747,7 @@ const s = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingTop: 12,
     paddingBottom: 48,
     maxWidth: 600,
     width: '100%',
@@ -772,9 +773,9 @@ const s = StyleSheet.create({
     letterSpacing: 0.8,
   },
   mainHeader: {
-    fontSize: 22,
+    fontSize: 18,
     fontFamily: font.family,
-    fontWeight: '800',
+    fontWeight: '700',
     color: colors.text,
     letterSpacing: -0.3,
   },
@@ -785,9 +786,10 @@ const s = StyleSheet.create({
     backgroundColor: colors.warningSoft,
     borderWidth: 1,
     borderColor: `${colors.warning}60`,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 14,
+    flexShrink: 0,
   },
   premiumTagText: {
     fontSize: 12,

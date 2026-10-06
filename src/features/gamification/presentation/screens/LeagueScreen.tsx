@@ -58,7 +58,7 @@ export const LeagueScreen = () => {
 
       {isLoading ? (
         <View className="py-12 items-center">
-          <DatabaseLoader size="md" message="Đang tải bảng xếp hạng..." />
+          <DatabaseLoader size="md" message="Đang tải..." />
         </View>
       ) : (
         <FlatList
