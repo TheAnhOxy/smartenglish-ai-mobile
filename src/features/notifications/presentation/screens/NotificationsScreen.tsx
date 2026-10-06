@@ -8,9 +8,18 @@ export const NotificationsScreen = () => {
   const { data: notifications, isLoading } = useNotificationsQuery();
 
   return (
-    <View className="flex-1 bg-surface pt-14 px-6 pb-6">
-      <Pressable onPress={() => router.back()} className="mb-4">
-        <Text className="text-primary font-bold text-sm">← Trang Chủ</Text>
+    <View className="flex-1 bg-surface pt-8 px-6 pb-6">
+      <Pressable
+        onPress={() => {
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.navigate('/(student)/profile' as any);
+          }
+        }}
+        className="mb-4 self-start"
+      >
+        <Text className="text-primary font-bold text-sm">← Cá Nhân</Text>
       </Pressable>
 
       <Text className="text-2xl font-bold text-neutralInk mb-1">Hộp Thư Thông Báo 🔔</Text>
