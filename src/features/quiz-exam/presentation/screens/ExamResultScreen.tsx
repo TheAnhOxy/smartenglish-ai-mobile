@@ -88,9 +88,12 @@ export function ExamResultScreen() {
       }
     });
 
-    const listeningScore = Math.min(495, Math.round((listeningCorrect / Math.max(1, listeningTotal)) * 495));
-    const readingScore = Math.min(495, Math.round((readingCorrect / Math.max(1, readingTotal)) * 495));
-    const totalScore = listeningScore + readingScore;
+    // Điểm Listening và Reading ưu tiên lấy từ kết quả chấm chuẩn ETS của backend
+    const rawL = Math.max(0, Math.min(100, Math.round((listeningCorrect / Math.max(1, listeningTotal)) * 100)));
+    const rawR = Math.max(0, Math.min(100, Math.round((readingCorrect / Math.max(1, readingTotal)) * 100)));
+    const listeningScore = result?.listeningScore ?? (rawL <= 6 ? 5 : Math.min(495, Math.round((rawL * 4.95) / 5) * 5));
+    const readingScore = result?.readingScore ?? (rawR <= 9 ? 5 : Math.min(495, Math.round((rawR * 4.95) / 5) * 5));
+    const totalScore = result?.displayScore ?? (listeningScore + readingScore);
 
     return {
       correct,
@@ -122,7 +125,7 @@ export function ExamResultScreen() {
   }, [questions, userAnswers, filterMode]);
 
   if (resultQuery.isLoading) {
-    return <View style={styles.loadingState}><ActivityIndicator color={colors.primary} size="large" /><Text style={styles.loadingText}>Đang tải kết quả...</Text></View>;
+    return <View style={styles.loadingState}><ActivityIndicator color={colors.primary} size="small" /><Text style={styles.loadingText}>Đang tải...</Text></View>;
   }
 
   if (!result) {
@@ -999,27 +1002,31 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 14,
     borderRadius: 12,
-    borderWidth: 1.5,
+    borderWidth: 2,
+    borderStyle: 'solid',
     borderColor: colors.primary,
     backgroundColor: '#FFFFFF',
   },
   retryBtnText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.primary,
     fontFamily: font.family,
   },
   catalogBtn: {
-    flex: 1.2,
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
     borderRadius: 12,
+    borderWidth: 2,
+    borderStyle: 'solid',
+    borderColor: colors.primary,
     backgroundColor: colors.primary,
   },
   catalogBtnText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#FFFFFF',
     fontFamily: font.family,
   },

@@ -82,6 +82,8 @@ export interface ExamAttemptResult {
   displayScore: number;
   maximumScore: number;
   scoringType: 'TOEIC_ESTIMATED' | 'PERCENTAGE';
+  listeningScore?: number;
+  readingScore?: number;
   passed: boolean;
   correctAnswers: number;
   wrongAnswers: number;

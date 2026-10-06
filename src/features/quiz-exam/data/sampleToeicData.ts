@@ -602,8 +602,10 @@ export const createSampleExamResult = (answers: Record<string, string>, timeSpen
     };
   });
 
-  const listeningScore = Math.min(495, Math.max(5, Math.round((listeningCorrect / 10) * 495)));
-  const readingScore = Math.min(495, Math.max(5, Math.round((readingCorrect / 9) * 495)));
+  const rawL = Math.max(0, Math.min(100, Math.round((listeningCorrect / 10) * 100)));
+  const rawR = Math.max(0, Math.min(100, Math.round((readingCorrect / 9) * 100)));
+  const listeningScore = rawL <= 6 ? 5 : Math.min(495, Math.round((rawL * 4.95) / 5) * 5);
+  const readingScore = rawR <= 9 ? 5 : Math.min(495, Math.round((rawR * 4.95) / 5) * 5);
   const displayScore = listeningScore + readingScore;
 
   return {

@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -79,8 +78,8 @@ export function ExamDetailScreen() {
   if (query.isLoading) {
     return (
       <View style={[styles.centerState, { paddingTop: insets.top }]}>
-        <ActivityIndicator color={colors.primary} size="large" />
-        <Text style={styles.stateText}>Đang tải thông tin bài thi...</Text>
+        <ActivityIndicator color={colors.primary} size="small" />
+        <Text style={styles.stateText}>Đang tải...</Text>
       </View>
     );
   }
@@ -135,14 +134,6 @@ export function ExamDetailScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomBarHeight + 20 }]}
-        refreshControl={
-          <RefreshControl
-            refreshing={query.isRefetching}
-            onRefresh={() => query.refetch()}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
       >
         <View style={styles.summaryCard}>
           <View style={styles.badgeRow}>
@@ -203,50 +194,35 @@ export function ExamDetailScreen() {
           </View>
         )}
 
-        <Text style={[styles.blockTitle, styles.noteTitle]}>Lưu ý trước khi làm bài</Text>
         <View style={styles.noteBox}>
           <View style={styles.noteRow}>
-            <TimerReset color={colors.textSoft} size={19} />
-            <Text style={styles.noteText}>Đồng hồ bắt đầu khi nhấn “Thi thử”.</Text>
-          </View>
-          <View style={styles.noteRow}>
-            <EyeOff color={colors.textSoft} size={19} />
-            <Text style={styles.noteText}>Đáp án và giải thích chỉ được hiển thị sau khi bạn nộp bài.</Text>
+            <TimerReset color={colors.textSoft} size={16} />
+            <Text style={styles.noteText}>Tự động tính giờ và nộp bài khi hết giờ.</Text>
           </View>
           {hasListening ? (
             <View style={styles.noteRow}>
-              <Headphones color={colors.textSoft} size={19} />
-              <Text style={styles.noteText}>Nên sử dụng tai nghe và kiểm tra âm lượng trước khi bắt đầu phần nghe.</Text>
+              <Headphones color={colors.textSoft} size={16} />
+              <Text style={styles.noteText}>Nên sử dụng tai nghe cho phần nghe.</Text>
             </View>
           ) : null}
-          <View style={styles.noteRow}>
-            <CheckCircle2 color={colors.textSoft} size={19} />
-            <Text style={styles.noteText}>Hệ thống sẽ tự động nộp bài khi hết thời gian làm bài.</Text>
-          </View>
         </View>
       </ScrollView>
 
-      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        <Pressable onPress={() => setAccepted((value) => !value)} style={styles.agreementRow}>
-          <View style={[styles.checkbox, accepted && styles.checkboxChecked]}>
-            {accepted ? <Check color="#FFFFFF" size={16} strokeWidth={3} /> : null}
-          </View>
-          <Text style={styles.agreementText}>Tôi đã hiểu quy định</Text>
-        </Pressable>
+      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) + 6 }]}>
         <Pressable
-          disabled={!accepted || startAttempt.isPending}
+          disabled={startAttempt.isPending}
           onPress={handleStart}
           style={({ pressed }) => [
             styles.startButton,
-            (!accepted || startAttempt.isPending) && styles.startButtonDisabled,
-            pressed && accepted && styles.pressed,
+            startAttempt.isPending && styles.startButtonDisabled,
+            pressed && styles.pressed,
           ]}
         >
-          {startAttempt.isPending ? <ActivityIndicator color={colors.textFaint} size="small" /> : null}
-          <Text style={[styles.startButtonText, (!accepted || startAttempt.isPending) && styles.startButtonTextDisabled]}>
-            {startAttempt.isPending ? 'Đang mở...' : 'Thi thử'}
+          {startAttempt.isPending ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
+          <Text style={styles.startButtonText}>
+            {startAttempt.isPending ? 'Đang vào...' : 'Bắt đầu làm bài'}
           </Text>
-          {!startAttempt.isPending ? <ArrowRight color={accepted ? '#FFFFFF' : colors.textFaint} size={20} /> : null}
+          {!startAttempt.isPending ? <ArrowRight color="#FFFFFF" size={18} /> : null}
         </Pressable>
       </View>
     </View>

@@ -5,12 +5,12 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
+  TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  RefreshControl,
-  SafeAreaView,
   StatusBar,
   Animated,
+  Platform,
 } from 'react-native';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
@@ -32,7 +32,6 @@ import {
   CheckCircle2,
   RotateCcw,
   PlayCircle,
-  Eye,
   ChevronDown,
   History,
   Zap,
@@ -40,6 +39,7 @@ import {
 import { usePublishedExamsInfiniteQuery } from '../../application/useExamCatalog';
 import { useUserExamHistoryQuery } from '../../application/useExamAttempt';
 import { ExamCategory, CefrLevel, PublicExamSummary } from '../../data/examCatalogApi';
+import { TabLoadingState } from '@/src/components/ui/TabLoadingState';
 import {
   getAllSavedPracticeSessions,
   SavedPracticeSession,
@@ -59,9 +59,9 @@ export const EXAM_CATEGORY_LABELS: Record<string, string> = {
 
 const CATEGORY_TABS: { key: string; label: string; cat?: ExamCategory }[] = [
   { key: 'ALL', label: 'Tất cả' },
-  { key: 'TOEIC_FULL', label: 'TOEIC Full', cat: 'TOEIC_FULL' },
-  { key: 'TOEIC_MINI', label: 'TOEIC Mini', cat: 'TOEIC_MINI' },
-  { key: 'PLACEMENT', label: 'Đầu vào (Placement)', cat: 'PLACEMENT' },
+  { key: 'TOEIC_FULL', label: 'TOEIC', cat: 'TOEIC_FULL' },
+  { key: 'TOEIC_MINI', label: 'Mini Test', cat: 'TOEIC_MINI' },
+  { key: 'PLACEMENT', label: 'Đầu vào', cat: 'PLACEMENT' },
   { key: 'GRAMMAR', label: 'Ngữ pháp', cat: 'GRAMMAR' },
   { key: 'VOCABULARY', label: 'Từ vựng', cat: 'VOCABULARY' },
   { key: 'READING', label: 'Đọc hiểu', cat: 'READING' },
@@ -125,7 +125,7 @@ export function ExamCatalogScreen() {
 
   useEffect(() => {
     refreshSavedSessions();
-    if (typeof window !== 'undefined') {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
       window.addEventListener('focus', refreshSavedSessions);
       return () => window.removeEventListener('focus', refreshSavedSessions);
     }
@@ -187,7 +187,7 @@ export function ExamCatalogScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* ─── XP EARNED TOAST ─── */}
@@ -205,13 +205,6 @@ export function ExamCatalogScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={query.isRefetching}
-            onRefresh={() => query.refetch()}
-            colors={['#0F2C59']}
-          />
-        }
       >
         {/* Search Bar with Mic */}
         <View style={styles.searchBar}>
@@ -228,20 +221,14 @@ export function ExamCatalogScreen() {
           </Pressable>
         </View>
 
-                {/* Gamification Streak Banner */}
+                {/* Streak Badge Row */}
         <View style={styles.streakBanner}>
           <View style={styles.streakLeft}>
             <View style={styles.flameCircle}>
-              <Flame size={20} color="#38BDF8" fill="#38BDF8" />
+              <Flame size={16} color="#38BDF8" fill="#38BDF8" />
             </View>
-            <View style={styles.streakTexts}>
-              <Text style={styles.streakTitle}>Chuỗi luyện thi 5 ngày</Text>
-              <Text style={styles.streakSubtitle}>
-                Hoàn thành 1 bài test để nhận huy hiệu
-              </Text>
-            </View>
+            <Text style={styles.streakTitle}>Chuỗi học 5 ngày</Text>
           </View>
-
           <Text style={styles.streakXpText}>+200 XP</Text>
         </View>
 
@@ -308,10 +295,9 @@ export function ExamCatalogScreen() {
 
         {/* Loading Spinner when fetching */}
         {query.isLoading && (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator size="small" color="#0F2C59" />
-            <Text style={styles.loadingText}>Đang tải kho đề thi...</Text>
-          </View>
+          <TabLoadingState
+            message="Đang tải danh sách bài thi..."
+          />
         )}
 
         {/* Empty State */}
@@ -341,9 +327,37 @@ export function ExamCatalogScreen() {
               <View key={exam.id} style={styles.examCard}>
                 {/* Badge Row */}
                 <View style={styles.cardHeaderRow}>
-                  <View style={styles.cardTagBadge}>
-                    <GraduationCap size={13} color="#0284C7" />
-                    <Text style={styles.cardTagBadgeText}>{exam.categoryDisplay}</Text>
+                  <View style={styles.headerLeftGroup}>
+                    <View style={styles.cardTagBadge}>
+                      <GraduationCap size={13} color="#0284C7" />
+                      <Text style={styles.cardTagBadgeText}>{exam.categoryDisplay}</Text>
+                    </View>
+
+                    {hasAttempt && wrongCount > 0 && (
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => handleRedoWrong(exam, latestAttempt)}
+                        style={styles.redoWrongTopBtn}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <RotateCcw size={15} color="#0284C7" strokeWidth={2.4} />
+                        <View style={styles.redoWrongBadge}>
+                          <Text style={styles.redoWrongBadgeText}>{wrongCount}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    )}
+
+                    {hasAttempt && (
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => handleReviewResult(latestAttempt)}
+                        style={styles.historyTopBtn}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityLabel="Lịch sử thi"
+                      >
+                        <History size={15} color="#059669" strokeWidth={2.4} />
+                      </TouchableOpacity>
+                    )}
                   </View>
 
                   <View style={styles.cardXpBadge}>
@@ -357,19 +371,23 @@ export function ExamCatalogScreen() {
                   <View style={styles.inProgressBadge}>
                     <Clock size={13} color="#D97706" />
                     <Text style={styles.inProgressBadgeText}>
-                      Đang luyện · Câu {practiceSession.questionNumber || (practiceSession.currentIndex + 1)} · {Object.keys(practiceSession.answers).length}/{practiceSession.totalQuestions || exam.totalQuestions}
+                      Đang làm câu {practiceSession.questionNumber || (practiceSession.currentIndex + 1)}/{practiceSession.totalQuestions || exam.totalQuestions}
                     </Text>
                   </View>
                 )}
 
                 {/* Attempt Status Banner (Real from BE) */}
                 {hasAttempt && (
-                  <View style={styles.historyBadge}>
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => handleReviewResult(latestAttempt)}
+                    style={styles.historyBadge}
+                  >
                     <CheckCircle2 size={14} color="#16A34A" />
                     <Text style={styles.historyBadgeText}>
-                      Gần nhất: {latestAttempt.displayScore} điểm · {latestAttempt.correctAnswers}/{latestAttempt.totalQuestions || exam.totalQuestions} đúng
+                      Gần nhất: {latestAttempt.displayScore} điểm ({latestAttempt.correctAnswers}/{latestAttempt.totalQuestions || exam.totalQuestions} đúng)
                     </Text>
-                  </View>
+                  </TouchableOpacity>
                 )}
 
                 {/* Title */}
@@ -402,85 +420,63 @@ export function ExamCatalogScreen() {
                       <Target size={13} color="#64748B" />
                       <Text style={styles.statColValue}>{exam.targetScore.split(' ')[0]}</Text>
                     </View>
-                    <Text style={styles.statColLabel}>
-                      {exam.targetScore.split(' ')[1] || 'Mục tiêu'}
-                    </Text>
+                    <Text style={styles.statColLabel}>Mục tiêu</Text>
                   </View>
                 </View>
 
-                {/* Actions for Incorrect Questions (if user took exam and has wrong answers) */}
-                {hasAttempt && wrongCount > 0 && (
-                  <View style={styles.wrongActionsRow}>
-                    <Pressable
-                      onPress={() => handleRedoWrong(exam, latestAttempt)}
-                      style={({ pressed }) => [styles.btnRedoWrong, pressed && styles.pressed]}
-                    >
-                      <RotateCcw size={14} color="#EA580C" />
-                      <Text style={styles.btnRedoWrongText}>Luyện {wrongCount} câu sai</Text>
-                    </Pressable>
-
-                    <Pressable
-                      onPress={() => handleReviewResult(latestAttempt)}
-                      style={({ pressed }) => [styles.btnReviewWrong, pressed && styles.pressed]}
-                    >
-                      <Eye size={14} color="#0284C7" />
-                      <Text style={styles.btnReviewWrongText}>Xem câu sai</Text>
-                    </Pressable>
-                  </View>
-                )}
-
-                {/* Action Buttons Row: Practice (Instant Answer) vs Full Exam */}
+                {/* Action Buttons Row: 1 hàng duy nhất chia đều không gian, màu nền solid và viền đậm rõ nét trên iPhone/Android */}
                 <View style={styles.cardActionsRow}>
-                  <Pressable
+                  <TouchableOpacity
+                    activeOpacity={0.8}
                     onPress={() => handleStartExam(exam, 'PRACTICE')}
-                    style={({ pressed }) => [
+                    style={[
+                      styles.actionBtn,
                       styles.btnPracticeMode,
                       hasInProgressPractice && styles.btnPracticeModeActive,
-                      pressed && styles.pressed,
                     ]}
                   >
                     {hasInProgressPractice ? (
-                      <RotateCcw size={15} color="#0284C7" />
+                      <RotateCcw size={14} color="#FFFFFF" strokeWidth={2.2} />
                     ) : (
-                      <PlayCircle size={15} color="#0F2C59" />
+                      <PlayCircle size={14} color="#FFFFFF" strokeWidth={2.2} />
                     )}
-                    <Text style={[styles.btnPracticeModeText, hasInProgressPractice && styles.btnPracticeModeTextActive]}>
-                      {hasInProgressPractice
-                        ? 'Tiếp tục'
-                        : 'Luyện tập'}
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
-                    onPress={() => handleStartExam(exam, 'EXAM')}
-                    style={({ pressed }) => [styles.btnExamMode, pressed && styles.pressed]}
-                  >
-                    <Text style={styles.btnExamModeText}>{hasAttempt ? 'Thi lại' : 'Thi thử'}</Text>
-                    <ArrowRight size={14} color="#FFFFFF" />
-                  </Pressable>
-
-                  {hasAttempt && (
-                    <Pressable
-                      onPress={() => handleReviewResult(latestAttempt)}
-                      style={({ pressed }) => [styles.btnHistoryMode, pressed && styles.pressed]}
+                    <Text
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      style={[
+                        styles.actionBtnText,
+                        styles.btnPracticeModeText,
+                        hasInProgressPractice && styles.btnPracticeModeTextActive,
+                      ]}
                     >
-                      <History size={14} color="#0F2C59" />
-                    </Pressable>
-                  )}
+                      {hasInProgressPractice ? 'Tiếp tục' : 'Luyện tập'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => handleStartExam(exam, 'EXAM')}
+                    style={[styles.actionBtn, styles.btnExamMode]}
+                  >
+                    <ArrowRight size={14} color="#FFFFFF" strokeWidth={2.2} />
+                    <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.actionBtnText, styles.btnExamModeText]}>
+                      {hasAttempt ? 'Thi lại' : 'Thi thử'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             );
           })}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
   },
   // ─── XP TOAST ───
   xpToast: {
@@ -682,6 +678,56 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 10,
   },
+  headerLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  redoWrongTopBtn: {
+    position: 'relative',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#F0F9FF',
+    borderWidth: 1.5,
+    borderColor: '#BAE6FD',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  redoWrongBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -7,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#EF4444',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 2.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#EF4444',
+    shadowOpacity: 0.18,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  redoWrongBadgeText: {
+    color: '#EF4444',
+    fontSize: 9.5,
+    fontWeight: '900',
+    lineHeight: 11,
+  },
+  historyTopBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1.5,
+    borderColor: '#A7F3D0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   cardTagBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -816,80 +862,72 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#15803D',
   },
-  wrongActionsRow: {
+  cardActionsRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  btnRedoWrong: {
-    flex: 1,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: '#FFF7ED',
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
+    marginTop: 12,
+    width: '100%',
   },
-  btnRedoWrongText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#C2410C',
-  },
-  btnReviewWrong: {
-    paddingHorizontal: 12,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: '#F0F9FF',
-    borderWidth: 1,
-    borderColor: '#BAE6FD',
+  actionBtn: {
+    flex: 1,
+    height: 42,
+    borderRadius: 12,
+    borderWidth: 1.5,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 5,
+    paddingHorizontal: 4,
   },
-  btnReviewWrongText: {
+  actionBtnText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#0369A1',
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
-  cardActionsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 4,
+  btnRedoWrong: {
+    backgroundColor: '#EA580C',
+    borderColor: '#FB923C',
+  },
+  btnRedoWrongText: {
+    color: '#FFFFFF',
   },
   btnPracticeMode: {
-    flex: 1,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-  },
-  btnPracticeModeActive: {
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#0F2C59',
     borderColor: '#38BDF8',
   },
+  btnPracticeModeActive: {
+    backgroundColor: '#0284C7',
+    borderColor: '#7DD3FC',
+  },
   btnPracticeModeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#0F2C59',
+    color: '#FFFFFF',
   },
   btnPracticeModeTextActive: {
-    color: '#0284C7',
+    color: '#FFFFFF',
+  },
+  btnExamMode: {
+    backgroundColor: '#2563EB',
+    borderColor: '#93C5FD',
+  },
+  btnExamModeText: {
+    color: '#FFFFFF',
+  },
+  btnHistoryMode: {
+    backgroundColor: '#059669',
+    borderColor: '#6EE7B7',
+  },
+  btnHistoryModeText: {
+    color: '#FFFFFF',
   },
   inProgressBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     backgroundColor: '#FFFBEB',
-    borderWidth: 1,
+    borderWidth: 1.5,
+    borderStyle: 'solid',
     borderColor: '#FDE68A',
     borderRadius: 8,
     paddingHorizontal: 10,
@@ -900,31 +938,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#B45309',
-  },
-  btnExamMode: {
-    flex: 1,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#0F2C59',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-  },
-  btnExamModeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  btnHistoryMode: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   emptyContainer: {
     alignItems: 'center',

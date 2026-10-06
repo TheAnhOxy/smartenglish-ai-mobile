@@ -80,7 +80,7 @@ export function FullExamScreen() {
   const sourceAttemptId = params.sourceAttemptId ? Number(params.sourceAttemptId) : null;
   const examId = params.examId
     ? Number(params.examId)
-    : (typeof window !== 'undefined' && !isNaN(Number(window.location.pathname.split('/').filter(Boolean).pop()))
+    : (Platform.OS === 'web' && typeof window !== 'undefined' && window?.location?.pathname && !isNaN(Number(window.location.pathname.split('/').filter(Boolean).pop()))
         ? Number(window.location.pathname.split('/').filter(Boolean).pop())
         : null);
 
@@ -731,9 +731,8 @@ export function FullExamScreen() {
   if (isDataLoading) {
     return (
       <View style={[styles.loadingState, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingTitle}>Đang tải đề thi từ hệ thống...</Text>
-        <Text style={styles.loadingText}>Vui lòng chờ trong giây lát</Text>
+        <ActivityIndicator size="small" color={colors.primary} />
+        <Text style={styles.loadingTitle}>Đang tải...</Text>
       </View>
     );
   }
