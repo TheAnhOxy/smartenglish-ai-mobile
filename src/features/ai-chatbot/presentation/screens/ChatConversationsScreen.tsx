@@ -364,7 +364,7 @@ export const ChatConversationsScreen = () => {
     };
   }, []);
 
-  const safeTop = Math.max(insets.top, 48) + 8;
+  const safeTop = (insets.top || 16) + 8;
 
   return (
     <KeyboardAvoidingView

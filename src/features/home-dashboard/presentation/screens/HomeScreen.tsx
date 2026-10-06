@@ -201,7 +201,7 @@ export const HomeScreen = () => {
     setIsDailyWordSaved(true);
   };
 
-  const safeTop = Math.max(insets.top, 48) + 12;
+  const safeTop = (insets.top || 16) + 8;
 
   return (
     <ScrollView style={s.container} contentContainerStyle={[s.contentContainer, { paddingTop: safeTop }]} showsVerticalScrollIndicator={false}>

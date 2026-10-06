@@ -372,7 +372,7 @@ export const SaveWordSheetModal: React.FC<SaveWordSheetModalProps> = ({
             {isLoadingDecks ? (
               <View style={s.loadingBox}>
                 <ActivityIndicator size="small" color="#FF6B35" />
-                <Text style={s.loadingText}>Đang tải danh sách bộ thẻ...</Text>
+                <Text style={s.loadingText}>Đang tải...</Text>
               </View>
             ) : (
               myDecks.map((deck) => {

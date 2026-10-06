@@ -32,7 +32,7 @@ export const PlacementResultScreen = () => {
     }
   };
 
-  const safeTop = Math.max(insets.top, 48) + 12;
+  const safeTop = (insets.top || 16) + 12;
   const safeBottom = Math.max(insets.bottom, 24) + 16;
 
   return (

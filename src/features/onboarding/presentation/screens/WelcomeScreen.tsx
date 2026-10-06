@@ -114,7 +114,7 @@ export const WelcomeScreen = () => {
     transform: [{ translateY: particle3Y.value }],
   }));
 
-  const safeTop = Math.max(insets.top, 48) + 12;
+  const safeTop = (insets.top || 16) + 12;
   const safeBottom = Math.max(insets.bottom, 24) + 12;
 
   return (

@@ -341,9 +341,9 @@ export const StudyDeckScreen = () => {
   if (loading) {
     return (
       <View style={[styles.completedContainer, { justifyContent: 'center' }]}>
-        <ActivityIndicator size="large" color={palette.primary} />
-        <Text style={[styles.completedSub, { marginTop: 16 }]}>
-          Đang tải kho từ vựng {topicTitle}...
+        <ActivityIndicator size="small" color={palette.primary} />
+        <Text style={[styles.completedSub, { marginTop: 12 }]}>
+          Đang tải...
         </Text>
       </View>
     );
