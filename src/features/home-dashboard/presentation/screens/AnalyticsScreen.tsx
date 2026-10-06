@@ -198,24 +198,13 @@ export const AnalyticsScreen = () => {
     })
     .join(' ');
 
-  const safeTop = Math.max(insets.top, 48) + 12;
+  const safeTop = (insets.top || 16) + 8;
 
   return (
     <View style={s.root}>
       {/* Header Bar */}
       <View style={[s.header, { paddingTop: safeTop }]}>
-        <View style={s.headerTopRow}>
-          <View>
-            <Text style={s.brandSub}>Thống kê & Năng lực</Text>
-            <Text style={s.headerTitle}>Trung Tâm Tiến Độ</Text>
-          </View>
-          <Image
-            source={{ uri: currentUser?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120' }}
-            style={s.headerAvatar}
-          />
-        </View>
-
-        {/* Segment Switcher Bar — HOÀN TOÀN BỎ ICON ROBOT THEO YÊU CẦU */}
+        {/* Segment Switcher Bar */}
         <View style={s.switcherRow}>
           <Pressable
             onPress={() => setActiveTab('progress')}
@@ -915,8 +904,8 @@ export const AnalyticsScreen = () => {
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: palette.bg },
   header: {
-    paddingHorizontal: 20,
-    paddingBottom: 14,
+    paddingHorizontal: 16,
+    paddingBottom: 10,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
