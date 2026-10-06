@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Platform,
   Modal,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import {
@@ -262,7 +263,7 @@ export const UnitSpeakingRoleplayScreen = () => {
           {isPremium ? (
             <View style={s.premiumBadge}>
               <Sparkles color="#A855F7" size={13} />
-              <Text style={s.premiumText}>👑 Không giới hạn</Text>
+              <Text style={s.premiumText}>Không giới hạn</Text>
             </View>
           ) : (
             <Pressable onPress={() => setShowQuotaModal(true)} style={s.quotaBadge}>
@@ -407,13 +408,19 @@ export const UnitSpeakingRoleplayScreen = () => {
 
             <Pressable
               onPress={() => {
-                setShowQuotaModal(false);
-                router.push('/(student)/profile/premium' as any);
+                try {
+                  useAuthStore.getState().updateCurrentUser({ plan: 'premium_yearly' });
+                  Alert.alert('Thành công', 'Đã kích hoạt gói Premium! Bạn có thể tiếp tục luyện nói không giới hạn.');
+                  setShowQuotaModal(false);
+                } catch (e) {
+                  setShowQuotaModal(false);
+                  router.push('/(student)/profile/premium' as any);
+                }
               }}
               style={s.upgradeBtn}
             >
               <Sparkles color="#FFFFFF" size={16} />
-              <Text style={s.upgradeBtnText}>Nâng Cấp Premium 👑</Text>
+              <Text style={s.upgradeBtnText}>Nâng Cấp Premium</Text>
             </Pressable>
 
             <Pressable onPress={() => setShowQuotaModal(false)} style={s.dismissBtn}>

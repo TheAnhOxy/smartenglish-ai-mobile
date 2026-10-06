@@ -13,6 +13,7 @@ import {
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import {
   Mic,
+  ArrowLeft,
   Lightbulb,
   X,
   Volume2,
@@ -26,6 +27,7 @@ import {
   Send,
   Trash2,
   Square,
+  Crown,
 } from 'lucide-react-native';
 import * as Speech from 'expo-speech';
 import {
@@ -63,7 +65,6 @@ export const RoleplaySessionScreen = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [inputText, setInputText] = useState('');
 
-  const [showHint, setShowHint] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showQuotaModal, setShowQuotaModal] = useState(false);
   const [isAiVoiceMuted, setIsAiVoiceMuted] = useState(false);
@@ -121,14 +122,6 @@ export const RoleplaySessionScreen = () => {
     }, [])
   );
 
-  // Gợi ý câu nói sau 3.5 giây
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowHint(true);
-    }, 3500);
-
-    return () => clearTimeout(timer);
-  }, [turns]);
 
   // Tự động cuộn xuống cuối khi có tin nhắn mới hoặc khi AI đang suy nghĩ
   useEffect(() => {
@@ -230,7 +223,6 @@ export const RoleplaySessionScreen = () => {
 
   // Gửi tin nhắn và xử lý phản hồi từ AI
   const handleSendUserTurn = async (customPrompt?: string) => {
-    setShowHint(false);
 
     // Kiểm tra hạn mức lượt chat hôm nay
     if (!canChat(isPremium)) {
@@ -330,12 +322,17 @@ export const RoleplaySessionScreen = () => {
                 recognitionRef.current.stop();
               } catch (_) {}
             }
+            const userTurnsCount = turns.filter((t) => t.role === 'user').length;
+            if (userTurnsCount === 0) {
+              router.back();
+              return;
+            }
             setShowSummaryModal(true);
           }}
           style={({ pressed }) => [s.exitBtn, pressed && { opacity: 0.7 }]}
+          accessibilityLabel="Rời phòng"
         >
-          <X color="#475569" size={17} />
-          <Text style={s.exitBtnText}>Rời phòng</Text>
+          <ArrowLeft color="#EF4444" size={20} strokeWidth={2.4} />
         </Pressable>
 
         {/* AI Partner Profile ở giữa */}
@@ -361,16 +358,19 @@ export const RoleplaySessionScreen = () => {
 
         {/* Cụm chức năng góc phải: Quota + Mute */}
         <View style={s.topRightRow}>
-          <View style={s.quotaPill}>
+          <Pressable
+            onPress={() => !isPremium && setShowQuotaModal(true)}
+            style={s.quotaPill}
+          >
             {isPremium ? (
-              <Sparkles color="#6366F1" size={12} />
+              <Crown color="#6366F1" size={12} strokeWidth={2} />
             ) : (
               <Flame color="#EA580C" size={12} />
             )}
             <Text style={s.quotaPillText}>
               {isPremium ? 'VIP' : `${quota.remaining}/${FREE_SPEAKING_DAILY_LIMIT}`}
             </Text>
-          </View>
+          </Pressable>
 
           <Pressable
             onPress={() => {
@@ -475,30 +475,6 @@ export const RoleplaySessionScreen = () => {
         )}
       </ScrollView>
 
-      {/* ── GỢI Ý CÂU NÓI (HINT BOX) ──────────────────────────────────────── */}
-      {showHint && (
-        <Pressable
-          onPress={() => {
-            const hintPrompt =
-              scenario.suggested_keywords && scenario.suggested_keywords.length > 0
-                ? `I would like to ${scenario.suggested_keywords[0].toLowerCase()}, please.`
-                : 'I understand. Could you tell me more about that?';
-            handleSendUserTurn(hintPrompt);
-          }}
-          style={({ pressed }) => [s.hintCard, pressed && { opacity: 0.85 }]}
-        >
-          <View style={s.hintHeader}>
-            <Lightbulb color="#D97706" size={15} />
-            <Text style={s.hintLabel}>Gợi ý câu trả lời nhanh:</Text>
-            <Text style={s.hintTapText}>Chạm để gửi →</Text>
-          </View>
-          <Text style={s.hintQuote} numberOfLines={2}>
-            "{scenario.suggested_keywords && scenario.suggested_keywords.length > 0
-              ? `I would like to ${scenario.suggested_keywords[0].toLowerCase()}, please.`
-              : 'I understand. Could you tell me more about that?'}"
-          </Text>
-        </Pressable>
-      )}
 
       {/* ── KHU VỰC ĐIỀU KHIỂN DƯỚI CHÂN: THANH NHẬP LIỆU DUY NHẤT (MICRO + TEXT + NÚT GỬI) ── */}
       <View style={s.bottomControl}>
@@ -629,28 +605,45 @@ export const RoleplaySessionScreen = () => {
         </View>
       </Modal>
 
-      {/* ── MODAL HẾT LƯỢT CHAT HÔM NAY ──────────────────────────────────── */}
+      {/* ── MODAL NÂNG CẤP GÓI PREMIUM THUẬN TIỆN NGAY TẠI CHỖ ────────────────── */}
       <Modal visible={showQuotaModal} transparent animationType="fade">
         <View style={s.modalOverlay}>
           <View style={s.modalCard}>
             <View style={s.modalQuotaIconWrap}>
-              <Flame color="#EA580C" size={30} />
+              <Crown color="#F59E0B" size={30} strokeWidth={2} />
             </View>
 
-            <Text style={s.modalHeading}>Hết Lượt Luyện Nói Hôm Nay</Text>
-            <Text style={s.modalSubheading}>
-              Tài khoản miễn phí được 20 lượt đàm thoại AI mỗi ngày. Lượt mới sẽ tự động nạp lại sau 00:00!
+            <Text style={s.modalHeading}>
+              {quota.remaining <= 0 ? 'Hết Lượt Luyện Nói Hôm Nay' : 'Nâng Cấp Gói Premium'}
             </Text>
+            <Text style={s.modalSubheading}>
+              {quota.remaining <= 0
+                ? 'Tài khoản Free được 20 lượt đàm thoại AI mỗi ngày. Nâng cấp Premium để tiếp tục luyện nói không giới hạn ngay bây giờ!'
+                : 'Mở khóa toàn bộ kịch bản và luyện nói AI không giới hạn số lượt mỗi ngày.'}
+            </Text>
+
+            <Pressable
+              onPress={() => {
+                useAuthStore.getState().updateCurrentUser({ plan: 'premium_yearly' });
+                setShowQuotaModal(false);
+                alert('🎉 Bạn đã nâng cấp Premium thành công! Bây giờ bạn có thể tiếp tục luyện nói không giới hạn.');
+              }}
+              style={s.btnUpgrade}
+            >
+              <Crown color="#FFFFFF" size={16} strokeWidth={2} />
+              <Text style={s.btnUpgradeText}>Kích hoạt Premium ngay</Text>
+            </Pressable>
 
             <Pressable
               onPress={() => {
                 setShowQuotaModal(false);
                 router.push('/(student)/profile/premium' as any);
               }}
-              style={s.btnUpgrade}
+              style={{ marginTop: 10, paddingVertical: 4 }}
             >
-              <Sparkles color="#FFFFFF" size={16} />
-              <Text style={s.btnUpgradeText}>Nâng cấp Premium — Không giới hạn</Text>
+              <Text style={{ fontSize: 11, color: '#6366F1', textAlign: 'center', fontWeight: '600' }}>
+                Xem chi tiết các gói nâng cấp →
+              </Text>
             </Pressable>
 
             <Pressable
@@ -685,18 +678,14 @@ const s = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   exitBtn: {
-    flexDirection: 'row',
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
-  },
-  exitBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
+    justifyContent: 'center',
   },
   partnerCenter: {
     flexDirection: 'row',

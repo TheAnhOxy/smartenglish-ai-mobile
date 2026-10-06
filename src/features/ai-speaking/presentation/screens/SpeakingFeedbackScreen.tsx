@@ -8,7 +8,7 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
   X,
   Play,
@@ -41,12 +41,22 @@ import {
 
 export const SpeakingFeedbackScreen = () => {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    word?: string;
+    ipa?: string;
+    score?: string;
+    accuracy?: string;
+    stress?: string;
+    intonation?: string;
+    fluency?: string;
+    audioUri?: string;
+  }>();
 
   const [isPlayingNative, setIsPlayingNative] = useState(false);
   const [isPlayingUserVoice, setIsPlayingUserVoice] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [hasRecording, setHasRecording] = useState(false); // Initially false!
-  const [recordedUri, setRecordedUri] = useState<string | null>(null);
+  const [hasRecording, setHasRecording] = useState(Boolean(params.score || params.audioUri));
+  const [recordedUri, setRecordedUri] = useState<string | null>(params.audioUri || null);
   const [recordTime, setRecordTime] = useState(0);
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
 
@@ -124,7 +134,7 @@ export const SpeakingFeedbackScreen = () => {
     try {
       setIsPlayingNative(true);
       Speech.stop();
-      Speech.speak('Phenomenal', {
+      Speech.speak(params.word || 'Phenomenal', {
         language: 'en-US',
         pitch: 1.0,
         rate: 0.85,
@@ -289,13 +299,23 @@ export const SpeakingFeedbackScreen = () => {
         {/* Score Gauge Circle */}
         <View style={s.scoreContainer}>
           <View style={s.scoreCircle}>
-            <Text style={s.scoreNumber}>{hasRecording ? '88%' : '--'}</Text>
-            <Text style={s.scoreLabel}>{hasRecording ? 'GREAT' : 'CẦN GHI ÂM'}</Text>
+            <Text style={s.scoreNumber}>
+              {params.score ? `${params.score}%` : hasRecording ? '85%' : '--'}
+            </Text>
+            <Text style={s.scoreLabel}>
+              {params.score
+                ? Number(params.score) >= 80
+                  ? 'GREAT'
+                  : 'GOOD'
+                : hasRecording
+                ? 'GREAT'
+                : 'CẦN GHI ÂM'}
+            </Text>
           </View>
 
           {/* Word Title & Phonetic */}
-          <Text style={s.wordTitle}>Phenomenal</Text>
-          <Text style={s.ipaText}>/fəˈnæmənəl/</Text>
+          <Text style={s.wordTitle}>{params.word || 'Phenomenal'}</Text>
+          <Text style={s.ipaText}>{params.ipa || '/fəˈnæmənəl/'}</Text>
         </View>
 
         {/* Audio Match Card (Native vs Your Voice) */}

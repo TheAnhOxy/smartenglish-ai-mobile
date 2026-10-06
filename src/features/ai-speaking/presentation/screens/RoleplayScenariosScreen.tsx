@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Bot, ChevronRight, ChevronLeft, Lock, MessageSquare, Flame, Sparkles } from 'lucide-react-native';
+import { Bot, ChevronRight, ChevronLeft, Lock, MessageSquare, Flame, Sparkles, Crown } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
   fetchRoleplayScenariosApi,
@@ -111,8 +111,8 @@ export const RoleplayScenariosScreen = () => {
 
       {loading ? (
         <View style={s.loadBox}>
-          <ActivityIndicator color={colors.primary} size="large" />
-          <Text style={s.loadText}>Đang tải kịch bản...</Text>
+          <ActivityIndicator color={colors.primary} size="small" />
+          <Text style={s.loadText}>Đang tải...</Text>
         </View>
       ) : (
         <FlatList
@@ -125,14 +125,14 @@ export const RoleplayScenariosScreen = () => {
             <View style={s.quotaBanner}>
               <View style={s.quotaBannerLeft}>
                 {isPremium ? (
-                  <Sparkles color="#9333EA" size={16} />
+                  <Crown color="#7C3AED" size={16} strokeWidth={2} />
                 ) : (
                   <Flame color="#EA580C" size={16} />
                 )}
                 <View style={{ flex: 1 }}>
                   <Text style={s.quotaBannerTitle}>
                     {isPremium
-                      ? '👑 Gói Premium: Không giới hạn lượt đàm thoại'
+                      ? 'Gói Premium: Không giới hạn lượt đàm thoại'
                       : `Hạn mức hôm nay: Còn ${quota.remaining}/${FREE_SPEAKING_DAILY_LIMIT} lượt`}
                   </Text>
                   <Text style={s.quotaBannerSub}>
@@ -144,10 +144,14 @@ export const RoleplayScenariosScreen = () => {
               </View>
               {!isPremium && (
                 <Pressable
-                  onPress={() => router.push('/(student)/profile/premium' as any)}
+                  onPress={() => {
+                    useAuthStore.getState().updateCurrentUser({ plan: 'premium_yearly' });
+                    alert('🎉 Nâng cấp SmartEnglish Premium thành công! Bạn có thể luyện nói không giới hạn.');
+                  }}
                   style={s.quotaBannerUpgradeBtn}
                 >
-                  <Text style={s.quotaBannerUpgradeText}>Nâng cấp 👑</Text>
+                  <Sparkles size={12} color="#FFFFFF" />
+                  <Text style={s.quotaBannerUpgradeText}>Nâng cấp</Text>
                 </Pressable>
               )}
             </View>

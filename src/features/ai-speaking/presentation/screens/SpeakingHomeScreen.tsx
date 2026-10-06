@@ -24,6 +24,7 @@ import {
   CheckCircle,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { TabLoadingState } from '@/src/components/ui/TabLoadingState';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import {
   fetchPronunciationLessonsApi,
@@ -120,20 +121,6 @@ export const SpeakingHomeScreen = () => {
 
   return (
     <View style={s.root}>
-      {/* ── Top App Bar (Tối giản, chuyên nghiệp) ────────────────────────── */}
-      <View style={s.appBar}>
-        <View>
-          <View style={s.appBarTitleRow}>
-            <View style={s.appBarBadge}>
-              <Bot color={ADMIN_THEME.primary} size={15} />
-              <Text style={s.appBarBadgeText}>AI Practice Lab</Text>
-            </View>
-          </View>
-          <Text style={s.appBarHeading}>Luyện Nói Tiếng Anh</Text>
-        </View>
-
-
-      </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -160,7 +147,7 @@ export const SpeakingHomeScreen = () => {
           )}
         </View>
 
-        {/* ── Segmented Control / Tab Switcher (Khớp Admin 2 tab) ────────── */}
+        {/* ── Segmented Control / Tab Switcher (Gọn gàng, không tràn màn hình) ── */}
         <View style={s.tabContainer}>
           <Pressable
             onPress={() => setActiveTab('roleplay')}
@@ -171,7 +158,7 @@ export const SpeakingHomeScreen = () => {
               size={16}
             />
             <Text style={[s.tabText, activeTab === 'roleplay' && s.tabTextActive]}>
-              Hội thoại AI Roleplay ({scenarios.length})
+              Hội thoại
             </Text>
           </Pressable>
 
@@ -184,7 +171,7 @@ export const SpeakingHomeScreen = () => {
               size={16}
             />
             <Text style={[s.tabText, activeTab === 'pronunciation' && s.tabTextActive]}>
-              Luyện phát âm IPA ({pronLessons.length})
+              Phát âm
             </Text>
           </Pressable>
         </View>
@@ -213,10 +200,9 @@ export const SpeakingHomeScreen = () => {
 
         {/* ── Loading State ────────────────────────────────────────────── */}
         {loading ? (
-          <View style={s.centerBox}>
-            <ActivityIndicator color={ADMIN_THEME.primary} size="large" />
-            <Text style={s.loadingText}>Đang tải dữ liệu học liệu...</Text>
-          </View>
+          <TabLoadingState
+            message="Đang tải bài luyện nói & kịch bản..."
+          />
         ) : null}
 
         {/* ── TAB 1: DANH SÁCH ROLEPLAY CARD ITEMS (GIỐNG ADMIN 100%) ────── */}
@@ -603,14 +589,15 @@ const s = StyleSheet.create({
   scenarioCard: {
     backgroundColor: ADMIN_THEME.cardBg,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: ADMIN_THEME.border,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
     overflow: 'hidden',
+    marginBottom: 16,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.08,
     shadowRadius: 6,
-    elevation: 2,
+    elevation: 3,
   },
   cardImageContainer: {
     width: '100%',
@@ -723,14 +710,15 @@ const s = StyleSheet.create({
   pronCard: {
     backgroundColor: ADMIN_THEME.cardBg,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: ADMIN_THEME.border,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
     padding: 14,
+    marginBottom: 14,
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    elevation: 3,
   },
   pronCardHeader: {
     flexDirection: 'row',

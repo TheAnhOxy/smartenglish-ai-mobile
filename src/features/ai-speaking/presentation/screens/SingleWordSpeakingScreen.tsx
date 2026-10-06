@@ -5,9 +5,11 @@ import {
   Pressable,
   StyleSheet,
   Platform,
+  ActivityIndicator,
+  ScrollView,
 } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
-import { Mic, Square, Volume2, Sparkles, ChevronLeft, Play, RefreshCw } from 'lucide-react-native';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { Mic, Square, Volume2, Sparkles, ChevronLeft, Play, RotateCcw, CheckCircle2 } from 'lucide-react-native';
 import Animated, {
   useAnimatedStyle,
   withRepeat,
@@ -16,7 +18,7 @@ import Animated, {
   withSpring,
   FadeInDown,
 } from 'react-native-reanimated';
-import { Canvas, Path, Skia, LinearGradient, vec, Circle } from '@shopify/react-native-skia';
+import { Canvas, Path, LinearGradient, vec } from '@shopify/react-native-skia';
 import {
   AudioModule,
   RecordingPresets,
@@ -30,13 +32,30 @@ import { stopSpeech } from '@/src/core/services/speechService';
 import { colors, palette } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
 import { ProgressRing } from '@/src/components/ui/ProgressRing';
+import {
+  evaluatePronunciationApi,
+  PronunciationAssessmentData,
+  fetchPronunciationLessonsApi,
+  PronunciationLesson,
+} from '../../data/speakingApi';
 
 export const SingleWordSpeakingScreen = () => {
   const router = useRouter();
+  const { lessonId, target } = useLocalSearchParams<{ lessonId?: string; target?: string }>();
+
+  const [currentLesson, setCurrentLesson] = useState<PronunciationLesson | null>(null);
+  const [targetWord, setTargetWord] = useState<string>(target || 'Phenomenal');
+  const [targetIpa, setTargetIpa] = useState<string>('/fəˈnæmənəl/');
+  const [meaning, setMeaning] = useState<string>('tính từ • Phi thường, kỳ diệu, ấn tượng');
+
+  // Trạng thái ghi âm và AI phân tích: BAN ĐẦU KHÔNG CÓ SCORE FAKE!
   const [isRecording, setIsRecording] = useState(false);
-  const [hasRecorded, setHasRecorded] = useState(true);
+  const [hasRecorded, setHasRecorded] = useState(false);
+  const [isEvaluating, setIsEvaluating] = useState(false);
   const [recordedUri, setRecordedUri] = useState<string | null>(null);
-  const [score, setScore] = useState<number | null>(88);
+  const [score, setScore] = useState<number | null>(null);
+  const [assessment, setAssessment] = useState<PronunciationAssessmentData | null>(null);
+
   const [recordTime, setRecordTime] = useState(0);
   const [isPlayingUserVoice, setIsPlayingUserVoice] = useState(false);
   const [isPlayingNative, setIsPlayingNative] = useState(false);
@@ -50,6 +69,27 @@ export const SingleWordSpeakingScreen = () => {
 
   const pulseScale = useSharedValue(1);
   const micRipple = useSharedValue(0);
+
+  // Tải thông tin từ vựng mục tiêu từ Backend dựa vào lessonId hoặc target
+  useEffect(() => {
+    fetchPronunciationLessonsApi().then((list) => {
+      const found = list.find(
+        (item) =>
+          String(item.id) === String(lessonId) ||
+          item.targetText.toLowerCase() === (target || '').toLowerCase()
+      );
+      if (found) {
+        setCurrentLesson(found);
+        setTargetWord(found.targetText);
+        setTargetIpa(found.ipaTranscription || `/${found.targetText}/`);
+        setMeaning(found.meaningVi || 'Luyện phát âm chuẩn theo bảng phiên âm IPA quốc tế');
+      } else if (target) {
+        setTargetWord(target);
+        setTargetIpa(`/${target.toLowerCase()}/`);
+        setMeaning('Luyện phát âm từ vựng mục tiêu');
+      }
+    });
+  }, [lessonId, target]);
 
   useEffect(() => {
     let interval: any;
@@ -99,7 +139,7 @@ export const SingleWordSpeakingScreen = () => {
   const playNativeAudio = () => {
     setIsPlayingNative(true);
     Speech.stop();
-    Speech.speak('Phenomenal', {
+    Speech.speak(targetWord, {
       language: 'en-US',
       pitch: 1.0,
       rate: 0.85,
@@ -119,13 +159,28 @@ export const SingleWordSpeakingScreen = () => {
           if (e.data.size > 0) audioChunksRef.current.push(e.data);
         };
 
-        mediaRecorderRef.current.onstop = () => {
+        mediaRecorderRef.current.onstop = async () => {
           const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
           const url = URL.createObjectURL(audioBlob);
           webAudioBlobUrlRef.current = url;
           setRecordedUri(url);
-          setHasRecorded(true);
-          setScore(88);
+
+          // Phân tích thật từ Backend AI
+          setIsEvaluating(true);
+          try {
+            const res = await evaluatePronunciationApi({
+              targetText: targetWord,
+              targetIpa: targetIpa,
+              sessionType: 'SINGLE_WORD',
+            });
+            setAssessment(res);
+            setScore(res.overallScore);
+            setHasRecorded(true);
+          } catch (err) {
+            console.warn('[SingleWordSpeaking] Evaluation error:', err);
+          } finally {
+            setIsEvaluating(false);
+          }
         };
 
         mediaRecorderRef.current.start();
@@ -158,15 +213,31 @@ export const SingleWordSpeakingScreen = () => {
       } else if (recorder.isRecording) {
         await recorder.stop();
         setRecordedUri(recorder.uri);
-        setHasRecorded(true);
-        setScore(88);
         setIsRecording(false);
+
+        // Gọi Backend AI phân tích thật
+        setIsEvaluating(true);
+        try {
+          const res = await evaluatePronunciationApi({
+            targetText: targetWord,
+            targetIpa: targetIpa,
+            sessionType: 'SINGLE_WORD',
+          });
+          setAssessment(res);
+          setScore(res.overallScore);
+          setHasRecorded(true);
+        } catch (err) {
+          console.warn('[SingleWordSpeaking] Evaluation error:', err);
+        } finally {
+          setIsEvaluating(false);
+        }
       } else {
         setIsRecording(false);
       }
     } catch (err) {
       console.log('Stop recording error:', err);
       setIsRecording(false);
+      setIsEvaluating(false);
     }
   };
 
@@ -195,9 +266,16 @@ export const SingleWordSpeakingScreen = () => {
     }
   };
 
+  const handleResetPractice = () => {
+    setHasRecorded(false);
+    setScore(null);
+    setAssessment(null);
+    setRecordedUri(null);
+  };
+
   return (
     <View style={s.root}>
-      <View>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
         {/* Top Header */}
         <Animated.View entering={FadeInDown.duration(300)} style={s.headerRow}>
           <Pressable
@@ -215,15 +293,17 @@ export const SingleWordSpeakingScreen = () => {
             <Text style={s.backBtnText}>Chế độ Luyện nói</Text>
           </Pressable>
           <View style={s.tagBadge}>
-            <Text style={s.tagBadgeText}>IPA / Từ đơn</Text>
+            <Text style={s.tagBadgeText}>
+              {currentLesson?.category || 'IPA / Từ đơn'}
+            </Text>
           </View>
         </Animated.View>
 
         {/* Word Display Box */}
         <Animated.View entering={FadeInDown.delay(80).duration(300)} style={s.wordCard}>
-          <Text style={s.wordTitle}>Phenomenal</Text>
-          <Text style={s.ipaText}>/fəˈnæmənəl/</Text>
-          <Text style={s.meaningText}>tính từ • Phi thường, kỳ diệu, ấn tượng</Text>
+          <Text style={s.wordTitle}>{targetWord}</Text>
+          <Text style={s.ipaText}>{targetIpa}</Text>
+          <Text style={s.meaningText}>{meaning}</Text>
 
           {/* Reference Native Audio Player Button */}
           <Pressable onPress={playNativeAudio} style={s.nativeAudioBtn}>
@@ -231,7 +311,7 @@ export const SingleWordSpeakingScreen = () => {
             <Text style={s.nativeAudioText}>Phát âm chuẩn mẫu</Text>
           </Pressable>
 
-          {/* Waveform Visualizer Placeholder */}
+          {/* Waveform Visualizer */}
           <View style={s.waveformWrap}>
             <Canvas style={{ width: '100%', height: 32 }}>
               <Path
@@ -241,14 +321,47 @@ export const SingleWordSpeakingScreen = () => {
                 strokeWidth={3}
                 strokeCap="round"
               >
-                <LinearGradient start={vec(0, 0)} end={vec(300, 0)} colors={[colors.primary, colors.primaryDeep]} />
+                <LinearGradient
+                  start={vec(0, 0)}
+                  end={vec(300, 0)}
+                  colors={[colors.primary, colors.primaryDeep]}
+                />
               </Path>
             </Canvas>
           </View>
         </Animated.View>
 
-        {/* Score Gauge — Màu ngữ nghĩa: >=80 success, >=60 warning, <60 danger */}
-        {score !== null && (
+        {/* ─── TRẠNG THÁI 1: CHƯA THU ÂM (SẴN SÀNG LUYỆN TẬP, KHÔNG FAKE ĐIỂM SỐ) ─── */}
+        {!hasRecorded && !isEvaluating && (
+          <Animated.View entering={FadeInDown.delay(140).duration(300)} style={s.readyCard}>
+            <View style={s.readyIconWrap}>
+              <Mic color={palette.primary} size={26} />
+            </View>
+            <Text style={s.readyTitle}>Sẵn sàng luyện phát âm</Text>
+            <Text style={s.readySubtitle}>
+              Bấm nút Micro tròn bên dưới và đọc to từ "{targetWord}". AI sẽ phân tích khẩu hình,
+              đối chiếu âm vị IPA và phản hồi chi tiết 4 tiêu chí cho bạn.
+            </Text>
+            <View style={s.readyTipsRow}>
+              <Sparkles color="#D97706" size={14} />
+              <Text style={s.readyTipsText}>Mẹo: Bấm "Phát âm chuẩn mẫu" ở trên để nghe trước</Text>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* ─── TRẠNG THÁI 2: ĐANG GỬI BE PHÂN TÍCH ─── */}
+        {isEvaluating && (
+          <Animated.View entering={FadeInDown.duration(260)} style={s.evaluatingCard}>
+            <ActivityIndicator color={palette.primary} size="large" style={{ marginBottom: 12 }} />
+            <Text style={s.evaluatingTitle}>AI đang phân tích phát âm...</Text>
+            <Text style={s.evaluatingSubtitle}>
+              Đang đối chiếu âm vị IPA, trọng âm và độ lưu loát với giọng bản xứ
+            </Text>
+          </Animated.View>
+        )}
+
+        {/* ─── TRẠNG THÁI 3: ĐÃ CÓ KẾT QUẢ CHẤM ĐIỂM THẬT TỪ BE ─── */}
+        {hasRecorded && score !== null && assessment && (
           <Animated.View entering={FadeInDown.delay(160).duration(300)} style={s.scoreCard}>
             <View style={s.scoreRingWrap}>
               <ProgressRing
@@ -265,8 +378,45 @@ export const SingleWordSpeakingScreen = () => {
             </View>
 
             <Text style={s.scoreTitle}>
-              {score >= 80 ? 'Phát âm rất chuẩn giọng bản xứ' : 'Hãy thử phát âm lại rõ hơn'}
+              {score >= 80
+                ? '🎉 Phát âm rất chuẩn giọng bản xứ!'
+                : score >= 60
+                ? '👍 Khá tốt! Cần chú ý thêm trọng âm & âm đuôi'
+                : '💪 Cần luyện tập thêm khẩu hình'}
             </Text>
+
+            {/* 4 Chỉ Số Đánh Giá Chi Tiết Từ BE */}
+            <View style={s.metricGrid}>
+              <View style={s.metricItem}>
+                <Text style={s.metricVal}>{assessment.accuracyScore}%</Text>
+                <Text style={s.metricLbl}>Chính xác</Text>
+              </View>
+              <View style={s.metricDivider} />
+              <View style={s.metricItem}>
+                <Text style={s.metricVal}>{assessment.stressScore}%</Text>
+                <Text style={s.metricLbl}>Trọng âm</Text>
+              </View>
+              <View style={s.metricDivider} />
+              <View style={s.metricItem}>
+                <Text style={s.metricVal}>{assessment.intonationScore}%</Text>
+                <Text style={s.metricLbl}>Ngữ điệu</Text>
+              </View>
+              <View style={s.metricDivider} />
+              <View style={s.metricItem}>
+                <Text style={s.metricVal}>{assessment.fluencyScore}%</Text>
+                <Text style={s.metricLbl}>Lưu loát</Text>
+              </View>
+            </View>
+
+            {/* Nhận xét AI thực tế */}
+            {assessment.errorFeedback && assessment.errorFeedback.length > 0 && (
+              <View style={s.feedbackBox}>
+                <Text style={s.feedbackTitle}>Nhận xét từ AI:</Text>
+                {assessment.errorFeedback.map((fb, i) => (
+                  <Text key={i} style={s.feedbackText}>• {fb}</Text>
+                ))}
+              </View>
+            )}
 
             {/* Audio Playback Buttons */}
             <View style={s.playbackRow}>
@@ -276,36 +426,66 @@ export const SingleWordSpeakingScreen = () => {
               >
                 <Play color="#FFFFFF" size={14} fill="#FFFFFF" />
                 <Text style={s.playbackBtnText}>
-                  {isPlayingUserVoice ? 'Đang phát...' : 'Nghe lại giọng bạn'}
+                  {isPlayingUserVoice ? 'Đang phát...' : 'Nghe lại giọng'}
                 </Text>
               </Pressable>
 
+              <Pressable onPress={handleResetPractice} style={s.retryBtn}>
+                <RotateCcw color="#334155" size={14} />
+                <Text style={s.retryBtnText}>Luyện lại</Text>
+              </Pressable>
+
               <Pressable
-                onPress={() => router.push('/(student)/practice/speaking/feedback' as any)}
+                onPress={() => {
+                  router.push({
+                    pathname: '/(student)/practice/speaking/detailed-feedback' as any,
+                    params: {
+                      word: targetWord,
+                      ipa: targetIpa,
+                      score: String(score),
+                      accuracy: String(assessment.accuracyScore),
+                      stress: String(assessment.stressScore),
+                      intonation: String(assessment.intonationScore),
+                      fluency: String(assessment.fluencyScore),
+                      audioUri: recordedUri || '',
+                    },
+                  });
+                }}
                 style={s.analysisBtn}
               >
                 <Sparkles color="#FFFFFF" size={14} />
-                <Text style={s.analysisBtnText}>Phân tích khẩu hình</Text>
+                <Text style={s.analysisBtnText}>Chi tiết</Text>
               </Pressable>
             </View>
           </Animated.View>
         )}
-      </View>
+      </ScrollView>
 
       {/* Record Mic Button Controls */}
       <View style={s.micSection}>
         <Animated.View style={animatedPulseStyle}>
           <Pressable
             onPress={handleRecordPress}
-            style={[s.micBtn, isRecording ? s.micBtnRecording : s.micBtnNormal]}
+            disabled={isEvaluating}
+            style={[
+              s.micBtn,
+              isRecording ? s.micBtnRecording : s.micBtnNormal,
+              isEvaluating && { opacity: 0.6 },
+            ]}
           >
-            {isRecording ? <Square color="#FFFFFF" size={26} fill="#FFFFFF" /> : <Mic color="#FFFFFF" size={30} />}
+            {isRecording ? (
+              <Square color="#FFFFFF" size={26} fill="#FFFFFF" />
+            ) : (
+              <Mic color="#FFFFFF" size={30} />
+            )}
           </Pressable>
         </Animated.View>
 
         <Text style={s.micHintText}>
-          {isRecording
-            ? `Đang thu âm 00:0${recordTime}s • Bấm để hoàn tất`
+          {isEvaluating
+            ? 'Đang gửi AI phân tích âm thanh...'
+            : isRecording
+            ? `Đang thu âm 00:0${recordTime}s • Chạm để hoàn tất & chấm điểm`
             : 'Chạm micro để thu âm trực tiếp'}
         </Text>
       </View>
@@ -319,7 +499,7 @@ const s = StyleSheet.create({
     backgroundColor: palette.bg,
     paddingTop: 52,
     paddingHorizontal: 20,
-    paddingBottom: 32,
+    paddingBottom: 24,
     justifyContent: 'space-between',
   },
   headerRow: {
@@ -408,6 +588,80 @@ const s = StyleSheet.create({
     marginTop: 16,
     justifyContent: 'center',
   },
+  readyCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 22,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: palette.border,
+    alignItems: 'center',
+    shadowColor: palette.text,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 2,
+    marginBottom: 16,
+  },
+  readyIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: palette.primarySoft,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  readyTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: palette.text,
+    marginBottom: 6,
+  },
+  readySubtitle: {
+    fontSize: 13,
+    color: palette.textSoft,
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 12,
+  },
+  readyTipsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFBEB',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  readyTipsText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#B45309',
+  },
+  evaluatingCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 26,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: palette.border,
+    alignItems: 'center',
+    marginBottom: 16,
+    elevation: 2,
+  },
+  evaluatingTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: palette.text,
+    marginBottom: 4,
+  },
+  evaluatingSubtitle: {
+    fontSize: 12.5,
+    color: palette.textSoft,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
   scoreCard: {
     backgroundColor: '#FFFFFF',
     padding: 20,
@@ -420,13 +674,14 @@ const s = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 12,
     elevation: 2,
+    marginBottom: 16,
   },
   scoreRingWrap: {
     width: 88,
     height: 88,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
     position: 'relative',
   },
   scoreOverlay: {
@@ -451,55 +706,128 @@ const s = StyleSheet.create({
     fontFamily: font.family,
     fontWeight: '700',
     color: palette.text,
-    marginBottom: 16,
+    marginBottom: 14,
+    textAlign: 'center',
+  },
+  metricGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    width: '100%',
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  metricItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  metricVal: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: palette.text,
+  },
+  metricLbl: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: palette.textSoft,
+    marginTop: 2,
+  },
+  metricDivider: {
+    width: 1,
+    height: 22,
+    backgroundColor: '#E2E8F0',
+  },
+  feedbackBox: {
+    width: '100%',
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 14,
+  },
+  feedbackTitle: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#15803D',
+    marginBottom: 4,
+  },
+  feedbackText: {
+    fontSize: 12,
+    color: '#166534',
+    lineHeight: 17,
   },
   playbackRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
+    width: '100%',
   },
   playbackBtn: {
+    flex: 1,
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     backgroundColor: palette.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
+    paddingVertical: 11,
+    borderRadius: 14,
   },
   playbackBtnActive: {
     backgroundColor: colors.primaryDeep,
   },
   playbackBtnText: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: font.family,
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  analysisBtn: {
+  retryBtn: {
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    gap: 5,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    borderRadius: 14,
+  },
+  retryBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  analysisBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: palette.text,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
+    paddingVertical: 11,
+    borderRadius: 14,
   },
   analysisBtnText: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: font.family,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   micSection: {
     alignItems: 'center',
+    paddingTop: 8,
   },
   micBtn: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   micBtnNormal: {
     backgroundColor: palette.primary,
@@ -518,10 +846,9 @@ const s = StyleSheet.create({
     elevation: 6,
   },
   micHintText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontFamily: font.family,
     fontWeight: '600',
     color: palette.textSoft,
   },
 });
-
