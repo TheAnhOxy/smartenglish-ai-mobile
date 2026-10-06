@@ -1,16 +1,15 @@
 import React from 'react';
 import { View, Text, FlatList, Pressable, ActivityIndicator } from 'react-native';
 import { useStudentAssignments } from '../../application/useClassMembership';
-import { Assignment } from '@/src/core/types/schema';
-import { MOCK_SUBMISSIONS } from '@/src/core/data/mockData';
+import { ClassAssignmentDTO } from '../../data/classApi';
 import { useRouter } from 'expo-router';
 
 interface StudentAssignmentsScreenProps {
-  classId: string;
+  classId: string | number;
 }
 
 export const StudentAssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ classId }) => {
-  const { data: assignments, isLoading } = useStudentAssignments(classId);
+  const { data: assignments = [], isLoading, refetch } = useStudentAssignments(classId);
   const router = useRouter();
 
   const getAssignmentIcon = (type: string) => {
@@ -25,93 +24,158 @@ export const StudentAssignmentsScreen: React.FC<StudentAssignmentsScreenProps> =
         return '🗣️';
       case 'reading':
         return '📖';
+      case 'exam':
+        return '📑';
       default:
         return '📝';
     }
   };
 
-  const getSubmissionStatus = (assignmentId: string) => {
-    const sub = MOCK_SUBMISSIONS.find((s) => s.assignment_id === assignmentId);
-    return sub ? sub.status : 'Chưa làm';
+  const getAssignmentTypeLabel = (type: string) => {
+    switch (type) {
+      case 'quiz':
+        return 'Quiz trắc nghiệm';
+      case 'vocab_deck':
+        return 'Bộ Flashcard từ vựng';
+      case 'writing':
+        return 'Bài viết luận AI chấm';
+      case 'roleplay':
+        return 'Hội thoại AI Speaking';
+      case 'reading':
+        return 'Bài đọc hiểu Reading';
+      case 'exam':
+        return 'Đề thi chuẩn hóa';
+      default:
+        return 'Bài tập rèn luyện';
+    }
   };
 
-  const handlePressAssignment = (item: Assignment) => {
-    // Route to actual feature route based on assignment_type
-    switch (item.assignment_type) {
+  const handlePressAssignment = (item: ClassAssignmentDTO) => {
+    const refId = item.referenceId ? String(item.referenceId) : '';
+    switch (item.assignmentType) {
       case 'quiz':
-        router.push(`/(student)/practice/quiz/${item.reference_id}` as any);
+        router.push(refId ? (`/(student)/practice/quiz/${refId}` as any) : ('/(student)/practice' as any));
         break;
       case 'vocab_deck':
-        router.push(`/(student)/review/decks/${item.reference_id}/study` as any);
+        router.push(refId ? (`/(student)/review/decks/${refId}/study` as any) : ('/(student)/review' as any));
         break;
       case 'writing':
-        router.push(`/(student)/practice/writing` as any);
+        router.push('/(student)/practice/writing' as any);
         break;
       case 'roleplay':
-        router.push(`/(student)/practice/speaking` as any);
+        router.push('/(student)/practice/speaking' as any);
+        break;
+      case 'reading':
+        router.push('/(student)/practice/reading' as any);
+        break;
+      case 'exam':
+        router.push(refId ? (`/(student)/practice/exam/${refId}` as any) : ('/(student)/practice' as any));
         break;
       default:
+        router.push('/(student)/practice' as any);
         break;
     }
   };
 
   if (isLoading) {
     return (
-      <View className="flex-1 justify-center items-center py-10">
+      <View className="flex-1 justify-center items-center py-16">
         <ActivityIndicator color="#FF6B35" size="small" />
+        <Text className="text-xs text-gray-500 mt-2 font-medium">Đang tải...</Text>
       </View>
     );
   }
 
   return (
     <FlatList
-      data={assignments || []}
-      keyExtractor={(item) => item.id}
+      data={assignments}
+      keyExtractor={(item) => String(item.id)}
       showsVerticalScrollIndicator={false}
+      onRefresh={refetch}
+      refreshing={isLoading}
+      contentContainerStyle={{ paddingBottom: 80 }}
+      ListEmptyComponent={() => (
+        <View className="items-center py-14 bg-white rounded-2xl border border-gray-100 p-6 mx-1 shadow-xs">
+          <Text className="text-4xl mb-3">📝</Text>
+          <Text className="text-base font-bold text-gray-800 mb-1">Chưa Có Bài Tập Nào</Text>
+          <Text className="text-xs text-gray-500 text-center leading-5 px-3">
+            Giáo viên chưa giao bài tập cho lớp này. Bài tập trắc nghiệm, bài viết hoặc luyện nói sẽ xuất hiện ở đây khi được chỉ định.
+          </Text>
+        </View>
+      )}
       renderItem={({ item }) => {
-        const status = getSubmissionStatus(item.id);
-        const isOverdue = new Date(item.due_date) < new Date();
+        const status = item.status || 'Chưa làm';
+        const isOverdue = item.dueDate ? new Date(item.dueDate) < new Date() : false;
 
         return (
           <Pressable
             onPress={() => handlePressAssignment(item)}
-            className="bg-cardWhite p-4 rounded-2xl border border-gray-100 mb-3 shadow-sm active:bg-gray-50 flex-row justify-between items-center"
+            className="bg-white p-4 rounded-2xl border border-gray-100 mb-3 shadow-xs active:bg-gray-50"
           >
-            <View className="flex-row items-center flex-1 mr-3 gap-3">
-              <View className="w-10 h-10 rounded-xl bg-surface items-center justify-center">
-                <Text className="text-xl">{getAssignmentIcon(item.assignment_type)}</Text>
+            <View className="flex-row items-start justify-between mb-2">
+              <View className="flex-row items-center flex-1 mr-3 gap-3">
+                <View className="w-11 h-11 rounded-2xl bg-orange-50 border border-orange-100 items-center justify-center">
+                  <Text className="text-xl">{getAssignmentIcon(item.assignmentType)}</Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-[10px] uppercase font-bold text-primary mb-0.5">
+                    {getAssignmentTypeLabel(item.assignmentType)}
+                  </Text>
+                  <Text className="text-sm font-bold text-gray-900 leading-snug" numberOfLines={2}>
+                    {item.title}
+                  </Text>
+                </View>
               </View>
-              <View className="flex-1">
-                <Text className="text-sm font-bold text-neutralInk mb-0.5">{item.title}</Text>
+
+              {/* Status Badge */}
+              <View
+                className={`px-2.5 py-1 rounded-full ${
+                  status === 'Đạt'
+                    ? 'bg-emerald-50 border border-emerald-200'
+                    : status === 'Đã nộp'
+                    ? 'bg-blue-50 border border-blue-200'
+                    : isOverdue
+                    ? 'bg-rose-50 border border-rose-200'
+                    : 'bg-amber-50 border border-amber-200'
+                }`}
+              >
                 <Text
-                  className={`text-[10px] font-semibold ${
-                    isOverdue && status === 'Chưa làm' ? 'text-error font-bold' : 'text-neutralGray'
+                  className={`text-[11px] font-bold ${
+                    status === 'Đạt'
+                      ? 'text-emerald-700'
+                      : status === 'Đã nộp'
+                      ? 'text-blue-700'
+                      : isOverdue
+                      ? 'text-rose-600'
+                      : 'text-amber-800'
                   }`}
                 >
-                  {isOverdue && status === 'Chưa làm'
-                    ? '⚠️ Quá Hạn Nộp'
-                    : `Hạn: ${new Date(item.due_date).toLocaleDateString()}`}
+                  {isOverdue && status === 'Chưa làm' ? 'Quá hạn' : status}
                 </Text>
               </View>
             </View>
 
-            {/* Status Badge */}
-            <View
-              className={`px-3 py-1 rounded-full ${
-                status === 'Đạt'
-                  ? 'bg-success/10 border border-success/30'
-                  : status === 'Đã nộp'
-                  ? 'bg-secondary/10 border border-secondary/30'
-                  : 'bg-primary/10 border border-primary/30'
-              }`}
-            >
+            {item.instructions ? (
+              <Text className="text-xs text-gray-500 mb-2.5 line-clamp-2 px-1" numberOfLines={2}>
+                {item.instructions}
+              </Text>
+            ) : null}
+
+            {/* Footer */}
+            <View className="flex-row justify-between items-center pt-2 border-t border-gray-50">
               <Text
-                className={`text-xs font-bold ${
-                  status === 'Đạt' ? 'text-success' : status === 'Đã nộp' ? 'text-secondary' : 'text-primary'
+                className={`text-[11px] font-medium ${
+                  isOverdue && status === 'Chưa làm' ? 'text-rose-600 font-semibold' : 'text-gray-400'
                 }`}
               >
-                {status}
+                ⏰ Hạn nộp:{' '}
+                {item.dueDate ? new Date(item.dueDate).toLocaleDateString('vi-VN') : 'Không giới hạn'}
               </Text>
+
+              <View className="flex-row items-center gap-1">
+                <Text className="text-xs font-bold text-primary">Làm bài</Text>
+                <Text className="text-xs text-primary">→</Text>
+              </View>
             </View>
           </Pressable>
         );
