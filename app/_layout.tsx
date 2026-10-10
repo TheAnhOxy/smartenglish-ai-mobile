@@ -12,6 +12,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { useRoleGateStore } from '@/src/core/flows/roleGateStore';
+import { stopAllAudio } from '@/src/core/services/speechService';
 
 // Tắt cảnh báo thuộc tính deprecated
 LogBox.ignoreAllLogs(true);
@@ -86,6 +87,13 @@ function RootLayoutNav() {
 
   const { currentUser, isHydrated } = useAuthStore();
   const { getRouteForRole } = useRoleGateStore();
+  const routeKey = segments.join('/');
+
+  useEffect(() => {
+    return () => {
+      void stopAllAudio();
+    };
+  }, [routeKey]);
 
   useEffect(() => {
     if (!isHydrated) return;
