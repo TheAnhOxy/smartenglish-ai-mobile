@@ -37,6 +37,7 @@ export interface ChatConversationDto {
   name?: string;
   avatar?: string;
   createdBy?: number;
+  participantId?: number;
   memberIds?: number[];
   members?: Array<{
     userId: number;
@@ -100,6 +101,7 @@ export interface FriendshipRequestDto {
   requesterAvatar?: string;
   addresseeId?: number;
   addresseeName?: string;
+  addresseeAvatar?: string;
   status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
   createdAt: string;
 }
@@ -122,7 +124,6 @@ export const fetchCommunityPostsApi = async (page = 0, size = 10, search = '', t
   }
   return [];
 };
-
 export const createCommunityPostApi = async (payload: {
   authorId: number;
   authorName: string;
@@ -144,7 +145,6 @@ export const createCommunityPostApi = async (payload: {
     throw err;
   }
 };
-
 export const togglePostLikeApi = async (postId: string, userId: number): Promise<boolean> => {
   try {
     await apiClient.post(`/api/v1/social/posts/${postId}/like?userId=${userId}`);
@@ -196,17 +196,32 @@ export const fetchUserConversationsApi = async (userId: number): Promise<ChatCon
   return [];
 };
 
-export const fetchConversationMessagesApi = async (conversationId: string): Promise<ChatMessageDto[]> => {
+// In-memory messages cache to provide instant (0ms) render when opening conversations
+const messagesCacheMap = new Map<string, ChatMessageDto[]>();
+
+export const getCachedMessages = (conversationId: string): ChatMessageDto[] | null => {
+  return messagesCacheMap.get(conversationId) || null;
+};
+
+export const setCachedMessages = (conversationId: string, msgs: ChatMessageDto[]) => {
+  messagesCacheMap.set(conversationId, msgs);
+};
+
+export const fetchConversationMessagesApi = async (conversationId: string, userId?: number): Promise<ChatMessageDto[]> => {
   try {
-    const res = await apiClient.get<any>(`/api/v1/social/conversations/${conversationId}/messages`);
+    const url = userId
+      ? `/api/v1/social/conversations/${conversationId}/messages?userId=${userId}`
+      : `/api/v1/social/conversations/${conversationId}/messages`;
+    const res = await apiClient.get<any>(url);
     const data = res.data?.data || res.data;
     if (Array.isArray(data)) {
+      messagesCacheMap.set(conversationId, data);
       return data;
     }
   } catch (err) {
     console.warn('[SocialApi] fetchConversationMessagesApi failed:', err);
   }
-  return [];
+  return messagesCacheMap.get(conversationId) || [];
 };
 
 export const sendMessageApi = async (conversationId: string, payload: {
@@ -222,11 +237,19 @@ export const sendMessageApi = async (conversationId: string, payload: {
   replyTo?: { id: string; senderName: string; content: string };
 }): Promise<ChatMessageDto | null> => {
   try {
-    const res = await apiClient.post<any>(`/api/v1/social/conversations/${conversationId}/messages`, {
-      ...payload,
-      type: payload.type || 'TEXT',
-    });
-    return res.data?.data || res.data || null;
+    const res = await apiClient.post<any>(
+      `/api/v1/social/conversations/${conversationId}/messages?userId=${payload.senderId}`,
+      {
+        ...payload,
+        type: payload.type || 'TEXT',
+      }
+    );
+    const sent = res.data?.data || res.data || null;
+    if (sent) {
+      const existing = messagesCacheMap.get(conversationId) || [];
+      messagesCacheMap.set(conversationId, [...existing, sent]);
+    }
+    return sent;
   } catch (err) {
     console.warn('[SocialApi] sendMessageApi error:', err);
     throw err;
@@ -253,11 +276,7 @@ export const sharePostToConversationApi = async (
   }
 ): Promise<ChatMessageDto | null> => {
   try {
-    const query = new URLSearchParams({
-      senderId: String(params.senderId),
-      senderName: params.senderName,
-      senderAvatar: params.senderAvatar || '',
-    }).toString();
+    const query = new URLSearchParams({ senderAvatar: params.senderAvatar || '' }).toString();
 
     const res = await apiClient.post<any>(
       `/api/v1/social/conversations/${conversationId}/share-post?${query}`,
@@ -288,7 +307,7 @@ export const reactMessageApi = async (
 ): Promise<ChatMessageDto | null> => {
   try {
     const res = await apiClient.post<any>(
-      `/api/v1/social/conversations/${conversationId}/messages/${messageId}/reactions?userId=${userId}&reactionType=${reactionType}`
+      `/api/v1/social/conversations/${conversationId}/messages/${messageId}/reactions?userId=${userId}&reactionType=${encodeURIComponent(reactionType)}`
     );
     return res.data?.data || res.data || null;
   } catch (err) {
@@ -319,11 +338,24 @@ export const sendTypingApi = async (
 ): Promise<void> => {
   try {
     await apiClient.post(
-      `/api/v1/social/conversations/${conversationId}/typing?userId=${userId}&userName=${encodeURIComponent(userName)}&isTyping=${isTyping}`
+      `/api/v1/social/conversations/${conversationId}/typing?isTyping=${isTyping}&userId=${userId}&userName=${encodeURIComponent(userName)}`
     );
   } catch {
     // Ignore typing errors
   }
+};
+
+export const fetchTypingApi = async (conversationId: string): Promise<{ userId: number; userName: string }[]> => {
+  try {
+    const res = await apiClient.get<any>(`/api/v1/social/conversations/${conversationId}/typing`);
+    const data = res.data?.data || res.data;
+    if (Array.isArray(data)) {
+      return data;
+    }
+  } catch {
+    // ignore
+  }
+  return [];
 };
 
 export const createDirectConversationApi = async (params: {
@@ -409,10 +441,10 @@ export const respondFriendRequestApi = async (payload: {
 
 export const sendFriendRequestApi = async (payload: {
   requesterId: number;
-  requesterName: string;
+  requesterName?: string;
   requesterAvatar?: string;
   addresseeId: number;
-  addresseeName: string;
+  addresseeName?: string;
   addresseeAvatar?: string;
 }): Promise<any> => {
   try {
@@ -423,3 +455,142 @@ export const sendFriendRequestApi = async (payload: {
     throw err;
   }
 };
+
+export const sendPresenceHeartbeatApi = async (userId: number): Promise<number[]> => {
+  try {
+    const res = await apiClient.post<any>(`/api/v1/social/presence/heartbeat?userId=${userId}`);
+    const data = res.data?.onlineUserIds || res.data?.data;
+    if (Array.isArray(data)) {
+      return data.map(Number);
+    }
+  } catch (err) {
+    // ignore
+  }
+  return [];
+};
+
+export const sendPresenceOfflineApi = async (userId: number): Promise<void> => {
+  try {
+    await apiClient.post(`/api/v1/social/presence/offline?userId=${userId}`);
+  } catch {
+    // ignore
+  }
+};
+
+export const fetchOnlineUsersApi = async (): Promise<number[]> => {
+  try {
+    const res = await apiClient.get<any>('/api/v1/social/presence/online-users');
+    const data = res.data?.data || res.data;
+    if (Array.isArray(data)) {
+      return data.map(Number);
+    }
+  } catch (err) {
+    console.warn('[SocialApi] fetchOnlineUsersApi error:', err);
+  }
+  return [];
+};
+
+export const createGroupConversationApi = async (payload: {
+  name: string;
+  avatar?: string;
+  createdBy: number;
+  members: Array<{
+    userId: number;
+    name: string;
+    avatar?: string;
+    role?: string;
+  }>;
+}): Promise<ChatConversationDto | null> => {
+  try {
+    const res = await apiClient.post<any>('/api/v1/social/conversations/group', {
+      type: 'GROUP',
+      ...payload,
+    });
+    return res.data?.data || res.data || null;
+  } catch (err) {
+    console.warn('[SocialApi] createGroupConversationApi error:', err);
+    throw err;
+  }
+};
+
+export const fetchUsersForCommunityApi = async (): Promise<any[]> => {
+  try {
+    const res = await apiClient.get<any>('/admin/users?size=50');
+    const rawData = res.data?.data || res.data;
+    const items =
+      res.data?.data?.items ||
+      res.data?.items ||
+      rawData?.items ||
+      rawData?.content ||
+      (Array.isArray(rawData) ? rawData : []);
+    if (Array.isArray(items) && items.length > 0) {
+      return items.map((u: any) => {
+        const rawAv = u.avatarUrl || u.avatar_url || u.avatar;
+        const cleanAv =
+          typeof rawAv === 'string' && !rawAv.includes('unsplash.com') && rawAv.trim().length > 0
+            ? rawAv.trim()
+            : null;
+        const dName = u.displayName || u.display_name || u.fullName || u.username || 'Người dùng';
+        return {
+          id: Number(u.id),
+          name: dName,
+          displayName: dName,
+          avatar: cleanAv,
+          avatarUrl: cleanAv,
+          role: (u.role || 'STUDENT').toUpperCase(),
+          email: u.email,
+        };
+      });
+    }
+  } catch (err) {
+    console.warn('[SocialApi] fetchUsersForCommunityApi fallback to default users:', err);
+  }
+  return [
+    {
+      id: 2,
+      name: 'Thầy John Smith (IELTS Master)',
+      displayName: 'Thầy John Smith (IELTS Master)',
+      avatar: null,
+      avatarUrl: null,
+      role: 'TEACHER',
+      email: 'john.smith@smartenglish.edu.vn',
+    },
+    {
+      id: 4,
+      name: 'Cô Sarah Jenkins (Pronunciation Coach)',
+      displayName: 'Cô Sarah Jenkins (Pronunciation Coach)',
+      avatar: null,
+      avatarUrl: null,
+      role: 'TEACHER',
+      email: 'sarah.j@smartenglish.edu.vn',
+    },
+    {
+      id: 3,
+      name: 'Nguyễn Văn Minh (IELTS 7.5 Aim)',
+      displayName: 'Nguyễn Văn Minh (IELTS 7.5 Aim)',
+      avatar: null,
+      avatarUrl: null,
+      role: 'STUDENT',
+      email: 'minh.nguyen@gmail.com',
+    },
+    {
+      id: 5,
+      name: 'Trần Thị Thu Hà (TOEIC 900+)',
+      displayName: 'Trần Thị Thu Hà (TOEIC 900+)',
+      avatar: null,
+      avatarUrl: null,
+      role: 'STUDENT',
+      email: 'ha.tran@gmail.com',
+    },
+    {
+      id: 6,
+      name: 'Lê Hoàng Nam (Speaking Club Leader)',
+      displayName: 'Lê Hoàng Nam (Speaking Club Leader)',
+      avatar: null,
+      avatarUrl: null,
+      role: 'STUDENT',
+      email: 'nam.le@gmail.com',
+    },
+  ];
+};
+

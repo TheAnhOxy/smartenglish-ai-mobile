@@ -153,12 +153,21 @@ export const PostCommentModal: React.FC<PostCommentModalProps> = ({
               const isTeacher = (c.authorRole || '').toUpperCase().includes('GIÁO') || (c.authorRole || '').toUpperCase().includes('TEACHER');
               const isAdmin = (c.authorRole || '').toUpperCase().includes('QUẢN') || (c.authorRole || '').toUpperCase().includes('ADMIN');
 
-              return (
+                const cAvatar = cleanAvatarUrl(c.authorAvatar);
+                const cInit = (c.authorName || 'U').trim().charAt(0).toUpperCase();
+
+                return (
                 <View key={c.id || `c-${idx}`} style={styles.commentItem}>
-                  <Image
-                    source={{ uri: cleanAvatarUrl(c.authorAvatar) }}
-                    style={styles.commentAvatar}
-                  />
+                  {cAvatar ? (
+                    <Image
+                      source={{ uri: cAvatar }}
+                      style={styles.commentAvatar}
+                    />
+                  ) : (
+                    <View style={[styles.commentAvatar, { backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#C7D2FE' }]}>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#4F46E5' }}>{cInit}</Text>
+                    </View>
+                  )}
                   <View style={styles.commentBubble}>
                     <View style={styles.commentHeaderRow}>
                       <Text style={styles.commentAuthorName} numberOfLines={1}>

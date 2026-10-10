@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -63,6 +63,13 @@ import {
   fetchSentFriendRequestsApi,
   fetchFriendsApi,
   respondFriendRequestApi,
+  sendPresenceHeartbeatApi,
+  sendPresenceOfflineApi,
+  fetchOnlineUsersApi,
+  createGroupConversationApi,
+  sendFriendRequestApi,
+  fetchUsersForCommunityApi,
+  markConversationAsReadApi,
 } from '../../data/socialApi';
 import { PostImageViewerModal } from '../components/PostImageViewerModal';
 import { PostCommentModal } from '../components/PostCommentModal';
@@ -87,14 +94,17 @@ const SOCIAL_TABS: SocialTabItem[] = [
 
 export const cleanAvatarUrl = (
   url?: string | null,
-  fallback = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'
+  fallback = ''
 ): string => {
   if (!url || typeof url !== 'string' || !url.trim()) return fallback;
-  const trimmed = url.trim();
-  const mdMatch = trimmed.match(/\((https?:\/\/[^\)]+)\)/);
-  if (mdMatch) return mdMatch[1];
-  const urlMatch = trimmed.match(/https?:\/\/[^\s\)\'\"\]]+/);
-  if (urlMatch) return urlMatch[0];
+  let s = url.trim();
+  if (s.includes('unsplash.com')) return fallback;
+  const mdMatch = s.match(/\((https?:\/\/[^\s)]+)\)/) || s.match(/(https?:\/\/[^\s\])]+)/);
+  if (mdMatch) s = mdMatch[1];
+  if (s.includes('unsplash.com')) return fallback;
+  if (s.startsWith('http://') || s.startsWith('https://') || s.startsWith('data:') || s.startsWith('/')) {
+    return s;
+  }
   return fallback;
 };
 
@@ -103,19 +113,19 @@ const TEACHERS_LIST = [
     id: 2,
     name: 'Thầy John Smith',
     role: 'Senior Instructor',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
+    avatar: undefined,
   },
   {
     id: 3,
     name: 'Cô Hoàng Thị Mai',
     role: 'IELTS Speaking C2',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200',
+    avatar: undefined,
   },
   {
     id: 1,
     name: 'Quản trị viên',
     role: 'Hỗ trợ học viên 24/7',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
+    avatar: undefined,
   },
 ];
 
@@ -127,12 +137,12 @@ export const SocialFeedScreen = () => {
 
   const currentUserId = Number(currentUser?.id) || 1;
   const currentUserName = currentUser?.display_name || 'Học viên SmartEnglish';
-  const currentUserAvatar = cleanAvatarUrl(currentUser?.avatar_url);
+  const currentUserAvatar = cleanAvatarUrl(currentUser?.avatar_url) || undefined;
   const currentUserRole = (currentUser?.role || 'STUDENT').toUpperCase();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('feed');
   const [feedSubTab, setFeedSubTab] = useState<'explore' | 'following'>('explore');
-  const [requestsSubTab, setRequestsSubTab] = useState<'pending' | 'suggestions' | 'sent'>('pending');
+  const [requestsSubTab, setRequestsSubTab] = useState<'pending' | 'suggestions' | 'friends' | 'sent'>('pending');
 
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -153,12 +163,22 @@ export const SocialFeedScreen = () => {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [chatInputText, setChatInputText] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<number>>(new Set());
 
   // ─── 3. Requests State ───
   const [pendingRequests, setPendingRequests] = useState<FriendshipRequestDto[]>([]);
   const [sentRequests, setSentRequests] = useState<FriendshipRequestDto[]>([]);
   const [friendsList, setFriendsList] = useState<any[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(true);
+
+  // ─── 4. Community Users & Group Creation State ───
+  const [communityUsers, setCommunityUsers] = useState<any[]>([]);
+  const [sentRequestIds, setSentRequestIds] = useState<Set<number>>(new Set());
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
+  const [groupName, setGroupName] = useState('');
+  const [selectedGroupMemberIds, setSelectedGroupMemberIds] = useState<Set<number>>(new Set());
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [sendingFriendRequestId, setSendingFriendRequestId] = useState<number | null>(null);
 
   // ─── 4. Modals State ───
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
@@ -195,7 +215,7 @@ export const SocialFeedScreen = () => {
       const hasGroup = list.some((c) => c.type === 'GROUP' || c.id === '6aa25b62dedd11425c017e6a');
       if (!hasGroup) {
         try {
-          const groupRes = await apiClient.get<any>('/api/v1/social/conversations/6aa25b62dedd11425c017e6a');
+          const groupRes = await apiClient.get<any>(`/api/v1/social/conversations/6aa25b62dedd11425c017e6a?userId=${currentUserId}`);
           const groupData = groupRes.data?.data || groupRes.data;
           if (groupData && groupData.id) {
             list = [groupData, ...list];
@@ -206,6 +226,14 @@ export const SocialFeedScreen = () => {
       }
 
       setConversations(list);
+      // Preload messages cho 5 cuộc hội thoại đầu để khi nhấn vào mở tức thì 0ms, không lag/chờ tải
+      if (Array.isArray(list) && list.length > 0) {
+        list.slice(0, 5).forEach((conv) => {
+          if (conv.id) {
+            fetchConversationMessagesApi(conv.id, currentUserId).catch(() => {});
+          }
+        });
+      }
     } catch (err) {
       console.warn('loadConversations error:', err);
     } finally {
@@ -224,6 +252,7 @@ export const SocialFeedScreen = () => {
       setPendingRequests(pending);
       setSentRequests(sent);
       setFriendsList(friends);
+      setSentRequestIds(new Set(sent.map((s: any) => Number(s.addresseeId))));
     } catch (err) {
       console.warn('loadRequests error:', err);
     } finally {
@@ -231,21 +260,61 @@ export const SocialFeedScreen = () => {
     }
   }, [currentUserId]);
 
+  // ─── Load Real Community Users ───
+  const loadCommunityUsers = useCallback(async () => {
+    try {
+      const users = await fetchUsersForCommunityApi();
+      setCommunityUsers(users);
+    } catch {
+      // ignore
+    }
+  }, []);
+
   useEffect(() => {
     loadPosts();
     loadConversations();
     loadRequests();
-  }, [loadPosts, loadConversations, loadRequests]);
+    loadCommunityUsers();
+  }, [loadPosts, loadConversations, loadRequests, loadCommunityUsers]);
 
-  // Realtime Polling for Outside Conversations List
+  // Realtime Polling for Conversations List & Friend Requests
   useEffect(() => {
-    if (activeTab === 'messages') {
-      const timer = setInterval(() => {
-        loadConversations();
-      }, 3500);
-      return () => clearInterval(timer);
-    }
-  }, [activeTab, loadConversations]);
+    const timer = setInterval(() => {
+      loadConversations();
+      loadRequests();
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [loadConversations, loadRequests]);
+
+  // ─── Realtime Presence: Heartbeat & Online Users Sync ───
+  useEffect(() => {
+    if (!currentUserId) return;
+    let active = true;
+
+    const syncPresence = async () => {
+      try {
+        const [onlineList] = await Promise.all([
+          fetchOnlineUsersApi(),
+          sendPresenceHeartbeatApi(currentUserId),
+        ]);
+        if (!active) return;
+        const newSet = new Set<number>(onlineList);
+        newSet.add(currentUserId);
+        setOnlineUserIds(newSet);
+      } catch {
+        // ignore
+      }
+    };
+
+    syncPresence();
+    const presenceTimer = setInterval(syncPresence, 3000);
+
+    return () => {
+      active = false;
+      clearInterval(presenceTimer);
+      sendPresenceOfflineApi(currentUserId).catch(() => {});
+    };
+  }, [currentUserId]);
 
 
 
@@ -367,7 +436,39 @@ export const SocialFeedScreen = () => {
 
   // ─── Action: Open Real Chat ───
   const handleOpenConversation = async (conv: ChatConversationDto) => {
-    setActiveConversation(conv);
+    const isGroup = conv.type === 'GROUP';
+    const otherMember = !isGroup
+      ? conv.members?.find((m) => Number(m.userId) !== currentUserId)
+      : null;
+    const otherUserId = Number(
+      otherMember?.userId ||
+        (!isGroup ? conv.memberIds?.find((id) => Number(id) !== currentUserId) : null) ||
+        conv.participantId
+    );
+    const matchedUser = otherUserId
+      ? communityUsers.find((u: any) => Number(u.id) === otherUserId)
+      : null;
+
+    const resolvedAvatar = isGroup
+      ? cleanAvatarUrl(conv.avatar)
+      : (cleanAvatarUrl(matchedUser?.avatarUrl || matchedUser?.avatar_url || matchedUser?.avatar) ||
+         cleanAvatarUrl(otherMember?.avatar) ||
+         cleanAvatarUrl(conv.avatar));
+
+    const resolvedConv: ChatConversationDto = {
+      ...conv,
+      name: isGroup
+        ? (conv.name || 'Nhóm học tập IELTS 7.0+')
+        : (matchedUser?.displayName || matchedUser?.display_name || matchedUser?.name || otherMember?.name || conv.name || 'Bạn học SmartEnglish'),
+      avatar: resolvedAvatar || undefined,
+    };
+
+    setActiveConversation(resolvedConv);
+    // Realtime reset unread count ngay lập tức trên UI
+    setConversations((prev) =>
+      prev.map((c) => (c.id === conv.id ? { ...c, unreadCount: 0 } : c))
+    );
+    markConversationAsReadApi(conv.id, currentUserId);
     setLoadingMessages(true);
     try {
       const msgs = await fetchConversationMessagesApi(conv.id);
@@ -383,13 +484,15 @@ export const SocialFeedScreen = () => {
   const handleStartTeacherChat = async (teacher: typeof TEACHERS_LIST[0]) => {
     try {
       setLoadingConversations(true);
+      const matchedTeacher = communityUsers.find((u: any) => Number(u.id) === teacher.id);
+      const teacherAvatar = cleanAvatarUrl(matchedTeacher?.avatarUrl || matchedTeacher?.avatar) || undefined;
       const conv = await createDirectConversationApi({
         myId: currentUserId,
         myName: currentUserName,
         myAvatar: currentUserAvatar,
         friendId: teacher.id,
-        friendName: teacher.name,
-        friendAvatar: teacher.avatar,
+        friendName: matchedTeacher?.displayName || matchedTeacher?.name || teacher.name,
+        friendAvatar: teacherAvatar || '',
       });
       if (conv) {
         await loadConversations();
@@ -449,17 +552,84 @@ export const SocialFeedScreen = () => {
     }
   };
 
+  // ─── Action: Open Chat with Friend / Accepted Friend ───
+  const handleChatWithAcceptedFriend = async (friendId: number, friendName: string, friendAvatar?: string) => {
+    try {
+      const cleanFriendId = Number(friendId);
+      const cleanFriendName = (friendName || '').trim() || 'Bạn học';
+
+      // 1. Check if conversation already exists in state
+      const existing = conversations.find((c) => {
+        if (c.type === 'GROUP') return false;
+        const otherId = Number(
+          c.members?.find((m) => Number(m.userId) !== currentUserId)?.userId ||
+          c.memberIds?.find((id) => Number(id) !== currentUserId) ||
+          c.participantId
+        );
+        return otherId === cleanFriendId;
+      });
+
+      if (existing) {
+        setActiveTab('messages');
+        await handleOpenConversation(existing);
+        return;
+      }
+
+      // 2. Otherwise create/fetch via direct conversation endpoint
+      const matchedFriend = communityUsers.find((u: any) => Number(u.id) === cleanFriendId);
+      const cleanFriendAvatar = cleanAvatarUrl(matchedFriend?.avatarUrl || matchedFriend?.avatar) || cleanAvatarUrl(friendAvatar) || undefined;
+      const conv = await createDirectConversationApi({
+        myId: currentUserId,
+        myName: currentUserName,
+        myAvatar: currentUserAvatar,
+        friendId: cleanFriendId,
+        friendName: matchedFriend?.displayName || matchedFriend?.name || cleanFriendName,
+        friendAvatar: cleanFriendAvatar || '',
+      });
+
+      if (conv) {
+        setConversations((prev) => [conv, ...prev.filter((c) => c.id !== conv.id)]);
+        setActiveTab('messages');
+        await handleOpenConversation(conv);
+      } else {
+        await loadConversations();
+        setActiveTab('messages');
+      }
+    } catch (e) {
+      console.warn('handleChatWithAcceptedFriend error:', e);
+      Alert.alert('Thông báo', 'Không thể mở cuộc trò chuyện lúc này. Vui lòng thử lại sau.');
+    }
+  };
+
   // ─── Action: Respond Friend Request ───
-  const handleAcceptRequest = async (friendshipId: string) => {
+  const handleAcceptRequest = async (req: FriendshipRequestDto) => {
     const ok = await respondFriendRequestApi({
-      friendshipId,
+      friendshipId: req.id,
       currentUserId,
       accept: true,
     });
     if (ok) {
       setPendingRequests((prev) =>
-        prev.map((r) => (r.id === friendshipId ? { ...r, status: 'ACCEPTED' } : r))
+        prev.map((r) => (r.id === req.id ? { ...r, status: 'ACCEPTED' } : r))
       );
+      
+      // Ngay lập tức tạo/lấy hội thoại 1-1 và đưa lên đầu danh sách conversations trên mobile
+      try {
+        const conv = await createDirectConversationApi({
+          myId: currentUserId,
+          myName: currentUserName,
+          myAvatar: currentUserAvatar,
+          friendId: req.requesterId,
+          friendName: req.requesterName,
+          friendAvatar: req.requesterAvatar,
+        });
+        if (conv) {
+          setConversations((prev) => [conv, ...prev.filter((c) => c.id !== conv.id)]);
+        }
+      } catch (err) {
+        console.warn('Lỗi tự động kết nối hội thoại:', err);
+      }
+
       loadRequests();
       loadConversations();
     } else {
@@ -475,6 +645,138 @@ export const SocialFeedScreen = () => {
     });
     if (ok) {
       setPendingRequests((prev) => prev.filter((r) => r.id !== friendshipId));
+    }
+  };
+
+  // ─── Action: Gửi lời mời kết bạn Realtime ───
+  const handleSendFriendRequest = async (targetUser: any) => {
+    const targetId = Number(targetUser.id);
+    if (!targetId || sendingFriendRequestId === targetId) return;
+    setSendingFriendRequestId(targetId);
+    try {
+      const ok = await sendFriendRequestApi({
+        requesterId: currentUserId,
+        requesterName: currentUserName,
+        requesterAvatar: currentUserAvatar,
+        addresseeId: targetId,
+        addresseeName: targetUser.display_name || targetUser.fullName || targetUser.name || 'Người dùng',
+        addresseeAvatar: targetUser.avatar_url || targetUser.avatar,
+      });
+      if (ok) {
+        setSentRequestIds((prev) => new Set(prev).add(targetId));
+        const newSentReq: FriendshipRequestDto = {
+          id: `sent-${Date.now()}`,
+          requesterId: currentUserId,
+          requesterName: currentUserName,
+          requesterAvatar: currentUserAvatar,
+          addresseeId: targetId,
+          addresseeName: targetUser.display_name || targetUser.fullName || targetUser.name || 'Người dùng',
+          addresseeAvatar: targetUser.avatar_url || targetUser.avatar,
+          status: 'PENDING',
+          createdAt: new Date().toISOString(),
+        };
+        setSentRequests((prev) => [newSentReq, ...prev]);
+        Alert.alert('Thành công', `Đã gửi lời mời kết bạn đến ${targetUser.display_name || targetUser.fullName || targetUser.name || 'người dùng'}!`);
+      } else {
+        Alert.alert('Thông báo', 'Không thể gửi lời mời kết bạn lúc này hoặc bạn đã gửi trước đó.');
+      }
+    } catch {
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi gửi lời mời kết bạn.');
+    } finally {
+      setSendingFriendRequestId(null);
+    }
+  };
+
+  const existingFriendUserIds = new Set<number>([
+    currentUserId,
+    ...friendsList.map((f: any) =>
+      Number(f.requesterId === currentUserId ? f.addresseeId : f.requesterId)
+    ),
+    ...pendingRequests.map((r: any) => Number(r.requesterId)),
+  ]);
+
+  const communitySuggestions = communityUsers.filter(
+    (u: any) => !existingFriendUserIds.has(Number(u.id))
+  );
+
+  // Danh sách ứng viên thêm vào nhóm (bạn bè + người dùng khác)
+  const candidateGroupMembers = [
+    ...friendsList.map((f: any) => {
+      const isReq = f.requesterId === currentUserId;
+      return {
+        id: Number(isReq ? f.addresseeId : f.requesterId),
+        name: isReq ? f.addresseeName : f.requesterName,
+        avatar: isReq ? f.addresseeAvatar : f.requesterAvatar,
+        role: 'Bạn bè',
+      };
+    }),
+    ...communityUsers
+      .filter(
+        (u: any) =>
+          Number(u.id) !== currentUserId &&
+          !friendsList.some(
+            (f: any) =>
+              Number(f.requesterId === currentUserId ? f.addresseeId : f.requesterId) ===
+              Number(u.id)
+          )
+      )
+      .map((u: any) => ({
+        id: Number(u.id),
+        name: u.display_name || u.fullName || u.name || 'Người dùng',
+        avatar: u.avatar_url || u.avatar,
+        role: u.role === 'TEACHER' ? 'Giáo viên' : 'Học viên',
+      })),
+  ];
+
+  // ─── Action: Tạo nhóm trò chuyện Realtime ───
+  const handleCreateGroup = async () => {
+    if (!groupName.trim()) {
+      Alert.alert('Thông báo', 'Vui lòng nhập tên nhóm.');
+      return;
+    }
+    if (selectedGroupMemberIds.size === 0) {
+      Alert.alert('Thông báo', 'Vui lòng chọn ít nhất 1 thành viên để tạo nhóm.');
+      return;
+    }
+    setIsCreatingGroup(true);
+    try {
+      const selectedMembers = candidateGroupMembers
+        .filter((m) => selectedGroupMemberIds.has(m.id))
+        .map((m) => ({
+          userId: m.id,
+          name: m.name,
+          avatar: m.avatar,
+          role: 'MEMBER',
+        }));
+
+      const newGroupConv = await createGroupConversationApi({
+        name: groupName.trim(),
+        createdBy: currentUserId,
+        avatar: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=200',
+        members: [
+          {
+            userId: currentUserId,
+            name: currentUserName,
+            avatar: currentUserAvatar,
+            role: 'ADMIN',
+          },
+          ...selectedMembers,
+        ],
+      });
+      if (newGroupConv) {
+        setConversations((prev) => [newGroupConv, ...prev.filter((c) => c.id !== newGroupConv.id)]);
+        setShowCreateGroupModal(false);
+        setGroupName('');
+        setSelectedGroupMemberIds(new Set());
+        Alert.alert('Thành công', 'Đã tạo nhóm trò chuyện thành công! 🎉');
+        handleOpenConversation(newGroupConv);
+      } else {
+        Alert.alert('Lỗi', 'Không thể tạo nhóm trò chuyện lúc này.');
+      }
+    } catch {
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi tạo nhóm.');
+    } finally {
+      setIsCreatingGroup(false);
     }
   };
 
@@ -501,13 +803,32 @@ export const SocialFeedScreen = () => {
     return true;
   });
 
-  const filteredConversations = conversations.filter((c) => {
-    if (!searchQuery.trim()) return true;
+  const filteredConversations = useMemo(() => {
+    const sorted = [...conversations].sort((a, b) => {
+      const timeA = new Date(a.lastMessageAt || a.updatedAt || a.createdAt || 0).getTime();
+      const timeB = new Date(b.lastMessageAt || b.updatedAt || b.createdAt || 0).getTime();
+      return timeB - timeA;
+    });
+    if (!searchQuery.trim()) return sorted;
     const q = searchQuery.toLowerCase();
-    const name = (c.name || '').toLowerCase();
-    const lastMsg = (c.lastMessage || '').toLowerCase();
-    return name.includes(q) || lastMsg.includes(q);
-  });
+    return sorted.filter((c: any) => {
+      const isGroup = c.type === 'GROUP';
+      const otherMember = !isGroup ? c.members?.find((m: any) => Number(m.userId) !== currentUserId) : null;
+      const otherUserId = Number(
+        otherMember?.userId ||
+          (!isGroup ? c.memberIds?.find((id: any) => Number(id) !== currentUserId) : null) ||
+          c.participantId
+      );
+      const matchedUser = otherUserId ? communityUsers.find((u: any) => Number(u.id) === otherUserId) : null;
+      const name = (
+        isGroup
+          ? (c.name || 'Nhóm học tập IELTS 7.0+')
+          : (matchedUser?.displayName || matchedUser?.display_name || matchedUser?.name || otherMember?.name || c.name || '')
+      ).toLowerCase();
+      const lastMsg = (c.lastMessage || '').toLowerCase();
+      return name.includes(q) || lastMsg.includes(q);
+    });
+  }, [conversations, searchQuery, currentUserId, communityUsers]);
 
   return (
     <View style={s.root}>
@@ -532,9 +853,11 @@ export const SocialFeedScreen = () => {
             {SOCIAL_TABS.map((tab) => {
             const isActive = activeTab === tab.key;
             const IconComp = tab.icon;
-            const pendingCount =
+            const badgeCount =
               tab.key === 'requests'
                 ? pendingRequests.filter((r) => r.status === 'PENDING').length
+                : tab.key === 'messages'
+                ? conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0)
                 : 0;
 
             return (
@@ -557,7 +880,7 @@ export const SocialFeedScreen = () => {
                       size={17}
                       color={isActive ? '#FFFFFF' : '#64748B'}
                     />
-                    {pendingCount > 0 && !isActive && (
+                    {badgeCount > 0 && !isActive && (
                       <View style={s.tabBadgeDot} />
                     )}
                   </View>
@@ -569,9 +892,9 @@ export const SocialFeedScreen = () => {
                       {tab.label}
                     </Text>
                   )}
-                  {pendingCount > 0 && isActive && (
+                  {badgeCount > 0 && isActive && (
                     <View style={s.tabBadgeCount}>
-                      <Text style={s.tabBadgeCountText}>{pendingCount}</Text>
+                      <Text style={s.tabBadgeCountText}>{badgeCount > 99 ? '99+' : badgeCount}</Text>
                     </View>
                   )}
                 </View>
@@ -635,9 +958,9 @@ export const SocialFeedScreen = () => {
                       style={s.postCard}
                     >
                       <View style={s.postHeader}>
-                        {post.authorAvatar ? (
+                        {cleanAvatarUrl(post.authorAvatar) ? (
                           <Image
-                            source={{ uri: cleanAvatarUrl(post.authorAvatar) }}
+                            source={{ uri: cleanAvatarUrl(post.authorAvatar)! }}
                             style={s.postAvatar}
                           />
                         ) : (
@@ -671,14 +994,14 @@ export const SocialFeedScreen = () => {
                       {post.mediaUrl && (
                         <Pressable
                           onPress={() => {
-                            setViewingImageUrl(cleanAvatarUrl(post.mediaUrl));
+                            setViewingImageUrl(post.mediaUrl!);
                             setViewingImageCaption(post.mediaCaption || post.content);
                             setViewingImageAuthor(post.authorName || null);
                           }}
                           style={s.achievementGraphicBox}
                         >
                           <Image
-                            source={{ uri: cleanAvatarUrl(post.mediaUrl) }}
+                            source={{ uri: post.mediaUrl }}
                             style={s.achievementGraphicImg}
                             resizeMode="cover"
                           />
@@ -764,10 +1087,25 @@ export const SocialFeedScreen = () => {
               contentContainerStyle={{ paddingBottom: 24 }}
               showsVerticalScrollIndicator={false}
             >
-              <View style={{ paddingHorizontal: 16, marginBottom: 4, marginTop: 10 }}>
+              <View style={{ paddingHorizontal: 16, marginBottom: 8, marginTop: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Text style={{ fontSize: 13, fontWeight: '700', color: '#64748B' }}>
                   Hội thoại ({filteredConversations.length})
                 </Text>
+                <Pressable
+                  onPress={() => setShowCreateGroupModal(true)}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: '#EEF2FF',
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                    borderRadius: 12,
+                    gap: 5,
+                  }}
+                >
+                  <Users size={14} color="#4F46E5" />
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#4F46E5' }}>+ Tạo nhóm</Text>
+                </Pressable>
               </View>
 
               {filteredConversations.length === 0 ? (
@@ -779,15 +1117,61 @@ export const SocialFeedScreen = () => {
                   </Text>
                 </View>
               ) : (
-                filteredConversations.map((conv, idx) => {
+                filteredConversations.map((conv: any, idx: number) => {
                   const isGroup = conv.type === 'GROUP';
-                  const displayName = conv.name || (isGroup ? 'Nhóm học tập IELTS 7.0+' : 'Bạn học SmartEnglish');
-                  const avatarUrl = cleanAvatarUrl(
-                    conv.avatar,
-                    isGroup
-                      ? 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=200'
-                      : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'
+                  const otherMember = !isGroup
+                    ? conv.members?.find((m: any) => Number(m.userId) !== currentUserId)
+                    : null;
+                  const otherUserId = Number(
+                    otherMember?.userId ||
+                      (!isGroup ? conv.memberIds?.find((id: any) => Number(id) !== currentUserId) : null) ||
+                      conv.participantId
                   );
+                  const matchedUser = otherUserId
+                    ? communityUsers.find((u: any) => Number(u.id) === otherUserId)
+                    : null;
+
+                  const displayName = isGroup
+                    ? (conv.name || 'Nhóm học tập IELTS 7.0+')
+                    : (matchedUser?.displayName || matchedUser?.display_name || matchedUser?.name || otherMember?.name || conv.name || 'Bạn học SmartEnglish');
+
+                  const rawAvatar = isGroup
+                    ? cleanAvatarUrl(conv.avatar)
+                    : (cleanAvatarUrl(matchedUser?.avatarUrl || matchedUser?.avatar_url || matchedUser?.avatar) ||
+                       cleanAvatarUrl(otherMember?.avatar) ||
+                       cleanAvatarUrl(conv.avatar));
+
+                  const hasRealAvatar = Boolean(rawAvatar);
+                  const initialLetter = (displayName || 'U').trim().charAt(0).toUpperCase();
+
+                  const roleLabel = isGroup
+                    ? `Nhóm (${conv.memberIds?.length || conv.members?.length || 2} thành viên)`
+                    : (matchedUser?.role === 'teacher' || matchedUser?.role === 'TEACHER'
+                      ? 'Giáo viên'
+                      : matchedUser?.role === 'admin' || matchedUser?.role === 'ADMIN'
+                      ? 'Quản trị viên'
+                      : otherMember?.role || 'Học viên');
+
+                  const isOnline = isGroup
+                    ? (() => {
+                        const otherMemberIds = (
+                          conv.members?.map((m: any) => Number(m.userId)) ||
+                          conv.memberIds?.map(Number) ||
+                          []
+                        ).filter((id: number) => id && id !== currentUserId && !isNaN(id));
+                        return otherMemberIds.some((id: number) => onlineUserIds.has(id));
+                      })()
+                    : (() => {
+                        const otherUserId = Number(
+                          conv.members?.find((m: any) => Number(m.userId) !== currentUserId)?.userId ||
+                            conv.memberIds?.find((id: any) => Number(id) !== currentUserId) ||
+                            conv.participantId
+                        );
+                        return Boolean(otherUserId && onlineUserIds.has(otherUserId));
+                      })();
+
+                  const unreadNum = Number(conv.unreadCount || (conv as any).unread || 0);
+                  const isUnread = unreadNum > 0;
 
                   return (
                     <Animated.View
@@ -799,39 +1183,74 @@ export const SocialFeedScreen = () => {
                         onPress={() => handleOpenConversation(conv)}
                         style={({ pressed }) => [
                           s.chatItemPressable,
+                          isUnread && { backgroundColor: '#F8FAFC' },
                           pressed && s.chatItemPressed,
                         ]}
                       >
                         <View style={s.chatItemRow}>
-                          {/* Avatar with bottom-right online dot intersecting circle */}
+                          {/* Avatar with monogram letter fallback matching Web & bottom-right online dot */}
                           <View style={s.chatAvatarWrap}>
-                            <Image source={{ uri: avatarUrl }} style={s.chatAvatar} />
-                            <View style={s.chatOnlineDot} />
+                            {hasRealAvatar && rawAvatar ? (
+                              <Image source={{ uri: rawAvatar }} style={s.chatAvatar} />
+                            ) : (
+                              <View
+                                style={[
+                                  s.chatAvatar,
+                                  {
+                                    backgroundColor: isGroup ? '#EDE9FE' : roleLabel === 'Giáo viên' ? '#FEF3C7' : roleLabel === 'Quản trị viên' ? '#FFE4E6' : '#EEF2FF',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    borderWidth: 1,
+                                    borderColor: isGroup ? '#DDD6FE' : roleLabel === 'Giáo viên' ? '#FDE68A' : roleLabel === 'Quản trị viên' ? '#FECDD3' : '#C7D2FE',
+                                  },
+                                ]}
+                              >
+                                <Text
+                                  style={{
+                                    fontSize: 20,
+                                    fontWeight: '800',
+                                    color: isGroup ? '#7C3AED' : roleLabel === 'Giáo viên' ? '#D97706' : roleLabel === 'Quản trị viên' ? '#E11D48' : '#4F46E5',
+                                  }}
+                                >
+                                  {initialLetter}
+                                </Text>
+                              </View>
+                            )}
+                            {isOnline && <View style={s.chatOnlineDot} />}
                           </View>
 
-                          {/* Info: Row 1 (Name + Time) & Row 2 (Last Msg + Unread) */}
+                          {/* Info: Row 1 (Name + Role + Time) & Row 2 (Last Msg + Unread) */}
                           <View style={s.chatInfoWrap}>
                             <View style={s.chatNameRow}>
-                              <Text style={s.chatNameText} numberOfLines={1} ellipsizeMode="tail">
+                              <Text
+                                style={[
+                                  s.chatNameText,
+                                  isUnread && { fontWeight: '800', color: '#0F172A' },
+                                ]}
+                                numberOfLines={1}
+                                ellipsizeMode="tail"
+                              >
                                 {displayName}
                               </Text>
-                              <Text style={s.chatTimeText}>{formatTimeAgo(conv.lastMessageAt)}</Text>
+                              <Text style={s.chatTimeText}>
+                                {formatTimeAgo(conv.lastMessageAt)}
+                              </Text>
                             </View>
 
                             <View style={s.chatLastMsgRow}>
                               <Text
                                 style={[
                                   s.chatLastMsgText,
-                                  (conv.unreadCount || 0) > 0 && s.chatLastMsgUnread,
+                                  isUnread && { color: '#0F172A', fontWeight: '800' },
                                 ]}
                                 numberOfLines={1}
                                 ellipsizeMode="tail"
                               >
                                 {formatLastMessage(conv)}
                               </Text>
-                              {(conv.unreadCount || 0) > 0 && (
+                              {isUnread && (
                                 <View style={s.chatUnreadBadge}>
-                                  <Text style={s.chatUnreadText}>{conv.unreadCount}</Text>
+                                  <Text style={s.chatUnreadText}>{unreadNum}</Text>
                                 </View>
                               )}
                             </View>
@@ -870,33 +1289,48 @@ export const SocialFeedScreen = () => {
             </Pressable>
           </View>
 
-          <View style={s.chipsRow}>
-            <Pressable
-              onPress={() => setRequestsSubTab('pending')}
-              style={[s.chipPill, requestsSubTab === 'pending' && s.chipPillActive]}
+          <View style={{ marginBottom: 14 }}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}
             >
-              <Text style={[s.chipPillText, requestsSubTab === 'pending' && s.chipPillTextActive]}>
-                Đang chờ ({pendingRequests.filter((r) => r.status === 'PENDING').length})
-              </Text>
-            </Pressable>
+              <Pressable
+                onPress={() => setRequestsSubTab('pending')}
+                style={[s.chipPill, requestsSubTab === 'pending' && s.chipPillActive]}
+              >
+                <Text style={[s.chipPillText, requestsSubTab === 'pending' && s.chipPillTextActive]}>
+                  Đang chờ ({pendingRequests.filter((r) => r.status === 'PENDING').length})
+                </Text>
+              </Pressable>
 
-            <Pressable
-              onPress={() => setRequestsSubTab('suggestions')}
-              style={[s.chipPill, requestsSubTab === 'suggestions' && s.chipPillActive]}
-            >
-              <Text style={[s.chipPillText, requestsSubTab === 'suggestions' && s.chipPillTextActive]}>
-                Bạn bè ({friendsList.length})
-              </Text>
-            </Pressable>
+              <Pressable
+                onPress={() => setRequestsSubTab('suggestions')}
+                style={[s.chipPill, requestsSubTab === 'suggestions' && s.chipPillActive]}
+              >
+                <Text style={[s.chipPillText, requestsSubTab === 'suggestions' && s.chipPillTextActive]}>
+                  Gợi ý kết bạn ({communitySuggestions.length})
+                </Text>
+              </Pressable>
 
-            <Pressable
-              onPress={() => setRequestsSubTab('sent')}
-              style={[s.chipPill, requestsSubTab === 'sent' && s.chipPillActive]}
-            >
-              <Text style={[s.chipPillText, requestsSubTab === 'sent' && s.chipPillTextActive]}>
-                Đã gửi ({sentRequests.length})
-              </Text>
-            </Pressable>
+              <Pressable
+                onPress={() => setRequestsSubTab('friends')}
+                style={[s.chipPill, requestsSubTab === 'friends' && s.chipPillActive]}
+              >
+                <Text style={[s.chipPillText, requestsSubTab === 'friends' && s.chipPillTextActive]}>
+                  Bạn bè ({friendsList.length})
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => setRequestsSubTab('sent')}
+                style={[s.chipPill, requestsSubTab === 'sent' && s.chipPillActive]}
+              >
+                <Text style={[s.chipPillText, requestsSubTab === 'sent' && s.chipPillTextActive]}>
+                  Đã gửi ({sentRequests.length})
+                </Text>
+              </Pressable>
+            </ScrollView>
           </View>
 
           {loadingRequests ? (
@@ -916,43 +1350,61 @@ export const SocialFeedScreen = () => {
                     <Text style={s.emptySub}>Hiện tại bạn không có lời mời kết bạn nào đang chờ.</Text>
                   </View>
                 ) : (
-                  pendingRequests.map((req, idx) => (
+                  pendingRequests.map((req, idx) => {
+                    const reqAv = cleanAvatarUrl(req.requesterAvatar);
+                    const reqInit = (req.requesterName || 'U').trim().charAt(0).toUpperCase();
+
+                    return (
                     <Animated.View key={req.id || idx} entering={FadeInDown.delay(idx * 60)} style={s.reqCard}>
                       {req.status === 'ACCEPTED' ? (
                         <View style={s.acceptedCardInner}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                             <View style={{ position: 'relative' }}>
-                              <Image
-                                source={{ uri: cleanAvatarUrl(req.requesterAvatar) }}
-                                style={s.reqAvatar}
-                              />
+                              {reqAv ? (
+                                <Image
+                                  source={{ uri: reqAv }}
+                                  style={s.reqAvatar}
+                                />
+                              ) : (
+                                <View style={[s.reqAvatar, { backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#C7D2FE' }]}>
+                                  <Text style={{ fontSize: 16, fontWeight: '700', color: '#4F46E5' }}>{reqInit}</Text>
+                                </View>
+                              )}
                               <View style={s.acceptedCheckBadge}>
                                 <Check color="#FFFFFF" size={10} strokeWidth={3} />
                               </View>
                             </View>
-                            <View>
+                            <View style={{ flex: 1 }}>
                               <Text style={s.reqName}>{req.requesterName}</Text>
                               <Text style={s.acceptedSuccessText}>Đã trở thành bạn bè!</Text>
                             </View>
                           </View>
 
                           <Pressable
-                            onPress={() => setActiveTab('messages')}
+                            onPress={() => handleChatWithAcceptedFriend(req.requesterId, req.requesterName, req.requesterAvatar)}
                             style={s.chatWithFriendBtn}
                           >
                             <MessageCircle color="#4F46E5" size={16} />
-                            <Text style={s.chatWithFriendBtnText}>Nhắn tin</Text>
+                            <Text style={s.chatWithFriendBtnText}>Nhắn tin ngay</Text>
                           </Pressable>
                         </View>
                       ) : (
                         <View>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>
                             <View style={{ position: 'relative' }}>
-                              <Image
-                                source={{ uri: cleanAvatarUrl(req.requesterAvatar) }}
-                                style={s.reqAvatar}
-                              />
-                              <View style={[s.onlineStatusDot, { backgroundColor: '#22C55E' }]} />
+                              {reqAv ? (
+                                <Image
+                                  source={{ uri: reqAv }}
+                                  style={s.reqAvatar}
+                                />
+                              ) : (
+                                <View style={[s.reqAvatar, { backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#C7D2FE' }]}>
+                                  <Text style={{ fontSize: 16, fontWeight: '700', color: '#4F46E5' }}>{reqInit}</Text>
+                                </View>
+                              )}
+                              {onlineUserIds.has(Number(req.requesterId)) && (
+                                <View style={s.onlineStatusDot} />
+                              )}
                             </View>
                             <View style={{ flex: 1 }}>
                               <Text style={s.reqName}>{req.requesterName}</Text>
@@ -963,7 +1415,7 @@ export const SocialFeedScreen = () => {
 
                           <View style={s.reqDualActionRow}>
                             <Pressable
-                              onPress={() => handleAcceptRequest(req.id)}
+                              onPress={() => handleAcceptRequest(req)}
                               style={s.acceptBtn}
                             >
                               <Text style={s.acceptBtnText}>Chấp nhận</Text>
@@ -979,11 +1431,108 @@ export const SocialFeedScreen = () => {
                         </View>
                       )}
                     </Animated.View>
-                  ))
+                  );
+                  })
                 )
               )}
 
               {requestsSubTab === 'suggestions' && (
+                communitySuggestions.length === 0 ? (
+                  <View style={s.emptyBox}>
+                    <Users color="#94A3B8" size={40} />
+                    <Text style={s.emptyTitle}>Chưa có gợi ý phù hợp</Text>
+                    <Text style={s.emptySub}>Mọi người trong cộng đồng đều đã là bạn bè hoặc đang chờ phản hồi!</Text>
+                  </View>
+                ) : (
+                  communitySuggestions.map((u, idx) => {
+                    const uId = Number(u.id);
+                    const isOnline = onlineUserIds.has(uId);
+                    const isSent = sentRequestIds.has(uId);
+                    const uName = u.display_name || u.fullName || u.name || 'Học viên SmartEnglish';
+                    const uAvatar = cleanAvatarUrl(u.avatar_url || u.avatar);
+                    const uInit = (uName || 'U').trim().charAt(0).toUpperCase();
+                    const uRole = (u.role || '').toUpperCase();
+                    const uRoleText = uRole === 'TEACHER' ? 'Giáo viên SmartEnglish AI' : 'Học viên tích cực';
+
+                    return (
+                      <Animated.View key={uId || idx} entering={FadeInDown.delay(idx * 50)} style={s.reqCard}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                          <View style={{ position: 'relative' }}>
+                            {uAvatar ? (
+                              <Image
+                                source={{ uri: uAvatar }}
+                                style={s.reqAvatar}
+                              />
+                            ) : (
+                              <View style={[s.reqAvatar, { backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#C7D2FE' }]}>
+                                <Text style={{ fontSize: 16, fontWeight: '700', color: '#4F46E5' }}>{uInit}</Text>
+                              </View>
+                            )}
+                            {isOnline && (
+                              <View style={s.onlineStatusDot} />
+                            )}
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={s.reqName}>{uName}</Text>
+                            <Text style={s.reqLevelSub}>{uRoleText}</Text>
+                            {isOnline && (
+                              <Text style={{ fontSize: 10, color: '#16A34A', fontWeight: '700', marginTop: 2 }}>
+                                Đang online
+                              </Text>
+                            )}
+                          </View>
+                          {isSent ? (
+                            <View
+                              style={{
+                                backgroundColor: '#F1F5F9',
+                                paddingHorizontal: 12,
+                                paddingVertical: 8,
+                                borderRadius: 12,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 4,
+                              }}
+                            >
+                              <Check color="#64748B" size={14} strokeWidth={2.5} />
+                              <Text style={{ fontSize: 12, fontWeight: '700', color: '#64748B' }}>
+                                Đã gửi
+                              </Text>
+                            </View>
+                          ) : (
+                            <Pressable
+                              onPress={() => handleSendFriendRequest(u)}
+                              disabled={sendingFriendRequestId === uId}
+                              style={{
+                                backgroundColor: '#4F46E5',
+                                paddingHorizontal: 12,
+                                paddingVertical: 8,
+                                borderRadius: 12,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 5,
+                                opacity: sendingFriendRequestId === uId ? 0.6 : 1,
+                              }}
+                            >
+                              {sendingFriendRequestId === uId ? (
+                                <ActivityIndicator size="small" color="#FFFFFF" />
+                              ) : (
+                                <>
+                                  <UserPlus color="#FFFFFF" size={14} strokeWidth={2.5} />
+                                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>
+                                    Kết bạn
+                                  </Text>
+                                </>
+                              )}
+                            </Pressable>
+                          )}
+                        </View>
+                      </Animated.View>
+                    );
+                  })
+                )
+              )}
+
+              {requestsSubTab === 'friends' && (
                 friendsList.length === 0 ? (
                   <View style={s.emptyBox}>
                     <Users color="#94A3B8" size={40} />
@@ -992,22 +1541,40 @@ export const SocialFeedScreen = () => {
                   </View>
                 ) : (
                   friendsList.map((f, idx) => {
-                    const friendName = f.requesterId === currentUserId ? f.addresseeName : f.requesterName;
-                    const friendAvatar = f.requesterId === currentUserId ? f.addresseeAvatar : f.requesterAvatar;
+                    const isReq = Number(f.requesterId) === currentUserId;
+                    const friendId = Number(isReq ? f.addresseeId : f.requesterId);
+                    const friendName = isReq ? f.addresseeName : f.requesterName;
+                    const friendAvatar = isReq ? f.addresseeAvatar : f.requesterAvatar;
+                    const isOnline = onlineUserIds.has(friendId);
+
+                    const fAv = cleanAvatarUrl(friendAvatar);
+                    const fInit = (friendName || 'U').trim().charAt(0).toUpperCase();
+
                     return (
-                      <Animated.View key={f.id || idx} entering={FadeInDown.delay(idx * 60)} style={s.reqCard}>
+                      <Animated.View key={f.id || idx} entering={FadeInDown.delay(idx * 50)} style={s.reqCard}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                          <Image
-                            source={{ uri: cleanAvatarUrl(friendAvatar) }}
-                            style={s.reqAvatar}
-                          />
+                          <View style={{ position: 'relative' }}>
+                            {fAv ? (
+                              <Image
+                                source={{ uri: fAv }}
+                                style={s.reqAvatar}
+                              />
+                            ) : (
+                              <View style={[s.reqAvatar, { backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#C7D2FE' }]}>
+                                <Text style={{ fontSize: 16, fontWeight: '700', color: '#4F46E5' }}>{fInit}</Text>
+                              </View>
+                            )}
+                            {isOnline && (
+                              <View style={s.onlineStatusDot} />
+                            )}
+                          </View>
                           <View style={{ flex: 1 }}>
                             <Text style={s.reqName}>{friendName || 'Bạn học'}</Text>
                             <Text style={s.reqLevelSub}>Đã kết nối bạn bè</Text>
                             <Text style={s.reqTimeText}>{formatTimeAgo(f.createdAt)}</Text>
                           </View>
                           <Pressable
-                            onPress={() => setActiveTab('messages')}
+                            onPress={() => handleChatWithAcceptedFriend(friendId, friendName || 'Bạn học', friendAvatar)}
                             style={{
                               backgroundColor: '#EEF2FF',
                               paddingHorizontal: 12,
@@ -1036,24 +1603,35 @@ export const SocialFeedScreen = () => {
                     <Text style={s.emptySub}>Bạn chưa gửi lời mời kết bạn nào.</Text>
                   </View>
                 ) : (
-                  sentRequests.map((sReq, idx) => (
-                    <Animated.View key={sReq.id || idx} entering={FadeInDown.delay(idx * 60)} style={s.reqCard}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                        <Image
-                          source={{ uri: cleanAvatarUrl(sReq.requesterAvatar) }}
-                          style={s.reqAvatar}
-                        />
-                        <View style={{ flex: 1 }}>
-                          <Text style={s.reqName}>{sReq.addresseeName || 'Người nhận'}</Text>
-                          <Text style={s.reqLevelSub}>Đang chờ phản hồi...</Text>
-                          <Text style={s.reqTimeText}>{formatTimeAgo(sReq.createdAt)}</Text>
+                  sentRequests.map((sReq, idx) => {
+                    const sReqAv = cleanAvatarUrl(sReq.addresseeAvatar || sReq.requesterAvatar);
+                    const sReqInit = (sReq.addresseeName || 'U').trim().charAt(0).toUpperCase();
+
+                    return (
+                      <Animated.View key={sReq.id || idx} entering={FadeInDown.delay(idx * 60)} style={s.reqCard}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                          {sReqAv ? (
+                            <Image
+                              source={{ uri: sReqAv }}
+                              style={s.reqAvatar}
+                            />
+                          ) : (
+                            <View style={[s.reqAvatar, { backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#C7D2FE' }]}>
+                              <Text style={{ fontSize: 16, fontWeight: '700', color: '#4F46E5' }}>{sReqInit}</Text>
+                            </View>
+                          )}
+                          <View style={{ flex: 1 }}>
+                            <Text style={s.reqName}>{sReq.addresseeName || 'Người nhận'}</Text>
+                            <Text style={s.reqLevelSub}>Đang chờ phản hồi...</Text>
+                            <Text style={s.reqTimeText}>{formatTimeAgo(sReq.createdAt)}</Text>
+                          </View>
+                          <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
+                            <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '600' }}>Đang chờ</Text>
+                          </View>
                         </View>
-                        <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
-                          <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '600' }}>Đang chờ</Text>
-                        </View>
-                      </View>
-                    </Animated.View>
-                  ))
+                      </Animated.View>
+                    );
+                  })
                 )
               )}
             </ScrollView>
@@ -1221,34 +1799,60 @@ export const SocialFeedScreen = () => {
       {/* ───────────────────────────────────────────────────────────── */}
       {/* MODAL: CHI TIẾT CUỘC TRÒ CHUYỆN (FULL REALTIME + AVATAR GROUPING + ATTACHMENTS) */}
       {/* ───────────────────────────────────────────────────────────── */}
-      <ChatDetailModal
-        visible={Boolean(activeConversation)}
-        conversation={activeConversation}
-        currentUserId={currentUserId}
-        currentUserName={currentUserName}
-        currentUserAvatar={currentUserAvatar}
-        onClose={() => setActiveConversation(null)}
-        onConversationUpdated={(convId, lastMsg) => {
-          setConversations((prev) =>
-            prev.map((c) =>
-              c.id === convId
-                ? {
-                    ...c,
-                    lastMessage: lastMsg,
-                    lastMessageAt: new Date().toISOString(),
-                    unreadCount: 0,
-                  }
-                : c
-            )
-          );
-        }}
-        onNavigateToPost={handleNavigateToPost}
-        onViewImage={(url) => {
-          setViewingImageUrl(url);
-          setViewingImageCaption(null);
-          setViewingImageAuthor('Hình ảnh đính kèm');
-        }}
-      />
+      {(() => {
+        const isGroup = activeConversation?.type === 'GROUP';
+        const activeConvIsOnline = Boolean(
+          activeConversation &&
+            (isGroup
+              ? (
+                  activeConversation.members?.map((m) => Number(m.userId)) ||
+                  activeConversation.memberIds?.map(Number) ||
+                  []
+                )
+                  .filter((id) => id && id !== currentUserId && !isNaN(id))
+                  .some((id) => onlineUserIds.has(id))
+              : (() => {
+                  const otherUserId = Number(
+                    activeConversation.members?.find((m) => Number(m.userId) !== currentUserId)?.userId ||
+                      activeConversation.memberIds?.find((id) => Number(id) !== currentUserId)
+                  );
+                  return Boolean(otherUserId && onlineUserIds.has(otherUserId));
+                })())
+        );
+
+        return (
+          <ChatDetailModal
+            visible={Boolean(activeConversation)}
+            conversation={activeConversation}
+            currentUserId={currentUserId}
+            currentUserName={currentUserName}
+            currentUserAvatar={currentUserAvatar}
+            communityUsers={communityUsers}
+            isOnline={activeConvIsOnline}
+            onClose={() => setActiveConversation(null)}
+            onConversationUpdated={(convId, lastMsg) => {
+              setConversations((prev) =>
+                prev.map((c) =>
+                  c.id === convId
+                    ? {
+                        ...c,
+                        lastMessage: lastMsg,
+                        lastMessageAt: new Date().toISOString(),
+                        unreadCount: 0,
+                      }
+                    : c
+                )
+              );
+            }}
+            onNavigateToPost={handleNavigateToPost}
+            onViewImage={(url) => {
+              setViewingImageUrl(url);
+              setViewingImageCaption(null);
+              setViewingImageAuthor('Hình ảnh đính kèm');
+            }}
+          />
+        );
+      })()}
 
       {/* ───────────────────────────────────────────────────────────── */}
       {/* MODAL: XEM ẢNH BÀI VIẾT PHÓNG TO */}
@@ -1293,6 +1897,205 @@ export const SocialFeedScreen = () => {
           handleOpenConversation(conv);
         }}
       />
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* MODAL: TẠO NHÓM TRÒ CHUYỆN REALTIME */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      <Modal visible={showCreateGroupModal} animationType="slide" transparent={false}>
+        <View style={s.modalRoot}>
+          <View style={[s.modalHeader, { paddingTop: Math.max(insets.top, 20) + 12 }]}>
+            <Pressable
+              onPress={() => {
+                setShowCreateGroupModal(false);
+                setGroupName('');
+                setSelectedGroupMemberIds(new Set());
+              }}
+            >
+              <Text style={s.modalCancelText}>Hủy</Text>
+            </Pressable>
+            <Text style={s.modalTitle}>Tạo nhóm trò chuyện</Text>
+            <Pressable
+              onPress={handleCreateGroup}
+              disabled={!groupName.trim() || selectedGroupMemberIds.size === 0 || isCreatingGroup}
+              style={[
+                s.modalSubmitBtn,
+                (!groupName.trim() || selectedGroupMemberIds.size === 0 || isCreatingGroup) && {
+                  opacity: 0.5,
+                },
+              ]}
+            >
+              {isCreatingGroup ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={s.modalSubmitText}>Tạo</Text>
+              )}
+            </Pressable>
+          </View>
+
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
+            {/* Tên nhóm */}
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#1E293B', marginBottom: 8 }}>
+                Tên nhóm trò chuyện *
+              </Text>
+              <TextInput
+                value={groupName}
+                onChangeText={setGroupName}
+                placeholder="Ví dụ: Nhóm luyện nói IELTS 7.0+, Ôn tập từ vựng..."
+                placeholderTextColor="#94A3B8"
+                style={{
+                  backgroundColor: '#F8FAFC',
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0',
+                  borderRadius: 12,
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                  fontSize: 14,
+                  color: '#1E293B',
+                }}
+              />
+            </View>
+
+            {/* Chọn thành viên */}
+            <View>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: 12,
+                }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#1E293B' }}>
+                  Thêm thành viên ({selectedGroupMemberIds.size} đã chọn)
+                </Text>
+                {selectedGroupMemberIds.size > 0 && (
+                  <Pressable onPress={() => setSelectedGroupMemberIds(new Set())}>
+                    <Text style={{ fontSize: 12, color: '#EF4444', fontWeight: '600' }}>Bỏ chọn tất cả</Text>
+                  </Pressable>
+                )}
+              </View>
+
+              {candidateGroupMembers.length === 0 ? (
+                <View style={{ paddingVertical: 30, alignItems: 'center' }}>
+                  <Users color="#94A3B8" size={36} />
+                  <Text style={{ color: '#64748B', fontSize: 13, marginTop: 8 }}>
+                    Chưa có bạn bè hay thành viên nào để thêm vào nhóm.
+                  </Text>
+                </View>
+              ) : (
+                candidateGroupMembers.map((member) => {
+                  const isSelected = selectedGroupMemberIds.has(member.id);
+                  const isOnline = onlineUserIds.has(member.id);
+                  return (
+                    <Pressable
+                      key={member.id}
+                      onPress={() => {
+                        setSelectedGroupMemberIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(member.id)) {
+                            next.delete(member.id);
+                          } else {
+                            next.add(member.id);
+                          }
+                          return next;
+                        });
+                      }}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingVertical: 10,
+                        paddingHorizontal: 12,
+                        borderRadius: 14,
+                        backgroundColor: isSelected ? '#EEF2FF' : '#FFFFFF',
+                        borderWidth: 1,
+                        borderColor: isSelected ? '#C7D2FE' : '#F1F5F9',
+                        marginBottom: 8,
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                        <View style={{ position: 'relative' }}>
+                          {cleanAvatarUrl(member.avatar) ? (
+                            <Image
+                              source={{ uri: cleanAvatarUrl(member.avatar)! }}
+                              style={{ width: 42, height: 42, borderRadius: 21 }}
+                            />
+                          ) : (
+                            <View
+                              style={{
+                                width: 42,
+                                height: 42,
+                                borderRadius: 21,
+                                backgroundColor: '#EEF2FF',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                borderWidth: 1,
+                                borderColor: '#C7D2FE',
+                              }}
+                            >
+                              <Text style={{ fontSize: 16, fontWeight: '700', color: '#4F46E5' }}>
+                                {(member.name || 'U').trim().charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+                          )}
+                          {isOnline && (
+                            <View
+                              style={{
+                                width: 12,
+                                height: 12,
+                                borderRadius: 9999,
+                                backgroundColor: '#10B981',
+                                position: 'absolute',
+                                bottom: 0,
+                                right: 0,
+                                borderWidth: 2,
+                                borderColor: '#FFFFFF',
+                                zIndex: 2,
+                              }}
+                            />
+                          )}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={{
+                              fontSize: 14,
+                              fontWeight: isSelected ? '700' : '600',
+                              color: '#1E293B',
+                            }}
+                            numberOfLines={1}
+                          >
+                            {member.name}
+                          </Text>
+                          <Text style={{ fontSize: 11, color: '#64748B', marginTop: 1 }}>
+                            {member.role}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Checkbox */}
+                      <View
+                        style={{
+                          width: 22,
+                          height: 22,
+                          borderRadius: 11,
+                          borderWidth: 1.5,
+                          borderColor: isSelected ? '#4F46E5' : '#CBD5E1',
+                          backgroundColor: isSelected ? '#4F46E5' : 'transparent',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}
+                      >
+                        {isSelected && <Check color="#FFFFFF" size={13} strokeWidth={3} />}
+                      </View>
+                    </Pressable>
+                  );
+                })
+              )}
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -1504,7 +2307,18 @@ const s = StyleSheet.create({
   },
   teacherAvatarWrap: { position: 'relative' },
   teacherAvatar: { width: 34, height: 34, borderRadius: 17 },
-  teacherOnlineDot: { width: 9, height: 9, borderRadius: 4.5, backgroundColor: '#22C55E', position: 'absolute', bottom: 0, right: 0, borderWidth: 1.5, borderColor: '#FFFFFF' },
+  teacherOnlineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 9999,
+    backgroundColor: '#10B981',
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    zIndex: 2,
+  },
   teacherNameText: { fontSize: 12, fontWeight: '700', color: '#1E293B' },
   teacherRoleText: { fontSize: 10, color: '#64748B' },
   teacherChatIconBox: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center' },
@@ -1554,14 +2368,19 @@ const s = StyleSheet.create({
   chatOnlineDot: {
     width: 14,
     height: 14,
-    borderRadius: 7,
+    borderRadius: 9999,
     backgroundColor: '#10B981',
     position: 'absolute',
-    bottom: -1,
-    right: -1,
-    borderWidth: 2.5,
+    bottom: 1,
+    right: 1,
+    borderWidth: 2,
     borderColor: '#FFFFFF',
     zIndex: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 1,
+    elevation: 2,
   },
   chatInfoWrap: {
     flex: 1,
@@ -1602,7 +2421,7 @@ const s = StyleSheet.create({
   },
   chatLastMsgUnread: { color: '#0F172A', fontWeight: '700' },
   chatUnreadBadge: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#EF4444',
     minWidth: 19,
     height: 19,
     borderRadius: 9.5,
@@ -1691,7 +2510,18 @@ const s = StyleSheet.create({
     borderColor: '#F1F5F9',
   },
   reqAvatar: { width: 48, height: 48, borderRadius: 24 },
-  onlineStatusDot: { width: 12, height: 12, borderRadius: 6, position: 'absolute', bottom: 0, right: 0, borderWidth: 2, borderColor: '#FFFFFF' },
+  onlineStatusDot: {
+    width: 13,
+    height: 13,
+    borderRadius: 9999,
+    backgroundColor: '#10B981',
+    position: 'absolute',
+    bottom: 1,
+    right: 1,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    zIndex: 2,
+  },
   reqName: { fontSize: 14, fontWeight: '800', color: '#1E293B', marginBottom: 2 },
   reqLevelSub: { fontSize: 11, color: '#64748B', fontWeight: '500' },
   reqTimeText: { fontSize: 10, color: '#94A3B8', marginTop: 2 },

@@ -152,10 +152,18 @@ export const SharePostModal: React.FC<SharePostModalProps> = ({
           {/* Post Preview Card */}
           <View style={styles.previewCard}>
             <View style={styles.previewHeader}>
-              <Image
-                source={{ uri: cleanAvatarUrl(post.authorAvatar) }}
-                style={styles.previewAvatar}
-              />
+              {cleanAvatarUrl(post.authorAvatar) ? (
+                <Image
+                  source={{ uri: cleanAvatarUrl(post.authorAvatar) }}
+                  style={styles.previewAvatar}
+                />
+              ) : (
+                <View style={[styles.previewAvatar, { backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center' }]}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#4F46E5' }}>
+                    {(post.authorName || 'U').trim().charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
               <View style={{ flex: 1 }}>
                 <Text style={styles.previewAuthor}>{post.authorName || 'Người dùng'}</Text>
                 <Text style={styles.previewRole}>{post.authorRole || 'Bài viết cộng đồng'}</Text>
@@ -166,7 +174,7 @@ export const SharePostModal: React.FC<SharePostModalProps> = ({
             </Text>
             {post.mediaUrl ? (
               <Image
-                source={{ uri: cleanAvatarUrl(post.mediaUrl) }}
+                source={{ uri: post.mediaUrl }}
                 style={styles.previewImg}
                 resizeMode="cover"
               />
@@ -216,12 +224,7 @@ export const SharePostModal: React.FC<SharePostModalProps> = ({
               filteredConversations.map((conv) => {
                 const isSelected = selectedConvId === conv.id;
                 const isGroup = conv.type === 'GROUP';
-                const avatar = cleanAvatarUrl(
-                  conv.avatar,
-                  isGroup
-                    ? 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=200'
-                    : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'
-                );
+                const avatar = cleanAvatarUrl(conv.avatar);
 
                 return (
                   <Pressable
@@ -232,7 +235,15 @@ export const SharePostModal: React.FC<SharePostModalProps> = ({
                       isSelected && styles.convItemSelected,
                     ]}
                   >
-                    <Image source={{ uri: avatar }} style={styles.convAvatar} />
+                    {avatar ? (
+                      <Image source={{ uri: avatar }} style={styles.convAvatar} />
+                    ) : (
+                      <View style={[styles.convAvatar, { backgroundColor: isGroup ? '#EDE9FE' : '#EEF2FF', justifyContent: 'center', alignItems: 'center' }]}>
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: isGroup ? '#7C3AED' : '#4F46E5' }}>
+                          {(conv.name || 'U').trim().charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
                     <View style={{ flex: 1 }}>
                       <Text style={styles.convName} numberOfLines={1}>
                         {conv.name || (isGroup ? 'Nhóm chung' : 'Bạn học')}
