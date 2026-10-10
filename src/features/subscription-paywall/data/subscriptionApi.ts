@@ -255,8 +255,19 @@ export const fetchSubscriptionStatusApi = async (userId?: string): Promise<Subsc
  */
 export const subscribeToPlanApi = async (request: SubscribeRequest, userId?: string): Promise<SubscriptionStatus> => {
   const uid = userId || getCurrentUserId();
+  const rawId = String(request.planId || '');
+  const numericPlanId = rawId.includes('LIFETIME') ? 4 : rawId.includes('YEARLY') ? 3 : 2;
+  const cycle = rawId.includes('YEARLY') || rawId.includes('LIFETIME') ? 'YEARLY' : 'MONTHLY';
+
+  const payload = {
+    planId: numericPlanId,
+    planCode: rawId,
+    paymentMethod: request.paymentMethod || 'MOMO',
+    billingCycle: cycle,
+  };
+
   try {
-    const response = await apiClient.post<any>(`/api/v1/payment/subscriptions/subscribe?userId=${uid}`, request);
+    const response = await apiClient.post<any>(`/api/v1/payment/subscriptions/subscribe?userId=${uid}`, payload);
     const data = response.data?.data || response.data;
     if (data) {
       return {
