@@ -1,4 +1,4 @@
-import { apiClient, getCurrentUserId } from '@/src/core/api/client';
+import { apiClient } from '@/src/core/api/client';
 import { fetchPublishedExamDetailApi } from './examCatalogApi';
 import { Platform } from 'react-native';
 
@@ -96,12 +96,6 @@ export interface ExamAttemptResult {
 }
 
 const unwrap = <T>(payload: any): T => (payload?.data ?? payload) as T;
-const requireUserId = () => {
-  const userId = getCurrentUserId();
-  if (!userId) throw new Error('Bạn cần đăng nhập để làm bài kiểm tra');
-  return userId;
-};
-
 const toPart = (raw: any): ExamPart => {
   const text = String(raw ?? '1').toUpperCase();
   return (text.startsWith('PART_') ? text : `PART_${text.replace(/\D/g, '') || '1'}`) as ExamPart;
@@ -193,7 +187,7 @@ export const normalizeSession = (raw: any): ExamAttemptSession => {
 };
 
 export async function startExamAttemptApi(examId: number): Promise<ExamAttemptSession> {
-  const response = await apiClient.post(`/api/v1/learning/exams/${examId}/start`, null, { params: { userId: requireUserId() } });
+  const response = await apiClient.post(`/api/v1/learning/exams/${examId}/start`);
   const raw = unwrap<any>(response.data);
   let session = normalizeSession(raw);
   if ((!session.questions || session.questions.length === 0) && examId) {
@@ -217,7 +211,7 @@ export async function startExamAttemptApi(examId: number): Promise<ExamAttemptSe
 }
 
 export async function fetchExamAttemptApi(attemptId: number): Promise<ExamAttemptSession> {
-  const response = await apiClient.get(`/api/v1/learning/exams/attempts/${attemptId}`, { params: { userId: requireUserId() } });
+  const response = await apiClient.get(`/api/v1/learning/exams/attempts/${attemptId}`);
   const raw = unwrap<any>(response.data);
   let session = normalizeSession(raw);
   const examId = raw?.examId || session?.examId;
@@ -245,8 +239,7 @@ export async function saveExamAnswerApi(attemptId: number, questionId: string, s
   try {
     await apiClient.put(
       `/api/v1/learning/exams/attempts/${attemptId}/answers`,
-      { questionId, selectedAnswer, bookmarked },
-      { params: { userId: requireUserId() } }
+      { questionId, selectedAnswer, bookmarked }
     );
   } catch (err) {
     // Non-critical: fail silently so the user experience is not interrupted
@@ -257,7 +250,7 @@ export async function saveExamAnswerApi(attemptId: number, questionId: string, s
 
 export async function submitExamAttemptApi(attemptId: number, answers: Record<string, AnswerKey>, timeSpentSeconds: number): Promise<ExamAttemptResult> {
   const response = await apiClient.post(`/api/v1/learning/exams/attempts/${attemptId}/submit`,
-    { answers, timeSpentSeconds, platform: Platform.OS.toUpperCase() }, { params: { userId: requireUserId() } });
+    { answers, timeSpentSeconds, platform: Platform.OS.toUpperCase() });
   const raw = unwrap<any>(response.data);
   let result = normalizeResult(raw);
   const examId = raw?.examId || result?.examId;
@@ -282,7 +275,7 @@ export async function submitExamAttemptApi(attemptId: number, answers: Record<st
 }
 
 export async function fetchExamResultApi(attemptId: number): Promise<ExamAttemptResult> {
-  const response = await apiClient.get(`/api/v1/learning/exams/attempts/${attemptId}`, { params: { userId: requireUserId() } });
+  const response = await apiClient.get(`/api/v1/learning/exams/attempts/${attemptId}`);
   const raw = unwrap<any>(response.data);
   let result = normalizeResult(raw);
   const examId = raw?.examId || result?.examId;
@@ -308,7 +301,7 @@ export async function fetchExamResultApi(attemptId: number): Promise<ExamAttempt
 
 export async function fetchUserExamHistoryApi(examId?: number): Promise<ExamAttemptResult[]> {
   const url = examId ? `/api/v1/learning/exams/${examId}/history` : `/api/v1/learning/exams/history`;
-  const response = await apiClient.get(url, { params: { userId: requireUserId(), size: 20 } });
+  const response = await apiClient.get(url, { params: { size: 20 } });
   const rawData = unwrap<any>(response.data);
   const items = Array.isArray(rawData?.content) ? rawData.content : (Array.isArray(rawData) ? rawData : []);
   return items.map(normalizeResult);

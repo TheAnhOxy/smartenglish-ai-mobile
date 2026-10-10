@@ -29,7 +29,7 @@ import Animated, {
   withRepeat,
 } from 'react-native-reanimated';
 import * as Speech from 'expo-speech';
-import { stopSpeech } from '@/src/core/services/speechService';
+import { createManagedWebAudio, speakText, stopSpeech } from '@/src/core/services/speechService';
 import {
   AudioModule,
   RecordingPresets,
@@ -133,8 +133,7 @@ export const SpeakingFeedbackScreen = () => {
   const playNativeTargetAudio = () => {
     try {
       setIsPlayingNative(true);
-      Speech.stop();
-      Speech.speak(params.word || 'Phenomenal', {
+      void speakText(params.word || 'Phenomenal', {
         language: 'en-US',
         pitch: 1.0,
         rate: 0.85,
@@ -239,7 +238,7 @@ export const SpeakingFeedbackScreen = () => {
 
       if (Platform.OS === 'web' && webAudioBlobUrlRef.current) {
         // Web Audio element playback
-        const audio = new (window as any).Audio(webAudioBlobUrlRef.current);
+        const audio = createManagedWebAudio(webAudioBlobUrlRef.current);
         audio.onended = () => setIsPlayingUserVoice(false);
         audio.onerror = () => setIsPlayingUserVoice(false);
         await audio.play();

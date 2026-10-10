@@ -28,7 +28,7 @@ import {
   useAudioRecorder,
 } from 'expo-audio';
 import * as Speech from 'expo-speech';
-import { stopSpeech } from '@/src/core/services/speechService';
+import { createManagedWebAudio, speakText, stopSpeech } from '@/src/core/services/speechService';
 import { colors, palette } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
 import { ProgressRing } from '@/src/components/ui/ProgressRing';
@@ -138,8 +138,7 @@ export const SingleWordSpeakingScreen = () => {
 
   const playNativeAudio = () => {
     setIsPlayingNative(true);
-    Speech.stop();
-    Speech.speak(targetWord, {
+    void speakText(targetWord, {
       language: 'en-US',
       pitch: 1.0,
       rate: 0.85,
@@ -254,7 +253,7 @@ export const SingleWordSpeakingScreen = () => {
     try {
       setIsPlayingUserVoice(true);
       if (Platform.OS === 'web' && webAudioBlobUrlRef.current) {
-        const audio = new (window as any).Audio(webAudioBlobUrlRef.current);
+        const audio = createManagedWebAudio(webAudioBlobUrlRef.current);
         audio.onended = () => setIsPlayingUserVoice(false);
         await audio.play();
       } else if (recordedUri) {

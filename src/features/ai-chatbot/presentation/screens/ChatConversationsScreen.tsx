@@ -43,7 +43,7 @@ import {
   Key,
 } from 'lucide-react-native';
 import * as Speech from 'expo-speech';
-import { stopSpeech } from '@/src/core/services/speechService';
+import { speakText, stopSpeech } from '@/src/core/services/speechService';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -336,7 +336,7 @@ export const ChatConversationsScreen = () => {
     // Strip markdown formatting for cleaner speech output
     const cleanText = text.replace(/[*_`#]/g, '').trim();
 
-    Speech.speak(cleanText, {
+    void speakText(cleanText, {
       language: 'en-US',
       pitch: 1.0,
       rate: 0.9,
@@ -741,14 +741,15 @@ const s = StyleSheet.create({
   },
   onlineBadge: {
     position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#22C55E',
+    bottom: 0.5,
+    right: 0.5,
+    width: 12,
+    height: 12,
+    borderRadius: 9999,
+    backgroundColor: '#10B981',
     borderWidth: 2,
     borderColor: '#FFFFFF',
+    zIndex: 2,
   },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   aiName: { fontSize: 16, fontWeight: '800', color: '#0F172A' },

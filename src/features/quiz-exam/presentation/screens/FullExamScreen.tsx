@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   View,
   Text,
   ScrollView,
@@ -12,9 +13,10 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as Speech from 'expo-speech';
+import { createManagedWebAudio, stopSpeech } from '@/src/core/services/speechService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   X,
@@ -60,6 +62,8 @@ import {
 } from '../../data/practiceSessionStorage';
 import { colors } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
+import { ExamListeningClusterView } from '../components/ExamListeningClusterView';
+import { ExamReadingClusterView } from '../components/ExamReadingClusterView';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -254,40 +258,98 @@ export function FullExamScreen() {
     return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  // Cấu hình âm thanh: Tạm thời khóa Tầng 1 (URL Audio ngoài do link chưa chính xác)
-  // Chỉ sử dụng Tầng 2 (Speech TTS / Web Speech) đọc kịch bản script chuẩn xác
-  const ENABLE_LAYER_1 = false;
+  // Ưu tiên phát file Audio MP3 thật nếu câu hỏi có audioUrl hợp lệ.
+  // Nếu chưa có file audio, tự động fallback sang Tầng 2 (Speech TTS).
+  const ENABLE_LAYER_1 = Boolean(currentQ?.audioUrl && currentQ.audioUrl.trim().length > 0);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const speechTimerRef = useRef<any>(null);
+  const isAudioActiveRef = useRef<boolean>(false);
+  const playedAudioClustersRef = useRef<Set<string>>(new Set());
+  const [audioHasEnded, setAudioHasEnded] = useState(false);
 
   // Dual Audio Engine: expo-audio on Native, HTML5 Audio on Web browser
   const audioPlayer = useAudioPlayer(currentQ?.audioUrl ?? null, { updateInterval: 500 });
   const audioStatus = useAudioPlayerStatus(audioPlayer);
+
+  useEffect(() => {
+    if (audioStatus.didJustFinish) {
+      setAudioHasEnded(true);
+    }
+  }, [audioStatus.didJustFinish]);
 
   const htmlAudioRef = useRef<any>(null);
   const [webAudioPlaying, setWebAudioPlaying] = useState(false);
   const [webCurrentTime, setWebCurrentTime] = useState(0);
   const [webDuration, setWebDuration] = useState(0);
 
-  useEffect(() => {
-    if (isSpeaking) {
-      Speech.stop();
-      setIsSpeaking(false);
+  // ─── HÀM DỪNG / TẮT TOÀN BỘ ÂM THANH KHI THOÁT HOẶC CHUYỂN CÂU ───
+  const stopAllAudio = useCallback(() => {
+    isAudioActiveRef.current = false;
+    if (speechTimerRef.current) {
+      clearTimeout(speechTimerRef.current);
+      speechTimerRef.current = null;
     }
 
-    if (Platform.OS !== 'web' || typeof window === 'undefined' || typeof Audio === 'undefined') return;
+    try {
+      Speech.stop();
+    } catch (_) {}
+    try {
+      stopSpeech();
+    } catch (_) {}
+
+    setIsSpeaking(false);
+    setIsSpeakingTts(false);
+
+    try {
+      audioPlayer?.pause();
+    } catch (_) {}
 
     if (htmlAudioRef.current) {
       try {
         htmlAudioRef.current.pause();
+        htmlAudioRef.current.currentTime = 0;
       } catch (_) {}
       htmlAudioRef.current = null;
     }
     setWebAudioPlaying(false);
-    setWebCurrentTime(0);
+  }, [audioPlayer]);
+
+  // Tự động tắt âm thanh khi component unmount
+  useEffect(() => {
+    return () => {
+      stopAllAudio();
+    };
+  }, [stopAllAudio]);
+
+  // Tự động tắt âm thanh khi màn hình mất focus (thoát, chuyển tab, quay lại màn hình trước)
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        stopAllAudio();
+      };
+    }, [stopAllAudio])
+  );
+
+  // Bắt phím cứng Back trên Android: tắt âm thanh và hiện modal xác nhận thoát
+  useEffect(() => {
+    const onBackPress = () => {
+      stopAllAudio();
+      setShowExitModal(true);
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [stopAllAudio]);
+
+  // Khi chuyển câu hỏi: lập tức tắt âm thanh câu cũ
+  useEffect(() => {
+    stopAllAudio();
+
+    if (Platform.OS !== 'web' || typeof window === 'undefined' || typeof Audio === 'undefined') return;
 
     if (ENABLE_LAYER_1 && currentQ?.audioUrl) {
       try {
-        const audio = new Audio(currentQ.audioUrl);
+        const audio = createManagedWebAudio(currentQ.audioUrl);
         htmlAudioRef.current = audio;
         audio.onloadedmetadata = () => {
           setWebDuration(audio.duration || currentQ.audioDurationSec || 20);
@@ -298,6 +360,7 @@ export function FullExamScreen() {
         audio.onended = () => {
           setWebAudioPlaying(false);
           setWebCurrentTime(0);
+          setAudioHasEnded(true);
         };
       } catch (e) {
         console.warn('Web Audio init error:', e);
@@ -305,25 +368,15 @@ export function FullExamScreen() {
     }
 
     return () => {
-      if (isSpeaking) {
-        Speech.stop();
-        setIsSpeaking(false);
-      }
-      if (htmlAudioRef.current) {
-        try {
-          htmlAudioRef.current.pause();
-        } catch (_) {}
-        htmlAudioRef.current = null;
-      }
+      stopAllAudio();
     };
-  }, [currentQ?.id, currentQ?.audioUrl]);
+  }, [currentQ?.id, currentQ?.audioUrl, stopAllAudio]);
 
   const handleToggleAudio = () => {
     // ─── TẦNG 2: Speech TTS (Kích hoạt khi Tầng 1 tạm khóa) ───────────────────
     if (!ENABLE_LAYER_1) {
       if (isSpeaking) {
-        Speech.stop();
-        setIsSpeaking(false);
+        stopAllAudio();
         return;
       }
 
@@ -416,11 +469,18 @@ export function FullExamScreen() {
       };
 
       const segments: Seg[] = directSegments ?? parseSegments(textToRead);
+      stopAllAudio();
+      isAudioActiveRef.current = true;
       setIsSpeaking(true);
-      Speech.stop();
 
       const speakSegmentIndex = (idx: number) => {
+        if (!isAudioActiveRef.current) {
+          try { Speech.stop(); } catch (_) {}
+          setIsSpeaking(false);
+          return;
+        }
         if (idx >= segments.length) {
+          isAudioActiveRef.current = false;
           setIsSpeaking(false);
           return;
         }
@@ -435,18 +495,35 @@ export function FullExamScreen() {
           rate: isOptionHeader ? 0.85 : 0.9,
           pitch,
           onDone: () => {
+            if (!isAudioActiveRef.current) return;
             if (idx + 1 < segments.length) {
-              setTimeout(() => speakSegmentIndex(idx + 1), delay);
+              speechTimerRef.current = setTimeout(() => {
+                if (isAudioActiveRef.current) {
+                  speakSegmentIndex(idx + 1);
+                }
+              }, delay);
             } else {
+              isAudioActiveRef.current = false;
               setIsSpeaking(false);
+              setAudioHasEnded(true);
             }
           },
-          onStopped: () => setIsSpeaking(false),
+          onStopped: () => {
+            isAudioActiveRef.current = false;
+            setIsSpeaking(false);
+          },
           onError: () => {
+            if (!isAudioActiveRef.current) return;
             if (idx + 1 < segments.length) {
-              speakSegmentIndex(idx + 1);
+              speechTimerRef.current = setTimeout(() => {
+                if (isAudioActiveRef.current) {
+                  speakSegmentIndex(idx + 1);
+                }
+              }, delay);
             } else {
+              isAudioActiveRef.current = false;
               setIsSpeaking(false);
+              setAudioHasEnded(true);
             }
           },
         });
@@ -512,16 +589,53 @@ export function FullExamScreen() {
   const clusterQuestions = useMemo(() => {
     if (!currentQ) return [];
     if (currentQ.groupQuestionNumbers && currentQ.groupQuestionNumbers.length > 1) {
-      return questions.filter((q) => currentQ.groupQuestionNumbers?.includes(q.questionNumber));
+      const found = questions.filter((q) => currentQ.groupQuestionNumbers?.includes(q.questionNumber));
+      if (found.length > 1) return found;
     }
     if (currentQ.groupTag) {
       const byTag = questions.filter((q) => q.groupTag === currentQ.groupTag);
       if (byTag.length > 1) return byTag;
     }
+    if (currentQ.audioUrl && (currentQ.part === 'PART_3' || currentQ.part === 'PART_4')) {
+      const byAudio = questions.filter((q) => q.audioUrl === currentQ.audioUrl);
+      if (byAudio.length > 1) return byAudio;
+    }
+    if (currentQ.passage && (currentQ.part === 'PART_6' || currentQ.part === 'PART_7')) {
+      const pTitle = currentQ.passage.title;
+      const pText = currentQ.passage.paragraphs?.[0];
+      const byPassage = questions.filter((q) =>
+        q.passage && (
+          (pTitle && q.passage.title === pTitle) ||
+          (pText && q.passage.paragraphs?.[0] === pText)
+        )
+      );
+      if (byPassage.length > 1) return byPassage;
+    }
     return [currentQ];
   }, [currentQ, questions]);
 
   const isCluster = clusterQuestions.length > 1;
+  const isListeningPart = currentQ?.part === 'PART_1' || currentQ?.part === 'PART_2' || currentQ?.part === 'PART_3' || currentQ?.part === 'PART_4';
+  const clusterKey = currentQ?.groupTag || (currentQ?.groupQuestionNumbers ? currentQ.groupQuestionNumbers.join('-') : currentQ?.audioUrl || `q_${currentQ?.questionNumber}`);
+
+  // Auto-play âm thanh trong chế độ thi thử (Exam Mode) - Chỉ nghe duy nhất 1 lần
+  useEffect(() => {
+    if (!isPracticeMode && isListeningPart && currentQ) {
+      if (playedAudioClustersRef.current.has(clusterKey)) {
+        setAudioHasEnded(true);
+      } else {
+        setAudioHasEnded(false);
+        const timer = setTimeout(() => {
+          if (!playedAudioClustersRef.current.has(clusterKey)) {
+            playedAudioClustersRef.current.add(clusterKey);
+            handleToggleAudio();
+          }
+        }, 500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [clusterKey, isPracticeMode, isListeningPart]);
+
   const clusterAnsweredCount = clusterQuestions.filter((q) => Boolean(userAnswers[q.id])).length;
   const isClusterComplete = clusterAnsweredCount === clusterQuestions.length;
   const isClusterRevealed = clusterQuestions.some((q) => Boolean(revealedQuestions[q.id]));
@@ -547,31 +661,32 @@ export function FullExamScreen() {
     });
   };
 
-  // Option select – KHÔNG gọi API ngay. Đánh dấu câu cần sync để flush khi chuyển câu.
-  // Exam mode: submitAttempt cuối đã gửi toàn bộ → không cần PUT trung gian.
-  // Practice mode: pendingSyncRef được flush tại goToNext/goToPrev/jumpTo.
-  const handleSelectOption = (key: AnswerKey) => {
-    if (!currentQ) return;
-    if (isPracticeMode && revealedQuestions[currentQ.id]) return;
-    const nextAnswers = { ...userAnswers, [currentQ.id]: key };
+  // Chọn đáp án cho bất kỳ câu hỏi nào trong cụm
+  const handleSelectClusterAnswer = (questionId: string, key: AnswerKey) => {
+    if (isPracticeMode && revealedQuestions[questionId]) return;
+    const nextAnswers = { ...userAnswers, [questionId]: key };
     setUserAnswers(nextAnswers);
 
-    // Chỉ đánh dấu pending — flush sẽ xảy ra khi rời câu này
     if (isPracticeMode && activeAttemptId && activeAttemptId !== 9999) {
-      pendingSyncRef.current = { questionId: currentQ.id, answer: key };
+      pendingSyncRef.current = { questionId, answer: key };
     }
 
-    // In Practice Mode for single questions (not a multi-question group), reveal immediately
     let nextRevealed = revealedQuestions;
     if (isPracticeMode && !isCluster) {
-      nextRevealed = { ...revealedQuestions, [currentQ.id]: true };
+      nextRevealed = { ...revealedQuestions, [questionId]: true };
       setRevealedQuestions(nextRevealed);
-      if (isWrongOnly && key === currentQ.correctAnswer) {
-        setResolvedWrongIds((prev) => ({ ...prev, [currentQ.id]: true }));
+      const targetQ = questions.find((q) => q.id === questionId);
+      if (isWrongOnly && targetQ && key === targetQ.correctAnswer) {
+        setResolvedWrongIds((prev) => ({ ...prev, [questionId]: true }));
       }
     }
 
     persistPractice(currentIndex, nextAnswers, nextRevealed);
+  };
+
+  const handleSelectOption = (key: AnswerKey) => {
+    if (!currentQ) return;
+    handleSelectClusterAnswer(currentQ.id, key);
   };
 
   const handleRevealCluster = () => {
@@ -587,28 +702,46 @@ export function FullExamScreen() {
     });
   };
 
-  // Navigation between questions – flush pending sync khi rời câu (practice mode)
+  // Navigation between questions/clusters
   const goToNext = () => {
+    stopAllAudio();
     flushPendingSync(activeAttemptId, userAnswers, bookmarkedIds);
-    if (currentIndex < questions.length - 1) {
-      const nextIdx = currentIndex + 1;
-      setCurrentIndex(nextIdx);
-      persistPractice(nextIdx);
+
+    const lastInCluster = clusterQuestions[clusterQuestions.length - 1];
+    const lastIdx = lastInCluster ? questions.findIndex((q) => q.id === lastInCluster.id) : currentIndex;
+    const targetIdx = lastIdx !== -1 ? lastIdx + 1 : currentIndex + 1;
+
+    if (targetIdx < questions.length) {
+      setCurrentIndex(targetIdx);
+      persistPractice(targetIdx);
     } else {
       setShowSubmitModal(true);
     }
   };
 
   const goToPrev = () => {
+    stopAllAudio();
     flushPendingSync(activeAttemptId, userAnswers, bookmarkedIds);
-    if (currentIndex > 0) {
-      const prevIdx = currentIndex - 1;
-      setCurrentIndex(prevIdx);
-      persistPractice(prevIdx);
+
+    const firstInCluster = clusterQuestions[0];
+    const firstIdx = firstInCluster ? questions.findIndex((q) => q.id === firstInCluster.id) : currentIndex;
+    const targetPrevIdx = firstIdx !== -1 ? firstIdx - 1 : currentIndex - 1;
+
+    if (targetPrevIdx >= 0) {
+      const prevQ = questions[targetPrevIdx];
+      let finalIdx = targetPrevIdx;
+      if (prevQ.groupQuestionNumbers && prevQ.groupQuestionNumbers.length > 1) {
+        const firstNum = Math.min(...prevQ.groupQuestionNumbers);
+        const clusterStartIdx = questions.findIndex((q) => q.questionNumber === firstNum);
+        if (clusterStartIdx !== -1) finalIdx = clusterStartIdx;
+      }
+      setCurrentIndex(finalIdx);
+      persistPractice(finalIdx);
     }
   };
 
   const jumpToQuestionByNumber = (qNum: number) => {
+    stopAllAudio();
     flushPendingSync(activeAttemptId, userAnswers, bookmarkedIds);
     const targetIdx = questions.findIndex((q) => q.questionNumber === qNum);
     if (targetIdx !== -1) {
@@ -621,13 +754,23 @@ export function FullExamScreen() {
   const [isSpeakingTts, setIsSpeakingTts] = useState(false);
   const handleSpeakQuestion = () => {
     if (!currentQ) return;
+    stopAllAudio();
     setIsSpeakingTts(true);
-    Speech.stop();
+    isAudioActiveRef.current = true;
     Speech.speak(currentQ.questionText.replace(/_______/g, 'blank'), {
       language: 'en-US',
-      onDone: () => setIsSpeakingTts(false),
-      onStopped: () => setIsSpeakingTts(false),
-      onError: () => setIsSpeakingTts(false),
+      onDone: () => {
+        isAudioActiveRef.current = false;
+        setIsSpeakingTts(false);
+      },
+      onStopped: () => {
+        isAudioActiveRef.current = false;
+        setIsSpeakingTts(false);
+      },
+      onError: () => {
+        isAudioActiveRef.current = false;
+        setIsSpeakingTts(false);
+      },
     });
   };
 
@@ -677,6 +820,7 @@ export function FullExamScreen() {
   };
 
   const handleSubmit = async () => {
+    stopAllAudio();
     setShowSubmitModal(false);
     setShowGridModal(false);
     if (submitAttempt.isPending) return;
@@ -749,7 +893,13 @@ export function FullExamScreen() {
             ? 'Bạn đã làm đúng tất cả các câu trong lượt thi này!'
             : 'Đề thi hiện chưa có câu hỏi nào hoặc chưa được xuất bản.'}
         </Text>
-        <Pressable style={styles.loadingButton} onPress={() => router.back()}>
+        <Pressable
+          style={styles.loadingButton}
+          onPress={() => {
+            stopAllAudio();
+            router.back();
+          }}
+        >
           <Text style={styles.loadingButtonText}>Quay lại danh sách</Text>
         </Pressable>
       </View>
@@ -788,7 +938,10 @@ export function FullExamScreen() {
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 14) + 6 }]}>
         {/* Left: Close Button */}
         <Pressable
-          onPress={() => setShowExitModal(true)}
+          onPress={() => {
+            stopAllAudio();
+            setShowExitModal(true);
+          }}
           hitSlop={12}
           style={styles.headerIconButton}
         >
@@ -834,7 +987,9 @@ export function FullExamScreen() {
         <View style={styles.subHeaderInfoRow}>
           <View style={styles.questionNumberBadge}>
             <Text style={styles.questionNumberBadgeText}>
-              Câu {currentQ.questionNumber} / {questions.length}
+              {isCluster
+                ? `Câu ${clusterQuestions[0]?.questionNumber}–${clusterQuestions[clusterQuestions.length - 1]?.questionNumber} / ${questions.length}`
+                : `Câu ${currentQ.questionNumber} / ${questions.length}`}
             </Text>
           </View>
 
@@ -866,475 +1021,52 @@ export function FullExamScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollBody}
       >
-        {/* ── PART 1: PHOTO CONTAINER (Giống ảnh 2) ── */}
-        {currentQ.part === 'PART_1' && currentQ.imageUrl && (
-          <View style={styles.photoCard}>
-            <View style={styles.photoWrapper}>
-              <Image
-                source={{ uri: currentQ.imageUrl }}
-                style={styles.photoImage}
-                resizeMode="cover"
-              />
-              <View style={styles.photoTagBadge}>
-                <Camera color="#FFFFFF" size={12} strokeWidth={2.2} />
-                <Text style={styles.photoTagText}>{currentQ.imageTag || 'Ảnh'}</Text>
-              </View>
-            </View>
-
-            {/* Audio Bar for Part 1 */}
-            <View style={styles.audioPlayerBox}>
-              <View style={styles.audioPlayerControls}>
-                <Pressable
-                  testID="audio-play-button-part1"
-                  onPress={handleToggleAudio}
-                  style={styles.audioPlayButton}
-                >
-                  {isPlayingAudio ? (
-                    <Pause color="#FFFFFF" size={16} fill="#FFFFFF" />
-                  ) : (
-                    <Play color="#FFFFFF" size={16} fill="#FFFFFF" style={{ marginLeft: 2 }} />
-                  )}
-                </Pressable>
-
-                <View style={styles.audioTimelineWrap}>
-                  <View style={styles.audioTimeLabels}>
-                    <Text style={styles.audioTimeText}>{formatAudioTime(currentAudioTime)}</Text>
-                    <Text style={styles.audioTimeText}>{formatAudioTime(currentAudioDuration)}</Text>
-                  </View>
-
-                  <View style={styles.audioSliderTrack}>
-                    <View style={[styles.audioSliderFill, { width: `${audioProgress * 100}%` }]} />
-                  </View>
-                </View>
-
-                <Headphones color={colors.primary} size={18} strokeWidth={2} />
-              </View>
-            </View>
-
-            {/* Instruction prompt – chỉ hiện nếu câu hỏi chưa có text, tránh lặp lại 2 dòng hướng dẫn */}
-            {currentQ.instructionPrompt && !currentQ.questionText ? (
-              <View style={styles.instructionWrap}>
-                <Text style={styles.instructionTitle}>{currentQ.instructionPrompt}</Text>
-              </View>
-            ) : null}
-          </View>
+        {/* ─── CỤM CÂU HỎI THEO CHUẨN TOEIC (GOM NHÓM CÂU HỎI TRÊN CÙNG 1 MÀN HÌNH) ─── */}
+        {isListeningPart ? (
+          <ExamListeningClusterView
+            questions={clusterQuestions}
+            userAnswers={userAnswers}
+            onSelectAnswer={handleSelectClusterAnswer}
+            isExamMode={!isPracticeMode}
+            isPracticeMode={isPracticeMode}
+            revealedQuestions={revealedQuestions}
+            isWrongOnly={isWrongOnly}
+            bookmarkedIds={bookmarkedIds}
+            onToggleBookmark={toggleBookmark}
+            isPlayingAudio={isPlayingAudio}
+            audioProgress={audioProgress}
+            currentAudioTime={currentAudioTime}
+            currentAudioDuration={currentAudioDuration}
+            formatAudioTime={formatAudioTime}
+            onToggleAudio={handleToggleAudio}
+            audioHasEnded={audioHasEnded}
+            currentTranslations={currentTranslations}
+            showInlineTranslation={showInlineTranslation}
+            isTranslating={isTranslating}
+            onToggleTranslate={handleToggleTranslate}
+          />
+        ) : (
+          <ExamReadingClusterView
+            questions={clusterQuestions}
+            passage={currentQ?.passage}
+            passageTitle={currentQ?.partSubTitle}
+            groupTag={currentQ?.groupTag}
+            userAnswers={userAnswers}
+            onSelectAnswer={handleSelectClusterAnswer}
+            isExamMode={!isPracticeMode}
+            isPracticeMode={isPracticeMode}
+            revealedQuestions={revealedQuestions}
+            isWrongOnly={isWrongOnly}
+            bookmarkedIds={bookmarkedIds}
+            onToggleBookmark={toggleBookmark}
+            currentTranslations={currentTranslations}
+            showInlineTranslation={showInlineTranslation}
+            isTranslating={isTranslating}
+            onToggleTranslate={handleToggleTranslate}
+          />
         )}
 
-        {/* ── PART 2: QUESTION - RESPONSE AUDIO BOX ── */}
-        {currentQ.part === 'PART_2' && (currentQ.audioUrl || currentQ.audioScript || !ENABLE_LAYER_1) && (
-          <View style={styles.part2AudioCard}>
-            <View style={styles.audioPillRow}>
-              <View style={styles.audioActivePill}>
-                <Headphones color={colors.primary} size={14} />
-                <Text style={styles.audioActivePillText}>{currentQ.audioTitle || 'Phần 2: Hỏi - Đáp'}</Text>
-              </View>
-              <View style={styles.soundWavePill}>
-                <Text style={styles.soundWaveText}>
-                  {isPlayingAudio ? '● Đang đọc câu hỏi & đáp án' : 'Bấm để nghe đọc'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.audioPlayerBox}>
-              <View style={styles.audioPlayerControls}>
-                <Pressable
-                  testID="audio-play-button-part2"
-                  onPress={handleToggleAudio}
-                  style={styles.audioPlayButton}
-                >
-                  {isPlayingAudio ? (
-                    <Pause color="#FFFFFF" size={16} fill="#FFFFFF" />
-                  ) : (
-                    <Play color="#FFFFFF" size={16} fill="#FFFFFF" style={{ marginLeft: 2 }} />
-                  )}
-                </Pressable>
-
-                <View style={styles.audioTimelineWrap}>
-                  <View style={styles.audioTimeLabels}>
-                    <Text style={styles.audioTimeText}>{formatAudioTime(currentAudioTime)}</Text>
-                    <Text style={styles.audioTimeText}>{formatAudioTime(currentAudioDuration)}</Text>
-                  </View>
-                  <View style={styles.audioSliderTrack}>
-                    <View style={[styles.audioSliderFill, { width: `${audioProgress * 100}%` }]} />
-                  </View>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.instructionWrap}>
-              <Text style={styles.instructionTitle}>{currentQ.instructionPrompt}</Text>
-              <Text style={styles.instructionSub}>{currentQ.instructionSub}</Text>
-            </View>
-          </View>
-        )}
-
-        {/* ── PART 3 & PART 4: AUDIO CARD & WAVEFORM (Giống ảnh 3) ── */}
-        {(currentQ.part === 'PART_3' || currentQ.part === 'PART_4') && (currentQ.audioUrl || currentQ.audioScript || !ENABLE_LAYER_1) && (
-          <View style={styles.audioGroupContainer}>
-            <View style={styles.audioCardHeaderRow}>
-              <View style={styles.audioActivePill}>
-                <Headphones color={colors.primary} size={13} />
-                <Text style={styles.audioActivePillText}>{currentQ.audioTitle || (currentQ.part === 'PART_3' ? 'Đoạn hội thoại' : 'Bài nói ngắn')}</Text>
-              </View>
-
-              <View style={styles.soundWavePill}>
-                <Text style={styles.soundWaveText}>● Đang phát âm thanh</Text>
-              </View>
-            </View>
-
-            {/* Waveform Card */}
-            <View style={styles.waveformPlayerCard}>
-              <View style={styles.waveControlsRow}>
-                <Pressable
-                  testID="audio-play-button-part3"
-                  onPress={handleToggleAudio}
-                  style={styles.audioPlayButtonLarge}
-                >
-                  {isPlayingAudio ? (
-                    <Pause color="#FFFFFF" size={18} fill="#FFFFFF" />
-                  ) : (
-                    <Play color="#FFFFFF" size={18} fill="#FFFFFF" style={{ marginLeft: 2 }} />
-                  )}
-                </Pressable>
-
-                {/* Animated Waveform Visualizer */}
-                <View style={styles.waveformBarsWrap}>
-                  {[12, 24, 18, 30, 20, 14, 28, 22, 34, 16, 26, 18, 32, 14, 22, 16, 28, 12].map(
-                    (h, i) => (
-                      <View
-                        key={i}
-                        style={[
-                          styles.waveformBar,
-                          { height: h },
-                          i < (isPlayingAudio ? 14 : 7) ? styles.waveformBarActive : styles.waveformBarInactive,
-                        ]}
-                      />
-                    )
-                  )}
-                </View>
-              </View>
-
-              {/* Slider Track */}
-              <View style={styles.audioTimelineWrap}>
-                <View style={styles.audioSliderTrack}>
-                  <View style={[styles.audioSliderFill, { width: `${audioProgress * 100}%` }]} />
-                </View>
-                <View style={styles.audioTimeLabels}>
-                  <Text style={styles.audioTimeText}>{formatAudioTime(currentAudioTime)}</Text>
-                  <Text style={styles.audioTimeText}>{formatAudioTime(currentAudioDuration)}</Text>
-                </View>
-              </View>
-
-              <View style={styles.etsInfoBox}>
-                <HelpCircle color={colors.textSoft} size={14} />
-                <Text style={styles.etsInfoBoxText}>
-                  {currentQ.audioNotice || 'Đoạn băng phát tự động 1 lần theo chuẩn ETS · Không có transcript'}
-                </Text>
-              </View>
-            </View>
-
-            {/* Sub-question pills for the group */}
-            {currentQ.groupQuestionNumbers && currentQ.groupQuestionNumbers.length > 0 && (
-              <View style={styles.groupNavigationRow}>
-                <View>
-                  <Text style={styles.groupNavTitle}>{currentQ.groupTag}</Text>
-                  <Text style={styles.groupNavSub}>Đang làm câu {currentQ.questionNumber}</Text>
-                </View>
-
-                <View style={styles.groupNumberChips}>
-                  {currentQ.groupQuestionNumbers.map((qNum) => {
-                    const isCurrent = qNum === currentQ.questionNumber;
-                    const targetQ = questions.find((q) => q.questionNumber === qNum);
-                    const isAnswered = targetQ && Boolean(userAnswers[targetQ.id]);
-
-                    return (
-                      <Pressable
-                        key={qNum}
-                        testID={`group-chip-${qNum}`}
-                        onPress={() => jumpToQuestionByNumber(qNum)}
-                        style={[
-                          styles.groupNumberChip,
-                          isCurrent && styles.groupNumberChipCurrent,
-                          !isCurrent && isAnswered && styles.groupNumberChipDone,
-                        ]}
-                      >
-                        {isAnswered && !isCurrent ? (
-                          <CheckCircle2 color={colors.primary} size={16} />
-                        ) : (
-                          <Text
-                            style={[
-                              styles.groupNumberChipText,
-                              isCurrent && styles.groupNumberChipTextCurrent,
-                              !isCurrent && isAnswered && styles.groupNumberChipTextDone,
-                            ]}
-                          >
-                            {qNum}
-                          </Text>
-                        )}
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* ── PART 6 & PART 7: READING PASSAGE CARD (Giống ảnh 4) ── */}
-        {(currentQ.part === 'PART_6' || currentQ.part === 'PART_7') && currentQ.passage && (
-          <View style={styles.passageCard}>
-            <View style={styles.passageHeaderBar}>
-              <View style={styles.passageHeaderLeft}>
-                <FileText color={colors.primary} size={17} />
-                <Text style={styles.passageHeaderTitle}>{currentQ.passage.title}</Text>
-              </View>
-
-              <View style={styles.passageHeaderActions}>
-                <Pressable
-                  onPress={() => setIsPassageExpanded(!isPassageExpanded)}
-                  hitSlop={8}
-                  style={styles.passageActionBtn}
-                >
-                  {isPassageExpanded ? (
-                    <ChevronUp color={colors.textSoft} size={18} />
-                  ) : (
-                    <ChevronDown color={colors.textSoft} size={18} />
-                  )}
-                </Pressable>
-                <Pressable
-                  onPress={() => setIsPassageModalOpen(true)}
-                  hitSlop={8}
-                  style={styles.passageActionBtn}
-                >
-                  <Maximize2 color={colors.textSoft} size={15} />
-                </Pressable>
-              </View>
-            </View>
-
-            {/* Collapsible passage content */}
-            {isPassageExpanded && (
-              <View style={styles.passageContentBox}>
-                {/* Formatted Business Email / Memo Header */}
-                {currentQ.passage.emailHeaders && (
-                  <View style={styles.emailHeadersBox}>
-                    <View style={styles.emailHeaderLine}>
-                      <Text style={styles.emailHeaderLabel}>From:</Text>
-                      <Text style={styles.emailHeaderValue}>{currentQ.passage.emailHeaders.from}</Text>
-                    </View>
-                    <View style={styles.emailHeaderLine}>
-                      <Text style={styles.emailHeaderLabel}>To:</Text>
-                      <Text style={styles.emailHeaderValue}>{currentQ.passage.emailHeaders.to}</Text>
-                    </View>
-                    <View style={styles.emailHeaderLine}>
-                      <Text style={styles.emailHeaderLabel}>Date:</Text>
-                      <Text style={styles.emailHeaderValue}>{currentQ.passage.emailHeaders.date}</Text>
-                    </View>
-                    <View style={styles.emailHeaderLine}>
-                      <Text style={styles.emailHeaderLabel}>Subject:</Text>
-                      <Text style={styles.emailHeaderSubject}>
-                        {currentQ.passage.emailHeaders.subject}
-                      </Text>
-                    </View>
-                  </View>
-                )}
-
-                {/* Paragraphs */}
-                <View style={styles.passageParagraphs}>
-                  {currentQ.passage.paragraphs.map((p, i) => (
-                    <Text key={i} style={styles.passageParagraphText}>
-                      {p}
-                    </Text>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {/* Sub-question indicators for the passage group */}
-            {currentQ.groupQuestionNumbers && currentQ.groupQuestionNumbers.length > 0 && (
-              <View style={styles.readingGroupNavRow}>
-                <View>
-                  <Text style={styles.readingSharedLabel}>Văn bản chia sẻ</Text>
-                  <Text style={styles.readingGroupName}>{currentQ.groupTag}</Text>
-                </View>
-
-                <View style={styles.groupNumberChips}>
-                  {currentQ.groupQuestionNumbers.map((qNum) => {
-                    const isCurrent = qNum === currentQ.questionNumber;
-                    const targetQ = questions.find((q) => q.questionNumber === qNum);
-                    const isAnswered = targetQ && Boolean(userAnswers[targetQ.id]);
-
-                    return (
-                      <Pressable
-                        key={qNum}
-                        testID={`group-chip-${qNum}`}
-                        onPress={() => jumpToQuestionByNumber(qNum)}
-                        style={[
-                          styles.groupNumberChip,
-                          isCurrent && styles.groupNumberChipCurrent,
-                          !isCurrent && isAnswered && styles.groupNumberChipDone,
-                        ]}
-                      >
-                        {isAnswered && !isCurrent ? (
-                          <CheckCircle2 color={colors.primary} size={16} />
-                        ) : (
-                          <Text
-                            style={[
-                              styles.groupNumberChipText,
-                              isCurrent && styles.groupNumberChipTextCurrent,
-                              !isCurrent && isAnswered && styles.groupNumberChipTextDone,
-                            ]}
-                          >
-                            {qNum}
-                          </Text>
-                        )}
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* ── QUESTION CARD (Áp dụng cho mọi câu hỏi) ── */}
-        <View style={styles.questionCard}>
-          {/* Question Meta Header Row */}
-          <View style={styles.questionCardMetaRow}>
-            <View style={styles.questionCardBadges}>
-              {currentQ.categoryTag ? (
-                <View style={styles.categoryPill}>
-                  <Text style={styles.categoryPillText}>{currentQ.categoryTag}</Text>
-                </View>
-              ) : null}
-
-              {currentQ.hasTts ? (
-                <Pressable
-                  onPress={handleSpeakQuestion}
-                  style={styles.ttsButton}
-                >
-                  <Volume2 color={isSpeakingTts ? colors.primary : colors.textSoft} size={15} />
-                  <Text style={styles.ttsButtonText}>Nghe câu hỏi</Text>
-                </Pressable>
-              ) : null}
-            </View>
-
-            {/* Translate Button for Practice Mode */}
-            {isPracticeMode && isCurrentRevealed ? (
-              <Pressable
-                onPress={handleToggleTranslate}
-                style={[styles.translateButton, showInlineTranslation && styles.translateButtonActive]}
-                hitSlop={6}
-              >
-                {isTranslating ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                ) : (
-                  <Languages size={13} color={showInlineTranslation ? colors.primary : '#475569'} />
-                )}
-                <Text style={[styles.translateButtonText, showInlineTranslation && styles.translateButtonTextActive]}>
-                  {isTranslating ? 'Đang dịch...' : showInlineTranslation ? 'Ẩn dịch' : 'Dịch'}
-                </Text>
-              </Pressable>
-            ) : null}
-          </View>
-
-          {/* Question Text with blank underline */}
-          <Text style={styles.mainQuestionText}>
-            {currentQ.questionText}
-          </Text>
-
-          {/* Inline Question Translation */}
-          {isPracticeMode && isCurrentRevealed && showInlineTranslation && Boolean(currentTranslations?.question) ? (
-            <View style={styles.questionTranslationBox}>
-              <Languages size={12} color="#2563EB" style={{ marginTop: 2 }} />
-              <Text style={styles.questionTranslationText}>{currentTranslations?.question}</Text>
-            </View>
-          ) : null}
-        </View>
-
-
-
-        {/* ── OPTIONS LIST (Chuẩn mobile: Full width & xếp dọc các đáp án) ── */}
-        <View style={styles.optionsList}>
-          {displayOptions.map((opt) => {
-            const isSelected = selectedAnswer === opt.key;
-            const isRevealed = Boolean(revealedQuestions[currentQ.id]);
-            const isCorrectAnswer = opt.key === currentQ.correctAnswer;
-            const isWrongSelection = isSelected && !isCorrectAnswer;
-
-            return (
-              <Pressable
-                key={opt.key}
-                testID={`option-card-${opt.key}`}
-                onPress={() => handleSelectOption(opt.key)}
-                disabled={isPracticeMode && isRevealed}
-                style={[
-                  styles.optionCard,
-                  isSelected && styles.optionCardSelected,
-                  isRevealed && isCorrectAnswer && styles.optionCardRevealedCorrect,
-                  isRevealed && isWrongSelection && styles.optionCardRevealedWrong,
-                ]}
-              >
-                {/* Circle Key (A, B, C, D) - Giữ chữ A B C D, đổi màu theo trạng thái, không icon */}
-                <View
-                  style={[
-                    styles.optionKeyCircle,
-                    isSelected && styles.optionKeyCircleSelected,
-                    isRevealed && isCorrectAnswer && styles.optionKeyCircleRevealedCorrect,
-                    isRevealed && isWrongSelection && styles.optionKeyCircleRevealedWrong,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.optionKeyText,
-                      isSelected && styles.optionKeyTextSelected,
-                      isRevealed && (isCorrectAnswer || isWrongSelection) && { color: '#FFFFFF' },
-                    ]}
-                  >
-                    {opt.key}
-                  </Text>
-                </View>
-
-                {/* Option Text and Sublabel - Luôn hiện cho non-listening; hiện trong row khi revealed cho Part 1/2 */}
-                <View style={styles.optionContentWrap}>
-                  {Boolean(opt.label) && (!isListeningOnlyPart || (isListeningOnlyPart && isRevealed)) ? (
-                    <Text
-                      style={[
-                        styles.optionLabelText,
-                        isSelected && styles.optionLabelTextSelected,
-                        isRevealed && isCorrectAnswer && styles.optionLabelTextRevealedCorrect,
-                        isRevealed && isWrongSelection && styles.optionLabelTextRevealedWrong,
-                      ]}
-                    >
-                      {opt.label}
-                    </Text>
-                  ) : null}
-                  {(!isListeningOnlyPart || (isListeningOnlyPart && isRevealed)) && opt.subLabel ? (
-                    <Text style={styles.optionSubLabelText}>{opt.subLabel}</Text>
-                  ) : null}
-                  {isPracticeMode && isRevealed && showInlineTranslation && Boolean(currentTranslations?.[opt.key] || opt.translationVi) ? (
-                    <Text style={styles.optionTranslationText}>
-                      {currentTranslations?.[opt.key] || opt.translationVi}
-                    </Text>
-                  ) : null}
-                </View>
-
-                {/* Radio selection circle indicator */}
-                <View
-                  style={[
-                    styles.radioCircle,
-                    isSelected && styles.radioCircleSelected,
-                    isRevealed && isCorrectAnswer && styles.radioCircleRevealedCorrect,
-                    isRevealed && isWrongSelection && styles.radioCircleRevealedWrong,
-                  ]}
-                >
-                  {isSelected && <View style={styles.radioDot} />}
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {/* ── PRACTICE MODE: CLUSTER CHECK BUTTON OR PROGRESS HINT ── */}
+        {/* Nút kiểm tra đáp án cho cả cụm (Chỉ áp dụng trong Chế độ Luyện tập) */}
         {isPracticeMode && isCluster && !isClusterRevealed && (
           <View style={styles.clusterControlBox}>
             <View style={styles.clusterStatusRow}>
@@ -1514,11 +1246,11 @@ export function FullExamScreen() {
               currentIndex === 0 && styles.prevButtonTextDisabled,
             ]}
           >
-            Câu trước
+            {isCluster ? 'Cụm trước' : 'Câu trước'}
           </Text>
         </Pressable>
 
-        {/* Center Grid Button to quickly view all 30 questions */}
+        {/* Center Grid Button to quickly view all questions */}
         <Pressable
           testID="bottom-grid-btn"
           onPress={() => setShowGridModal(true)}
@@ -1526,13 +1258,15 @@ export function FullExamScreen() {
         >
           <Grid color={colors.primary} size={16} />
           <Text style={styles.quickGridText}>
-            {currentIndex + 1}/{questions.length}
+            {isCluster
+              ? `${clusterQuestions[0]?.questionNumber}–${clusterQuestions[clusterQuestions.length - 1]?.questionNumber}/${questions.length}`
+              : `${currentIndex + 1}/${questions.length}`}
           </Text>
         </Pressable>
 
         <Pressable testID="bottom-next-btn" onPress={goToNext} style={styles.nextButton}>
           <Text style={styles.nextButtonText}>
-            {currentIndex === questions.length - 1 ? 'Nộp bài' : 'Tiếp'}
+            {currentIndex >= questions.length - clusterQuestions.length ? 'Nộp bài' : (isCluster ? 'Cụm tiếp' : 'Tiếp')}
           </Text>
           <ChevronRight color="#FFFFFF" size={19} />
         </Pressable>
@@ -1782,6 +1516,7 @@ export function FullExamScreen() {
               </Pressable>
               <Pressable
                 onPress={async () => {
+                  stopAllAudio();
                   if (isPracticeMode) {
                     // Practice: flush pending BE sync + lưu local storage
                     flushPendingSync(activeAttemptId, userAnswers, bookmarkedIds);

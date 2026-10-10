@@ -1,4 +1,4 @@
-import { apiClient, getCurrentUserId } from '@/src/core/api/client';
+import { apiClient } from '@/src/core/api/client';
 
 export interface QuestionItem {
   id: string;
@@ -81,10 +81,9 @@ export const MOCK_EXAM_SUITE: QuizSuite = {
 
 export const fetchQuizzesListApi = async (quizType?: string) => {
   try {
-    const uid = getCurrentUserId();
     const url = quizType
-      ? `/api/v1/learning/quizzes?quizType=${quizType}${uid ? `&userId=${uid}` : ''}`
-      : `/api/v1/learning/quizzes${uid ? `?userId=${uid}` : ''}`;
+      ? `/api/v1/learning/quizzes?quizType=${encodeURIComponent(quizType)}`
+      : '/api/v1/learning/quizzes';
     const response = await apiClient.get<any>(url);
     const data = response.data?.data || response.data;
     if (Array.isArray(data)) {
@@ -125,11 +124,10 @@ export const submitQuizAttemptApi = async (
   attemptId: number,
   answers: Array<{ questionId: number; userAnswer: string; responseTimeMs?: number }>,
   timeSpentSec: number = 300,
-  userId?: string
+  _userId?: string
 ): Promise<QuizSubmitResult> => {
-  const uid = userId || getCurrentUserId();
   try {
-    const response = await apiClient.post<any>(`/api/v1/learning/attempts/submit?userId=${uid}`, {
+    const response = await apiClient.post<any>('/api/v1/learning/attempts/submit', {
       attemptId,
       timeSpentSec,
       answers
@@ -146,20 +144,9 @@ export const submitQuizAttemptApi = async (
       };
     }
   } catch (err) {
-    console.warn('Real Submit Attempt API error, returning estimated result:', err);
+    console.warn('Submit Attempt API error:', err);
+    throw err;
   }
 
-  return {
-    attemptId,
-    scorePct: 100,
-    correctCount: answers.length,
-    wrongCount: 0,
-    answerDetails: answers.map((ans) => ({
-      questionId: ans.questionId,
-      userAnswer: ans.userAnswer,
-      correctAnswer: ans.userAnswer,
-      isCorrect: true,
-      explanationVi: 'Đáp án chính xác!'
-    }))
-  };
+  throw new Error('Backend không trả về kết quả bài kiểm tra hợp lệ');
 };

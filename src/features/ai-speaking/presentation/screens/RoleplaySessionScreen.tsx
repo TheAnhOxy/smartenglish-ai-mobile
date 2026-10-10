@@ -31,7 +31,6 @@ import {
 } from 'lucide-react-native';
 import * as Speech from 'expo-speech';
 import {
-  MOCK_ROLEPLAY_SCENARIOS,
   fetchRoleplayScenariosApi,
   sendRoleplayChatApi,
   RoleplayScenario,
@@ -39,7 +38,7 @@ import {
   FREE_SPEAKING_DAILY_LIMIT,
 } from '../../data/speakingApi';
 import { useAuthStore } from '@/src/core/flows/authStore';
-import { stopSpeech } from '@/src/core/services/speechService';
+import { speakText, stopSpeech } from '@/src/core/services/speechService';
 
 interface ChatTurn {
   role: 'ai' | 'user';
@@ -55,9 +54,8 @@ export const RoleplaySessionScreen = () => {
   const { getQuota, consumeTurn, canChat } = useSpeakingQuotaStore();
   const quota = getQuota(isPremium);
 
-  const [scenario, setScenario] = useState<RoleplayScenario>(
-    MOCK_ROLEPLAY_SCENARIOS.find((s) => s.id === scenarioId) || MOCK_ROLEPLAY_SCENARIOS[0]
-  );
+  const [scenario, setScenario] = useState<RoleplayScenario | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   
   // Trạng thái thu âm và xử lý
@@ -76,23 +74,20 @@ export const RoleplaySessionScreen = () => {
 
   // Tải thông tin kịch bản từ backend
   useEffect(() => {
+    setSessionError(null);
     fetchRoleplayScenariosApi().then((list) => {
-      const found = list.find((s) => s.id === String(scenarioId));
+      const found = list.find((s: RoleplayScenario) => s.id === String(scenarioId));
       if (found) {
         setScenario(found);
         setTurns([{ role: 'ai', text: found.opening_line }]);
         if (!isAiVoiceMuted && found.opening_line) {
           const cleanSpeech = found.opening_line.split(/💡/)[0].trim();
-          Speech.speak(cleanSpeech || found.opening_line, { language: 'en-US' });
+          void speakText(cleanSpeech || found.opening_line, { language: 'en-US' });
         }
       } else {
-        setTurns([{ role: 'ai', text: scenario.opening_line }]);
-        if (!isAiVoiceMuted && scenario.opening_line) {
-          const cleanSpeech = scenario.opening_line.split(/💡/)[0].trim();
-          Speech.speak(cleanSpeech || scenario.opening_line, { language: 'en-US' });
-        }
+        setSessionError('Không tìm thấy kịch bản luyện nói này.');
       }
-    });
+    }).catch(() => setSessionError('Không thể tải kịch bản luyện nói. Vui lòng thử lại.'));
 
     return () => {
       stopSpeech();
@@ -130,6 +125,18 @@ export const RoleplaySessionScreen = () => {
     }, 120);
     return () => clearTimeout(timer);
   }, [turns, isProcessing]);
+
+  if (!scenario) {
+    return (
+      <View style={[s.root, { alignItems: 'center', justifyContent: 'center', padding: 24 }]}>
+        {sessionError ? (
+          <Text style={{ color: '#B91C1C', textAlign: 'center' }}>{sessionError}</Text>
+        ) : (
+          <ActivityIndicator size="large" color="#4F46E5" />
+        )}
+      </View>
+    );
+  }
 
   // Bật / Tắt thu âm micro và nhận diện giọng nói trực tiếp vào ô text:
   // Nhấn 1 lần để nói, nhấn lại lần nữa để kết thúc (không tự ngắt khi ngừng nghỉ)
@@ -264,22 +271,17 @@ export const RoleplaySessionScreen = () => {
         isPremium
       );
 
-      const aiText =
-        aiResult.aiResponse || 'That sounds great! How else can I help you today?';
+      const aiText = aiResult.aiResponse;
+      if (!aiText) throw new Error('Backend không trả về nội dung hội thoại');
       setTurns((prev) => [...prev, { role: 'ai', text: aiText }]);
 
       if (!isAiVoiceMuted) {
         const cleanSpeech = aiText.split(/💡/)[0].trim();
-        Speech.speak(cleanSpeech || aiText, { language: 'en-US' });
+        void speakText(cleanSpeech || aiText, { language: 'en-US' });
       }
     } catch (err: any) {
       console.warn('[RoleplaySession] sendChat error:', err);
-      const fallbackAi = 'Understood! Would you like to practice anything else?';
-      setTurns((prev) => [...prev, { role: 'ai', text: fallbackAi }]);
-      if (!isAiVoiceMuted) {
-        const cleanSpeech = fallbackAi.split(/💡/)[0].trim();
-        Speech.speak(cleanSpeech || fallbackAi, { language: 'en-US' });
-      }
+      setSessionError('AI đang tạm thời không phản hồi. Tin nhắn chưa được chấm; vui lòng thử lại.')
     } finally {
       setIsProcessing(false);
     }
@@ -299,9 +301,8 @@ export const RoleplaySessionScreen = () => {
   };
 
   const handleSpeakAiLine = (text: string) => {
-    Speech.stop();
     const cleanSpeech = text.split(/💡/)[0].trim();
-    Speech.speak(cleanSpeech || text, { language: 'en-US' });
+    void speakText(cleanSpeech || text, { language: 'en-US' });
   };
 
   const partnerAvatar =
@@ -708,14 +709,15 @@ const s = StyleSheet.create({
   },
   onlineDot: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#22C55E',
-    borderWidth: 1.5,
+    bottom: 0.5,
+    right: 0.5,
+    width: 11,
+    height: 11,
+    borderRadius: 9999,
+    backgroundColor: '#10B981',
+    borderWidth: 2,
     borderColor: '#FFFFFF',
+    zIndex: 2,
   },
   partnerNameRow: {
     flexDirection: 'row',

@@ -43,7 +43,7 @@ const getGatewayUrl = () => {
   }
 
   // 5. Fallback mặc định cho thiết bị thật trên Wi-Fi LAN
-  return 'http://192.168.1.25:8080';
+  return 'http://192.168.1.4:8080';
 };
 
 export const SERVICE_URLS = {

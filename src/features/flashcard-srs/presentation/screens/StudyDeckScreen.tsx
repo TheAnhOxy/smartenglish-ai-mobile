@@ -30,6 +30,7 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import * as Speech from 'expo-speech';
+import { speakText, stopSpeech } from '@/src/core/services/speechService';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { colors, palette, font, spring } from '@/src/theme';
 import { exploreWordsApi } from '../../data/vocabularyApi';
@@ -91,7 +92,7 @@ export const StudyDeckScreen = () => {
       translateY.value = 0;
       flipRotation.value = 0;
       try {
-        Speech.stop();
+        void stopSpeech();
       } catch (_) {}
 
       try {
@@ -209,8 +210,7 @@ export const StudyDeckScreen = () => {
   const playAudio = (wordToSpeak: string) => {
     try {
       setIsPlayingAudio(true);
-      Speech.stop();
-      Speech.speak(wordToSpeak, {
+      void speakText(wordToSpeak, {
         language: 'en-US',
         pitch: 1.0,
         rate: 0.88,
