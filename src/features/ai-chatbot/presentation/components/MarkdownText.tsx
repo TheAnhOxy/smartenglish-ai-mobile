@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
-import * as Speech from 'expo-speech';
 import { Volume2 } from 'lucide-react-native';
+import { speakText } from '@/src/core/services/speechService';
 
 interface MarkdownTextProps {
   content: string;
@@ -33,8 +33,7 @@ export const MarkdownText: React.FC<MarkdownTextProps> = ({
     if (onSpeak) {
       onSpeak(clean);
     } else {
-      Speech.stop();
-      Speech.speak(clean, { language: 'en-US', pitch: 1.0, rate: 0.9 });
+      void speakText(clean, { language: 'en-US', pitch: 1.0, rate: 0.9 });
     }
   };
 
