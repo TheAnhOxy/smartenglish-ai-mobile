@@ -39,7 +39,7 @@ import {
   useAudioRecorder,
 } from 'expo-audio';
 import * as Speech from 'expo-speech';
-import { stopSpeech } from '@/src/core/services/speechService';
+import { createManagedWebAudio, speakText, stopSpeech } from '@/src/core/services/speechService';
 import {
   useSpeakingQuotaStore,
   FREE_SPEAKING_DAILY_LIMIT,
@@ -210,7 +210,7 @@ export const UnitSpeakingRoleplayScreen = () => {
     try {
       setIsPlayingUserVoice(true);
       if (Platform.OS === 'web' && webAudioBlobUrlRef.current) {
-        const audio = new (window as any).Audio(webAudioBlobUrlRef.current);
+        const audio = createManagedWebAudio(webAudioBlobUrlRef.current);
         audio.onended = () => setIsPlayingUserVoice(false);
         await audio.play();
       } else if (recordedUri) {
@@ -225,8 +225,7 @@ export const UnitSpeakingRoleplayScreen = () => {
   // Play AI Speech Bubble
   const playAiVoice = () => {
     setIsPlayingAiVoice(true);
-    Speech.stop();
-    Speech.speak('Welcome! What would you like to order today?', {
+    void speakText('Welcome! What would you like to order today?', {
       language: 'en-US',
       onDone: () => setIsPlayingAiVoice(false),
       onError: () => setIsPlayingAiVoice(false),
