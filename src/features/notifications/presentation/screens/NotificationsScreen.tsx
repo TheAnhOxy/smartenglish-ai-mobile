@@ -1,11 +1,19 @@
 import React from 'react';
 import { View, Text, FlatList, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useNotificationsQuery } from '../../application/useNotifications';
+import { useNotificationsQuery, useMarkNotificationReadMutation } from '../../application/useNotifications';
+import { NotificationItem } from '@/src/core/types/schema';
 
 export const NotificationsScreen = () => {
   const router = useRouter();
   const { data: notifications, isLoading } = useNotificationsQuery();
+  const markReadMutation = useMarkNotificationReadMutation();
+
+  const handleNotificationPress = (item: NotificationItem) => {
+    if (!item.is_read) {
+      markReadMutation.mutate(item.id);
+    }
+  };
 
   return (
     <View className="flex-1 bg-surface pt-8 px-6 pb-6">
@@ -32,13 +40,29 @@ export const NotificationsScreen = () => {
           data={notifications || []}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View className="py-16 items-center justify-center">
+              <Text className="text-4xl mb-3">📭</Text>
+              <Text className="text-sm font-semibold text-neutralInk">Không có thông báo nào</Text>
+              <Text className="text-xs text-neutralGray mt-1 text-center">
+                Bạn đã đọc hết mọi thông báo hoặc chưa có thông báo mới.
+              </Text>
+            </View>
+          }
           renderItem={({ item }) => (
-            <Pressable className="bg-cardWhite p-4 rounded-2xl border border-gray-100 mb-3 shadow-sm flex-row items-center gap-3">
+            <Pressable
+              onPress={() => handleNotificationPress(item)}
+              className={`p-4 rounded-2xl border mb-3 shadow-sm flex-row items-center gap-3 ${
+                item.is_read ? 'bg-white border-gray-100 opacity-80' : 'bg-cardWhite border-primary/20'
+              }`}
+            >
               <View className="w-10 h-10 rounded-xl bg-surface items-center justify-center border border-gray-100">
                 <Text className="text-xl">🔔</Text>
               </View>
               <View className="flex-1">
-                <Text className="text-sm font-bold text-neutralInk mb-0.5">{item.title}</Text>
+                <Text className={`text-sm mb-0.5 ${item.is_read ? 'font-medium text-neutralInk' : 'font-bold text-neutralInk'}`}>
+                  {item.title}
+                </Text>
                 <Text className="text-xs text-neutralGray">{item.body}</Text>
                 <Text className="text-[10px] text-primary font-bold mt-1">
                   {new Date(item.created_at).toLocaleDateString()}
