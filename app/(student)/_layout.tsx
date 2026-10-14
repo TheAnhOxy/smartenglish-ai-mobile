@@ -152,6 +152,7 @@ export default function StudentTabsLayout() {
       <Tabs.Screen name="practice/reading/generate" options={hideTabOptions} />
       <Tabs.Screen name="practice/listening/[audioId]" options={hideTabOptions} />
 
+
       <Tabs.Screen name="review/index" options={hideTabOptions} />
       <Tabs.Screen name="review/decks/index" options={hideTabOptions} />
       <Tabs.Screen name="review/decks/[deckId]/study" options={hideTabOptions} />

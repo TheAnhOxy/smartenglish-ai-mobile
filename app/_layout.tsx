@@ -103,19 +103,24 @@ function RootLayoutNav() {
 
     registerForPushNotificationsAsync();
 
-    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data;
-      if (data?.targetLink && typeof data.targetLink === 'string') {
-        try {
-          router.push(data.targetLink as any);
-        } catch (e) {
-          console.warn('[PushNotification] Lỗi điều hướng targetLink:', e);
+    let subscription: Notifications.EventSubscription | null = null;
+    try {
+      subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+        const data = response.notification.request.content.data;
+        if (data?.targetLink && typeof data.targetLink === 'string') {
+          try {
+            router.push(data.targetLink as any);
+          } catch (e) {
+            console.warn('[PushNotification] Lỗi điều hướng targetLink:', e);
+          }
         }
-      }
-    });
+      });
+    } catch (e) {
+      console.warn('[PushNotification] Bỏ qua addNotificationResponseReceivedListener:', e);
+    }
 
     return () => {
-      subscription.remove();
+      subscription?.remove();
     };
   }, [currentUser?.id]);
 
