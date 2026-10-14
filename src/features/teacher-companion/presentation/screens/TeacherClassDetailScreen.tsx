@@ -43,46 +43,60 @@ export const TeacherClassDetailScreen = () => {
           </View>
 
           {/* Table Rows */}
-          {students.map((st) => (
-            <View
-              key={st.user_id}
-              className={`flex-row items-center p-3.5 border-b border-gray-100 ${
-                st.is_at_risk ? 'bg-error/5 border-l-4 border-l-error' : ''
-              }`}
-            >
-              {/* Student Name */}
-              <View className="flex-2 flex-row items-center gap-2">
-                <Image source={{ uri: st.avatar_url }} className="w-8 h-8 rounded-full bg-gray-200" />
-                <Text className="text-xs font-semibold text-neutralInk flex-1" numberOfLines={1}>
-                  {st.display_name}
-                </Text>
-              </View>
+          {students.length === 0 ? (
+            <View className="py-8 items-center justify-center">
+              <Text className="text-xs text-neutralGray">Chưa có học viên nào tham gia lớp học này.</Text>
+            </View>
+          ) : (
+            students.map((st) => (
+              <View
+                key={st.user_id}
+                className={`flex-row items-center p-3.5 border-b border-gray-100 ${
+                  st.is_at_risk ? 'bg-error/5 border-l-4 border-l-error' : ''
+                }`}
+              >
+                {/* Student Name */}
+                <View className="flex-2 flex-row items-center gap-2">
+                  {st.avatar_url ? (
+                    <Image source={{ uri: st.avatar_url }} className="w-8 h-8 rounded-full bg-gray-200" />
+                  ) : (
+                    <View className="w-8 h-8 rounded-full bg-secondary/20 items-center justify-center">
+                      <Text className="text-xs font-bold text-secondary">
+                        {(st.display_name || 'H').slice(0, 1).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                  <Text className="text-xs font-semibold text-neutralInk flex-1" numberOfLines={1}>
+                    {st.display_name}
+                  </Text>
+                </View>
 
-              {/* Progress Bar Column */}
-              <View className="flex-2 px-2 items-center">
-                <Text className="text-[10px] font-bold text-neutralInk mb-1">{st.completion_rate}%</Text>
-                <View className="h-1.5 bg-gray-100 rounded-full w-full overflow-hidden">
-                  <View
-                    className={`h-full rounded-full ${
-                      st.completion_rate > 70 ? 'bg-success' : st.completion_rate > 40 ? 'bg-warning' : 'bg-error'
-                    }`}
-                    style={{ width: `${st.completion_rate}%` }}
-                  />
+                {/* Progress Bar Column */}
+                <View className="flex-2 px-2 items-center">
+                  <Text className="text-[10px] font-bold text-neutralInk mb-1">{st.completion_rate}%</Text>
+                  <View className="h-1.5 bg-gray-100 rounded-full w-full overflow-hidden">
+                    <View
+                      className={`h-full rounded-full ${
+                        st.completion_rate > 70 ? 'bg-success' : st.completion_rate > 40 ? 'bg-warning' : 'bg-error'
+                      }`}
+                      style={{ width: `${st.completion_rate}%` }}
+                    />
+                  </View>
+                </View>
+
+                {/* Risk Flag Column */}
+                <View className="flex-1 items-end">
+                  {st.is_at_risk ? (
+                    <View className="bg-error/10 px-2 py-0.5 rounded-full border border-error/20">
+                      <Text className="text-[10px] font-bold text-error">⚠️ {st.last_login_days_ago} ngày vắng</Text>
+                    </View>
+                  ) : (
+                    <Text className="text-[10px] text-success font-medium">Bình thường</Text>
+                  )}
                 </View>
               </View>
-
-              {/* Risk Flag Column */}
-              <View className="flex-1 items-end">
-                {st.is_at_risk ? (
-                  <View className="bg-error/10 px-2 py-0.5 rounded-full border border-error/20">
-                    <Text className="text-[10px] font-bold text-error">⚠️ {st.last_login_days_ago} ngày vắng</Text>
-                  </View>
-                ) : (
-                  <Text className="text-[10px] text-success font-medium">Bình thường</Text>
-                )}
-              </View>
-            </View>
-          ))}
+            ))
+          )}
         </View>
       </ScrollView>
 
