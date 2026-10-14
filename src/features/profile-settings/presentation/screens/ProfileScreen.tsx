@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, Image } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import {
@@ -20,6 +20,7 @@ import {
   Flame,
   BookOpen,
   Trophy,
+  Receipt,
 } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
@@ -31,6 +32,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { getProfileApi } from '@/src/features/profile-settings/data/profileApi';
 import { colors } from '@/src/theme/colors';
+import { StudentInvoicesModal } from '@/src/features/subscription-paywall/presentation/components/StudentInvoicesModal';
 
 const BADGES = [
   { icon: Flame, label: 'Người lửa', color: colors.streak, bg: colors.streakSoft },
@@ -43,6 +45,7 @@ export const ProfileScreen = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { currentUser, logout, userStats, updateCurrentUser } = useAuthStore();
+  const [isInvoicesModalOpen, setIsInvoicesModalOpen] = useState(false);
 
   const progressWidth = useSharedValue(0);
   useEffect(() => {
@@ -146,7 +149,10 @@ export const ProfileScreen = () => {
 
         <View className="px-5 pt-5 pb-10 gap-4">
           <Animated.View entering={FadeInDown.delay(150).duration(400)}>
-            <View className="bg-[#143454] rounded-3xl p-4 flex-row items-center gap-3 border border-white/10">
+            <Pressable
+              onPress={() => router.push('/(student)/profile/premium' as any)}
+              className="bg-[#143454] rounded-3xl p-4 flex-row items-center gap-3 border border-white/10 active:opacity-95"
+            >
               <View className="w-12 h-12 rounded-2xl items-center justify-center bg-amber-500/20 border border-amber-400/30">
                 <Crown color="#F59E0B" size={22} strokeWidth={2} />
               </View>
@@ -159,13 +165,12 @@ export const ProfileScreen = () => {
                   {currentUser?.plan?.includes('premium') ? 'Hết hạn: 24 Th09, 2026' : 'Nâng cấp để mở khóa toàn bộ'}
                 </Text>
               </View>
-              <Pressable
-                onPress={() => router.push('/(student)/profile/premium' as any)}
-                className="px-3.5 py-2 rounded-2xl border border-white/25 active:bg-white/30" style={{ backgroundColor: 'rgba(255,255,255,0.18)' }}
+              <View
+                className="px-3.5 py-2 rounded-2xl border border-white/25" style={{ backgroundColor: 'rgba(255,255,255,0.18)' }}
               >
                 <Text className="text-xs font-bold text-white">Quản lý gói</Text>
-              </Pressable>
-            </View>
+              </View>
+            </Pressable>
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(250).duration(400)}>
@@ -243,6 +248,14 @@ export const ProfileScreen = () => {
                 <ChevronRight color="#94A3B8" size={18} />
               </Pressable>
 
+              <Pressable onPress={() => setIsInvoicesModalOpen(true)} className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50">
+                <View className="flex-row items-center gap-3">
+                  <Receipt color="#475569" size={20} />
+                  <Text className="text-sm font-semibold text-neutralInk">Lịch sử giao dịch & Hóa đơn</Text>
+                </View>
+                <ChevronRight color="#94A3B8" size={18} />
+              </Pressable>
+
               <Pressable onPress={() => router.push('/(student)/notifications' as any)} className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50">
                 <View className="flex-row items-center gap-3">
                   <Bell color="#475569" size={20} />
@@ -296,6 +309,10 @@ export const ProfileScreen = () => {
           </Animated.View>
         </View>
       </View>
+      <StudentInvoicesModal
+        visible={isInvoicesModalOpen}
+        onClose={() => setIsInvoicesModalOpen(false)}
+      />
     </ScrollView>
   );
 };
