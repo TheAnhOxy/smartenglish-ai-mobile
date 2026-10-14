@@ -50,11 +50,11 @@ export const TeacherClassesScreen = () => {
               <View className="flex-row justify-between items-center pt-3 border-t border-gray-100">
                 <View className="flex-row items-center gap-1.5">
                   <Text className="text-xs text-neutralGray">Sĩ số:</Text>
-                  <Text className="text-xs font-bold text-neutralInk">24/{item.max_students}</Text>
+                  <Text className="text-xs font-bold text-neutralInk">{item.student_count ?? 0}/{item.max_students}</Text>
                 </View>
 
                 <View className="flex-row items-center gap-1 bg-warning/10 px-2.5 py-1 rounded-full">
-                  <Text className="text-[10px] font-bold text-warning">2 bài tập sắp đến hạn</Text>
+                  <Text className="text-[10px] font-bold text-warning">{item.assignment_count ?? 0} bài tập</Text>
                 </View>
               </View>
 
@@ -63,6 +63,12 @@ export const TeacherClassesScreen = () => {
               </Text>
             </Pressable>
           )}
+          ListEmptyComponent={
+            <View className="py-16 items-center justify-center">
+              <Text className="text-sm font-medium text-neutralGray">Bạn chưa có lớp học nào.</Text>
+              <Text className="text-xs text-neutralGray/70 mt-1">Các lớp được tạo trên Web Portal sẽ xuất hiện tại đây.</Text>
+            </View>
+          }
         />
       )}
     </View>

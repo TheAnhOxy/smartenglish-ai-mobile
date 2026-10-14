@@ -13,8 +13,8 @@ export interface StudentClassDTO {
   maxStudents?: number;
   cefrTarget?: string;
   status?: string;
-  startDate?: string;
-  endDate?: string;
+  startDate?: string | null;
+  endDate?: string | null;
   studentCount?: number;
   assignmentCount?: number;
 }

@@ -116,9 +116,9 @@ export const fetchStudentPlansApi = async (): Promise<StudentSubscriptionPlan[]>
     },
     {
       id: 'S-PLAN-MONTHLY',
-      name: 'Học Viên Premium Tháng',
-      badge: 'Linh hoạt',
-      priceMonthly: 199000,
+      name: 'Học Viên Pro Tháng',
+      badge: 'Ưu đãi 20k',
+      priceMonthly: 20000,
       priceYearly: 0,
       durationMonths: 1,
       isPopular: false,
@@ -145,7 +145,7 @@ export const fetchStudentPlansApi = async (): Promise<StudentSubscriptionPlan[]>
     {
       id: 'S-PLAN-YEARLY',
       name: 'Học Viên Premium Năm',
-      badge: 'Khuyên dùng 🔥',
+      badge: 'Khuyên dùng',
       priceMonthly: 0,
       priceYearly: 1490000,
       durationMonths: 12,

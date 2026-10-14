@@ -13,6 +13,8 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { useRoleGateStore } from '@/src/core/flows/roleGateStore';
 import { stopAllAudio } from '@/src/core/services/speechService';
+import * as Notifications from 'expo-notifications';
+import { registerForPushNotificationsAsync } from '@/src/features/notifications/application/pushNotificationService';
 
 // Tắt cảnh báo thuộc tính deprecated
 LogBox.ignoreAllLogs(true);
@@ -94,6 +96,33 @@ function RootLayoutNav() {
       void stopAllAudio();
     };
   }, [routeKey]);
+
+  // Đăng ký Push Token lên backend khi người dùng đăng nhập & lắng nghe click thông báo
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    registerForPushNotificationsAsync();
+
+    let subscription: Notifications.EventSubscription | null = null;
+    try {
+      subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+        const data = response.notification.request.content.data;
+        if (data?.targetLink && typeof data.targetLink === 'string') {
+          try {
+            router.push(data.targetLink as any);
+          } catch (e) {
+            console.warn('[PushNotification] Lỗi điều hướng targetLink:', e);
+          }
+        }
+      });
+    } catch (e) {
+      console.warn('[PushNotification] Bỏ qua addNotificationResponseReceivedListener:', e);
+    }
+
+    return () => {
+      subscription?.remove();
+    };
+  }, [currentUser?.id]);
 
   useEffect(() => {
     if (!isHydrated) return;

@@ -145,16 +145,18 @@ export type AssignmentType = 'quiz' | 'vocab_deck' | 'writing' | 'roleplay' | 'r
 export type AssignmentStatus = 'Chưa làm' | 'Đang làm' | 'Đã nộp' | 'Đạt' | 'Chưa đạt';
 
 export const ClassSchema = z.object({
-  id: z.string().uuid(),
+  id: z.union([z.string(), z.number()]).transform(String),
   name: z.string(),
   description: z.string().optional().nullable(),
-  teacher_id: z.string().uuid(),
+  teacher_id: z.union([z.string(), z.number()]).transform(String).optional().nullable(),
   join_code: z.string(),
   max_students: z.number().default(30),
+  student_count: z.number().default(0).optional(),
+  assignment_count: z.number().default(0).optional(),
   cefr_target: z.string().default('B1'),
-  status: z.enum(['active', 'archived', 'scheduled']).default('active'),
-  start_date: z.string(),
-  end_date: z.string()
+  status: z.string().default('active'),
+  start_date: z.string().optional().nullable(),
+  end_date: z.string().optional().nullable()
 });
 export type TeacherClass = z.infer<typeof ClassSchema>;
 
@@ -221,7 +223,18 @@ export type Friendship = z.infer<typeof FriendshipSchema>;
 // ==========================================
 // 6. NOTIFICATION SCHEMA
 // ==========================================
-export type NotificationType = 'streak' | 'leaderboard' | 'reminder' | 'achievement' | 'marketing' | 'system' | 'student_at_risk' | 'assignment_submitted' | 'class_join_request';
+export type NotificationType =
+  | 'streak'
+  | 'leaderboard'
+  | 'reminder'
+  | 'achievement'
+  | 'marketing'
+  | 'system'
+  | 'student_at_risk'
+  | 'assignment_submitted'
+  | 'class_join_request'
+  | 'payment_receipt'
+  | 'payment_success';
 
 export interface NotificationItem {
   id: string;
