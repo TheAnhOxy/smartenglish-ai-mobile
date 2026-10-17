@@ -18,11 +18,11 @@ import {
 // ==========================================
 export const MOCK_USERS: Record<string, User> = {
   student: {
-    id: '11111111-1111-1111-1111-111111111111',
-    email: 'student@smartenglish.ai',
+    id: '3',
+    email: 'student.theanh@gmail.com',
     phone: '+84901234567',
-    display_name: 'Nguyễn Văn Học Viên',
-    username: 'student_lexora',
+    display_name: 'Nguyễn Thế Anh (Học Viên)',
+    username: 'student_theanh',
     avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
     role: 'student',
     plan: 'free',
@@ -40,8 +40,8 @@ export const MOCK_USERS: Record<string, User> = {
     updated_at: '2026-08-16T11:00:00Z'
   },
   teacher: {
-    id: '22222222-2222-2222-2222-222222222222',
-    email: 'teacher@smartenglish.ai',
+    id: '2',
+    email: 'teacher.john@smartenglish.com',
     phone: '+84988776655',
     display_name: 'Cô Trần Mai Hương (IELTS 8.5)',
     username: 'teacher_huong',
