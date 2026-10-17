@@ -67,6 +67,83 @@ import { ExamReadingClusterView } from '../components/ExamReadingClusterView';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
+// Helper tìm cụm câu hỏi dùng chung đoạn văn / đoạn nghe (Chuẩn TOEIC ETS Part 3, 4, 6, 7)
+export function findClusterForQuestion(
+  targetQ: ExamQuestion | null | undefined,
+  allQuestions: ExamQuestion[]
+): ExamQuestion[] {
+  if (!targetQ || !allQuestions || allQuestions.length === 0) return [];
+
+  // 1. Nhóm theo danh sách câu hỏi cụ thể đã định nghĩa sẵn
+  if (targetQ.groupQuestionNumbers && targetQ.groupQuestionNumbers.length > 1) {
+    const found = allQuestions.filter(
+      (q) => q.part === targetQ.part && targetQ.groupQuestionNumbers?.includes(q.questionNumber)
+    );
+    if (found.length > 1) return found;
+  }
+
+  // 2. Nhóm theo groupTag / groupRangeText / groupAudioBadge
+  const tag = targetQ.groupTag || targetQ.groupRangeText || targetQ.groupAudioBadge;
+  if (tag) {
+    const byTag = allQuestions.filter(
+      (q) =>
+        q.part === targetQ.part &&
+        (q.groupTag === tag || q.groupRangeText === tag || q.groupAudioBadge === tag)
+    );
+    if (byTag.length > 1) return byTag;
+  }
+
+  // 3. Nhóm theo nội dung bài đọc chung (Part 6 & Part 7)
+  const targetPassage = (
+    targetQ.passageText ||
+    targetQ.passage?.paragraphs?.join('\n') ||
+    ''
+  ).trim();
+
+  if (targetPassage && targetPassage.length > 15) {
+    const byPassage = allQuestions.filter((q) => {
+      if (q.part !== targetQ.part) return false;
+      const qPassage = (
+        q.passageText ||
+        q.passage?.paragraphs?.join('\n') ||
+        ''
+      ).trim();
+      return qPassage === targetPassage;
+    });
+    if (byPassage.length > 1) return byPassage;
+  }
+
+  // 4. Nhóm theo kịch bản hội thoại / bài nói chung (Part 3 & Part 4)
+  const targetScript = (targetQ.audioScript || '').trim();
+  if (targetScript && targetScript.length > 15 && (targetQ.part === 'PART_3' || targetQ.part === 'PART_4')) {
+    const byScript = allQuestions.filter(
+      (q) => q.part === targetQ.part && (q.audioScript || '').trim() === targetScript
+    );
+    if (byScript.length > 1) return byScript;
+  }
+
+  // 5. Nhóm theo file âm thanh chung (Part 3 & Part 4)
+  if (targetQ.audioUrl && (targetQ.part === 'PART_3' || targetQ.part === 'PART_4')) {
+    const byAudio = allQuestions.filter(
+      (q) => q.part === targetQ.part && q.audioUrl === targetQ.audioUrl
+    );
+    if (byAudio.length > 1) return byAudio;
+  }
+
+  // 6. Nhóm theo tiêu đề bài đọc nếu không phải là tiêu đề chung chung
+  if (targetQ.passage && (targetQ.part === 'PART_6' || targetQ.part === 'PART_7')) {
+    const pTitle = targetQ.passage.title;
+    if (pTitle && pTitle !== 'Đoạn văn' && pTitle !== 'Văn bản đọc hiểu') {
+      const byTitle = allQuestions.filter(
+        (q) => q.part === targetQ.part && q.passage?.title === pTitle
+      );
+      if (byTitle.length > 1) return byTitle;
+    }
+  }
+
+  return [targetQ];
+}
+
 export function FullExamScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -587,36 +664,14 @@ export function FullExamScreen() {
 
   // Cluster questions helper (for Part 3, 4, 6, 7)
   const clusterQuestions = useMemo(() => {
-    if (!currentQ) return [];
-    if (currentQ.groupQuestionNumbers && currentQ.groupQuestionNumbers.length > 1) {
-      const found = questions.filter((q) => currentQ.groupQuestionNumbers?.includes(q.questionNumber));
-      if (found.length > 1) return found;
-    }
-    if (currentQ.groupTag) {
-      const byTag = questions.filter((q) => q.groupTag === currentQ.groupTag);
-      if (byTag.length > 1) return byTag;
-    }
-    if (currentQ.audioUrl && (currentQ.part === 'PART_3' || currentQ.part === 'PART_4')) {
-      const byAudio = questions.filter((q) => q.audioUrl === currentQ.audioUrl);
-      if (byAudio.length > 1) return byAudio;
-    }
-    if (currentQ.passage && (currentQ.part === 'PART_6' || currentQ.part === 'PART_7')) {
-      const pTitle = currentQ.passage.title;
-      const pText = currentQ.passage.paragraphs?.[0];
-      const byPassage = questions.filter((q) =>
-        q.passage && (
-          (pTitle && q.passage.title === pTitle) ||
-          (pText && q.passage.paragraphs?.[0] === pText)
-        )
-      );
-      if (byPassage.length > 1) return byPassage;
-    }
-    return [currentQ];
+    return findClusterForQuestion(currentQ, questions);
   }, [currentQ, questions]);
 
   const isCluster = clusterQuestions.length > 1;
   const isListeningPart = currentQ?.part === 'PART_1' || currentQ?.part === 'PART_2' || currentQ?.part === 'PART_3' || currentQ?.part === 'PART_4';
-  const clusterKey = currentQ?.groupTag || (currentQ?.groupQuestionNumbers ? currentQ.groupQuestionNumbers.join('-') : currentQ?.audioUrl || `q_${currentQ?.questionNumber}`);
+  const clusterKey = isCluster
+    ? `cluster_${clusterQuestions.map((q) => q.questionNumber).join('_')}`
+    : (currentQ?.groupTag || currentQ?.audioUrl || `q_${currentQ?.questionNumber}`);
 
   // Auto-play âm thanh trong chế độ thi thử (Exam Mode) - Chỉ nghe duy nhất 1 lần
   useEffect(() => {
@@ -730,7 +785,11 @@ export function FullExamScreen() {
     if (targetPrevIdx >= 0) {
       const prevQ = questions[targetPrevIdx];
       let finalIdx = targetPrevIdx;
-      if (prevQ.groupQuestionNumbers && prevQ.groupQuestionNumbers.length > 1) {
+      const prevCluster = findClusterForQuestion(prevQ, questions);
+      if (prevCluster.length > 1) {
+        const clusterStartIdx = questions.findIndex((q) => q.id === prevCluster[0].id);
+        if (clusterStartIdx !== -1) finalIdx = clusterStartIdx;
+      } else if (prevQ.groupQuestionNumbers && prevQ.groupQuestionNumbers.length > 1) {
         const firstNum = Math.min(...prevQ.groupQuestionNumbers);
         const clusterStartIdx = questions.findIndex((q) => q.questionNumber === firstNum);
         if (clusterStartIdx !== -1) finalIdx = clusterStartIdx;

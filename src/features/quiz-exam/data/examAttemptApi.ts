@@ -33,8 +33,11 @@ export interface ExamQuestion {
   audioDurationSec?: number;
   audioNotice?: string;
   groupTag?: string;
+  groupRangeText?: string;
+  groupAudioBadge?: string;
   groupQuestionNumbers?: number[];
   passage?: ExamPassage;
+  passageText?: string;
   instructionPrompt?: string;
   instructionSub?: string;
   questionText: string;
@@ -137,23 +140,75 @@ export const normalizeQuestion = (raw: any, index: number, total: number, catego
   const section = sections.find((item: any) => Number(item?.partNumber) === partNumber);
   const isToeic = category === 'TOEIC_FULL' || category === 'TOEIC_MINI';
   const sectionName = String(raw?.sectionName ?? section?.sectionName ?? (isToeic ? (partNumber <= 4 ? 'Listening' : 'Reading') : category));
-  const passageText = raw?.passageText ? String(raw.passageText) : '';
+  const qNum = Number(raw?.questionNumber ?? index + 1);
+  const passageText = raw?.passageText
+    ? String(raw.passageText)
+    : (raw?.passage?.paragraphs ? raw.passage.paragraphs.join('\n') : (typeof raw?.passage?.text === 'string' ? raw.passage.text : ''));
+  const groupRangeText = raw?.groupRangeText ? String(raw.groupRangeText) : undefined;
+  const groupAudioBadge = raw?.groupAudioBadge ? String(raw.groupAudioBadge) : undefined;
+  const groupTag = raw?.groupTag ? String(raw.groupTag) : (groupRangeText || groupAudioBadge || undefined);
+
+  // Parse or infer groupQuestionNumbers for TOEIC Part 3, 4, 6, 7
+  let groupQuestionNumbers: number[] | undefined = Array.isArray(raw?.groupQuestionNumbers) && raw.groupQuestionNumbers.length > 0
+    ? raw.groupQuestionNumbers
+    : undefined;
+
+  if (!groupQuestionNumbers && (groupRangeText || groupAudioBadge)) {
+    const textToMatch = `${groupRangeText || ''} ${groupAudioBadge || ''}`;
+    const match = textToMatch.match(/(?:câu|nhóm câu|câu hỏi)?\s*(\d+)\s*[-–—]\s*(\d+)/i);
+    if (match) {
+      const start = Number(match[1]);
+      const end = Number(match[2]);
+      if (end >= start && end - start <= 5) {
+        groupQuestionNumbers = [];
+        for (let n = start; n <= end; n++) {
+          groupQuestionNumbers.push(n);
+        }
+      }
+    }
+  }
+
+  // Fallback for standard TOEIC Listening Part 3 (Q32-Q70) & Part 4 (Q71-Q100): ETS standard clusters of 3 questions
+  if (!groupQuestionNumbers && isToeic) {
+    if (partNumber === 3 && qNum >= 32 && qNum <= 70) {
+      const base = 32;
+      const clusterIdx = Math.floor((qNum - base) / 3);
+      const start = base + clusterIdx * 3;
+      groupQuestionNumbers = [start, start + 1, start + 2];
+    } else if (partNumber === 4 && qNum >= 71 && qNum <= 100) {
+      const base = 71;
+      const clusterIdx = Math.floor((qNum - base) / 3);
+      const start = base + clusterIdx * 3;
+      groupQuestionNumbers = [start, start + 1, start + 2];
+    }
+  }
+
   return {
     ...raw,
     id: String(raw?.questionId ?? raw?.id ?? index + 1),
     part,
     partLabel: String(raw?.partLabel ?? (isToeic ? `${sectionName} · Part ${partNumber}` : sectionName)),
     partSubTitle: String(raw?.partSubTitle ?? raw?.sectionTitle ?? section?.title ?? `Phần ${partNumber}`),
-    questionNumber: Number(raw?.questionNumber ?? index + 1),
+    questionNumber: qNum,
     totalQuestions: total,
     questionText: String(raw?.questionText ?? ''),
     options: normalizeOptions(raw?.options),
     imageUrl: raw?.imageUrl || undefined,
     audioUrl: raw?.audioUrl || undefined,
-    audioTitle: raw?.audioTitle || (raw?.audioUrl ? `Audio câu ${raw?.questionNumber ?? index + 1}` : undefined),
+    audioTitle: raw?.audioTitle || (raw?.audioUrl ? `Audio câu ${qNum}` : undefined),
+    audioScript: raw?.audioScript || undefined,
+    groupTag,
+    groupRangeText,
+    groupAudioBadge,
+    groupQuestionNumbers,
+    passageText: passageText || undefined,
     instructionPrompt: raw?.instructionPrompt || raw?.instructions || section?.instructions || undefined,
     explanationVi: raw?.explanationVi ?? raw?.explanation,
-    passage: raw?.passage ?? (passageText ? { title: 'Đoạn văn', type: 'article', paragraphs: [passageText] } : undefined),
+    passage: raw?.passage ?? (passageText ? {
+      title: groupRangeText || 'Văn bản đọc hiểu',
+      type: 'article',
+      paragraphs: passageText.includes('\n') ? passageText.split('\n').filter(Boolean) : [passageText],
+    } : undefined),
   };
 };
 

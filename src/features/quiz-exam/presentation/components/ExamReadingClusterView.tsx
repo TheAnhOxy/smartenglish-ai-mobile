@@ -63,7 +63,16 @@ export const ExamReadingClusterView: React.FC<ExamReadingClusterViewProps> = ({
   onToggleTranslate,
 }) => {
   const firstQ = questions[0] || ({} as ExamQuestion);
-  const passage = customPassage || firstQ.passage;
+  const rawPassage = customPassage || firstQ.passage;
+  const passageText = (firstQ as any)?.passageText || (rawPassage as any)?.text || '';
+  const passage: ExamPassage | undefined = rawPassage || (passageText ? {
+    title: passageTitle || (firstQ as any)?.groupRangeText || 'Văn bản đọc hiểu',
+    type: 'article',
+    paragraphs: passageText.includes('\n') ? passageText.split('\n').filter(Boolean) : [passageText],
+  } : undefined);
+  const passageParagraphs: string[] = (passage?.paragraphs && passage.paragraphs.length > 0)
+    ? passage.paragraphs
+    : (passageText ? passageText.split('\n').filter(Boolean) : []);
   const part = firstQ.part;
   const isMultiQuestion = questions.length > 1;
 
@@ -153,9 +162,9 @@ export const ExamReadingClusterView: React.FC<ExamReadingClusterViewProps> = ({
           )}
 
           {/* Paragraphs */}
-          {isPassageExpanded && passage.paragraphs && passage.paragraphs.length > 0 && (
+          {isPassageExpanded && passageParagraphs.length > 0 && (
             <View style={styles.paragraphsWrap}>
-              {passage.paragraphs.map((p, i) => (
+              {passageParagraphs.map((p, i) => (
                 <Text key={i} style={styles.paragraphText}>
                   {p}
                 </Text>
@@ -165,7 +174,7 @@ export const ExamReadingClusterView: React.FC<ExamReadingClusterViewProps> = ({
 
           {!isPassageExpanded && (
             <Pressable onPress={() => setIsPassageExpanded(true)} style={styles.expandPromptBtn}>
-              <Text style={styles.expandPromptText}>Bấm để mở rộng bài đọc ({passage.paragraphs?.length || 0} đoạn)</Text>
+              <Text style={styles.expandPromptText}>Bấm để mở rộng bài đọc ({passageParagraphs.length} đoạn)</Text>
             </Pressable>
           )}
         </View>
@@ -207,7 +216,7 @@ export const ExamReadingClusterView: React.FC<ExamReadingClusterViewProps> = ({
                 </View>
               )}
 
-              {passage.paragraphs && passage.paragraphs.map((p, i) => (
+              {passageParagraphs.map((p, i) => (
                 <Text key={i} style={styles.modalParagraphText}>
                   {p}
                 </Text>
