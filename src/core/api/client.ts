@@ -16,14 +16,14 @@ const getGatewayUrl = () => {
         return `http://${hostname}:8080`;
       }
     }
-    if (envUrl && !envUrl.includes('refurbish-doorframe')) {
+    if (envUrl) {
       return envUrl.replace(/\/$/, '');
     }
     return 'http://localhost:8080';
   }
 
-  // 2. Nếu có biến môi trường chỉ định rõ (và không phải link ngrok cũ bị offline)
-  if (envUrl && !envUrl.includes('refurbish-doorframe')) {
+  // 2. Nếu có biến môi trường chỉ định rõ
+  if (envUrl) {
     return envUrl.replace(/\/$/, '');
   }
 

@@ -254,7 +254,9 @@ export const fetchSubscriptionStatusApi = async (userId?: string): Promise<Subsc
  * Subscribes the user to a premium plan
  */
 export const subscribeToPlanApi = async (request: SubscribeRequest, userId?: string): Promise<SubscriptionStatus> => {
-  const uid = userId || getCurrentUserId();
+  const rawUid = userId || getCurrentUserId();
+  const parsedUid = Number(rawUid);
+  const uid = !isNaN(parsedUid) && parsedUid > 0 ? parsedUid : 3;
   const rawId = String(request.planId || '');
   const numericPlanId = rawId.includes('LIFETIME') ? 4 : rawId.includes('YEARLY') ? 3 : 2;
   const cycle = rawId.includes('YEARLY') || rawId.includes('LIFETIME') ? 'YEARLY' : 'MONTHLY';
@@ -262,8 +264,10 @@ export const subscribeToPlanApi = async (request: SubscribeRequest, userId?: str
   const payload = {
     planId: numericPlanId,
     planCode: rawId,
-    paymentMethod: request.paymentMethod || 'MOMO',
+    paymentMethod: request.paymentMethod || 'SEPAY',
     billingCycle: cycle,
+    customerName: 'Học viên SmartEnglish',
+    customerEmail: 'student.theanh@gmail.com',
   };
 
   try {

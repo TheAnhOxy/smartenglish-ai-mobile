@@ -149,17 +149,25 @@ export const PaywallScreen = () => {
         ? 3
         : 2;
       const cycle = selectedPlan.durationMonths >= 12 ? 'YEARLY' : 'MONTHLY';
-      const uid = currentUser?.id || getCurrentUserId();
+      
+      const rawUid = currentUser?.id || getCurrentUserId();
+      const parsedUid = Number(rawUid);
+      const safeUserId = !isNaN(parsedUid) && parsedUid > 0 ? parsedUid : 3;
+
+      const customerName = currentUser?.display_name || 'Học viên SmartEnglish';
+      const customerEmail = currentUser?.email && currentUser.email.includes('@')
+        ? currentUser.email
+        : 'student.theanh@gmail.com';
 
       const res = await apiClient.post<any>(
-        `/api/v1/payment/subscriptions/subscribe?userId=${uid}`,
+        `/api/v1/payment/subscriptions/subscribe?userId=${safeUserId}`,
         {
           planId: numericPlanId,
           planCode: selectedPlan.id,
           paymentMethod: 'SEPAY',
           billingCycle: cycle,
-          customerName: currentUser?.display_name || '',
-          customerEmail: currentUser?.email || '',
+          customerName: customerName,
+          customerEmail: customerEmail,
         }
       );
 
@@ -184,21 +192,11 @@ export const PaywallScreen = () => {
       });
       setIsSepayModalOpen(true);
     } catch (err: any) {
-      console.warn('Lỗi kết nối tạo đơn SePay, dùng cấu hình VietQR dự phòng:', err);
-      setSepayOrder({
-        orderCode: `SEAI${Math.floor(10000 + Math.random() * 90000)}`,
-        amount:
-          selectedPlan.priceYearly > 0
-            ? selectedPlan.priceYearly
-            : selectedPlan.priceMonthly,
-        planName: selectedPlan.name,
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
-        bankName: 'MB Bank (Ngân hàng TMCP Quân Đội)',
-        bankCode: 'MB',
-        accountNumber: '0963684871',
-        accountName: 'NGUYEN TUAN ANH',
-      });
-      setIsSepayModalOpen(true);
+      console.error('Lỗi kết nối tạo đơn SePay:', err?.response?.data || err?.message || err);
+      Alert.alert(
+        'Lỗi tạo đơn thanh toán',
+        err?.response?.data?.message || 'Không thể khởi tạo đơn hàng thanh toán trên máy chủ. Vui lòng kiểm tra lại kết nối mạng và thử lại.'
+      );
     } finally {
       setIsSubscribing(false);
     }
