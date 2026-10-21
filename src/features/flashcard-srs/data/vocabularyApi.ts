@@ -91,10 +91,14 @@ export const lookupWordApi = async (word: string): Promise<WordDetail | null> =>
     if (data && data.id) {
       return mapWord(data);
     }
-  } catch (err) {
+    return null;
+  } catch (err: any) {
+    if (err?.response?.status === 404) {
+      return null;
+    }
     console.warn('[VocabAPI] lookupWordApi error:', err);
+    throw err;
   }
-  return null;
 };
 
 /**
@@ -108,10 +112,14 @@ export const getWordByIdApi = async (id: string): Promise<WordDetail | null> => 
     if (data && data.id) {
       return mapWord(data);
     }
-  } catch (err) {
+    return null;
+  } catch (err: any) {
+    if (err?.response?.status === 404) {
+      return null;
+    }
     console.warn('[VocabAPI] getWordByIdApi error:', err);
+    throw err;
   }
-  return null;
 };
 
 /**
@@ -142,13 +150,14 @@ export const searchWordsApi = async (params: {
         page: data.page || 1,
         size: data.size || 10,
         totalItems: data.totalItems || data.totalElements || 0,
-        totalPages: data.totalPages || 1
+        totalPages: data.totalPages || 1,
       };
     }
+    return { items: [], page: 1, size: 10, totalItems: 0, totalPages: 0 };
   } catch (err) {
     console.warn('[VocabAPI] searchWordsApi error:', err);
+    throw err;
   }
-  return { items: [], page: 1, size: 10, totalItems: 0, totalPages: 0 };
 };
 
 /**
@@ -175,13 +184,14 @@ export const exploreWordsApi = async (params: {
         page: data.page || 1,
         size: data.size || 10,
         totalItems: data.totalItems || data.totalElements || 0,
-        totalPages: data.totalPages || 1
+        totalPages: data.totalPages || 1,
       };
     }
+    return { items: [], page: 1, size: 10, totalItems: 0, totalPages: 0 };
   } catch (err) {
     console.warn('[VocabAPI] exploreWordsApi error:', err);
+    throw err;
   }
-  return { items: [], page: 1, size: 10, totalItems: 0, totalPages: 0 };
 };
 
 /**
@@ -205,8 +215,9 @@ export const getTopicsApi = async (): Promise<VocabTopic[]> => {
         isPremium: Boolean(t.isPremium),
       }));
     }
+    return [];
   } catch (err) {
     console.warn('[VocabAPI] getTopicsApi error:', err);
+    throw err;
   }
-  return [];
 };

@@ -8,6 +8,7 @@ import {
   Dimensions,
   PanResponder,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -20,6 +21,7 @@ import {
   Bookmark,
   Flame,
   ArrowLeft,
+  AlertCircle,
 } from 'lucide-react-native';
 import Animated, {
   useAnimatedStyle,
@@ -35,7 +37,6 @@ import { useAuthStore } from '@/src/core/flows/authStore';
 import { colors, palette, font, spring } from '@/src/theme';
 import { exploreWordsApi } from '../../data/vocabularyApi';
 import { fetchDeckByIdApi, submitSrsReviewApi } from '../../data/deckApi';
-import { useDeckStore } from '../../data/deckStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -67,6 +68,8 @@ export const StudyDeckScreen = () => {
   const { currentUser } = useAuthStore();
 
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [studyQueue, setStudyQueue] = useState<StudyCard[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -74,6 +77,7 @@ export const StudyDeckScreen = () => {
   const [topicTitle, setTopicTitle] = useState(deckName || 'Ôn Tập Từ Vựng');
 
   const isSpeakerPressed = useRef(false);
+  const isSubmittingRef = useRef(false);
 
   // Reanimated shared values
   const translateX = useSharedValue(0);
@@ -81,124 +85,100 @@ export const StudyDeckScreen = () => {
   const flipRotation = useSharedValue(0);
 
   // Load real cards on mount or whenever deckId / topicId changes
-  useEffect(() => {
-    let isMounted = true;
+  const loadCards = async () => {
+    setLoading(true);
+    setError(null);
+    setCurrentIndex(0);
+    setIsFlipped(false);
+    translateX.value = 0;
+    translateY.value = 0;
+    flipRotation.value = 0;
+    try {
+      void stopSpeech();
+    } catch (_) {}
 
-    const loadCards = async () => {
-      setLoading(true);
-      setCurrentIndex(0);
-      setIsFlipped(false);
-      translateX.value = 0;
-      translateY.value = 0;
-      flipRotation.value = 0;
-      try {
-        void stopSpeech();
-      } catch (_) {}
+    try {
+      let cards: StudyCard[] = [];
+      const effectiveTopicId = topicId ? Number(topicId) : Number(deckId);
 
-      try {
-        let cards: StudyCard[] = [];
-        const effectiveTopicId = topicId ? Number(topicId) : Number(deckId);
-
-        // 1. If effectiveTopicId is a valid topic id (1-50), load words from content-service
-        if (!isNaN(effectiveTopicId) && effectiveTopicId > 0 && effectiveTopicId <= 50) {
-          const exploreRes = await exploreWordsApi({ topicId: effectiveTopicId, size: 200 });
-          if (exploreRes.items && exploreRes.items.length > 0) {
-            if (exploreRes.items[0].topicName) {
-              setTopicTitle(exploreRes.items[0].topicName);
-            }
-            cards = exploreRes.items.map((w, idx) => ({
-              id: w.id || String(idx + 1),
-              word: w.word,
-              ipa: w.ipaUs || w.ipaUk || '',
-              type: w.partOfSpeech || 'Từ vựng',
-              cefrLevel: w.cefrLevel || 'B1',
-              meaning: w.definitionVi || 'Đang cập nhật nghĩa tiếng Việt',
-              meaningEn: w.definitionEn || '',
-              example: w.examples?.[0]?.sentenceEn || `Learn to use "${w.word}" in daily conversation.`,
-              exampleVi: w.examples?.[0]?.sentenceVi || '',
-              collocation: w.collocation || '',
-              audioUrl: w.audioUsUrl || w.audioUkUrl,
-              imageUrl: w.imageUrl,
-            }));
+      // 1. If effectiveTopicId is a valid topic id (1-50), load words from content-service
+      if (!isNaN(effectiveTopicId) && effectiveTopicId > 0 && effectiveTopicId <= 50) {
+        const exploreRes = await exploreWordsApi({ topicId: effectiveTopicId, size: 200 });
+        if (exploreRes.items && exploreRes.items.length > 0) {
+          if (exploreRes.items[0].topicName) {
+            setTopicTitle(exploreRes.items[0].topicName);
           }
-        }
-
-        // 2. If no topic cards and deckId exists, load from learning-service personal deck
-        if (cards.length === 0 && deckId) {
-          const deckDetail = await fetchDeckByIdApi(deckId, currentUser?.id?.toString());
-          if (deckDetail) {
-            if (deckDetail.name) setTopicTitle(deckDetail.name);
-            if (deckDetail.cards && deckDetail.cards.length > 0) {
-              cards = deckDetail.cards.map((c: any, idx: number) => {
-                const frontParts = (c.customFront || '').trim().split(/\s{2,}|\t|\//);
-                const wordText = frontParts[0]?.replace('/', '').trim() || `Từ #${idx + 1}`;
-                const ipaText = c.customFront?.includes('/') ? '/' + c.customFront.split('/')[1] + '/' : '';
-
-                const backLines = (c.customBack || '').split('\n');
-                const meaningText = backLines[0] || 'Nghĩa từ vựng';
-                const exampleLine = backLines.find((l: string) =>
-                  l.toLowerCase().startsWith('ví dụ:') || l.toLowerCase().startsWith('example:')
-                );
-                const exampleText = exampleLine ? exampleLine.replace(/^(ví dụ:|example:)\s*/i, '') : '';
-
-                return {
-                  id: String(c.id || idx + 1),
-                  cardId: c.id,
-                  word: wordText,
-                  ipa: ipaText,
-                  type: c.userNote || 'Ghi nhớ',
-                  cefrLevel: 'A2',
-                  meaning: meaningText,
-                  meaningEn: '',
-                  example: exampleText || `Use "${wordText}" in daily communication.`,
-                  exampleVi: '',
-                  collocation: '',
-                  imageUrl: c.imageOverrideUrl,
-                };
-              });
-            }
-          }
-        }
-
-        // 3. Fallback: if cards is empty, load from local deckStore savedWords
-        if (cards.length === 0 && deckId) {
-          const { savedWords, decks } = useDeckStore.getState();
-          const targetDeck = decks.find((d: any) => d.id === deckId);
-          if (targetDeck) setTopicTitle(targetDeck.name);
-
-          const localSaved = savedWords.filter((w: any) => w.deck_id === deckId);
-          if (localSaved.length > 0) {
-            cards = localSaved.map((w: any, idx: number) => ({
-              id: w.id || String(idx + 1),
-              word: w.word,
-              ipa: w.phonetic || '',
-              type: w.pos || 'Từ vựng',
-              cefrLevel: 'B1',
-              meaning: w.meaning_vi || 'Nghĩa từ vựng',
-              example: w.examples?.easy || w.examples?.medium || `Learn to use "${w.word}" in daily conversation.`,
-              exampleVi: w.examples?.medium || '',
-            }));
-          }
-        }
-
-
-        if (isMounted) {
-
-          setStudyQueue(cards);
-        }
-      } catch (err) {
-        console.warn('Error loading study cards:', err);
-      } finally {
-        if (isMounted) {
-          setLoading(false);
+          cards = exploreRes.items.map((w, idx) => ({
+            id: w.id || String(idx + 1),
+            word: w.word,
+            ipa: w.ipaUs || w.ipaUk || '',
+            type: w.partOfSpeech || 'Từ vựng',
+            cefrLevel: w.cefrLevel || 'B1',
+            meaning: w.definitionVi || 'Đang cập nhật nghĩa tiếng Việt',
+            meaningEn: w.definitionEn || '',
+            example: w.examples?.[0]?.sentenceEn || `Learn to use "${w.word}" in daily conversation.`,
+            exampleVi: w.examples?.[0]?.sentenceVi || '',
+            collocation: w.collocation || '',
+            audioUrl: w.audioUsUrl || w.audioUkUrl,
+            imageUrl: w.imageUrl,
+          }));
         }
       }
-    };
 
+      // 2. If no topic cards and deckId exists, load from learning-service personal deck
+      if (cards.length === 0 && deckId) {
+        const deckDetail = await fetchDeckByIdApi(deckId);
+        if (deckDetail) {
+          if (deckDetail.name) setTopicTitle(deckDetail.name);
+          if (deckDetail.cards && deckDetail.cards.length > 0) {
+            cards = deckDetail.cards.map((c: any, idx: number) => {
+              const frontParts = (c.customFront || '').trim().split(/\s{2,}|\t|\//);
+              const wordText = frontParts[0]?.replace('/', '').trim() || `Từ #${idx + 1}`;
+              const ipaText = c.customFront?.includes('/') ? '/' + c.customFront.split('/')[1] + '/' : '';
+
+              const backLines = (c.customBack || '').split('\n');
+              const meaningText = backLines[0] || 'Nghĩa từ vựng';
+              const exampleLine = backLines.find((l: string) =>
+                l.toLowerCase().startsWith('ví dụ:') || l.toLowerCase().startsWith('example:')
+              );
+              const exampleText = exampleLine ? exampleLine.replace(/^(ví dụ:|example:)\s*/i, '') : '';
+
+              return {
+                id: String(c.id || idx + 1),
+                cardId: c.id,
+                word: wordText,
+                ipa: ipaText,
+                type: c.userNote || 'Ghi nhớ',
+                cefrLevel: 'A2',
+                meaning: meaningText,
+                meaningEn: '',
+                example: exampleText || `Use "${wordText}" in daily communication.`,
+                exampleVi: '',
+                collocation: '',
+                imageUrl: c.imageOverrideUrl,
+              };
+            });
+          }
+        }
+      }
+
+      setStudyQueue(cards);
+    } catch (err: any) {
+      console.warn('Error loading study cards:', err);
+      setError(
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể tải dữ liệu ôn tập. Vui lòng kiểm tra kết nối mạng và thử lại.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadCards();
 
     return () => {
-      isMounted = false;
       try {
         Speech.stop();
       } catch (_) {}
@@ -238,39 +218,70 @@ export const StudyDeckScreen = () => {
   };
 
   const advanceCardRef = useRef((rating: number) => {});
-  advanceCardRef.current = (rating: number) => {
+
+  const handleReviewCard = async (rating: number) => {
+    if (isSubmittingRef.current) return;
+    const card = studyQueue[currentIndex];
+    if (!card) return;
+
     try {
       Speech.stop();
     } catch (_) {}
 
-    const card = studyQueue[currentIndex];
-    if (card?.cardId) {
-      submitSrsReviewApi({
-        cardId: card.cardId,
-        rating,
-        userId: currentUser?.id?.toString(),
-      }).catch((e: any) => console.log('SRS submit error:', e));
-    }
+    isSubmittingRef.current = true;
+    setIsSubmittingReview(true);
 
-    translateX.value = 0;
-    translateY.value = 0;
-    flipRotation.value = 0;
-    setIsFlipped(false);
-    setCurrentIndex((prev) => prev + 1);
+    try {
+      if (card.cardId) {
+        await submitSrsReviewApi({
+          cardId: card.cardId,
+          rating,
+        });
+      }
+
+      // Backend confirmed! Now reset card transforms and advance to next card
+      translateX.value = 0;
+      translateY.value = 0;
+      flipRotation.value = 0;
+      setIsFlipped(false);
+      setCurrentIndex((prev) => prev + 1);
+    } catch (err: any) {
+      console.warn('SRS review failed:', err);
+      const errMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể gửi kết quả ôn tập. Vui lòng kiểm tra kết nối mạng và thử lại.';
+      Alert.alert('Lỗi gửi đánh giá SRS', errMsg);
+      // Restore card to center so user can retry
+      translateX.value = withSpring(0, { damping: 12, stiffness: 150 });
+      translateY.value = withSpring(0, { damping: 12, stiffness: 150 });
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmittingReview(false);
+    }
   };
 
-  // PanResponder for smooth Touch & Swipe Gesture
+  advanceCardRef.current = handleReviewCard;
+
+  // PanResponder for smooth Touch & Swipe Gesture with submission locking
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) => {
+        if (isSubmittingRef.current) return false;
         return Math.abs(gestureState.dx) > 30 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
       },
       onPanResponderMove: (_, gestureState) => {
+        if (isSubmittingRef.current) return;
         translateX.value = gestureState.dx;
         translateY.value = gestureState.dy * 0.3;
       },
       onPanResponderRelease: (_, gestureState) => {
+        if (isSubmittingRef.current) {
+          translateX.value = withSpring(0, { damping: 12, stiffness: 150 });
+          translateY.value = withSpring(0, { damping: 12, stiffness: 150 });
+          return;
+        }
         if (gestureState.dx > SWIPE_THRESHOLD) {
           translateX.value = withTiming(SCREEN_WIDTH * 1.2, { duration: 220 }, () => {
             'worklet';
@@ -343,14 +354,46 @@ export const StudyDeckScreen = () => {
       <View style={[styles.completedContainer, { justifyContent: 'center' }]}>
         <ActivityIndicator size="small" color={palette.primary} />
         <Text style={[styles.completedSub, { marginTop: 12 }]}>
-          Đang tải...
+          Đang tải dữ liệu thẻ ôn tập...
         </Text>
       </View>
     );
   }
 
-  // 2. Empty State
-  if (!loading && studyQueue.length === 0) {
+  // 2. Error State with Retry
+  if (!loading && error) {
+    return (
+      <View style={styles.completedContainer}>
+        <View style={[styles.completedIconBadge, { backgroundColor: '#FEE2E2' }]}>
+          <AlertCircle color="#EF4444" size={48} />
+        </View>
+        <Text style={styles.completedTitle}>Lỗi kết nối máy chủ</Text>
+        <Text style={styles.completedSub}>{error}</Text>
+        <View style={{ width: '100%', gap: 12, marginTop: 24 }}>
+          <Pressable
+            onPress={loadCards}
+            style={[
+              styles.completedBtn,
+              { backgroundColor: palette.primary, flexDirection: 'row', justifyContent: 'center', gap: 8 },
+            ]}
+          >
+            <RotateCcw color="#FFFFFF" size={18} />
+            <Text style={styles.completedBtnText}>Thử lại</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => router.back()}
+            style={[styles.completedBtn, { backgroundColor: '#F1F5F9' }]}
+          >
+            <Text style={[styles.completedBtnText, { color: palette.text }]}>Quay Về Bộ Thẻ</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  // 3. Empty State (Genuinely 0 cards from server)
+  if (!loading && !error && studyQueue.length === 0) {
     return (
       <View style={styles.completedContainer}>
         <View style={styles.completedIconBadge}>
@@ -358,7 +401,7 @@ export const StudyDeckScreen = () => {
         </View>
         <Text style={styles.completedTitle}>Chưa có từ vựng</Text>
         <Text style={styles.completedSub}>
-          Chủ đề "{topicTitle}" hiện chưa có dữ liệu từ vựng. Vui lòng quay lại và chọn chủ đề khác!
+          Chủ đề hoặc bộ thẻ "{topicTitle}" hiện chưa có dữ liệu từ vựng. Vui lòng quay lại và chọn bộ thẻ khác!
         </Text>
         <Pressable onPress={() => router.back()} style={styles.completedBtn}>
           <Text style={styles.completedBtnText}>Quay Về Bộ Thẻ</Text>
@@ -556,24 +599,42 @@ export const StudyDeckScreen = () => {
 
       {/* Rating Buttons */}
       <View style={styles.ratingSection}>
-        <Text style={styles.ratingSectionTitle}>Mức độ nhớ từ này:</Text>
+        <Text style={styles.ratingSectionTitle}>
+          {isSubmittingReview ? 'Đang lưu kết quả SRS...' : 'Mức độ nhớ từ này:'}
+        </Text>
         <View style={styles.ratingRow}>
-          <Pressable onPress={() => advanceCardRef.current(0)} style={[styles.rateBtn, styles.rateAgain]}>
+          <Pressable
+            onPress={() => advanceCardRef.current(0)}
+            disabled={isSubmittingReview}
+            style={[styles.rateBtn, styles.rateAgain, isSubmittingReview && { opacity: 0.5 }]}
+          >
             <Text style={[styles.rateBtnTitle, { color: palette.danger }]}>Chưa thuộc</Text>
             <Text style={styles.rateBtnSub}>&lt;1m</Text>
           </Pressable>
 
-          <Pressable onPress={() => advanceCardRef.current(1)} style={[styles.rateBtn, styles.rateHard]}>
+          <Pressable
+            onPress={() => advanceCardRef.current(1)}
+            disabled={isSubmittingReview}
+            style={[styles.rateBtn, styles.rateHard, isSubmittingReview && { opacity: 0.5 }]}
+          >
             <Text style={[styles.rateBtnTitle, { color: palette.warning }]}>Khó</Text>
             <Text style={styles.rateBtnSub}>2 ngày</Text>
           </Pressable>
 
-          <Pressable onPress={() => advanceCardRef.current(2)} style={[styles.rateBtn, styles.rateGood]}>
+          <Pressable
+            onPress={() => advanceCardRef.current(2)}
+            disabled={isSubmittingReview}
+            style={[styles.rateBtn, styles.rateGood, isSubmittingReview && { opacity: 0.5 }]}
+          >
             <Text style={[styles.rateBtnTitle, { color: palette.primary }]}>Thuộc</Text>
             <Text style={styles.rateBtnSub}>4 ngày</Text>
           </Pressable>
 
-          <Pressable onPress={() => advanceCardRef.current(3)} style={[styles.rateBtn, styles.rateEasy]}>
+          <Pressable
+            onPress={() => advanceCardRef.current(3)}
+            disabled={isSubmittingReview}
+            style={[styles.rateBtn, styles.rateEasy, isSubmittingReview && { opacity: 0.5 }]}
+          >
             <Text style={[styles.rateBtnTitle, { color: palette.success }]}>Dễ</Text>
             <Text style={styles.rateBtnSub}>7 ngày</Text>
           </Pressable>

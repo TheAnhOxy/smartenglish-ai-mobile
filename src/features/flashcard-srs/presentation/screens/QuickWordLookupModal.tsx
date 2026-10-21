@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Pressable, Modal, FlatList, ActivityIndicator } from 'react-native';
+import { RotateCcw, AlertCircle } from 'lucide-react-native';
 import { searchWordsApi, WordDetail } from '../../data/vocabularyApi';
 
 interface QuickWordLookupModalProps {
@@ -11,27 +12,33 @@ export const QuickWordLookupModal: React.FC<QuickWordLookupModalProps> = ({ visi
   const [query, setQuery] = useState('');
   const [words, setWords] = useState<WordDetail[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [savedWordIds, setSavedWordIds] = useState<string[]>([]);
+
+  const handleSearch = () => {
+    if (!visible) return;
+    setLoading(true);
+    setError(null);
+    searchWordsApi({ search: query.trim() || undefined, page: 1, size: 20 })
+      .then((res) => {
+        setWords(res.items);
+      })
+      .catch((err: any) => {
+        console.warn('Lookup search error:', err);
+        setError(err?.response?.data?.message || err?.message || 'Không thể tra từ lúc này.');
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  };
 
   useEffect(() => {
     if (!visible) return;
-    let isMounted = true;
-    setLoading(true);
     const timer = setTimeout(() => {
-      searchWordsApi({ search: query, page: 1, size: 20 })
-        .then((res) => {
-          if (isMounted) {
-            setWords(res.items);
-            setLoading(false);
-          }
-        })
-        .catch(() => {
-          if (isMounted) setLoading(false);
-        });
+      handleSearch();
     }, 300);
 
     return () => {
-      isMounted = false;
       clearTimeout(timer);
     };
   }, [query, visible]);
@@ -64,9 +71,26 @@ export const QuickWordLookupModal: React.FC<QuickWordLookupModalProps> = ({ visi
             className="bg-surface px-4 py-3 rounded-xl border border-gray-200 text-neutralInk text-sm mb-4"
           />
 
-          {loading ? (
+          {loading && (
             <ActivityIndicator color="#FF6B35" size="large" className="my-6" />
-          ) : (
+          )}
+
+          {!loading && error && (
+            <View className="items-center justify-center p-6 bg-surface rounded-2xl border border-gray-100 my-4">
+              <AlertCircle size={32} color="#EF4444" />
+              <Text className="text-sm font-bold text-neutralInk mt-2 mb-1">Lỗi tra từ</Text>
+              <Text className="text-xs text-neutralGray text-center mb-3">{error}</Text>
+              <Pressable
+                onPress={handleSearch}
+                className="flex-row items-center gap-2 bg-primary px-4 py-2 rounded-xl active:opacity-90"
+              >
+                <RotateCcw size={14} color="#FFFFFF" />
+                <Text className="text-white font-bold text-xs">Thử lại</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {!loading && !error && (
             <FlatList
               data={words}
               keyExtractor={(item) => item.id}
