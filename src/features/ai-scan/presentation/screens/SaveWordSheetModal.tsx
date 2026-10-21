@@ -79,7 +79,7 @@ export const SaveWordSheetModal: React.FC<SaveWordSheetModalProps> = ({
   const loadUserDecks = async () => {
     setIsLoadingDecks(true);
     try {
-      const backendDecks: DeckItemDTO[] = await fetchMyDecksApi(uid);
+      const backendDecks: DeckItemDTO[] = await fetchMyDecksApi();
       
       const combinedList: Array<{ id: string | number; name: string; cardCount: number }> = [];
 
@@ -160,7 +160,7 @@ export const SaveWordSheetModal: React.FC<SaveWordSheetModalProps> = ({
     setIsSaving(true);
     try {
       // 1. Create in backend learning-service database (learning.decks)
-      const createdOnBackend = await createDeckApi(trimmed, 'Bộ thẻ tự tạo', uid);
+      const createdOnBackend = await createDeckApi(trimmed, 'Bộ thẻ tự tạo');
       const newDeckId = createdOnBackend ? createdOnBackend.id : `deck-${Date.now()}`;
 
       // 2. Add to local state
@@ -208,7 +208,6 @@ export const SaveWordSheetModal: React.FC<SaveWordSheetModalProps> = ({
           exampleEn: exampleSentence,
           userNote: exampleTranslation,
           targetDeckId: targetDeckIdNum,
-          userId: uid,
         });
       });
 

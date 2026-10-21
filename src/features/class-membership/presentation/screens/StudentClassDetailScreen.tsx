@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, ScrollView, ActivityIndicator, StatusBar, FlatList } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Users } from 'lucide-react-native';
 import { StudentAssignmentsScreen } from './StudentAssignmentsScreen';
 import {
   useClassDetail,
@@ -9,12 +10,13 @@ import {
 } from '../../application/useClassMembership';
 
 export const StudentClassDetailScreen = () => {
-  const { classId } = useLocalSearchParams<{ classId: string }>();
+  const { classId } = useLocalSearchParams<{ classId?: string }>();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'curriculum' | 'assignments' | 'members'>('curriculum');
 
-  const { data: currentClass, isLoading: isClassLoading } = useClassDetail(classId || '1');
-  const { data: members = [], isLoading: isMembersLoading } = useClassMembers(classId || '1');
+  const validClassId = classId ? String(classId) : '';
+  const { data: currentClass, isLoading: isClassLoading, isError: isClassError, error: classError, refetch: refetchClass } = useClassDetail(validClassId);
+  const { data: members = [], isLoading: isMembersLoading, refetch: refetchMembers } = useClassMembers(validClassId);
   const { data: curriculum = [], isLoading: isCurriculumLoading } = useCourseCurriculum(
     currentClass?.courseId ? Number(currentClass.courseId) : undefined
   );
@@ -51,11 +53,44 @@ export const StudentClassDetailScreen = () => {
     }
   };
 
-  if (isClassLoading && !currentClass) {
+  if (isClassLoading) {
     return (
       <View className="flex-1 bg-[#F8FAFC] justify-center items-center">
         <ActivityIndicator color="#FF6B35" size="small" />
-        <Text className="text-xs text-gray-500 mt-2 font-medium">Đang tải...</Text>
+        <Text className="text-xs text-gray-500 mt-2 font-medium">Đang tải chi tiết lớp học...</Text>
+      </View>
+    );
+  }
+
+  if (!validClassId || isClassError || !currentClass) {
+    return (
+      <View className="flex-1 bg-[#F8FAFC] justify-center items-center px-6">
+        <View className="bg-white p-6 rounded-2xl border border-red-100 items-center shadow-xs w-full max-w-sm">
+          <Text className="text-4xl mb-3">🏫</Text>
+          <Text className="text-base font-bold text-gray-900 mb-1 text-center">Không Thể Tải Lớp Học</Text>
+          <Text className="text-xs text-gray-500 text-center mb-5 leading-5">
+            {classError instanceof Error ? classError.message : 'Lớp học không tồn tại hoặc đã có lỗi xảy ra khi tải dữ liệu.'}
+          </Text>
+          <View className="flex-row gap-3">
+            <Pressable
+              onPress={() => router.back()}
+              className="flex-1 bg-gray-100 py-2.5 rounded-xl items-center active:bg-gray-200"
+            >
+              <Text className="text-xs font-bold text-gray-700">Quay lại</Text>
+            </Pressable>
+            {validClassId ? (
+              <Pressable
+                onPress={() => {
+                  refetchClass();
+                  refetchMembers();
+                }}
+                className="flex-1 bg-primary py-2.5 rounded-xl items-center active:bg-primaryDark"
+              >
+                <Text className="text-xs font-bold text-white">Thử lại</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
       </View>
     );
   }
@@ -275,21 +310,15 @@ export const StudentClassDetailScreen = () => {
               <View className="items-center py-8">
                 <ActivityIndicator color="#FF6B35" size="small" />
               </View>
+            ) : studentMembers.length === 0 ? (
+              <View className="bg-white rounded-2xl border border-gray-100 p-8 items-center justify-center">
+                <Users size={32} color="#9CA3AF" />
+                <Text className="text-sm font-semibold text-gray-700 mt-2">Chưa có thành viên nào khác</Text>
+                <Text className="text-xs text-gray-400 mt-1 text-center">Danh sách học viên tham gia lớp học sẽ hiển thị tại đây.</Text>
+              </View>
             ) : (
               <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-xs divide-y divide-gray-100">
-                {(studentMembers.length > 0
-                  ? studentMembers
-                  : [
-                      {
-                        id: 1,
-                        userId: 1,
-                        userName: 'Bạn (Học viên hiện tại)',
-                        role: 'STUDENT' as const,
-                        status: 'ACTIVE',
-                        joinedAt: '2026-10-05',
-                      },
-                    ]
-                ).map((member, idx) => (
+                {studentMembers.map((member, idx) => (
                   <View key={member.id || idx} className="p-3.5 flex-row justify-between items-center">
                     <View className="flex-row items-center gap-3">
                       <View className="w-8 h-8 rounded-full bg-gray-100 items-center justify-center">

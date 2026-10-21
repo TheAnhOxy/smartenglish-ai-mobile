@@ -114,10 +114,20 @@ export function ExamDetailScreen() {
     if (!examId || startAttempt.isPending) return;
     try {
       const session = await startAttempt.mutateAsync(examId);
-      router.push({ pathname: '/(student)/practice/exam/[examId]', params: { examId: String(examId), attemptId: String(session.attemptId) } });
+      router.push({
+        pathname: '/(student)/practice/exam/[examId]',
+        params: {
+          examId: String(examId),
+          attemptId: String(session.attemptId),
+          mode: 'EXAM',
+        },
+      });
     } catch (error: any) {
-      console.warn('Backend start attempt failed, entering practice session directly:', error?.message);
-      router.push({ pathname: '/(student)/practice/exam/[examId]', params: { examId: String(examId), attemptId: '9999' } });
+      const msg = error?.response?.data?.message || error?.message || 'Không thể bắt đầu bài thi. Vui lòng thử lại.';
+      Alert.alert('Không thể bắt đầu', msg, [
+        { text: 'Đóng', style: 'cancel' },
+        { text: 'Thử lại', onPress: handleStart },
+      ]);
     }
   };
 
@@ -220,7 +230,7 @@ export function ExamDetailScreen() {
         >
           {startAttempt.isPending ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
           <Text style={styles.startButtonText}>
-            {startAttempt.isPending ? 'Đang vào...' : 'Bắt đầu làm bài'}
+            {startAttempt.isPending ? 'Đang vào...' : 'Thi thử'}
           </Text>
           {!startAttempt.isPending ? <ArrowRight color="#FFFFFF" size={18} /> : null}
         </Pressable>

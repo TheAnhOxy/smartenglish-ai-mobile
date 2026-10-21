@@ -42,7 +42,7 @@ export function ExamResultScreen() {
 
   const result = resultQuery.data ?? null;
   const questions = result?.questions ?? [];
-  const isToeicResult = result?.scoringType === 'TOEIC_ESTIMATED';
+  const isToeicResult = result?.scoringType === 'TOEIC_ESTIMATED' || (result?.category ? String(result.category).toUpperCase().startsWith('TOEIC') : false);
   const userAnswers = useMemo(() => Object.fromEntries(
     questions.filter((q) => q.selectedAnswer).map((q) => [q.id, q.selectedAnswer])
   ), [questions]);
@@ -129,7 +129,21 @@ export function ExamResultScreen() {
   }
 
   if (!result) {
-    return <View style={styles.loadingState}><XCircle color={colors.primary} size={34} /><Text style={styles.loadingTitle}>Không tải được kết quả</Text><Text style={styles.loadingText}>{(resultQuery.error as any)?.response?.data?.message || 'Kết quả không tồn tại hoặc bài chưa được nộp.'}</Text><Pressable style={styles.loadingButton} onPress={() => router.replace('/(student)/learn')}><Text style={styles.loadingButtonText}>Về danh sách bài thi</Text></Pressable></View>;
+    return (
+      <View style={styles.loadingState}>
+        <XCircle color={colors.primary} size={34} />
+        <Text style={styles.loadingTitle}>Không tải được kết quả</Text>
+        <Text style={styles.loadingText}>{(resultQuery.error as any)?.response?.data?.message || 'Kết quả không tồn tại hoặc bài chưa được nộp.'}</Text>
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+          <Pressable style={styles.loadingButton} onPress={() => resultQuery.refetch()}>
+            <Text style={styles.loadingButtonText}>Thử lại</Text>
+          </Pressable>
+          <Pressable style={[styles.loadingButton, { backgroundColor: '#64748B' }]} onPress={() => router.replace('/(student)/learn')}>
+            <Text style={styles.loadingButtonText}>Danh sách đề</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
   }
 
   const handleBackToCatalog = () => {
@@ -177,8 +191,8 @@ export function ExamResultScreen() {
           <View style={styles.scoreRow}>
             <Text style={styles.scoreNumber}>{result.displayScore}</Text>
             <Text style={styles.scoreMax}>
-              / {result.maximumScore}
-              {!isToeicResult ? ' điểm' : ''}
+              / {isToeicResult ? 990 : 100}
+              {!isToeicResult ? '%' : ''}
             </Text>
           </View>
 

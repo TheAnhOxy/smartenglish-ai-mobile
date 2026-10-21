@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, FlatList, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { RotateCcw, AlertCircle } from 'lucide-react-native';
 import { searchWordsApi, WordDetail } from '../../data/vocabularyApi';
 
 export const ManageCardsScreen = () => {
@@ -9,30 +10,35 @@ export const ManageCardsScreen = () => {
   const [stageFilter, setStageFilter] = useState<string>('all');
   const [words, setWords] = useState<WordDetail[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchWords = () => {
+    setLoading(true);
+    setError(null);
+    searchWordsApi({
+      search: search.trim() || undefined,
+      cefrLevel: stageFilter !== 'all' ? stageFilter.toUpperCase() : undefined,
+      page: 1,
+      size: 30,
+    })
+      .then((res) => {
+        setWords(res.items);
+      })
+      .catch((err: any) => {
+        console.warn('Search words error:', err);
+        setError(err?.response?.data?.message || err?.message || 'Không thể tìm kiếm từ vựng. Vui lòng thử lại.');
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  };
 
   useEffect(() => {
-    let isMounted = true;
-    setLoading(true);
     const timer = setTimeout(() => {
-      searchWordsApi({
-        search: search,
-        cefrLevel: stageFilter !== 'all' ? stageFilter.toUpperCase() : undefined,
-        page: 1,
-        size: 30
-      })
-        .then((res) => {
-          if (isMounted) {
-            setWords(res.items);
-            setLoading(false);
-          }
-        })
-        .catch(() => {
-          if (isMounted) setLoading(false);
-        });
+      fetchWords();
     }, 300);
 
     return () => {
-      isMounted = false;
       clearTimeout(timer);
     };
   }, [search, stageFilter]);
@@ -75,9 +81,26 @@ export const ManageCardsScreen = () => {
         ))}
       </View>
 
-      {loading ? (
+      {loading && (
         <ActivityIndicator color="#FF6B35" size="large" className="my-6" />
-      ) : (
+      )}
+
+      {!loading && error && (
+        <View className="items-center justify-center p-8 bg-cardWhite rounded-2xl border border-gray-100 my-4">
+          <AlertCircle size={36} color="#EF4444" />
+          <Text className="text-base font-bold text-neutralInk mt-3 mb-1">Lỗi kết nối máy chủ</Text>
+          <Text className="text-xs text-neutralGray text-center mb-4">{error}</Text>
+          <Pressable
+            onPress={fetchWords}
+            className="flex-row items-center gap-2 bg-primary px-5 py-2.5 rounded-xl active:opacity-90"
+          >
+            <RotateCcw size={16} color="#FFFFFF" />
+            <Text className="text-white font-bold text-xs">Thử lại</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {!loading && !error && (
         <FlatList
           data={words}
           keyExtractor={(item) => item.id}

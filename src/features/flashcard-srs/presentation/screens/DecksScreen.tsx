@@ -9,6 +9,7 @@ import {
   TextInput,
   StyleSheet,
   Dimensions,
+  Alert,
 } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -27,6 +28,8 @@ import {
   Lock,
   ArrowRight,
   TrendingUp,
+  RotateCcw,
+  AlertCircle,
 } from 'lucide-react-native';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import {
@@ -223,6 +226,7 @@ export const DecksScreen = () => {
   const [systemDecks, setSystemDecks] = useState<DeckItemDTO[]>([]);
   const [myDecks, setMyDecks] = useState<DeckItemDTO[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newDeckName, setNewDeckName] = useState('');
@@ -233,10 +237,11 @@ export const DecksScreen = () => {
 
   const loadData = async () => {
     setLoading(true);
+    setError(null);
     try {
       const [sys, mine, contentTopics] = await Promise.all([
         fetchSystemDecksApi(),
-        fetchMyDecksApi(currentUser?.id?.toString()),
+        fetchMyDecksApi(),
         getTopicsApi(),
       ]);
 
@@ -257,8 +262,9 @@ export const DecksScreen = () => {
       }
 
       setMyDecks(mine);
-    } catch (e) {
+    } catch (e: any) {
       console.warn('Error loading decks:', e);
+      setError(e?.response?.data?.message || e?.message || 'Không thể tải danh sách bộ thẻ. Vui lòng thử lại.');
     } finally {
       setLoading(false);
     }
@@ -266,7 +272,7 @@ export const DecksScreen = () => {
 
   useEffect(() => {
     loadData();
-  }, [currentUser?.id]);
+  }, []);
 
   const isUserPremium = currentUser?.plan !== 'free';
 
@@ -276,8 +282,7 @@ export const DecksScreen = () => {
     try {
       const created = await createDeckApi(
         newDeckName.trim(),
-        newDeckDesc.trim(),
-        currentUser?.id?.toString()
+        newDeckDesc.trim()
       );
       if (created) {
         setMyDecks((prev) => [created, ...prev]);
@@ -285,8 +290,12 @@ export const DecksScreen = () => {
       setNewDeckName('');
       setNewDeckDesc('');
       setShowCreateModal(false);
-    } catch (e) {
+    } catch (e: any) {
       console.warn('Error creating deck:', e);
+      Alert.alert(
+        'Lỗi tạo bộ thẻ',
+        e?.response?.data?.message || e?.message || 'Không thể tạo bộ thẻ mới. Vui lòng thử lại.'
+      );
     } finally {
       setCreating(false);
     }
@@ -388,12 +397,44 @@ export const DecksScreen = () => {
       </View>
 
       {/* Loading state */}
-      {loading ? (
+      {loading && (
         <TabLoadingState
           message="Đang tải kho bộ thẻ..."
         />
-      ) : (
-        /* Decks 2x2 Grid */
+      )}
+
+      {/* Error state */}
+      {!loading && error && (
+        <View style={styles.errorContainer}>
+          <AlertCircle size={38} color="#EF4444" />
+          <Text style={styles.errorTitle}>Lỗi kết nối máy chủ</Text>
+          <Text style={styles.errorSub}>{error}</Text>
+          <Pressable onPress={loadData} style={styles.retryBtn}>
+            <RotateCcw size={15} color="#FFFFFF" />
+            <Text style={styles.retryBtnText}>Thử lại</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* Empty state khi không có thẻ */}
+      {!loading && !error && currentList.length === 0 && activeTab === 'SYSTEM' && (
+        <View style={styles.emptyContainer}>
+          <BookOpen size={40} color="#94A3B8" />
+          <Text style={styles.emptyTitle}>Chưa có bộ thẻ hệ thống nào</Text>
+          <Text style={styles.emptySubtitle}>Các chủ đề từ vựng chuẩn sẽ sớm được xuất bản.</Text>
+        </View>
+      )}
+
+      {!loading && !error && currentList.length === 0 && activeTab === 'MY_DECKS' && (
+        <View style={styles.emptyContainer}>
+          <BookOpen size={40} color="#94A3B8" />
+          <Text style={styles.emptyTitle}>Chưa có bộ thẻ</Text>
+          <Text style={styles.emptySubtitle}>Bạn chưa có bộ thẻ cá nhân nào. Hãy bấm nút bên dưới để tạo bộ thẻ từ vựng đầu tiên!</Text>
+        </View>
+      )}
+
+      {/* Decks 2x2 Grid */}
+      {!loading && !error && (
         <View style={styles.gridContainer}>
           {currentList.map((deck, idx) => (
             <FlashcardDeckCard
@@ -822,5 +863,64 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontFamily: font.family,
     fontSize: 13,
+  },
+  errorContainer: {
+    padding: 24,
+    borderRadius: 20,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    alignItems: 'center',
+    marginVertical: 16,
+    gap: 8,
+  },
+  errorTitle: {
+    fontSize: 15,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: '#991B1B',
+  },
+  errorSub: {
+    fontSize: 13,
+    fontFamily: font.family,
+    color: '#B91C1C',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  retryBtn: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+  },
+  retryBtnText: {
+    fontSize: 13,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  emptyContainer: {
+    padding: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginVertical: 20,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    fontFamily: font.family,
+    color: colors.textSoft,
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });

@@ -26,8 +26,10 @@ import {
   Gift,
   Compass,
   Sparkles,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react-native';
-import { MOCK_CURRICULUM, UnitNode, Chapter } from '../../data/curriculumData';
+import { UnitNode, Chapter } from '../../data/curriculumData';
 import { fetchLearningPathRoadmapApi, isSystemCourse } from '../../data/knowledgeGapApi';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { colors, palette, font } from '@/src/theme';
@@ -374,6 +376,8 @@ export const LearningPathScreen = () => {
   const [selectedUnit, setSelectedUnit] = useState<UnitNode | null>(null);
   const [curriculum, setCurriculum] = useState<Chapter[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   // Pulse animation cho node hiện tại
   const pulseScale = useSharedValue(1);
@@ -382,12 +386,14 @@ export const LearningPathScreen = () => {
   // Fetch roadmap API
   const loadRoadmap = useCallback(() => {
     setIsLoading(true);
-    const uid = currentUser?.id ? String(currentUser.id) : '1';
+    setIsError(false);
+    setErrorMessage('');
+    const uid = currentUser?.id ? String(currentUser.id) : undefined;
     fetchLearningPathRoadmapApi(uid)
       .then((milestones: any[]) => {
-        const validMilestones = milestones.filter(isSystemCourse);
+        const validMilestones = (milestones || []).filter(isSystemCourse);
         if (!validMilestones || validMilestones.length === 0) {
-          setCurriculum((prev) => (prev.length > 0 ? prev : MOCK_CURRICULUM));
+          setCurriculum([]);
           return;
         }
         const mapped: Chapter[] = validMilestones.map((m: any, idx: number) => ({
@@ -429,15 +435,13 @@ export const LearningPathScreen = () => {
             };
           }),
         }));
-        if (mapped.length > 0 && mapped.some((c) => c.units.length > 0)) {
-          setCurriculum(mapped);
-        } else {
-          setCurriculum(MOCK_CURRICULUM);
-        }
+        setCurriculum(mapped);
       })
       .catch((err) => {
         console.warn('[LearningPath] API load failed:', err);
-        setCurriculum((prev) => (prev.length > 0 ? prev : MOCK_CURRICULUM));
+        setIsError(true);
+        setErrorMessage(err?.message || 'Không thể kết nối đến máy chủ lộ trình học.');
+        setCurriculum([]);
       })
       .finally(() => {
         setIsLoading(false);
@@ -506,6 +510,43 @@ export const LearningPathScreen = () => {
 
         {isLoading ? (
           <TabLoadingState message="Đang tải lộ trình học..." />
+        ) : isError ? (
+          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 24, marginHorizontal: 4, marginTop: 24, alignItems: 'center', borderWidth: 1, borderColor: '#FEE2E2', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 }}>
+            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#FEF2F2', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+              <AlertCircle color="#EF4444" size={28} />
+            </View>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: '#1E293B', marginBottom: 6, textAlign: 'center' }}>
+              Không thể tải lộ trình học
+            </Text>
+            <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center', lineHeight: 20, marginBottom: 20, paddingHorizontal: 12 }}>
+              {errorMessage || 'Đã có lỗi xảy ra khi kết nối đến dịch vụ học tập. Vui lòng kiểm tra lại kết nối mạng.'}
+            </Text>
+            <Pressable
+              onPress={loadRoadmap}
+              style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 14, gap: 8 }}
+            >
+              <RefreshCw color="#FFFFFF" size={16} />
+              <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>Thử lại</Text>
+            </Pressable>
+          </View>
+        ) : curriculum.length === 0 ? (
+          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 28, marginHorizontal: 4, marginTop: 24, alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 }}>
+            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+              <Compass color="#3B82F6" size={28} />
+            </View>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: '#1E293B', marginBottom: 6, textAlign: 'center' }}>
+              Chưa có dữ liệu lộ trình học
+            </Text>
+            <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center', lineHeight: 20, marginBottom: 20, paddingHorizontal: 8 }}>
+              Hệ thống chưa có khóa học tiêu chuẩn hoặc đang được cập nhật. Bạn có thể làm bài kiểm tra đầu vào để hệ thống sắp xếp bài học phù hợp.
+            </Text>
+            <Pressable
+              onPress={() => router.push('/(student)/practice' as any)}
+              style={{ backgroundColor: colors.primary, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 14 }}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>Làm bài kiểm tra</Text>
+            </Pressable>
+          </View>
         ) : (
           curriculum.map((chapter) => {
           const biome = getBiomeForChapter(chapter.chapter_number);

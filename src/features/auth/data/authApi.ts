@@ -101,9 +101,9 @@ export const registerApi = async (payload: RegisterPayload): Promise<LoginRespon
   }
 };
 
-export const fetchCurrentUserApi = async (userId: string): Promise<{ user: User }> => {
+export const fetchCurrentUserApi = async (userId?: string): Promise<{ user: User }> => {
   try {
-    const response = await apiClient.get<any>(`/api/v1/users/me?userId=${userId}`);
+    const response = await apiClient.get<any>('/api/v1/users/me');
     const user = response.data?.data || response.data;
     return { user: mapUserProfile(user) };
   } catch (err) {

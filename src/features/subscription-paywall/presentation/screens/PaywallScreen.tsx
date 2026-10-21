@@ -52,6 +52,7 @@ export const PaywallScreen = () => {
   const [plans, setPlans] = useState<StudentSubscriptionPlan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string>('S-PLAN-YEARLY');
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [isSepayModalOpen, setIsSepayModalOpen] = useState(false);
   const [sepayOrder, setSepayOrder] = useState<any>(null);
@@ -85,7 +86,12 @@ export const PaywallScreen = () => {
   const loadPlans = async () => {
     try {
       setIsLoading(true);
+      setLoadError(null);
       const data = await fetchStudentPlansApi();
+      if (!data || data.length === 0) {
+        setLoadError('Không tải được thông tin gói');
+        return;
+      }
       setPlans(data);
       const available = data.filter((p) => p.id !== 'S-PLAN-FREE' && !isPlanCurrent(p.id));
       if (available.length > 0) {
@@ -101,6 +107,7 @@ export const PaywallScreen = () => {
       }
     } catch (e) {
       console.warn('Failed to load plans:', e);
+      setLoadError('Không tải được thông tin gói');
     } finally {
       setIsLoading(false);
     }
@@ -160,7 +167,7 @@ export const PaywallScreen = () => {
         : 'student.theanh@gmail.com';
 
       const res = await apiClient.post<any>(
-        `/api/v1/payment/subscriptions/subscribe?userId=${safeUserId}`,
+        '/api/v1/payment/subscriptions/subscribe',
         {
           planId: numericPlanId,
           planCode: selectedPlan.id,
@@ -409,6 +416,19 @@ export const PaywallScreen = () => {
             <View style={s.loadingBox}>
               <ActivityIndicator color="#F59E0B" size="small" />
               <Text style={s.loadingText}>Đang tải các gói ưu đãi...</Text>
+            </View>
+          ) : loadError && paidPlans.length === 0 ? (
+            <View style={[s.loadingBox, { paddingVertical: 28 }]}>
+              <Text style={[s.loadingText, { color: '#DC2626', fontWeight: '700', marginBottom: 12 }]}>
+                Không tải được thông tin gói
+              </Text>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={loadPlans}
+                style={{ backgroundColor: '#0284C7', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}
+              >
+                <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 13 }}>Thử lại</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <View style={s.plansList}>

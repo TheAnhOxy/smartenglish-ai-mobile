@@ -64,6 +64,9 @@ import { colors } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
 import { ExamListeningClusterView } from '../components/ExamListeningClusterView';
 import { ExamReadingClusterView } from '../components/ExamReadingClusterView';
+import { FillInTheBlankView } from '../components/FillInTheBlankView';
+import { MatchingPairsView } from '../components/MatchingPairsView';
+import { OrderingQuestionView } from '../components/OrderingQuestionView';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -171,7 +174,7 @@ export function FullExamScreen() {
   const [activeSession, setActiveSession] = useState<ExamAttemptSession | null>(null);
 
   const startAttempt = useStartExamAttempt();
-  const attemptQuery = useExamAttemptQuery(activeAttemptId && activeAttemptId !== 9999 ? activeAttemptId : null);
+  const attemptQuery = useExamAttemptQuery(activeAttemptId);
   const examDetailQuery = usePublishedExamDetailQuery(examId);
   const sourceResultQuery = useExamResultQuery(isWrongOnly && sourceAttemptId ? sourceAttemptId : null);
   const saveAnswer = useSaveExamAnswer();
@@ -185,7 +188,7 @@ export function FullExamScreen() {
   const bookmarkDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const flushPendingSync = useCallback((attemptId: number | null, answers: Record<string, AnswerKey>, bookmarked: string[]) => {
-    if (!attemptId || attemptId === 9999 || !pendingSyncRef.current) return;
+    if (!attemptId || !pendingSyncRef.current) return;
     const { questionId } = pendingSyncRef.current;
     const selectedAnswer = answers[questionId];
     const isBookmarked = bookmarked.includes(questionId);
@@ -312,7 +315,11 @@ export function FullExamScreen() {
       if (s.bookmarks && s.bookmarks.length > 0) {
         setBookmarkedIds((prev) => Array.from(new Set([...prev, ...s.bookmarks])));
       }
-      if (s.remainingSeconds && s.remainingSeconds > 0) {
+      if (s.expiresAt) {
+        const expiresMs = new Date(s.expiresAt).getTime();
+        const diffSec = Math.max(0, Math.floor((expiresMs - Date.now()) / 1000));
+        setTimeLeft(diffSec);
+      } else if (s.remainingSeconds && s.remainingSeconds > 0) {
         setTimeLeft(s.remainingSeconds);
       } else if (s.durationMinutes && s.durationMinutes > 0 && timeLeft === 7200) {
         setTimeLeft(s.durationMinutes * 60);
@@ -656,7 +663,7 @@ export function FullExamScreen() {
     setBookmarkedIds((prev) => bookmarked ? [...prev, id] : prev.filter((item) => item !== id));
     if (bookmarkDebounceRef.current) clearTimeout(bookmarkDebounceRef.current);
     bookmarkDebounceRef.current = setTimeout(() => {
-      if (activeAttemptId && activeAttemptId !== 9999) {
+      if (activeAttemptId) {
         saveAnswer.mutate({ attemptId: activeAttemptId, questionId: id, selectedAnswer: userAnswers[id], bookmarked });
       }
     }, 1500);
@@ -722,8 +729,9 @@ export function FullExamScreen() {
     const nextAnswers = { ...userAnswers, [questionId]: key };
     setUserAnswers(nextAnswers);
 
-    if (isPracticeMode && activeAttemptId && activeAttemptId !== 9999) {
+    if (activeAttemptId) {
       pendingSyncRef.current = { questionId, answer: key };
+      saveAnswer.mutate({ attemptId: activeAttemptId, questionId, selectedAnswer: key, bookmarked: bookmarkedIds.includes(questionId) });
     }
 
     let nextRevealed = revealedQuestions;
@@ -897,7 +905,7 @@ export function FullExamScreen() {
       clearPracticeProgress(examId);
     }
 
-    if (activeAttemptId && attemptQuery.data) {
+    if (activeAttemptId) {
       try {
         await submitAttempt.mutateAsync({ attemptId: activeAttemptId, answers: userAnswers, timeSpentSeconds });
         router.replace({ pathname: '/(student)/practice/exam/result', params: { attemptId: String(activeAttemptId) } });
@@ -905,10 +913,8 @@ export function FullExamScreen() {
       } catch (error: any) {
         console.warn('Backend submit failed:', error?.message);
         // Even on failure, still navigate - result screen will show error state
-        if (activeAttemptId) {
-          router.replace({ pathname: '/(student)/practice/exam/result', params: { attemptId: String(activeAttemptId) } });
-          return;
-        }
+        router.replace({ pathname: '/(student)/practice/exam/result', params: { attemptId: String(activeAttemptId) } });
+        return;
       }
     }
 
@@ -1080,8 +1086,58 @@ export function FullExamScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollBody}
       >
-        {/* ─── CỤM CÂU HỎI THEO CHUẨN TOEIC (GOM NHÓM CÂU HỎI TRÊN CÙNG 1 MÀN HÌNH) ─── */}
-        {isListeningPart ? (
+        {/* ─── HIỂN THỊ CÂU HỎI THEO LOẠI HỖ TRỢ TRÊN BACKEND ─── */}
+        {currentQ.questionType === 'FILL_BLANK' ? (
+          <FillInTheBlankView
+            question={{
+              id: currentQ.id,
+              categoryTag: currentQ.categoryTag || currentQ.partLabel,
+              instruction: currentQ.instructionPrompt || 'Điền từ vào chỗ trống:',
+              sentenceBefore: (currentQ as any).sentenceBefore || currentQ.questionText || '',
+              sentenceAfter: (currentQ as any).sentenceAfter || '',
+              blankPlaceholder: (currentQ as any).blankPlaceholder,
+              grammarHint: (currentQ as any).grammarHint || currentQ.explanationVi,
+              wordBank: (currentQ as any).wordBank,
+              correctAnswer: String(currentQ.correctAnswer || ''),
+            }}
+            userAnswer={userAnswers[currentQ.id] || ''}
+            onAnswerChange={(ans) => handleSelectClusterAnswer(currentQ.id, ans as any)}
+            isBookmarked={bookmarkedIds.includes(currentQ.id)}
+            onToggleBookmark={() => toggleBookmark(currentQ.id)}
+          />
+        ) : currentQ.questionType === 'MATCHING' ? (
+          <MatchingPairsView
+            question={{
+              id: currentQ.id,
+              categoryTag: currentQ.categoryTag || currentQ.partLabel,
+              instruction: currentQ.instructionPrompt || 'Chạm chọn từ bên trái, sau đó chọn nghĩa ở bên phải:',
+              pairs: (currentQ as any).pairs || [],
+              shuffledRight: (currentQ as any).shuffledRight || [],
+            }}
+            matchedPairs={(userAnswers[currentQ.id] as any) || {}}
+            onMatchesChange={(matches) => handleSelectClusterAnswer(currentQ.id, matches as any)}
+            isBookmarked={bookmarkedIds.includes(currentQ.id)}
+            onToggleBookmark={() => toggleBookmark(currentQ.id)}
+          />
+        ) : (currentQ.questionType === 'ORDERING' || currentQ.questionType === 'WORD_ORDER') ? (
+          <OrderingQuestionView
+            question={{
+              id: currentQ.id,
+              categoryTag: currentQ.categoryTag || currentQ.partLabel,
+              instruction: currentQ.instructionPrompt || 'Sắp xếp các từ thành câu hoàn chỉnh:',
+              questionText: currentQ.questionText,
+              items: (currentQ as any).items,
+              correctAnswer: String(currentQ.correctAnswer || ''),
+              explanationVi: currentQ.explanationVi,
+            }}
+            userAnswer={userAnswers[currentQ.id] || ''}
+            onAnswerChange={(ans) => handleSelectClusterAnswer(currentQ.id, ans as any)}
+            isBookmarked={bookmarkedIds.includes(currentQ.id)}
+            onToggleBookmark={() => toggleBookmark(currentQ.id)}
+            isPracticeMode={isPracticeMode}
+            isRevealed={Boolean(revealedQuestions[currentQ.id])}
+          />
+        ) : isListeningPart ? (
           <ExamListeningClusterView
             questions={clusterQuestions}
             userAnswers={userAnswers}
@@ -1211,18 +1267,25 @@ export function FullExamScreen() {
                 isTranslating ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 }}>
                     <ActivityIndicator size="small" color={colors.primary} />
-                    <Text style={{ fontSize: 13, color: '#64748B' }}>Đang dịch từ Google Translate...</Text>
+                    <Text style={{ fontSize: 13, color: '#64748B' }}>Đang nạp bản dịch hỗ trợ...</Text>
                   </View>
                 ) : (
                   <View style={styles.translationList}>
-                    {Boolean(currentTranslations?.question) && (
+                    <View style={styles.translationSourceBadge}>
+                      <Text style={styles.translationSourceBadgeText}>
+                        {currentQ.translationVi ? 'Bản dịch chính thức của đề' : 'Bản dịch máy tham khảo (Hỗ trợ)'}
+                      </Text>
+                    </View>
+                    {Boolean(currentQ.translationVi || currentTranslations?.question) && (
                       <View style={styles.translationQuestionRow}>
                         <Text style={styles.translationQuestionLabel}>Câu hỏi:</Text>
-                        <Text style={styles.translationQuestionText}>{currentTranslations?.question}</Text>
+                        <Text style={styles.translationQuestionText}>
+                          {currentQ.translationVi || currentTranslations?.question}
+                        </Text>
                       </View>
                     )}
                     {displayOptions.map((option) => {
-                      const trans = currentTranslations?.[option.key] || option.translationVi;
+                      const trans = option.translationVi || currentTranslations?.[option.key];
                       return (
                         <Text key={option.key} style={styles.translationBody}>
                           <Text style={styles.translationKey}>{option.key}. </Text>
@@ -1534,7 +1597,7 @@ export function FullExamScreen() {
                 }}
                 style={styles.submitModalBtn}
               >
-                <Text style={styles.submitModalBtnText}>{submitAttempt.isPending ? 'Đang nộp...' : 'Nộp bài ngay'}</Text>
+                <Text style={styles.submitModalBtnText}>{submitAttempt.isPending ? 'Đang nộp...' : 'Nộp bài'}</Text>
               </Pressable>
             </View>
           </View>
@@ -1583,22 +1646,10 @@ export function FullExamScreen() {
                     setShowExitModal(false);
                     router.back();
                   } else {
-                    // Exam mode: partial-submit để lưu tiến trình lên BE
-                    // Người dùng sẽ thấy kết quả tạm nếu có attemptId hợp lệ
+                    // Exam mode: flush pending answers/bookmarks to BE so the student can resume later
                     setShowExitModal(false);
-                    if (activeAttemptId && activeAttemptId !== 9999 && Object.keys(userAnswers).length > 0) {
-                      try {
-                        const totalDurationSec = (activeSession?.durationMinutes ?? examDetailQuery.data?.durationMinutes ?? 120) * 60;
-                        const timeSpentSeconds = Math.max(0, totalDurationSec - timeLeft);
-                        await submitAttempt.mutateAsync({ attemptId: activeAttemptId, answers: userAnswers, timeSpentSeconds });
-                        router.replace({ pathname: '/(student)/practice/exam/result', params: { attemptId: String(activeAttemptId) } });
-                      } catch {
-                        // Nếu submit lỗi, vẫn thoát về màn hình chính
-                        router.back();
-                      }
-                    } else {
-                      router.back();
-                    }
+                    flushPendingSync(activeAttemptId, userAnswers, bookmarkedIds);
+                    router.back();
                   }
                 }}
                 style={[styles.submitModalBtn, { backgroundColor: isPracticeMode ? '#0284C7' : '#EF4444' }]}
@@ -2236,6 +2287,20 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   translationHeading: { fontSize: 11, fontWeight: '800', color: '#475569', textTransform: 'uppercase' },
+  translationSourceBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginBottom: 4,
+  },
+  translationSourceBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#4F46E5',
+    fontFamily: font.family,
+  },
   translationList: { gap: 5 },
   translationBody: { fontSize: 13, color: '#334155', lineHeight: 20, fontFamily: font.family },
   translationKey: { fontWeight: '800', color: '#1E3A5F' },

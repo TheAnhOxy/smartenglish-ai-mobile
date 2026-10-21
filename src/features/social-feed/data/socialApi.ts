@@ -145,9 +145,9 @@ export const createCommunityPostApi = async (payload: {
     throw err;
   }
 };
-export const togglePostLikeApi = async (postId: string, userId: number): Promise<boolean> => {
+export const togglePostLikeApi = async (postId: string, userId?: number): Promise<boolean> => {
   try {
-    await apiClient.post(`/api/v1/social/posts/${postId}/like?userId=${userId}`);
+    await apiClient.post(`/api/v1/social/posts/${postId}/like`);
     return true;
   } catch (err) {
     console.warn('[SocialApi] togglePostLikeApi error:', err);
@@ -156,8 +156,8 @@ export const togglePostLikeApi = async (postId: string, userId: number): Promise
 };
 
 export const addPostCommentApi = async (postId: string, payload: {
-  authorId: number;
-  authorName: string;
+  authorId?: number;
+  authorName?: string;
   authorAvatar?: string;
   authorRole?: string;
   content: string;
@@ -183,9 +183,9 @@ export const deletePostCommentApi = async (postId: string, commentId: string): P
 
 // ─── 2. HỘI THOẠI & TIN NHẮN (CHAT & CONVERSATIONS) ───
 
-export const fetchUserConversationsApi = async (userId: number): Promise<ChatConversationDto[]> => {
+export const fetchUserConversationsApi = async (userId?: number): Promise<ChatConversationDto[]> => {
   try {
-    const res = await apiClient.get<any>(`/api/v1/social/conversations?userId=${userId}`);
+    const res = await apiClient.get<any>('/api/v1/social/conversations');
     const data = res.data?.data || res.data;
     if (Array.isArray(data)) {
       return data;
@@ -209,10 +209,7 @@ export const setCachedMessages = (conversationId: string, msgs: ChatMessageDto[]
 
 export const fetchConversationMessagesApi = async (conversationId: string, userId?: number): Promise<ChatMessageDto[]> => {
   try {
-    const url = userId
-      ? `/api/v1/social/conversations/${conversationId}/messages?userId=${userId}`
-      : `/api/v1/social/conversations/${conversationId}/messages`;
-    const res = await apiClient.get<any>(url);
+    const res = await apiClient.get<any>(`/api/v1/social/conversations/${conversationId}/messages`);
     const data = res.data?.data || res.data;
     if (Array.isArray(data)) {
       messagesCacheMap.set(conversationId, data);
@@ -225,8 +222,8 @@ export const fetchConversationMessagesApi = async (conversationId: string, userI
 };
 
 export const sendMessageApi = async (conversationId: string, payload: {
-  senderId: number;
-  senderName: string;
+  senderId?: number;
+  senderName?: string;
   senderAvatar?: string;
   content: string;
   type?: 'TEXT' | 'IMAGE' | 'AUDIO' | 'FILE' | 'SHARE_POST';
@@ -238,7 +235,7 @@ export const sendMessageApi = async (conversationId: string, payload: {
 }): Promise<ChatMessageDto | null> => {
   try {
     const res = await apiClient.post<any>(
-      `/api/v1/social/conversations/${conversationId}/messages?userId=${payload.senderId}`,
+      `/api/v1/social/conversations/${conversationId}/messages`,
       {
         ...payload,
         type: payload.type || 'TEXT',
@@ -256,9 +253,9 @@ export const sendMessageApi = async (conversationId: string, payload: {
   }
 };
 
-export const markConversationAsReadApi = async (conversationId: string, userId: number): Promise<boolean> => {
+export const markConversationAsReadApi = async (conversationId: string, userId?: number): Promise<boolean> => {
   try {
-    await apiClient.post(`/api/v1/social/conversations/${conversationId}/read?userId=${userId}`);
+    await apiClient.post(`/api/v1/social/conversations/${conversationId}/read`);
     return true;
   } catch (err) {
     console.warn('[SocialApi] markConversationAsReadApi error:', err);
@@ -269,8 +266,8 @@ export const markConversationAsReadApi = async (conversationId: string, userId: 
 export const sharePostToConversationApi = async (
   conversationId: string,
   params: {
-    senderId: number;
-    senderName: string;
+    senderId?: number;
+    senderName?: string;
     senderAvatar?: string;
     postInfo: ChatMessageSharedPost;
   }
@@ -307,7 +304,7 @@ export const reactMessageApi = async (
 ): Promise<ChatMessageDto | null> => {
   try {
     const res = await apiClient.post<any>(
-      `/api/v1/social/conversations/${conversationId}/messages/${messageId}/reactions?userId=${userId}&reactionType=${encodeURIComponent(reactionType)}`
+      `/api/v1/social/conversations/${conversationId}/messages/${messageId}/reactions?reactionType=${encodeURIComponent(reactionType)}`
     );
     return res.data?.data || res.data || null;
   } catch (err) {
@@ -319,10 +316,10 @@ export const reactMessageApi = async (
 export const recallMessageApi = async (
   conversationId: string,
   messageId: string,
-  userId: number
+  userId?: number
 ): Promise<boolean> => {
   try {
-    await apiClient.post(`/api/v1/social/conversations/${conversationId}/messages/${messageId}/recall?userId=${userId}`);
+    await apiClient.post(`/api/v1/social/conversations/${conversationId}/messages/${messageId}/recall`);
     return true;
   } catch (err) {
     console.warn('[SocialApi] recallMessageApi error:', err);
@@ -338,7 +335,7 @@ export const sendTypingApi = async (
 ): Promise<void> => {
   try {
     await apiClient.post(
-      `/api/v1/social/conversations/${conversationId}/typing?isTyping=${isTyping}&userId=${userId}&userName=${encodeURIComponent(userName)}`
+      `/api/v1/social/conversations/${conversationId}/typing?isTyping=${isTyping}`
     );
   } catch {
     // Ignore typing errors
@@ -359,8 +356,8 @@ export const fetchTypingApi = async (conversationId: string): Promise<{ userId: 
 };
 
 export const createDirectConversationApi = async (params: {
-  myId: number;
-  myName: string;
+  myId?: number;
+  myName?: string;
   myAvatar?: string;
   friendId: number;
   friendName: string;
@@ -368,9 +365,6 @@ export const createDirectConversationApi = async (params: {
 }): Promise<ChatConversationDto | null> => {
   try {
     const query = new URLSearchParams({
-      myId: String(params.myId),
-      myName: params.myName,
-      myAvatar: params.myAvatar || '',
       friendId: String(params.friendId),
       friendName: params.friendName,
       friendAvatar: params.friendAvatar || '',
@@ -386,9 +380,9 @@ export const createDirectConversationApi = async (params: {
 
 // ─── 3. BẠN BÈ & LỜI MỜI (FRIENDS & REQUESTS) ───
 
-export const fetchFriendRequestsApi = async (userId: number): Promise<FriendshipRequestDto[]> => {
+export const fetchFriendRequestsApi = async (userId?: number): Promise<FriendshipRequestDto[]> => {
   try {
-    const res = await apiClient.get<any>(`/api/v1/social/friends/requests?userId=${userId}`);
+    const res = await apiClient.get<any>('/api/v1/social/friends/requests');
     const data = res.data?.data || res.data;
     if (Array.isArray(data)) {
       return data;
@@ -399,9 +393,9 @@ export const fetchFriendRequestsApi = async (userId: number): Promise<Friendship
   return [];
 };
 
-export const fetchSentFriendRequestsApi = async (userId: number): Promise<FriendshipRequestDto[]> => {
+export const fetchSentFriendRequestsApi = async (userId?: number): Promise<FriendshipRequestDto[]> => {
   try {
-    const res = await apiClient.get<any>(`/api/v1/social/friends/sent-requests?userId=${userId}`);
+    const res = await apiClient.get<any>('/api/v1/social/friends/sent-requests');
     const data = res.data?.data || res.data;
     if (Array.isArray(data)) {
       return data;
@@ -412,9 +406,9 @@ export const fetchSentFriendRequestsApi = async (userId: number): Promise<Friend
   return [];
 };
 
-export const fetchFriendsApi = async (userId: number): Promise<any[]> => {
+export const fetchFriendsApi = async (userId?: number): Promise<any[]> => {
   try {
-    const res = await apiClient.get<any>(`/api/v1/social/friends?userId=${userId}`);
+    const res = await apiClient.get<any>('/api/v1/social/friends');
     const data = res.data?.data || res.data;
     if (Array.isArray(data)) {
       return data;
@@ -427,7 +421,7 @@ export const fetchFriendsApi = async (userId: number): Promise<any[]> => {
 
 export const respondFriendRequestApi = async (payload: {
   friendshipId: string;
-  currentUserId: number;
+  currentUserId?: number;
   accept: boolean;
 }): Promise<boolean> => {
   try {
@@ -440,7 +434,7 @@ export const respondFriendRequestApi = async (payload: {
 };
 
 export const sendFriendRequestApi = async (payload: {
-  requesterId: number;
+  requesterId?: number;
   requesterName?: string;
   requesterAvatar?: string;
   addresseeId: number;
@@ -456,9 +450,9 @@ export const sendFriendRequestApi = async (payload: {
   }
 };
 
-export const sendPresenceHeartbeatApi = async (userId: number): Promise<number[]> => {
+export const sendPresenceHeartbeatApi = async (userId?: number): Promise<number[]> => {
   try {
-    const res = await apiClient.post<any>(`/api/v1/social/presence/heartbeat?userId=${userId}`);
+    const res = await apiClient.post<any>('/api/v1/social/presence/heartbeat');
     const data = res.data?.onlineUserIds || res.data?.data;
     if (Array.isArray(data)) {
       return data.map(Number);
@@ -469,9 +463,9 @@ export const sendPresenceHeartbeatApi = async (userId: number): Promise<number[]
   return [];
 };
 
-export const sendPresenceOfflineApi = async (userId: number): Promise<void> => {
+export const sendPresenceOfflineApi = async (userId?: number): Promise<void> => {
   try {
-    await apiClient.post(`/api/v1/social/presence/offline?userId=${userId}`);
+    await apiClient.post('/api/v1/social/presence/offline');
   } catch {
     // ignore
   }

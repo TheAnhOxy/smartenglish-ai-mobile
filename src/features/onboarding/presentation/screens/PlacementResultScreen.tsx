@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useOnboardingStore } from '../../application/useOnboardingStore';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { colors } from '@/src/theme/colors';
-import { ArrowRight } from 'lucide-react-native';
+import { ArrowRight, Sparkles } from 'lucide-react-native';
 
 const SKILLS = [
   { key: 'vocabulary', label: 'Từ Vựng (Vocabulary)', defaultVal: 80, color: colors.secondary },
@@ -21,7 +21,7 @@ export const PlacementResultScreen = () => {
   const { currentUser } = useAuthStore();
 
   const cefr = result?.cefr_level || 'B1';
-  const scorePct = result?.score_pct || 80;
+  const scorePct = result?.score_pct != null ? result.score_pct : 80;
 
   const handleFinishOnboarding = () => {
     if (currentUser) {
@@ -75,6 +75,21 @@ export const PlacementResultScreen = () => {
           })}
         </View>
       </View>
+
+      {/* Recommendation Card */}
+      {(result?.recommendedGoal || result?.feedbackVi) && (
+        <View style={s.recommendationCard}>
+          {result?.recommendedGoal && (
+            <View style={s.goalBadgeRow}>
+              <Sparkles color={colors.primary} size={16} strokeWidth={2.5} />
+              <Text style={s.goalBadgeText}>Lộ trình khuyến nghị: {result.recommendedGoal}</Text>
+            </View>
+          )}
+          {result?.feedbackVi && (
+            <Text style={s.feedbackText}>{result.feedbackVi}</Text>
+          )}
+        </View>
+      )}
 
       {/* Action CTA */}
       <TouchableOpacity
@@ -145,7 +160,7 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: 18,
-    marginBottom: 24,
+    marginBottom: 16,
     shadowColor: colors.text,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.04,
@@ -192,6 +207,30 @@ const s = StyleSheet.create({
   progressFill: {
     height: '100%',
     borderRadius: 4,
+  },
+  recommendationCard: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    padding: 16,
+    marginBottom: 24,
+  },
+  goalBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  goalBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  feedbackText: {
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 19,
   },
   ctaBtn: {
     backgroundColor: colors.primary,

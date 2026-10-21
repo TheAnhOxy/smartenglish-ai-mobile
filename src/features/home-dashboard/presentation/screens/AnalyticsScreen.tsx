@@ -604,7 +604,7 @@ export const AnalyticsScreen = () => {
 
               <View style={s.suggestionChipsRow}>
                 <Pressable
-                  onPress={() => router.push('/(student)/practice/quiz/quiz-101' as any)}
+                  onPress={() => router.push({ pathname: '/(student)/learn', params: { tab: 'quiz' } } as any)}
                   style={s.sugChipBtnPrimary}
                 >
                   <Zap color="#FFFFFF" size={13} fill="#FFFFFF" />
@@ -673,7 +673,7 @@ export const AnalyticsScreen = () => {
               <Text style={[s.cardSub, { marginBottom: 14 }]}>Chọn nhanh để cải thiện ngay hôm nay</Text>
 
               <Pressable
-                onPress={() => router.push('/(student)/practice/quiz/quiz-101' as any)}
+                onPress={() => router.push({ pathname: '/(student)/learn', params: { tab: 'quiz' } } as any)}
                 style={s.recomItem}
               >
                 <View style={s.recomLeft}>
@@ -887,7 +887,7 @@ export const AnalyticsScreen = () => {
                   <Text style={s.posSub}>Chỉ còn 80 XP nữa để vượt Hoàng Nam (#2). Thi 1 bài Quiz để san bằng điểm số!</Text>
                 </View>
                 <Pressable
-                  onPress={() => router.push('/(student)/practice/quiz/quiz-101' as any)}
+                  onPress={() => router.push({ pathname: '/(student)/learn', params: { tab: 'quiz' } } as any)}
                   style={s.posCtaBtn}
                 >
                   <Text style={s.posCtaBtnText}>Đua Top</Text>

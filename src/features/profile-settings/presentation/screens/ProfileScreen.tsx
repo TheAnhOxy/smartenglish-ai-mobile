@@ -57,16 +57,23 @@ export const ProfileScreen = () => {
       let isMounted = true;
       const fetchLatestProfile = async () => {
         try {
-          const userId = currentUser?.id ? String(currentUser.id) : '1';
+          const userId = currentUser?.id ? String(currentUser.id) : undefined;
+          if (!userId) return;
+
           const fresh = await getProfileApi(userId);
           if (isMounted && fresh && Object.keys(fresh).length > 0) {
+            // Bảo vệ: Nếu tài khoản học viên/giáo viên hiện tại nhận nhầm profile admin thì không ghi đè
+            if (fresh.role === 'admin' && currentUser?.role && currentUser.role !== 'admin') {
+              console.warn('[ProfileScreen] Bỏ qua dữ liệu admin profile không khớp với học viên hiện tại');
+              return;
+            }
             updateCurrentUser(fresh);
           }
         } catch (e) {}
       };
       fetchLatestProfile();
       return () => { isMounted = false; };
-    }, [currentUser?.id])
+    }, [currentUser?.id, currentUser?.role])
   );
 
   const animatedProgressStyle = useAnimatedStyle(() => ({
@@ -75,7 +82,7 @@ export const ProfileScreen = () => {
 
   const handleLogout = () => {
     logout();
-    router.replace('/(auth)/welcome' as any);
+    router.replace('/(auth)/login' as any);
   };
 
   const stats = [

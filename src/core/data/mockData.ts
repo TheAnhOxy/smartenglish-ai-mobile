@@ -1,10 +1,6 @@
 import {
   User,
   UserStats,
-  TeacherClass,
-  ClassMember,
-  Assignment,
-  AssignmentSubmission,
   Deck,
   DeckCard,
   SrsState,
@@ -100,119 +96,7 @@ export const MOCK_USER_STATS: Record<string, UserStats> = {
 };
 
 // ==========================================
-// 2. CLASSES & ASSIGNMENTS (TEACHER & STUDENT)
-// ==========================================
-export const MOCK_CLASSES: TeacherClass[] = [
-  {
-    id: 'class-101',
-    name: 'Lớp Luyện Thi TOEIC 750+ (K42)',
-    description: 'Chuyên sâu từ vựng & ngữ pháp nâng cao TOEIC Format 2026',
-    teacher_id: '22222222-2222-2222-2222-222222222222',
-    join_code: 'TOEIC750K42',
-    max_students: 30,
-    cefr_target: 'B2',
-    status: 'active',
-    start_date: '2026-08-01',
-    end_date: '2026-11-30'
-  },
-  {
-    id: 'class-102',
-    name: 'Lớp Giao Tiếp Căn Bản B1',
-    description: 'Thực hành phát âm IPA & Roleplay tình huống công sở',
-    teacher_id: '22222222-2222-2222-2222-222222222222',
-    join_code: 'SPEAKB1FULL',
-    max_students: 25,
-    cefr_target: 'B1',
-    status: 'active',
-    start_date: '2026-07-15',
-    end_date: '2026-10-15'
-  }
-];
-
-export const MOCK_CLASS_MEMBERS: ClassMember[] = [
-  {
-    class_id: 'class-101',
-    user_id: '11111111-1111-1111-1111-111111111111',
-    role: 'student',
-    joined_at: '2026-08-02T10:00:00Z',
-    status: 'active'
-  },
-  {
-    class_id: 'class-102',
-    user_id: '11111111-1111-1111-1111-111111111111',
-    role: 'assistant_teacher', // Demo trợ giảng
-    joined_at: '2026-07-16T09:00:00Z',
-    status: 'active'
-  }
-];
-
-export const MOCK_ASSIGNMENTS: Assignment[] = [
-  {
-    id: 'asg-01',
-    class_id: 'class-101',
-    teacher_id: '22222222-2222-2222-2222-222222222222',
-    assignment_type: 'quiz',
-    reference_id: 'quiz-dynamic-01',
-    title: 'Bài Test Ngữ Pháp: Thì Hiện Tại Hoàn Thành',
-    instructions: 'Hoàn thành 10 câu trắc nghiệm trước buổi học thứ 5.',
-    due_date: '2026-08-18T23:59:59Z', // Hạn gần (Amber)
-    passing_score: 70,
-    is_graded: true
-  },
-  {
-    id: 'asg-02',
-    class_id: 'class-101',
-    teacher_id: '22222222-2222-2222-2222-222222222222',
-    assignment_type: 'vocab_deck',
-    reference_id: 'deck-toeic-essential',
-    title: 'Học 30 Từ Vựng Chủ Đề Hợp Đồng (Contracts)',
-    instructions: 'Lật và nhớ toàn bộ thẻ trong bộ từ vựng.',
-    due_date: '2026-08-15T23:59:59Z', // Hạn quá (Coral đỏ)
-    passing_score: 100,
-    is_graded: true
-  },
-  {
-    id: 'asg-03',
-    class_id: 'class-101',
-    teacher_id: '22222222-2222-2222-2222-222222222222',
-    assignment_type: 'writing',
-    reference_id: 'writing-prompt-01',
-    title: 'Viết Viết Viết Email Xin Lỗi Khách Hàng',
-    instructions: 'Sử dụng ít nhất 5 từ vựng đã học trong tuần.',
-    due_date: '2026-08-25T23:59:59Z', // Hạn thoải mái (Teal)
-    passing_score: 75,
-    is_graded: true
-  }
-];
-
-export const MOCK_SUBMISSIONS: AssignmentSubmission[] = [
-  {
-    id: 'sub-01',
-    class_id: 'class-101',
-    assignment_id: 'asg-01',
-    user_id: '11111111-1111-1111-1111-111111111111',
-    status: 'Chưa làm'
-  },
-  {
-    id: 'sub-02',
-    class_id: 'class-101',
-    assignment_id: 'asg-02',
-    user_id: '11111111-1111-1111-1111-111111111111',
-    status: 'Chưa làm'
-  },
-  {
-    id: 'sub-03',
-    class_id: 'class-101',
-    assignment_id: 'asg-03',
-    user_id: '11111111-1111-1111-1111-111111111111',
-    status: 'Đạt',
-    score: 85,
-    submitted_at: '2026-08-14T15:30:00Z'
-  }
-];
-
-// ==========================================
-// 3. FLASHCARDS & VOCABULARY (G)
+// 2. FLASHCARDS & VOCABULARY (G)
 // ==========================================
 export const MOCK_WORDS: Word[] = [
   {
