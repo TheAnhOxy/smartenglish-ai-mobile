@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, FlatList, Pressable, ActivityIndicator, StatusBar } from 'react-native';
 import { useStudentClasses } from '../../application/useClassMembership';
 import { useRouter } from 'expo-router';
-import { Crown, GraduationCap, Plus } from 'lucide-react-native';
+import { Crown, GraduationCap, Plus, AlertCircle, RotateCcw } from 'lucide-react-native';
 import { JoinClassModal } from './JoinClassModal';
 import { useAuthStore } from '@/src/core/flows/authStore';
 
@@ -11,7 +11,7 @@ const FREE_MAX_CLASSES = 3;
 export const StudentClassesScreen = () => {
   const router = useRouter();
   const { currentUser } = useAuthStore();
-  const { data: classes = [], isLoading, refetch, isRefetching } = useStudentClasses();
+  const { data: classes = [], isLoading, isError, error, refetch, isRefetching } = useStudentClasses();
   const [showJoinModal, setShowJoinModal] = useState(false);
 
   const isPremium = currentUser?.plan && currentUser.plan !== 'free';
@@ -126,13 +126,34 @@ export const StudentClassesScreen = () => {
             </View>
           </View>
         )}
-        ListEmptyComponent={() =>
-          isLoading ? (
-            <View className="items-center py-20">
-              <ActivityIndicator color="#FF6B35" size="small" />
-              <Text className="text-xs text-gray-500 mt-2 font-medium">Đang tải...</Text>
-            </View>
-          ) : (
+        ListEmptyComponent={() => {
+          if (isLoading) {
+            return (
+              <View className="items-center py-20">
+                <ActivityIndicator color="#FF6B35" size="small" />
+                <Text className="text-xs text-gray-500 mt-2 font-medium">Đang tải...</Text>
+              </View>
+            );
+          }
+          if (isError) {
+            return (
+              <View className="items-center py-12 bg-white rounded-3xl border border-rose-100 p-6 mx-1 shadow-xs">
+                <AlertCircle size={38} color="#EF4444" />
+                <Text className="text-base font-bold text-gray-800 mt-3 mb-1">Lỗi kết nối máy chủ</Text>
+                <Text className="text-xs text-gray-500 text-center mb-5 px-4 leading-4">
+                  {(error as any)?.message || 'Không thể tải danh sách lớp học. Vui lòng thử lại.'}
+                </Text>
+                <Pressable
+                  onPress={() => refetch()}
+                  className="bg-primary px-5 py-2.5 rounded-xl flex-row items-center gap-1.5 active:bg-primaryDark"
+                >
+                  <RotateCcw size={14} color="#FFFFFF" />
+                  <Text className="text-white font-bold text-xs">Thử lại</Text>
+                </Pressable>
+              </View>
+            );
+          }
+          return (
             <View className="items-center py-14 bg-white rounded-3xl border border-gray-100 p-6 mx-1 shadow-xs">
               <Text className="text-5xl mb-3">🎓</Text>
               <Text className="text-base font-bold text-gray-800 mb-1">Chưa Tham Gia Lớp Học Nào</Text>
@@ -147,8 +168,8 @@ export const StudentClassesScreen = () => {
                 <Text className="text-white text-xs">→</Text>
               </Pressable>
             </View>
-          )
-        }
+          );
+        }}
         renderItem={({ item }) => (
           <Pressable
             onPress={() => router.push(`/(student)/classes/${item.id}` as any)}
