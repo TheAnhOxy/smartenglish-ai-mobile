@@ -5,16 +5,48 @@ import { usePassageQuery } from '../../application/useReadingListening';
 import { QuickWordLookupModal } from '@/src/features/flashcard-srs/presentation/screens/QuickWordLookupModal';
 
 export const ReadingPassageScreen = () => {
-  const { passageId } = useLocalSearchParams<{ passageId: string }>();
+  const { passageId } = useLocalSearchParams<{ passageId?: string }>();
   const router = useRouter();
-  const { data: passage, isLoading } = usePassageQuery(passageId || 'pass-101');
+  const validId = passageId ? String(passageId) : '';
+  const { data: passage, isLoading, isError, error, refetch } = usePassageQuery(validId);
   const [showTranslate, setShowTranslate] = useState(false);
   const [showDictLookup, setShowDictLookup] = useState(false);
 
-  if (isLoading || !passage) {
+  if (isLoading) {
     return (
       <View className="flex-1 bg-surface justify-center items-center">
         <ActivityIndicator color="#FF6B35" size="large" />
+        <Text className="text-xs text-gray-500 mt-2 font-medium">Đang tải bài đọc...</Text>
+      </View>
+    );
+  }
+
+  if (!validId || isError || !passage) {
+    return (
+      <View className="flex-1 bg-surface justify-center items-center px-6">
+        <View className="bg-white p-6 rounded-2xl border border-red-100 items-center shadow-sm w-full max-w-sm">
+          <Text className="text-4xl mb-3">📖</Text>
+          <Text className="text-base font-bold text-gray-900 mb-1 text-center">Không Thể Tải Bài Đọc</Text>
+          <Text className="text-xs text-gray-500 text-center mb-5 leading-5">
+            {error instanceof Error ? error.message : 'Bài đọc không tồn tại hoặc đã có lỗi xảy ra khi tải nội dung.'}
+          </Text>
+          <View className="flex-row gap-3">
+            <Pressable
+              onPress={() => router.back()}
+              className="flex-1 bg-gray-100 py-2.5 rounded-xl items-center active:bg-gray-200"
+            >
+              <Text className="text-xs font-bold text-gray-700">Quay lại</Text>
+            </Pressable>
+            {validId ? (
+              <Pressable
+                onPress={() => refetch()}
+                className="flex-1 bg-primary py-2.5 rounded-xl items-center active:bg-primaryDark"
+              >
+                <Text className="text-xs font-bold text-white">Thử lại</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
       </View>
     );
   }

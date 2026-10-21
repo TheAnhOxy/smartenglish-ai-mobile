@@ -4,22 +4,57 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAudioTrackQuery } from '../../application/useReadingListening';
 
 export const ListeningPlayerScreen = () => {
-  const { audioId } = useLocalSearchParams<{ audioId: string }>();
+  const { audioId } = useLocalSearchParams<{ audioId?: string }>();
   const router = useRouter();
-  const { data: track, isLoading } = useAudioTrackQuery(audioId || 'aud-101');
+  const validId = audioId ? String(audioId) : '';
+  const { data: track, isLoading, isError, error, refetch } = useAudioTrackQuery(validId);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState<'0.75x' | '1.0x' | '1.25x' | '1.5x'>('1.0x');
   const [showSub, setShowSub] = useState(true);
   const [abLoop, setAbLoop] = useState(false);
 
-  if (isLoading || !track) {
+  if (isLoading) {
     return (
-      <View className="flex-1 bg-surface justify-center items-center">
+      <View className="flex-1 bg-darkBg justify-center items-center">
         <ActivityIndicator color="#FF6B35" size="large" />
+        <Text className="text-xs text-gray-400 mt-2 font-medium">Đang tải bài nghe...</Text>
       </View>
     );
   }
+
+  if (!validId || isError || !track) {
+    return (
+      <View className="flex-1 bg-darkBg justify-center items-center px-6">
+        <View className="bg-darkCard p-6 rounded-2xl border border-gray-800 items-center shadow-lg w-full max-w-sm">
+          <Text className="text-4xl mb-3">🎧</Text>
+          <Text className="text-base font-bold text-white mb-1 text-center">Không Thể Tải Bài Nghe</Text>
+          <Text className="text-xs text-gray-400 text-center mb-5 leading-5">
+            {error instanceof Error ? error.message : 'Bài nghe không tồn tại hoặc đã có lỗi xảy ra khi tải âm thanh.'}
+          </Text>
+          <View className="flex-row gap-3">
+            <Pressable
+              onPress={() => router.back()}
+              className="flex-1 bg-gray-800 py-2.5 rounded-xl items-center active:bg-gray-700"
+            >
+              <Text className="text-xs font-bold text-gray-300">Quay lại</Text>
+            </Pressable>
+            {validId ? (
+              <Pressable
+                onPress={() => refetch()}
+                className="flex-1 bg-primary py-2.5 rounded-xl items-center active:bg-primaryDark"
+              >
+                <Text className="text-xs font-bold text-white">Thử lại</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  const currentSubEn = track.subtitles && track.subtitles.length > 0 ? track.subtitles[0].text_en : 'Đang phát âm thanh...';
+  const currentSubVi = track.subtitles && track.subtitles.length > 0 ? track.subtitles[0].text_vi : '';
 
   return (
     <View className="flex-1 bg-darkBg pt-14 px-6 justify-between pb-10">
@@ -36,11 +71,13 @@ export const ListeningPlayerScreen = () => {
           {showSub ? (
             <View className="items-center gap-2">
               <Text className="text-base font-bold text-white text-center leading-6">
-                "{track.subtitles[0].text_en}"
+                "{currentSubEn}"
               </Text>
-              <Text className="text-xs text-secondary text-center">
-                "{track.subtitles[0].text_vi}"
-              </Text>
+              {currentSubVi ? (
+                <Text className="text-xs text-secondary text-center">
+                  "{currentSubVi}"
+                </Text>
+              ) : null}
             </View>
           ) : (
             <Text className="text-xs text-gray-500 italic">Phụ đề đã bị ẩn (Tập trung luyện nghe phản xạ)</Text>
