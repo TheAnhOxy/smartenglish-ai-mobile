@@ -59,10 +59,13 @@ export interface StudentSubscriptionPlan {
  */
 export const fetchStudentPlansApi = async (): Promise<StudentSubscriptionPlan[]> => {
   try {
-    const response = await apiClient.get<any>('/api/v1/payment/admin/plans');
+    const response = await apiClient.get<any>('/api/v1/payment/plans?target=student');
     const data = response.data?.data || response.data;
-    if (data?.studentPlans && Array.isArray(data.studentPlans) && data.studentPlans.length > 0) {
-      return data.studentPlans.map((p: any) => ({
+    const studentList = Array.isArray(data)
+      ? data
+      : (data?.studentPlans && Array.isArray(data.studentPlans) ? data.studentPlans : []);
+    if (studentList.length > 0) {
+      return studentList.map((p: any) => ({
         id: String(p.id),
         name: String(p.name || ''),
         badge: p.badge ? String(p.badge) : undefined,
@@ -215,16 +218,15 @@ export const fetchSubscriptionPlansApi = async (): Promise<SubscriptionPlan[]> =
 
 /**
  * GET /api/v1/payment/subscriptions/status
- * Returns the current user's subscription status
+ * Returns the current user's subscription status from JWT
  */
-export const fetchSubscriptionStatusApi = async (userId?: string): Promise<SubscriptionStatus> => {
-  const uid = userId || getCurrentUserId();
+export const fetchSubscriptionStatusApi = async (): Promise<SubscriptionStatus> => {
   try {
-    const response = await apiClient.get<any>(`/api/v1/payment/subscriptions/status?userId=${uid}`);
+    const response = await apiClient.get<any>('/api/v1/payment/subscriptions/status');
     const data = response.data?.data || response.data;
     if (data) {
       return {
-        userId: String(data.userId || uid),
+        userId: String(data.userId || ''),
         planId: data.planId || 'plan-free',
         planName: data.planName || 'Free',
         status: (data.status || 'free').toLowerCase() as any,
@@ -236,27 +238,16 @@ export const fetchSubscriptionStatusApi = async (userId?: string): Promise<Subsc
     }
   } catch (err) {
     console.warn('[Subscription] fetchSubscriptionStatusApi error:', err);
+    throw err;
   }
-  return {
-    userId: String(uid),
-    planId: 'plan-free',
-    planName: 'Free',
-    status: 'free',
-    startDate: null,
-    endDate: null,
-    permissions: [],
-    isPremium: false
-  };
+  throw new Error('Không thể tải trạng thái gói dịch vụ');
 };
 
 /**
  * POST /api/v1/payment/subscriptions/subscribe
- * Subscribes the user to a premium plan
+ * Subscribes the user to a premium plan using JWT
  */
-export const subscribeToPlanApi = async (request: SubscribeRequest, userId?: string): Promise<SubscriptionStatus> => {
-  const rawUid = userId || getCurrentUserId();
-  const parsedUid = Number(rawUid);
-  const uid = !isNaN(parsedUid) && parsedUid > 0 ? parsedUid : 3;
+export const subscribeToPlanApi = async (request: SubscribeRequest): Promise<SubscriptionStatus> => {
   const rawId = String(request.planId || '');
   const numericPlanId = rawId.includes('LIFETIME') ? 4 : rawId.includes('YEARLY') ? 3 : 2;
   const cycle = rawId.includes('YEARLY') || rawId.includes('LIFETIME') ? 'YEARLY' : 'MONTHLY';
@@ -266,23 +257,21 @@ export const subscribeToPlanApi = async (request: SubscribeRequest, userId?: str
     planCode: rawId,
     paymentMethod: request.paymentMethod || 'SEPAY',
     billingCycle: cycle,
-    customerName: 'Học viên SmartEnglish',
-    customerEmail: 'student.theanh@gmail.com',
   };
 
   try {
-    const response = await apiClient.post<any>(`/api/v1/payment/subscriptions/subscribe?userId=${uid}`, payload);
+    const response = await apiClient.post<any>('/api/v1/payment/subscriptions/subscribe', payload);
     const data = response.data?.data || response.data;
     if (data) {
       return {
-        userId: String(data.userId || uid),
+        userId: String(data.userId || ''),
         planId: data.planId || request.planId,
         planName: data.planName || 'Premium',
-        status: (data.status || 'active') as any,
+        status: (data.status || 'pending') as any,
         startDate: data.startDate || new Date().toISOString(),
         endDate: data.endDate || data.expiresAt || null,
         permissions: Array.isArray(data.permissions) ? data.permissions : [],
-        isPremium: true
+        isPremium: Boolean(data.isPremium)
       };
     }
   } catch (err: any) {

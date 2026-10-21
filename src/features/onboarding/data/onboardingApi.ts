@@ -1,124 +1,37 @@
 import { apiClient } from '@/src/core/api/client';
 
+export interface PlacementOption {
+  id: string;
+  text: string;
+}
+
 export interface PlacementQuestion {
   id: string;
   question: string;
-  options: string[];
-  correct_answer: string;
+  options: PlacementOption[];
   category: 'vocabulary' | 'grammar' | 'reading' | 'listening';
+  skill?: string;
+  mediaUrl?: string;
+  points?: number;
 }
 
-export const MOCK_PLACEMENT_QUESTIONS: PlacementQuestion[] = [
-  {
-    id: 'pq-1',
-    question: 'Choose the word that best completes the sentence: "She has an _____ knowledge of economics."',
-    options: ['extensive', 'extension', 'extending', 'extensively'],
-    correct_answer: 'extensive',
-    category: 'vocabulary'
-  },
-  {
-    id: 'pq-2',
-    question: 'If I _____ more time, I would have attended the seminar yesterday.',
-    options: ['had', 'have had', 'had had', 'have'],
-    correct_answer: 'had had',
-    category: 'grammar'
-  },
-  {
-    id: 'pq-3',
-    question: 'Select the synonym for "accomplish":',
-    options: ['achieve', 'abandon', 'delay', 'hesitate'],
-    correct_answer: 'achieve',
-    category: 'vocabulary'
-  },
-  {
-    id: 'pq-4',
-    question: 'By the time the manager arrived, the team _____ the report.',
-    options: ['already finished', 'had already finished', 'has finished', 'finishes'],
-    correct_answer: 'had already finished',
-    category: 'grammar'
-  },
-  {
-    id: 'pq-5',
-    question: 'Which word means "negotiation in business"?',
-    options: ['Bargaining', 'Dictation', 'Isolation', 'Hesitation'],
-    correct_answer: 'Bargaining',
-    category: 'vocabulary'
-  },
-  {
-    id: 'pq-6',
-    question: 'The meeting was postponed _____ the keynote speaker fell ill unexpectedly.',
-    options: ['because of', 'owing to', 'because', 'despite'],
-    correct_answer: 'because',
-    category: 'grammar'
-  },
-  {
-    id: 'pq-7',
-    question: 'Listening excerpt: "The flight departure has been delayed to 4:30 PM due to fog." What is the reason for delay?',
-    options: ['Heavy rain', 'Technical glitch', 'Adverse weather (fog)', 'Crew shortage'],
-    correct_answer: 'Adverse weather (fog)',
-    category: 'listening'
-  },
-  {
-    id: 'pq-8',
-    question: 'Select the antonym for "resilient":',
-    options: ['fragile', 'strong', 'flexible', 'adaptable'],
-    correct_answer: 'fragile',
-    category: 'vocabulary'
-  },
-  {
-    id: 'pq-9',
-    question: 'Reading excerpt: "Renewable energy adoption has surged by 35% in Northern Europe." What does the passage suggest?',
-    options: ['Fossil fuels are rising', 'Clean energy is growing rapidly', 'Solar panels are banned', 'Energy consumption declined'],
-    correct_answer: 'Clean energy is growing rapidly',
-    category: 'reading'
-  },
-  {
-    id: 'pq-10',
-    question: 'She suggested _____ the marketing campaign before the third quarter.',
-    options: ['to launch', 'launching', 'launched', 'launch'],
-    correct_answer: 'launching',
-    category: 'grammar'
-  },
-  {
-    id: 'pq-11',
-    question: 'What is the correct definition of "meticulous"?',
-    options: ['Careless and rushed', 'Showing great attention to detail', 'Noisy and disruptive', 'Uncertain and timid'],
-    correct_answer: 'Showing great attention to detail',
-    category: 'vocabulary'
-  },
-  {
-    id: 'pq-12',
-    question: 'Neither the manager nor the employees _____ satisfied with the new policy.',
-    options: ['was', 'were', 'is', 'be'],
-    correct_answer: 'were',
-    category: 'grammar'
-  },
-  {
-    id: 'pq-13',
-    question: 'Listening excerpt: "Please hand in your quarterly financial statements by Friday 5 PM." What is the deadline?',
-    options: ['Friday afternoon', 'Monday morning', 'Wednesday noon', 'Next month'],
-    correct_answer: 'Friday afternoon',
-    category: 'listening'
-  },
-  {
-    id: 'pq-14',
-    question: 'Reading passage: "Artificial Intelligence simplifies routine data processing tasks." What is the main idea?',
-    options: ['AI replaces all human jobs', 'AI automates repetitive data work', 'AI is difficult to configure', 'Data processing is obsolete'],
-    correct_answer: 'AI automates repetitive data work',
-    category: 'reading'
-  },
-  {
-    id: 'pq-15',
-    question: 'Had we known about the weather warning, we _____ outdoor plans.',
-    options: ['would cancel', 'would have canceled', 'will cancel', 'canceled'],
-    correct_answer: 'would have canceled',
-    category: 'grammar'
-  }
-];
+export interface PlacementSession {
+  attemptId: number;
+  examId: number;
+  title: string;
+  durationMinutes: number;
+  totalQuestions: number;
+  questions: PlacementQuestion[];
+  savedAnswers?: Record<string, string>;
+}
 
 export interface PlacementResult {
+  attemptId?: number;
+  examId?: number;
   cefr_level: string;
   score_pct: number;
+  recommendedGoal?: string;
+  feedbackVi?: string;
   skills: {
     vocabulary: number;
     grammar: number;
@@ -127,57 +40,132 @@ export interface PlacementResult {
   };
 }
 
-export const submitPlacementTestApi = async (answers: Record<string, string>): Promise<PlacementResult> => {
-  let correctCount = 0;
-  let vocabCorrect = 0, vocabTotal = 0;
-  let grammarCorrect = 0, grammarTotal = 0;
-  let readingCorrect = 0, readingTotal = 0;
-  let listeningCorrect = 0, listeningTotal = 0;
+export interface PlacementSubmitParams {
+  attemptId?: number;
+  examId?: number;
+  answers: Record<string, string>;
+  timeSpentSeconds?: number;
+}
 
-  MOCK_PLACEMENT_QUESTIONS.forEach((q) => {
-    const isCorrect = answers[q.id] === q.correct_answer;
-    if (isCorrect) correctCount++;
-
-    if (q.category === 'vocabulary') {
-      vocabTotal++;
-      if (isCorrect) vocabCorrect++;
-    } else if (q.category === 'grammar') {
-      grammarTotal++;
-      if (isCorrect) grammarCorrect++;
-    } else if (q.category === 'reading') {
-      readingTotal++;
-      if (isCorrect) readingCorrect++;
-    } else if (q.category === 'listening') {
-      listeningTotal++;
-      if (isCorrect) listeningCorrect++;
-    }
-  });
-
-  const pct = Math.round((correctCount / MOCK_PLACEMENT_QUESTIONS.length) * 100);
-  let cefr = 'A1';
-  if (pct >= 80) cefr = 'B2';
-  else if (pct >= 60) cefr = 'B1';
-  else if (pct >= 40) cefr = 'A2';
-
-  // Persist evaluated level to backend auth-service
+/**
+ * Lấy phiên làm bài hoặc khởi tạo phiên thi Placement Test từ learning-service / content-service
+ * Tuyệt đối không chứa đáp án đúng (correctAnswer) hay giải thích (explanation) trước khi nộp
+ */
+export const fetchPlacementTestApi = async (): Promise<PlacementSession> => {
+  let data: any = null;
   try {
-    const { apiClient } = await import('@/src/core/api/client');
-    await apiClient.put('/api/v1/users/me/learning-settings', {
-      cefrLevel: cefr,
-      targetGoal: 'TOEIC 650'
-    });
+    const res = await apiClient.post('/api/v1/learning/placement/start');
+    data = res.data?.data || res.data;
   } catch (err) {
-    console.warn('[OnboardingAPI] Failed to update backend CEFR level:', err);
+    try {
+      const res = await apiClient.get('/api/v1/learning/placement/session');
+      data = res.data?.data || res.data;
+    } catch (sessionErr) {
+      // Fallback: Lấy đề placement công khai từ content-service nếu learning-service gặp lỗi kết nối
+      const publicRes = await apiClient.get('/api/v1/content/exams/placement');
+      const examData = publicRes.data?.data || publicRes.data;
+      data = {
+        attemptId: 0,
+        examId: examData?.id || 1,
+        title: examData?.title || 'Placement Test',
+        durationMinutes: examData?.durationMinutes || 20,
+        totalQuestions: examData?.questions?.length || 0,
+        questions: examData?.questions || []
+      };
+    }
   }
 
+  if (!data || !Array.isArray(data.questions) || data.questions.length === 0) {
+    throw new Error('Không thể tải bộ câu hỏi kiểm tra đầu vào từ hệ thống');
+  }
+
+  const normalizedQuestions: PlacementQuestion[] = data.questions.map((q: any, idx: number) => {
+    const rawOpts = q.options || [];
+    const options: PlacementOption[] = rawOpts.map((opt: any, optIdx: number) => {
+      if (typeof opt === 'string') {
+        const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+        return {
+          id: letters[optIdx] || String(optIdx + 1),
+          text: opt
+        };
+      }
+      return {
+        id: String(opt.id || opt.key || opt.letter || opt.option || String.fromCharCode(65 + optIdx)),
+        text: String(opt.text || opt.label || opt.value || opt.option || '')
+      };
+    });
+
+    const rawCategory = String(q.category || q.skill || 'vocabulary').toLowerCase();
+    const category: 'vocabulary' | 'grammar' | 'reading' | 'listening' =
+      (['vocabulary', 'grammar', 'reading', 'listening'] as const).includes(rawCategory as any)
+        ? (rawCategory as 'vocabulary' | 'grammar' | 'reading' | 'listening')
+        : 'vocabulary';
+
+    return {
+      id: String(q.id != null ? q.id : (q.questionNumber != null ? q.questionNumber : idx + 1)),
+      question: String(q.questionText || q.question || `Câu hỏi ${idx + 1}`),
+      options,
+      category,
+      skill: category,
+      mediaUrl: q.mediaUrl || q.audioUrl || undefined,
+      points: q.points || q.point || 1
+    };
+  });
+
   return {
-    cefr_level: cefr,
-    score_pct: pct,
+    attemptId: Number(data.attemptId || 0),
+    examId: Number(data.examId || 1),
+    title: data.title || 'Official Placement Test',
+    durationMinutes: Number(data.durationMinutes || 20),
+    totalQuestions: normalizedQuestions.length,
+    questions: normalizedQuestions,
+    savedAnswers: data.answers || {}
+  };
+};
+
+/**
+ * Nộp bài kiểm tra đầu vào lên backend learning-service để chấm điểm server-side độc lập (Zero-Trust)
+ * Backend tự động đánh giá CEFR, tính độ chính xác 4 kỹ năng và cập nhật hồ sơ người học
+ */
+export const submitPlacementTestApi = async (
+  params: PlacementSubmitParams | Record<string, string>
+): Promise<PlacementResult> => {
+  let payload: { attemptId?: number; examId?: number; answers: Record<string, string>; timeSpentSeconds?: number };
+  if ('answers' in params && typeof (params as any).answers === 'object') {
+    const p = params as PlacementSubmitParams;
+    payload = {
+      attemptId: p.attemptId != null ? Number(p.attemptId) : undefined,
+      examId: p.examId != null ? Number(p.examId) : undefined,
+      answers: p.answers,
+      timeSpentSeconds: p.timeSpentSeconds != null ? Number(p.timeSpentSeconds) : 180
+    };
+  } else {
+    payload = {
+      answers: params as Record<string, string>,
+      timeSpentSeconds: 180
+    };
+  }
+
+  const response = await apiClient.post('/api/v1/learning/placement/submit', payload);
+  const resData = response.data?.data || response.data;
+
+  const rawSkills = resData?.skills || {};
+  return {
+    attemptId: resData?.attemptId != null ? Number(resData.attemptId) : undefined,
+    examId: resData?.examId != null ? Number(resData.examId) : undefined,
+    cefr_level: String(resData?.assessedCefrLevel || resData?.cefrLevel || 'B1'),
+    score_pct: Number(
+      resData?.scorePct != null
+        ? resData.scorePct
+        : (resData?.totalQuestions ? Math.round((Number(resData.correctCount || 0) / Number(resData.totalQuestions)) * 100) : 0)
+    ),
+    recommendedGoal: resData?.recommendedGoal ? String(resData.recommendedGoal) : 'TOEIC 750+',
+    feedbackVi: resData?.feedbackVi ? String(resData.feedbackVi) : undefined,
     skills: {
-      vocabulary: Math.round((vocabCorrect / Math.max(1, vocabTotal)) * 100),
-      grammar: Math.round((grammarCorrect / Math.max(1, grammarTotal)) * 100),
-      reading: Math.round((readingCorrect / Math.max(1, readingTotal)) * 100),
-      listening: Math.round((listeningCorrect / Math.max(1, listeningTotal)) * 100)
+      vocabulary: Number(rawSkills.vocabulary ?? 70),
+      grammar: Number(rawSkills.grammar ?? 70),
+      reading: Number(rawSkills.reading ?? 70),
+      listening: Number(rawSkills.listening ?? 70)
     }
   };
 };
