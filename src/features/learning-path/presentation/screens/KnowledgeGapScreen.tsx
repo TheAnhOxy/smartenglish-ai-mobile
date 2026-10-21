@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 
 export const KnowledgeGapScreen = () => {
   const router = useRouter();
-  const { data: gaps, isLoading } = useKnowledgeGapQuery();
+  const { data: gaps, isLoading, isError, refetch } = useKnowledgeGapQuery();
   const [selectedItem, setSelectedItem] = useState<SkillGapItem | null>(null);
 
   const getMasteryColor = (level: number) => {
@@ -51,7 +51,38 @@ export const KnowledgeGapScreen = () => {
         </View>
 
         {isLoading ? (
-          <ActivityIndicator color="#0F7173" size="large" />
+          <View className="py-12 items-center">
+            <ActivityIndicator color="#0F7173" size="large" />
+            <Text className="text-xs text-neutralGray mt-3 font-medium">Đang chẩn đoán kỹ năng...</Text>
+          </View>
+        ) : isError ? (
+          <View className="bg-cardWhite p-6 rounded-2xl border border-red-100 items-center shadow-sm">
+            <Text className="text-3xl mb-2">⚠️</Text>
+            <Text className="text-base font-bold text-neutralInk mb-1">Không Thể Tải Báo Cáo</Text>
+            <Text className="text-xs text-neutralGray text-center mb-4 leading-5 px-2">
+              Đã có lỗi xảy ra trong quá trình kết nối với máy chủ phân tích kỹ năng.
+            </Text>
+            <Pressable
+              onPress={() => refetch()}
+              className="bg-primary px-5 py-2.5 rounded-xl active:bg-primaryDark"
+            >
+              <Text className="text-white font-bold text-xs">Thử lại</Text>
+            </Pressable>
+          </View>
+        ) : gapList.length === 0 ? (
+          <View className="bg-cardWhite p-6 rounded-2xl border border-gray-100 items-center shadow-sm">
+            <Text className="text-4xl mb-3">🎯</Text>
+            <Text className="text-base font-bold text-neutralInk mb-1">Chưa Đủ Dữ Liệu Phân Tích</Text>
+            <Text className="text-xs text-neutralGray text-center mb-4 leading-5 px-3">
+              Bạn chưa có bài nộp kiểm tra nào được ghi nhận. Hãy hoàn thành ít nhất 1 bài thi để AI chẩn đoán chính xác lỗ hổng ngữ pháp và từ vựng của bạn.
+            </Text>
+            <Pressable
+              onPress={() => router.push('/(student)/practice' as any)}
+              className="bg-primary px-5 py-2.5 rounded-xl active:bg-primaryDark"
+            >
+              <Text className="text-white font-bold text-xs">Làm bài kiểm tra ngay</Text>
+            </Pressable>
+          </View>
         ) : (
           <View className="gap-3">
             {gapList.map((item: SkillGapItem) => (

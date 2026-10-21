@@ -61,7 +61,7 @@ export interface ShopItem {
 export const fetchGamificationDashboard = async (userId?: string): Promise<GamificationDashboard | null> => {
   const uid = userId || getCurrentUserId();
   try {
-    const response = await apiClient.get<any>(`/api/v1/learning/gamification/dashboard?userId=${uid}`);
+    const response = await apiClient.get<any>('/api/v1/learning/gamification/dashboard');
     const data = response.data?.data || response.data;
     return data || null;
   } catch (err) {
@@ -76,7 +76,7 @@ export const fetchGamificationDashboard = async (userId?: string): Promise<Gamif
 export const fetchBadgesApi = async (userId?: string): Promise<BadgeItem[]> => {
   const uid = userId || getCurrentUserId();
   try {
-    const response = await apiClient.get<any>(`/api/v1/learning/gamification/badges?userId=${uid}`);
+    const response = await apiClient.get<any>('/api/v1/learning/gamification/badges');
     const data = response.data?.data || response.data;
     if (Array.isArray(data)) {
       return data.map((b: any) => ({
@@ -102,7 +102,7 @@ export const fetchBadgesApi = async (userId?: string): Promise<BadgeItem[]> => {
 export const fetchDailyQuestsApi = async (userId?: string): Promise<DailyQuestResponse | null> => {
   const uid = userId || getCurrentUserId();
   try {
-    const response = await apiClient.get<any>(`/api/v1/learning/gamification/daily-quests?userId=${uid}`);
+    const response = await apiClient.get<any>('/api/v1/learning/gamification/daily-quests');
     const data = response.data?.data || response.data;
     if (data) {
       return {
@@ -136,7 +136,7 @@ export const claimDailyQuestRewardApi = async (questId: string, userId?: string)
   const uid = userId || getCurrentUserId();
   try {
     const response = await apiClient.post<any>(
-      `/api/v1/learning/gamification/daily-quests/${questId}/claim?userId=${uid}`
+      `/api/v1/learning/gamification/daily-quests/${questId}/claim`
     );
     return response.data?.data || response.data || null;
   } catch (err: any) {
@@ -176,7 +176,7 @@ export const fetchShopItemsApi = async (): Promise<ShopItem[]> => {
 export const buyShopItemApi = async (itemId: string | number, userId?: string): Promise<GamificationDashboard | null> => {
   const uid = userId || getCurrentUserId();
   try {
-    const response = await apiClient.post<any>(`/api/v1/learning/gamification/shop/buy?userId=${uid}`, {
+    const response = await apiClient.post<any>('/api/v1/learning/gamification/shop/buy', {
       shopItemId: Number(itemId)
     });
     return response.data?.data || response.data || null;
@@ -192,7 +192,7 @@ export const buyShopItemApi = async (itemId: string | number, userId?: string): 
 export const fetchLeaderboardApi = async (userId?: string) => {
   const uid = userId || getCurrentUserId();
   try {
-    const response = await apiClient.get<any>(`/api/v1/learning/gamification/leaderboard?userId=${uid}`);
+    const response = await apiClient.get<any>('/api/v1/learning/gamification/leaderboard');
     return response.data?.data || response.data || null;
   } catch (err) {
     console.warn('[Gamification] fetchLeaderboardApi error:', err);

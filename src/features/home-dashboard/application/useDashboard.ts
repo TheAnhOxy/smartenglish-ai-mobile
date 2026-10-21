@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchUserStatsApi, fetchDailyPlanApi, fetchLearningPathApi } from '../data/dashboardApi';
+import { fetchUserStatsApi, fetchDailyPlanApi, fetchLearningPathApi, fetchDailyQuestsListApi } from '../data/dashboardApi';
 
 export const useUserStatsQuery = (userId: string) => {
   return useQuery({
@@ -19,5 +19,12 @@ export const useLearningPathQuery = () => {
   return useQuery({
     queryKey: ['learning-path'],
     queryFn: () => fetchLearningPathApi()
+  });
+};
+
+export const useDailyQuestsQuery = () => {
+  return useQuery({
+    queryKey: ['daily-quests'],
+    queryFn: () => fetchDailyQuestsListApi()
   });
 };

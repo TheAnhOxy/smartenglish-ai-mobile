@@ -39,6 +39,8 @@ import { usePressSpring } from '@/src/hooks/usePressSpring';
 import { useStaggerReveal } from '@/src/hooks/useStaggerReveal';
 import { usePulseRing } from '@/src/hooks/usePulseRing';
 import { useCountUp } from '@/src/hooks/useCountUp';
+import { useDailyQuestsQuery } from '../../application/useDashboard';
+import { claimDailyQuestRewardApi, DailyQuestItem } from '../../data/dashboardApi';
 
 const AnimatedText = Animated.createAnimatedComponent(Text);
 
@@ -118,62 +120,29 @@ export const HomeScreen = () => {
   const animDaily = useStaggerReveal(5, 50);
   const animBlitz = useStaggerReveal(6, 50);
 
-  // Daily Quests Data & State
-  type DailyQuest = {
-    id: string;
-    icon: string;
-    title: string;
-    current: number;
-    target: number;
-    xp: number;
-    unit: string;
-    claimed: boolean;
-    route: string;
+  // Daily Quests Data & State via real backend API
+  const {
+    data: questData,
+    isLoading: isQuestsLoading,
+    isError: isQuestsError,
+    refetch: refetchQuests,
+  } = useDailyQuestsQuery();
+
+  const quests = questData?.quests || [];
+  const questId = questData?.questId || 1;
+  const isClaimedAll = questData?.isClaimed || false;
+  const totalRewardXp = questData?.totalXpReward || 50;
+
+  const handleClaimQuest = async (id: string) => {
+    try {
+      await claimDailyQuestRewardApi(questId);
+      refetchQuests();
+    } catch (e) {
+      console.warn('[HomeScreen] Failed to claim daily quest reward:', e);
+    }
   };
 
-  const [quests, setQuests] = useState<DailyQuest[]>([
-    {
-      id: 'q1',
-      icon: '🗂️',
-      title: 'Ôn tập thẻ Flashcard SRS',
-      current: 8,
-      target: 10,
-      xp: 20,
-      unit: 'thẻ',
-      claimed: false,
-      route: '/(student)/review',
-    },
-    {
-      id: 'q2',
-      icon: '🎯',
-      title: 'Hoàn thành 1 bài Quiz đạt 80%+',
-      current: 1,
-      target: 1,
-      xp: 30,
-      unit: 'bài',
-      claimed: false,
-      route: '/(student)/practice/quiz/quiz-101',
-    },
-    {
-      id: 'q3',
-      icon: '🎙️',
-      title: 'Luyện phát âm & giao tiếp',
-      current: 3,
-      target: 3,
-      xp: 25,
-      unit: 'phút',
-      claimed: true,
-      route: '/(student)/learn',
-    },
-  ]);
-
-  const handleClaimQuest = (id: string) => {
-    setQuests((prev) =>
-      prev.map((q) => (q.id === id ? { ...q, claimed: true } : q))
-    );
-  };
-
-  const completedQuestsCount = quests.filter((q) => q.current >= q.target).length;
+  const completedQuestsCount = quests.filter((q: DailyQuestItem) => q.current >= q.target).length;
 
   // Featured Daily Word
   const dailyWord = {
@@ -336,7 +305,7 @@ export const HomeScreen = () => {
             shadowColor={cardShadowColors.quiz}
             icon={<BrainCircuit color="#FFFFFF" size={24} strokeWidth={2} />}
             label="Kiểm Tra"
-            onPress={() => router.push('/(student)/practice/quiz/quiz-101' as any)}
+            onPress={() => router.push({ pathname: '/(student)/learn', params: { tab: 'quiz' } } as any)}
             animatedStyle={quizSpring.animatedStyle}
             onPressIn={quizSpring.onPressIn}
             onPressOut={quizSpring.onPressOut}
@@ -353,70 +322,98 @@ export const HomeScreen = () => {
             </View>
             <View>
               <Text style={s.questsHeaderTitle}>Nhiệm vụ hôm nay</Text>
-              <Text style={s.questsHeaderSub}>{completedQuestsCount}/3 nhiệm vụ đã hoàn thành</Text>
+              <Text style={s.questsHeaderSub}>
+                {isQuestsError
+                  ? 'Không thể tải nhiệm vụ'
+                  : `${completedQuestsCount}/${quests.length || 3} nhiệm vụ đã hoàn thành`}
+              </Text>
             </View>
           </View>
 
           <View style={s.questsRewardPill}>
             <Gift color={colors.xpDeep} size={14} />
-            <Text style={s.questsRewardText}>+75 XP</Text>
+            <Text style={s.questsRewardText}>+{totalRewardXp} XP</Text>
           </View>
         </View>
 
-        {/* Quests List */}
-        <View style={s.questList}>
-          {quests.map((quest) => {
-            const isDone = quest.current >= quest.target;
-            const progressPct = Math.min((quest.current / quest.target) * 100, 100);
+        {/* Quests Content */}
+        {isQuestsLoading ? (
+          <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+            <Text style={{ fontSize: 12, color: palette.textSoft }}>Đang tải nhiệm vụ...</Text>
+          </View>
+        ) : isQuestsError ? (
+          <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+            <Text style={{ fontSize: 13, color: palette.textSoft, marginBottom: 12 }}>
+              Không thể tải nhiệm vụ ngày từ máy chủ.
+            </Text>
+            <Pressable
+              onPress={() => refetchQuests()}
+              style={{ backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 }}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>Thử lại</Text>
+            </Pressable>
+          </View>
+        ) : quests.length === 0 ? (
+          <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+            <Text style={{ fontSize: 13, color: palette.textSoft }}>
+              Hôm nay bạn chưa có nhiệm vụ nào. Hãy hoàn thành bài học để tạo nhiệm vụ mới!
+            </Text>
+          </View>
+        ) : (
+          <View style={s.questList}>
+            {quests.map((quest: DailyQuestItem) => {
+              const isDone = quest.current >= quest.target;
+              const progressPct = Math.min((quest.current / quest.target) * 100, 100);
 
-            return (
-              <View key={quest.id} style={s.questItem}>
-                <View style={s.questIconBox}>
-                  <Text style={{ fontSize: 20 }}>{quest.icon}</Text>
-                </View>
+              return (
+                <View key={quest.id} style={s.questItem}>
+                  <View style={s.questIconBox}>
+                    <Text style={{ fontSize: 20 }}>{quest.icon}</Text>
+                  </View>
 
-                <View style={s.questCenter}>
-                  <Text style={s.questTitle} numberOfLines={1}>{quest.title}</Text>
-                  <View style={s.questProgressRow}>
-                    <View style={s.questProgressBg}>
-                      <View style={[s.questProgressFill, { width: `${progressPct}%`, backgroundColor: isDone ? palette.success : palette.primary }]} />
+                  <View style={s.questCenter}>
+                    <Text style={s.questTitle} numberOfLines={1}>{quest.title}</Text>
+                    <View style={s.questProgressRow}>
+                      <View style={s.questProgressBg}>
+                        <View style={[s.questProgressFill, { width: `${progressPct}%`, backgroundColor: isDone ? palette.success : palette.primary }]} />
+                      </View>
+                      <Text style={s.questProgressLabel}>{quest.current}/{quest.target} {quest.unit}</Text>
                     </View>
-                    <Text style={s.questProgressLabel}>{quest.current}/{quest.target} {quest.unit}</Text>
                   </View>
-                </View>
 
-                {quest.claimed ? (
-                  <View style={s.questClaimedBadge}>
-                    <CheckCircle2 color={palette.success} size={14} />
-                    <Text style={s.questClaimedText}>Đã nhận</Text>
-                  </View>
-                ) : isDone ? (
-                  <Pressable
-                    onPress={() => handleClaimQuest(quest.id)}
-                    style={s.questClaimBtn}
-                  >
-                    <Zap color="#FFFFFF" size={12} fill="#FFFFFF" />
-                    <Text style={s.questClaimBtnText}>+{quest.xp} XP</Text>
-                  </Pressable>
-                ) : (
-                  <Pressable
-                    onPress={() => router.push(quest.route as any)}
-                    style={s.questGoBtn}
-                  >
-                    <Text style={s.questGoBtnText}>Làm</Text>
-                    <ChevronRight color={palette.primary} size={13} />
-                  </Pressable>
-                )}
-              </View>
-            );
-          })}
-        </View>
+                  {quest.claimed ? (
+                    <View style={s.questClaimedBadge}>
+                      <CheckCircle2 color={palette.success} size={14} />
+                      <Text style={s.questClaimedText}>Đã nhận</Text>
+                    </View>
+                  ) : isDone ? (
+                    <Pressable
+                      onPress={() => handleClaimQuest(quest.id)}
+                      style={s.questClaimBtn}
+                    >
+                      <Zap color="#FFFFFF" size={12} fill="#FFFFFF" />
+                      <Text style={s.questClaimBtnText}>+{quest.xp} XP</Text>
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      onPress={() => router.push(quest.route as any)}
+                      style={s.questGoBtn}
+                    >
+                      <Text style={s.questGoBtnText}>Làm</Text>
+                      <ChevronRight color={palette.primary} size={13} />
+                    </Pressable>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        )}
       </Animated.View>
 
       {/* ⚡ Blitz 60s Mini Challenge Banner */}
       <Animated.View style={animBlitz}>
         <AnimatedPressable
-          onPress={() => router.push('/(student)/practice/quiz/quiz-101' as any)}
+          onPress={() => router.push({ pathname: '/(student)/learn', params: { tab: 'quiz' } } as any)}
           onPressIn={blitzSpring.onPressIn}
           onPressOut={blitzSpring.onPressOut}
           style={[s.blitzBannerWrap, blitzSpring.animatedStyle]}
