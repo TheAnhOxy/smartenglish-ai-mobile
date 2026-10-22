@@ -67,7 +67,7 @@ export const StudentInvoicesModal: React.FC<StudentInvoicesModalProps> = ({
   const loadOrders = async () => {
     try {
       setLoading(true);
-      const res = await apiClient.get<any>(`/api/v1/payment/user/orders?userId=${userId}`);
+      const res = await apiClient.get<any>('/api/v1/payment/user/orders');
       const list = Array.isArray(res.data)
         ? res.data
         : Array.isArray(res.data?.data)

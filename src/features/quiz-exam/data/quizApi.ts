@@ -31,121 +31,63 @@ export interface QuizSubmitResult {
   }>;
 }
 
-export const MOCK_QUIZ_SUITE: QuizSuite = {
-  id: '1',
-  title: 'Quiz Ngữ Pháp: Thì Quá Khứ & Hiện Tại Hoàn Thành',
-  duration_sec: 300,
-  questions: [
-    {
-      id: '1',
-      type: 'multiple_choice',
-      question_text: 'She _____ to London three times this year.',
-      options: ['has been', 'was', 'goes', 'had been'],
-      correct_answer: 'has been',
-      explanation_vi: 'Dùng thì Hiện tại hoàn thành (has been) để diễn tả trải nghiệm đã xảy ra nhiều lần tính tới hiện tại.'
-    },
-    {
-      id: '2',
-      type: 'multiple_choice',
-      question_text: 'They _____ the new contract yesterday morning.',
-      options: ['signed', 'have signed', 'had signed', 'sign'],
-      correct_answer: 'signed',
-      explanation_vi: 'Có mốc thời gian xác định trong quá khứ (yesterday morning) ➔ dùng thì Quá khứ đơn (signed).'
-    }
-  ]
-};
-
-export const MOCK_EXAM_SUITE: QuizSuite = {
-  id: 'exam-toeic-mini',
-  title: 'Đề Thi Thử TOEIC Mini (Reading & Listening)',
-  duration_sec: 2700,
-  questions: [
-    {
-      id: 'eq1',
-      type: 'multiple_choice',
-      question_text: 'Mr. Henderson requested that all sales reports be submitted _____ Friday afternoon.',
-      options: ['before', 'after', 'until', 'during'],
-      correct_answer: 'before',
-      explanation_vi: 'Dùng giới từ "before" + thời gian để chỉ hạn chót nộp báo cáo.'
-    },
-    {
-      id: 'eq2',
-      type: 'multiple_choice',
-      question_text: 'The marketing campaign resulted in a _____ increase in online store traffic.',
-      options: ['significant', 'significantly', 'signify', 'significance'],
-      correct_answer: 'significant',
-      explanation_vi: 'Cần một tính từ (significant) để bổ nghĩa cho danh từ "increase".'
-    }
-  ]
-};
-
 export const fetchQuizzesListApi = async (quizType?: string) => {
-  try {
-    const url = quizType
-      ? `/api/v1/learning/quizzes?quizType=${encodeURIComponent(quizType)}`
-      : '/api/v1/learning/quizzes';
-    const response = await apiClient.get<any>(url);
-    const data = response.data?.data || response.data;
-    if (Array.isArray(data)) {
-      return data;
-    }
-  } catch (err) {
-    console.warn('Real Quizzes List API error:', err);
+  const url = quizType
+    ? `/api/v1/learning/quizzes?quizType=${encodeURIComponent(quizType)}`
+    : '/api/v1/learning/quizzes';
+  const response = await apiClient.get<any>(url);
+  const data = response.data?.data || response.data;
+  if (Array.isArray(data)) {
+    return data;
   }
-  return [MOCK_QUIZ_SUITE];
+  return [];
 };
 
 export const fetchQuizSuiteApi = async (id: string): Promise<QuizSuite> => {
-  try {
-    const response = await apiClient.get<any>(`/api/v1/learning/quizzes/${id}`);
-    const quizData = response.data?.data || response.data;
-    if (quizData && quizData.questions && Array.isArray(quizData.questions)) {
-      return {
-        id: String(quizData.id),
-        title: quizData.quizType === 'TOEIC_MOCK' ? 'Đề Thi Thử TOEIC Mock' : (quizData.quizType === 'IELTS_MOCK' ? 'Đề Thi Thử IELTS Mock' : 'Bài Kiểm Tra Quiz'),
-        duration_sec: 1200,
-        questions: quizData.questions.map((q: any, idx: number) => ({
-          id: String(q.id || idx + 1),
-          type: (q.questionType || 'MULTIPLE_CHOICE').toLowerCase().includes('choice') ? 'multiple_choice' : 'fill_blank',
-          question_text: q.questionText || `Question ${idx + 1}: Select the correct answer`,
-          options: q.options ? q.options.map((opt: any) => typeof opt === 'string' ? opt : (opt.text || opt.option || String(opt))) : ['A. Option A', 'B. Option B', 'C. Option C', 'D. Option D'],
-          correct_answer: q.correctAnswer || 'A',
-          explanation_vi: q.explanationVi || 'Lời giải thích cặn kẽ bằng tiếng Việt.'
-        }))
-      };
-    }
-  } catch (err) {
-    console.warn('Real Quiz Detail API error, returning fallback quiz:', err);
+  const response = await apiClient.get<any>(`/api/v1/learning/quizzes/${id}`);
+  const quizData = response.data?.data || response.data;
+  if (quizData && quizData.questions && Array.isArray(quizData.questions)) {
+    return {
+      id: String(quizData.id),
+      title: quizData.quizType === 'TOEIC_MOCK'
+        ? 'Đề Thi Thử TOEIC Mock'
+        : (quizData.quizType === 'IELTS_MOCK'
+          ? 'Đề Thi Thử IELTS Mock'
+          : (quizData.title || 'Bài Kiểm Tra Quiz')),
+      duration_sec: Number(quizData.durationMinutes ? quizData.durationMinutes * 60 : 1200),
+      questions: quizData.questions.map((q: any, idx: number) => ({
+        id: String(q.id || idx + 1),
+        type: (q.questionType || 'MULTIPLE_CHOICE').toLowerCase().includes('choice') ? 'multiple_choice' : 'fill_blank',
+        question_text: q.questionText || `Câu ${idx + 1}`,
+        options: q.options ? q.options.map((opt: any) => typeof opt === 'string' ? opt : (opt.text || opt.option || String(opt))) : ['A', 'B', 'C', 'D'],
+        correct_answer: q.correctAnswer || 'A',
+        explanation_vi: q.explanationVi || ''
+      }))
+    };
   }
-  return id.includes('exam') ? MOCK_EXAM_SUITE : MOCK_QUIZ_SUITE;
+  throw new Error(`Không tìm thấy dữ liệu bài kiểm tra ID ${id}`);
 };
 
 export const submitQuizAttemptApi = async (
   attemptId: number,
   answers: Array<{ questionId: number; userAnswer: string; responseTimeMs?: number }>,
-  timeSpentSec: number = 300,
-  _userId?: string
+  timeSpentSec: number = 300
 ): Promise<QuizSubmitResult> => {
-  try {
-    const response = await apiClient.post<any>('/api/v1/learning/attempts/submit', {
-      attemptId,
-      timeSpentSec,
-      answers
-    });
-    const data = response.data?.data || response.data;
-    if (data) {
-      return {
-        attemptId: data.attemptId || attemptId,
-        scorePct: data.scorePct || 100,
-        correctCount: data.correctCount || answers.length,
-        wrongCount: data.wrongCount || 0,
-        skillBreakdown: data.skillBreakdown || {},
-        answerDetails: data.answerDetails || []
-      };
-    }
-  } catch (err) {
-    console.warn('Submit Attempt API error:', err);
-    throw err;
+  const response = await apiClient.post<any>('/api/v1/learning/attempts/submit', {
+    attemptId,
+    timeSpentSec,
+    answers
+  });
+  const data = response.data?.data || response.data;
+  if (data) {
+    return {
+      attemptId: data.attemptId || attemptId,
+      scorePct: data.scorePct || 100,
+      correctCount: data.correctCount || answers.length,
+      wrongCount: data.wrongCount || 0,
+      skillBreakdown: data.skillBreakdown || {},
+      answerDetails: data.answerDetails || []
+    };
   }
 
   throw new Error('Backend không trả về kết quả bài kiểm tra hợp lệ');

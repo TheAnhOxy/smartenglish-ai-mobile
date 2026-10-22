@@ -9,7 +9,7 @@ interface StudentAssignmentsScreenProps {
 }
 
 export const StudentAssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ classId }) => {
-  const { data: assignments = [], isLoading, refetch } = useStudentAssignments(classId);
+  const { data: assignments = [], isLoading, isError, error, refetch } = useStudentAssignments(classId);
   const router = useRouter();
 
   const getAssignmentIcon = (type: string) => {
@@ -54,7 +54,7 @@ export const StudentAssignmentsScreen: React.FC<StudentAssignmentsScreenProps> =
     const refId = item.referenceId ? String(item.referenceId) : '';
     switch (item.assignmentType) {
       case 'quiz':
-        router.push(refId ? (`/(student)/practice/quiz/${refId}` as any) : ('/(student)/practice' as any));
+        router.push(refId ? (`/(student)/practice/exam/${refId}` as any) : ({ pathname: '/(student)/learn', params: { tab: 'quiz' } } as any));
         break;
       case 'vocab_deck':
         router.push(refId ? (`/(student)/review/decks/${refId}/study` as any) : ('/(student)/review' as any));
@@ -82,6 +82,24 @@ export const StudentAssignmentsScreen: React.FC<StudentAssignmentsScreenProps> =
       <View className="flex-1 justify-center items-center py-16">
         <ActivityIndicator color="#FF6B35" size="small" />
         <Text className="text-xs text-gray-500 mt-2 font-medium">Đang tải...</Text>
+      </View>
+    );
+  }
+
+  if (isError) {
+    return (
+      <View className="items-center py-14 bg-white rounded-2xl border border-red-100 p-6 mx-1 shadow-xs">
+        <Text className="text-3xl mb-2">⚠️</Text>
+        <Text className="text-base font-bold text-gray-800 mb-1">Không Thể Tải Bài Tập</Text>
+        <Text className="text-xs text-gray-500 text-center mb-4 leading-5 px-3">
+          {error instanceof Error ? error.message : 'Đã có lỗi xảy ra khi tải danh sách bài tập. Vui lòng thử lại.'}
+        </Text>
+        <Pressable
+          onPress={() => refetch()}
+          className="bg-primary px-5 py-2.5 rounded-xl active:bg-primaryDark"
+        >
+          <Text className="text-white font-bold text-xs">Thử lại</Text>
+        </Pressable>
       </View>
     );
   }

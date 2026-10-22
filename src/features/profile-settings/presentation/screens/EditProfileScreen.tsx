@@ -58,9 +58,18 @@ export const EditProfileScreen = () => {
     let isMounted = true;
     const loadProfile = async () => {
       try {
-        const userId = currentUser?.id ? String(currentUser.id) : '1';
+        const userId = currentUser?.id ? String(currentUser.id) : undefined;
+        if (!userId) {
+          if (isMounted) setIsLoading(false);
+          return;
+        }
+
         const fresh = await getProfileApi(userId);
         if (isMounted && fresh) {
+          if (fresh.role === 'admin' && currentUser?.role && currentUser.role !== 'admin') {
+            console.warn('[EditProfileScreen] Bỏ qua dữ liệu admin profile không khớp với học viên');
+            return;
+          }
           if (fresh.display_name) setDisplayName(fresh.display_name);
           if (fresh.username) setUsername(fresh.username);
           if (fresh.phone) setPhone(fresh.phone);
@@ -82,7 +91,7 @@ export const EditProfileScreen = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [currentUser?.id, currentUser?.role]);
 
   // Pick image and upload
   const handlePickAvatar = async () => {

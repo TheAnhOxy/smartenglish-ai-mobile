@@ -1049,7 +1049,7 @@ export const AnalyticsScreen = () => {
                   </Text>
                 </View>
                 <Pressable
-                  onPress={() => router.push('/(student)/practice' as any)}
+                  onPress={() => router.push({ pathname: '/(student)/learn', params: { tab: 'quiz' } } as any)}
                   style={s.posCtaBtn}
                 >
                   <Text style={s.posCtaBtnText}>Luyện Tập</Text>

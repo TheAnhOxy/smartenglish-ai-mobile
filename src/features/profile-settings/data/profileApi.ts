@@ -88,13 +88,15 @@ export const uploadAvatarApi = async (fileUri: string, fileName?: string, mimeTy
 };
 
 /**
- * GET /api/v1/users/me?userId=...
+ * GET /api/v1/users/me
  * Get current user's profile
  */
 export const getProfileApi = async (userId?: string): Promise<Partial<User>> => {
   const uid = userId || getCurrentUserId();
   try {
-    const response = await apiClient.get<any>(`/api/v1/users/me?userId=${uid}`);
+    const response = await apiClient.get<any>('/api/v1/users/me', {
+      params: uid ? { userId: uid } : {},
+    });
     const data = response.data?.data || response.data;
     if (data) return mapUserProfile(data);
   } catch (err) {
@@ -105,13 +107,15 @@ export const getProfileApi = async (userId?: string): Promise<Partial<User>> => 
 };
 
 /**
- * PUT /api/v1/users/me?userId=...
+ * PUT /api/v1/users/me
  * Update display name, phone, bio, avatar
  */
 export const updateProfileApi = async (payload: UpdateProfilePayload, userId?: string): Promise<Partial<User>> => {
   const uid = userId || getCurrentUserId();
   try {
-    const response = await apiClient.put<any>(`/api/v1/users/me?userId=${uid}`, payload);
+    const response = await apiClient.put<any>('/api/v1/users/me', payload, {
+      params: uid ? { userId: uid } : {},
+    });
     const data = response.data?.data || response.data;
     if (data) return mapUserProfile(data);
   } catch (err: any) {
@@ -122,13 +126,15 @@ export const updateProfileApi = async (payload: UpdateProfilePayload, userId?: s
 };
 
 /**
- * PUT /api/v1/users/me/password?userId=...
+ * PUT /api/v1/users/me/password
  * Change password
  */
 export const changePasswordApi = async (payload: ChangePasswordPayload, userId?: string): Promise<void> => {
   const uid = userId || getCurrentUserId();
   try {
-    await apiClient.put<any>(`/api/v1/users/me/password?userId=${uid}`, payload);
+    await apiClient.put<any>('/api/v1/users/me/password', payload, {
+      params: uid ? { userId: uid } : {},
+    });
   } catch (err: any) {
     console.warn('[ProfileAPI] changePasswordApi error:', err?.response?.data || err.message);
     throw err;
@@ -136,13 +142,15 @@ export const changePasswordApi = async (payload: ChangePasswordPayload, userId?:
 };
 
 /**
- * GET /api/v1/users/me/learning-settings?userId=...
+ * GET /api/v1/users/me/learning-settings
  * Get learning settings
  */
 export const getLearningSettingsApi = async (userId?: string): Promise<LearningSettingsPayload> => {
   const uid = userId || getCurrentUserId();
   try {
-    const response = await apiClient.get<any>(`/api/v1/users/me/learning-settings?userId=${uid}`);
+    const response = await apiClient.get<any>('/api/v1/users/me/learning-settings', {
+      params: uid ? { userId: uid } : {},
+    });
     const data = response.data?.data || response.data;
     if (data) {
       return {
@@ -162,13 +170,15 @@ export const getLearningSettingsApi = async (userId?: string): Promise<LearningS
 };
 
 /**
- * PUT /api/v1/users/me/learning-settings?userId=...
+ * PUT /api/v1/users/me/learning-settings
  * Update learning settings
  */
 export const updateLearningSettingsApi = async (payload: LearningSettingsPayload, userId?: string): Promise<LearningSettingsPayload> => {
   const uid = userId || getCurrentUserId();
   try {
-    const response = await apiClient.put<any>(`/api/v1/users/me/learning-settings?userId=${uid}`, payload);
+    const response = await apiClient.put<any>('/api/v1/users/me/learning-settings', payload, {
+      params: uid ? { userId: uid } : {},
+    });
     const data = response.data?.data || response.data;
     if (data) return data;
   } catch (err: any) {

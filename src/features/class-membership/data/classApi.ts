@@ -1,5 +1,4 @@
-import { apiClient, getCurrentUserId } from '@/src/core/api/client';
-import { MOCK_CLASSES, MOCK_ASSIGNMENTS } from '@/src/core/data/mockData';
+import { apiClient } from '@/src/core/api/client';
 
 export interface StudentClassDTO {
   id: string | number;
@@ -58,16 +57,12 @@ export interface CourseLessonDTO {
 }
 
 /**
- * GET /api/v1/teacher/classes/my-student-classes?studentId={id}
- * Lấy danh sách lớp học mà học viên hiện tại đã tham gia
+ * GET /api/v1/teacher/classes/my-student-classes
+ * Lấy danh sách lớp học mà học viên hiện tại đã tham gia (danh tính từ JWT)
  */
-export const fetchStudentClassesApi = async (userId?: string): Promise<StudentClassDTO[]> => {
-  const uid = userId || getCurrentUserId() || '1';
-  // Chuyển userId về số hợp lệ nếu là UUID (fallback số 1)
-  const numericId = isNaN(Number(uid)) ? 1 : Number(uid);
-
+export const fetchStudentClassesApi = async (_userId?: string): Promise<StudentClassDTO[]> => {
   try {
-    const response = await apiClient.get<any>(`/api/v1/teacher/classes/my-student-classes?studentId=${numericId}`);
+    const response = await apiClient.get<any>('/api/v1/teacher/classes/my-student-classes');
     const data = response.data?.data || response.data;
     if (Array.isArray(data)) {
       return data.map((item: any) => ({
@@ -88,35 +83,20 @@ export const fetchStudentClassesApi = async (userId?: string): Promise<StudentCl
         assignmentCount: item.assignmentCount || 0,
       }));
     }
-  } catch (error) {
-    console.warn('[ClassAPI] fetchStudentClassesApi fallback error:', error);
+    return [];
+  } catch (error: any) {
+    console.warn('[ClassAPI] fetchStudentClassesApi error:', error);
+    throw error;
   }
-
-  // Fallback sang mock nếu backend chưa khởi động xong
-  return MOCK_CLASSES.map((c) => ({
-    id: c.id,
-    name: c.name,
-    description: c.description || undefined,
-    teacherName: 'Cô Trần Mai Hương',
-    courseTitle: 'IELTS Master 6.5+ Comprehensive',
-    joinCode: c.join_code,
-    maxStudents: c.max_students,
-    cefrTarget: c.cefr_target,
-    status: c.status,
-    startDate: c.start_date,
-    endDate: c.end_date,
-    studentCount: 15,
-    assignmentCount: 2,
-  }));
 };
 
 /**
  * POST /api/v1/teacher/classes/join
- * Học viên nhập mã tham gia lớp học
+ * Học viên nhập mã tham gia lớp học (danh tính studentId lấy từ JWT)
  */
 export const joinClassApi = async (
   joinCode: string,
-  userPayload?: {
+  _userPayload?: {
     studentId?: string | number;
     studentName?: string;
     studentEmail?: string;
@@ -124,38 +104,35 @@ export const joinClassApi = async (
     isPremium?: boolean;
   }
 ): Promise<{ message: string; class: StudentClassDTO }> => {
-  const uid = userPayload?.studentId || getCurrentUserId() || '1';
-  const numericId = isNaN(Number(uid)) ? 1 : Number(uid);
-
   const payload = {
     joinCode: joinCode.trim().toUpperCase(),
-    studentId: numericId,
-    studentName: userPayload?.studentName || 'Học viên',
-    studentEmail: userPayload?.studentEmail || 'student@smartenglish.edu.vn',
-    studentAvatar: userPayload?.studentAvatar || null,
-    isPremium: Boolean(userPayload?.isPremium),
   };
 
-  const response = await apiClient.post<any>('/api/v1/teacher/classes/join', payload);
-  const data = response.data?.data || response.data;
-  return {
-    message: response.data?.message || 'Tham gia lớp học thành công',
-    class: {
-      id: data.id,
-      name: data.name,
-      description: data.description,
-      teacherId: data.teacherId,
-      teacherName: data.teacherName,
-      courseId: data.courseId,
-      courseTitle: data.courseTitle,
-      joinCode: data.joinCode || data.join_code,
-      maxStudents: data.maxStudents,
-      cefrTarget: data.cefrTarget,
-      status: data.status,
-      studentCount: data.studentCount || 1,
-      assignmentCount: data.assignmentCount || 0,
-    },
-  };
+  try {
+    const response = await apiClient.post<any>('/api/v1/teacher/classes/join', payload);
+    const data = response.data?.data || response.data;
+    return {
+      message: response.data?.message || 'Tham gia lớp học thành công',
+      class: {
+        id: data.id,
+        name: data.name,
+        description: data.description,
+        teacherId: data.teacherId,
+        teacherName: data.teacherName,
+        courseId: data.courseId,
+        courseTitle: data.courseTitle,
+        joinCode: data.joinCode || data.join_code,
+        maxStudents: data.maxStudents,
+        cefrTarget: data.cefrTarget,
+        status: data.status,
+        studentCount: data.studentCount || 1,
+        assignmentCount: data.assignmentCount || 0,
+      },
+    };
+  } catch (error: any) {
+    console.warn('[ClassAPI] joinClassApi error:', error);
+    throw error;
+  }
 };
 
 /**
@@ -185,24 +162,11 @@ export const fetchClassDetailApi = async (classId: string | number): Promise<Stu
         assignmentCount: data.assignmentCount || 0,
       };
     }
-  } catch (error) {
+    throw new Error('Không tìm thấy thông tin lớp học');
+  } catch (error: any) {
     console.warn(`[ClassAPI] fetchClassDetailApi error for class ${classId}:`, error);
+    throw error;
   }
-
-  const mock = MOCK_CLASSES.find((c) => c.id === String(classId)) || MOCK_CLASSES[0];
-  return {
-    id: mock.id,
-    name: mock.name,
-    description: mock.description || undefined,
-    teacherName: 'Cô Trần Mai Hương',
-    courseTitle: 'IELTS Master 6.5+ Comprehensive',
-    joinCode: mock.join_code,
-    maxStudents: mock.max_students,
-    cefrTarget: mock.cefr_target,
-    status: mock.status,
-    studentCount: 18,
-    assignmentCount: 2,
-  };
 };
 
 /**
@@ -225,30 +189,11 @@ export const fetchClassMembersApi = async (classId: string | number): Promise<Cl
         joinedAt: m.joinedAt || new Date().toISOString(),
       }));
     }
-  } catch (error) {
+    return [];
+  } catch (error: any) {
     console.warn(`[ClassAPI] fetchClassMembersApi error for class ${classId}:`, error);
+    throw error;
   }
-
-  return [
-    {
-      id: 1,
-      userId: 29,
-      userName: 'Cô Trần Mai Hương',
-      userEmail: 'maihuong@smartenglish.edu.vn',
-      role: 'TEACHER',
-      status: 'ACTIVE',
-      joinedAt: '2026-10-01',
-    },
-    {
-      id: 2,
-      userId: 1,
-      userName: 'Bạn (Học viên)',
-      userEmail: 'student@smartenglish.edu.vn',
-      role: 'STUDENT',
-      status: 'ACTIVE',
-      joinedAt: '2026-10-05',
-    },
-  ];
 };
 
 /**
@@ -274,22 +219,11 @@ export const fetchStudentAssignmentsApi = async (classId: string | number): Prom
         submittedCount: a.submittedCount || 0,
       }));
     }
-  } catch (error) {
+    return [];
+  } catch (error: any) {
     console.warn(`[ClassAPI] fetchStudentAssignmentsApi error for class ${classId}:`, error);
+    throw error;
   }
-
-  return MOCK_ASSIGNMENTS.map((a) => ({
-    id: a.id,
-    classId: a.class_id,
-    title: a.title,
-    instructions: a.instructions || undefined,
-    assignmentType: a.assignment_type,
-    referenceId: a.reference_id,
-    dueDate: a.due_date,
-    passingScore: a.passing_score,
-    isGraded: a.is_graded,
-    status: 'Chưa làm',
-  }));
 };
 
 /**
@@ -316,34 +250,9 @@ export const fetchClassCourseLessonsApi = async (courseId?: number): Promise<Cou
         isPublished: lesson.isPublished !== false,
       }));
     }
+    return [];
   } catch (error) {
     console.warn(`[ClassAPI] fetchClassCourseLessonsApi error for courseId ${courseId}:`, error);
+    return [];
   }
-
-  return [
-    {
-      id: 101,
-      courseId: courseId || 1,
-      titleVi: 'Bài 1: Khởi động phương pháp Skimming & Scanning',
-      titleEn: 'Lesson 1: Skimming & Scanning Mastery',
-      descriptionVi: 'Kỹ thuật đọc lướt nắm ý chính và quét thông tin nhanh trong đề thi IELTS',
-      lessonType: 'READING',
-      orderNumber: 1,
-      estimatedMinutes: 20,
-      isFreePreview: true,
-      isPublished: true,
-    },
-    {
-      id: 102,
-      courseId: courseId || 1,
-      titleVi: 'Bài 2: Từ vựng học thuật chủ đề Environment & Energy',
-      titleEn: 'Lesson 2: Academic Vocabulary - Environment',
-      descriptionVi: '30 từ vựng nâng cao Band 7.0 kèm ví dụ thực tế',
-      lessonType: 'VOCABULARY',
-      orderNumber: 2,
-      estimatedMinutes: 25,
-      isFreePreview: false,
-      isPublished: true,
-    },
-  ];
 };

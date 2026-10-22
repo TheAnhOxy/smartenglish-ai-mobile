@@ -186,7 +186,7 @@ export const ScanResultScreen = () => {
   };
 
   const isWordSaved = (wordId: string) => {
-    return savedWords.some((w) => w.word_id === wordId);
+    return savedWords.some((w: any) => w.word_id === wordId);
   };
 
   // ─── Direct Save All (No jumping / bounce animation) ───

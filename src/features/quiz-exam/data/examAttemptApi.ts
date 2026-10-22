@@ -21,6 +21,8 @@ export interface ExamPassage {
 
 export interface ExamQuestion {
   id: string;
+  questionType?: string;
+  translationVi?: string;
   part: ExamPart;
   partLabel: string;
   partSubTitle: string;
@@ -203,6 +205,8 @@ export const normalizeQuestion = (raw: any, index: number, total: number, catego
     groupQuestionNumbers,
     passageText: passageText || undefined,
     instructionPrompt: raw?.instructionPrompt || raw?.instructions || section?.instructions || undefined,
+    questionType: String(raw?.questionType || raw?.type || (raw?.pairs ? 'MATCHING' : (raw?.wordBank || raw?.sentenceBefore ? 'FILL_BLANK' : (raw?.items ? 'ORDERING' : 'MULTIPLE_CHOICE')))).toUpperCase(),
+    translationVi: raw?.translationVi || raw?.questionTranslationVi || undefined,
     explanationVi: raw?.explanationVi ?? raw?.explanation,
     passage: raw?.passage ?? (passageText ? {
       title: groupRangeText || 'Văn bản đọc hiểu',

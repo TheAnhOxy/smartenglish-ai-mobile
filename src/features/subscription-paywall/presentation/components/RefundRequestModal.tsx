@@ -83,7 +83,7 @@ export const RefundRequestModal: React.FC<RefundRequestModalProps> = ({
     try {
       setIsSubmitting(true);
       const res = await apiClient.post<any>(
-        `/api/v1/payment/orders/${orderId}/request-refund?userId=${userId}`,
+        `/api/v1/payment/orders/${orderId}/request-refund`,
         {
           reason: reason.trim(),
           bankName: bankName.trim(),

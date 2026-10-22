@@ -24,17 +24,15 @@ function removeCookie(name: string) {
 }
 
 export function saveAuthTokens(accessToken: string, refreshToken?: string, user?: any) {
-  // 1. Lưu vào Cookie (phục vụ web/browser và request cookie)
+  // 1. Lưu vào Cookie riêng của ứng dụng Mobile (tránh xung đột với Web Admin trên cùng domain localhost)
   if (accessToken) {
-    setCookie('accessToken', accessToken, 7 * 86400); // 7 ngày
     setCookie(ACCESS_TOKEN_KEY, accessToken, 7 * 86400);
   }
   if (refreshToken) {
-    setCookie('refreshToken', refreshToken, 30 * 86400); // 30 ngày
     setCookie(REFRESH_TOKEN_KEY, refreshToken, 30 * 86400);
   }
 
-  // 2. Lưu vào LocalStorage (chuẩn đồng bộ tương tự FE Admin / Giáo viên)
+  // 2. Lưu vào LocalStorage của Mobile
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       if (accessToken) window.localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
@@ -54,8 +52,8 @@ export function getStoredAccessToken(): string | null {
     }
   } catch (_) {}
 
-  // Fallback đọc từ Cookie
-  return getCookie('accessToken') || getCookie(ACCESS_TOKEN_KEY);
+  // Fallback đọc từ Cookie riêng của Mobile (không đọc cookie accessToken chung của Web Admin)
+  return getCookie(ACCESS_TOKEN_KEY);
 }
 
 export function getStoredRefreshToken(): string | null {
@@ -66,7 +64,8 @@ export function getStoredRefreshToken(): string | null {
     }
   } catch (_) {}
 
-  return getCookie('refreshToken') || getCookie(REFRESH_TOKEN_KEY);
+  // Fallback đọc từ Cookie riêng của Mobile
+  return getCookie(REFRESH_TOKEN_KEY);
 }
 
 export function getStoredUserProfile(): any | null {
@@ -80,6 +79,7 @@ export function getStoredUserProfile(): any | null {
 }
 
 export function clearAuthTokens() {
+  // Dọn dẹp cả cookie riêng của mobile lẫn cookie chung còn sót lại
   removeCookie('accessToken');
   removeCookie(ACCESS_TOKEN_KEY);
   removeCookie('refreshToken');
@@ -90,6 +90,8 @@ export function clearAuthTokens() {
       window.localStorage.removeItem(ACCESS_TOKEN_KEY);
       window.localStorage.removeItem(REFRESH_TOKEN_KEY);
       window.localStorage.removeItem(USER_PROFILE_KEY);
+      window.localStorage.removeItem('accessToken');
+      window.localStorage.removeItem('refreshToken');
     }
   } catch (_) {}
 }

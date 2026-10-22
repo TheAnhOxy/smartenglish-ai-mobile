@@ -69,64 +69,46 @@ export interface LessonCompletionResult {
   congratulationMessage: string;
 }
 
-export const MOCK_KNOWLEDGE_GAPS: SkillGapItem[] = [
-  { id: 'kg-1', category: 'Ngữ Pháp', name: 'Thì Hiện Tại Hoàn Thành', masteryLevel: 2, wrongCount: 4, wrongWords: ['since/for usage', 'already vs yet'] },
-  { id: 'kg-2', category: 'Ngữ Pháp', name: 'Mệnh Đề Quan Hệ', masteryLevel: 1, wrongCount: 6, wrongWords: ['whose', 'whom'] },
-  { id: 'kg-3', category: 'Từ Vựng', name: 'Từ Vựng Hợp Đồng Doanh Nghiệp', masteryLevel: 3, wrongCount: 2, wrongWords: ['negotiation', 'agreement'] },
-  { id: 'kg-4', category: 'Phát Âm', name: 'Trọng Âm Từ & Ngữ Điệu', masteryLevel: 2, wrongCount: 5, wrongWords: ['stress placement'] },
-  { id: 'kg-5', category: 'Đọc Hiểu', name: 'Đọc Hiểu Bài Văn Ngắn', masteryLevel: 4, wrongCount: 1, wrongWords: [] }
-];
-
 export const fetchKnowledgeGapsApi = async (userId?: string): Promise<SkillGapItem[]> => {
-  const uid = userId || getCurrentUserId();
   try {
-    const response = await apiClient.get<any>(`/api/v1/learning/path/skills-analysis?userId=${uid}`);
+    const response = await apiClient.get<any>('/api/v1/learning/path/skills-analysis');
     const data = response.data?.data || response.data;
-    if (data && data.weakSkills) {
-      return [
-        { id: 'kg-1', category: 'Ngữ Pháp', name: 'Ngữ Thì Nâng Cao', masteryLevel: 2, wrongCount: 4, wrongWords: data.weakSkills },
-        { id: 'kg-2', category: 'Phát Âm', name: 'Trọng Âm & Ngữ Điệu', masteryLevel: 2, wrongCount: 3, wrongWords: ['Intonation'] },
-        { id: 'kg-3', category: 'Từ Vựng', name: 'Từ Vựng Chủ Đề Công Việc', masteryLevel: 4, wrongCount: 1, wrongWords: data.strongSkills || [] }
-      ];
+    if (data && data.hasSufficientData && Array.isArray(data.weakSkills) && data.weakSkills.length > 0) {
+      return data.weakSkills.map((skillName: string, idx: number) => {
+        const categoryMatch = skillName.match(/\((.*?)\)/);
+        const category = categoryMatch ? categoryMatch[1].trim() : 'Kỹ năng';
+        return {
+          id: `gap-${idx + 1}`,
+          category,
+          name: skillName,
+          masteryLevel: 2 as const,
+          wrongCount: 1,
+          wrongWords: [],
+        };
+      });
     }
+    return [];
   } catch (err) {
-    console.warn('Real Knowledge Gap API error, returning fallback gaps:', err);
+    console.warn('[knowledgeGapApi] fetchKnowledgeGapsApi error:', err);
+    throw err;
   }
-  return MOCK_KNOWLEDGE_GAPS;
 };
 
 export const isSystemCourse = (item: any): boolean => {
   if (!item) return false;
-  const title = `${item.titleVi || ''} ${item.title_vi || ''} ${item.title || ''} ${item.titleEn || ''}`.toLowerCase();
-  const desc = `${item.descriptionVi || ''} ${item.description_vi || ''} ${item.description || ''}`.toLowerCase();
-
-  // Loại bỏ các khóa học của giáo viên (Cô Mai, Thầy John, Teacher,...)
-  if (
-    title.includes('cô ') ||
-    title.includes('thầy ') ||
-    title.includes('teacher') ||
-    desc.includes('cô ') ||
-    desc.includes('thầy ') ||
-    desc.includes('teacher')
-  ) {
+  const source = String(item.source || item.ownership || '').toUpperCase();
+  if (source === 'TEACHER') {
     return false;
   }
-
-  // Loại bỏ nếu createdBy là giáo viên (> 1)
+  if (source === 'SYSTEM') {
+    return true;
+  }
   if (item.createdBy && Number(item.createdBy) > 1) {
     return false;
   }
   if (item.created_by && Number(item.created_by) > 1) {
     return false;
   }
-
-  // Trong seed V21, các khóa học giáo viên có ID từ 5 đến 8
-  const rawId = String(item.id || '').replace(/^course-/, '');
-  const numId = Number(rawId);
-  if (!isNaN(numId) && numId >= 5 && numId <= 8) {
-    return false;
-  }
-
   return true;
 };
 
@@ -134,20 +116,18 @@ let memoryRoadmapCache: { data: any[]; timestamp: number; userId: string } | nul
 const ROADMAP_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export const fetchLearningPathRoadmapApi = async (userId?: string, forceRefresh = false) => {
-  const uid = userId || getCurrentUserId() || '1';
-  if (!forceRefresh && memoryRoadmapCache && memoryRoadmapCache.userId === uid && Date.now() - memoryRoadmapCache.timestamp < ROADMAP_CACHE_TTL) {
+  const uid = userId || getCurrentUserId();
+  if (!forceRefresh && memoryRoadmapCache && memoryRoadmapCache.userId === (uid || '') && Date.now() - memoryRoadmapCache.timestamp < ROADMAP_CACHE_TTL) {
     return memoryRoadmapCache.data;
   }
   try {
-    const response = await apiClient.get<any>(`/api/v1/learning/path?userId=${uid}`);
+    const response = await apiClient.get<any>('/api/v1/learning/path');
     const data = response.data?.data || response.data;
-    if (Array.isArray(data) && data.length > 0) {
+    if (Array.isArray(data)) {
       // Chỉ giữ lại khóa học của hệ thống
       const systemMilestones = data.filter(isSystemCourse);
-      if (systemMilestones.length > 0) {
-        memoryRoadmapCache = { data: systemMilestones, timestamp: Date.now(), userId: uid };
-        return systemMilestones;
-      }
+      memoryRoadmapCache = { data: systemMilestones, timestamp: Date.now(), userId: uid || '' };
+      return systemMilestones;
     }
   } catch (err) {
     console.warn('[LearningPath] Real Learning Path API error, trying direct content tree fallback:', err);
@@ -157,7 +137,7 @@ export const fetchLearningPathRoadmapApi = async (userId?: string, forceRefresh 
   try {
     const fallbackRes = await apiClient.get<any>('/api/v1/content/courses/tree');
     const courses = fallbackRes.data?.data || fallbackRes.data;
-    if (Array.isArray(courses) && courses.length > 0) {
+    if (Array.isArray(courses)) {
       // Chỉ lấy khóa học của hệ thống
       const systemCourses = courses.filter(isSystemCourse);
       return systemCourses.map((c: any, cIdx: number) => ({
@@ -167,6 +147,9 @@ export const fetchLearningPathRoadmapApi = async (userId?: string, forceRefresh 
         titleEn: c.titleEn,
         descriptionVi: c.descriptionVi,
         isPremium: Boolean(c.isPremium),
+        source: c.source || 'SYSTEM',
+        ownership: c.ownership || 'SYSTEM',
+        createdBy: c.createdBy,
         units: (c.lessons || []).map((l: any, lIdx: number) => ({
           id: String(l.id),
           unitNumber: l.position || lIdx + 1,
@@ -185,16 +168,17 @@ export const fetchLearningPathRoadmapApi = async (userId?: string, forceRefresh 
     }
   } catch (treeErr) {
     console.warn('[LearningPath] Content tree fallback failed:', treeErr);
+    throw treeErr;
   }
 
   return [];
 };
 
 export const fetchLessonDetailApi = async (lessonId: string, userId?: string): Promise<LessonDetailData | null> => {
-  const uid = userId || getCurrentUserId() || '1';
+  const uid = userId || getCurrentUserId();
   const cleanId = lessonId.replace(/^[^\d]*/, '') || lessonId;
   try {
-    const response = await apiClient.get<any>(`/api/v1/learning/path/lessons/${cleanId}?userId=${uid}`);
+    const response = await apiClient.get<any>(`/api/v1/learning/path/lessons/${cleanId}`);
     const data = response.data?.data || response.data;
     if (data && (
       (data.vocabularyList && data.vocabularyList.length > 0) ||
@@ -289,11 +273,11 @@ export const fetchLessonDetailApi = async (lessonId: string, userId?: string): P
 };
 
 export const completeLessonApi = async (lessonId: string, userId?: string): Promise<LessonCompletionResult | null> => {
-  const uid = userId || getCurrentUserId() || '1';
+  const uid = userId || getCurrentUserId();
   const cleanId = lessonId.replace(/^[^\d]*/, '') || lessonId;
   memoryRoadmapCache = null;
   try {
-    const response = await apiClient.post<any>(`/api/v1/learning/path/lessons/${cleanId}/complete?userId=${uid}`, {});
+    const response = await apiClient.post<any>(`/api/v1/learning/path/lessons/${cleanId}/complete`, {});
     return response.data?.data || response.data;
   } catch (err) {
     console.warn('[completeLessonApi] Error:', err);
