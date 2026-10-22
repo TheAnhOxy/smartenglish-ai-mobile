@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   ScrollView,
   StyleSheet,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,6 +29,17 @@ import {
   UserPlus,
 } from 'lucide-react-native';
 
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+import {
+  GOOGLE_CLIENT_ID,
+  GOOGLE_IOS_CLIENT_ID,
+  loadGoogleGsiScript,
+  signInWithGoogleWeb,
+} from '../../infrastructure/googleAuthHelper';
+
+WebBrowser.maybeCompleteAuthSession();
+
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export const RegisterScreen = () => {
@@ -43,15 +55,50 @@ export const RegisterScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const { register, isPending, isError, error } = useAuthFlow();
+  const { register, googleLogin, isPending, isError, error } = useAuthFlow();
   const registerSpring = usePressSpring(0.97);
+
+  // Khởi tạo trước Google Identity Services trên Web
+  React.useEffect(() => {
+    if (Platform.OS === 'web') {
+      loadGoogleGsiScript().catch((e) => console.warn('Lỗi tải Google SDK Web:', e));
+    }
+  }, []);
+
+  const [googleRequest, googleResponse, promptGoogleAsync] = Google.useAuthRequest({
+    clientId: GOOGLE_CLIENT_ID,
+    webClientId: GOOGLE_CLIENT_ID,
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    iosClientId: GOOGLE_IOS_CLIENT_ID,
+  });
+
+  React.useEffect(() => {
+    if (googleResponse?.type === 'success') {
+      const token =
+        googleResponse.authentication?.idToken ||
+        googleResponse.authentication?.accessToken ||
+        (googleResponse.params as any)?.id_token ||
+        (googleResponse.params as any)?.access_token;
+      if (token) {
+        googleLogin(token);
+      }
+    }
+  }, [googleResponse]);
 
   const handleRegister = () => {
     setErrorMessage('');
-    if (!displayName.trim() || !email.trim() || !password.trim()) {
+    const cleanEmail = email.trim();
+    if (!displayName.trim() || !cleanEmail || !password.trim()) {
       setErrorMessage('Vui lòng điền đầy đủ thông tin bắt buộc.');
       return;
     }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      setErrorMessage('Vui lòng nhập đúng định dạng email/Gmail (ví dụ: hocvien@gmail.com).');
+      return;
+    }
+
     if (password.length < 6) {
       setErrorMessage('Mật khẩu phải chứa ít nhất 6 ký tự.');
       return;
@@ -63,10 +110,10 @@ export const RegisterScreen = () => {
 
     register(
       {
-        email: email.trim(),
+        email: cleanEmail,
         password: password.trim(),
         displayName: displayName.trim(),
-        username: email.trim().split('@')[0],
+        username: cleanEmail.split('@')[0],
         phone: phone.trim() || undefined,
         referralCode: referralCode.trim() || undefined,
         cefrLevel: 'B1',
@@ -82,6 +129,27 @@ export const RegisterScreen = () => {
         },
       }
     );
+  };
+
+  const handleGooglePress = async () => {
+    setErrorMessage('');
+    try {
+      if (Platform.OS === 'web') {
+        // Trên Web: Dùng Google Identity Services chính thức để tránh lỗi COOP
+        await signInWithGoogleWeb(
+          (token) => googleLogin(token),
+          (errMsg) => setErrorMessage(errMsg)
+        );
+        return;
+      }
+
+      if (promptGoogleAsync) {
+        await promptGoogleAsync();
+      }
+    } catch (err: any) {
+      console.warn('Google sign up prompt error:', err);
+      setErrorMessage('Không thể mở đăng nhập Google lúc này. Vui lòng thử lại.');
+    }
   };
 
   const activeError =
@@ -251,6 +319,23 @@ export const RegisterScreen = () => {
             </>
           )}
         </TouchableOpacity>
+
+        {/* Divider */}
+        <View style={s.dividerRow}>
+          <View style={s.dividerLine} />
+          <Text style={s.dividerText}>Hoặc đăng ký nhanh với</Text>
+          <View style={s.dividerLine} />
+        </View>
+
+        {/* Google Sign In */}
+        <Pressable
+          style={s.socialBtn}
+          onPress={handleGooglePress}
+          disabled={isPending}
+        >
+          <Text style={[s.socialBtnLabel, { color: '#EA4335' }]}>G</Text>
+          <Text style={s.socialText}>Tiếp tục với Google</Text>
+        </Pressable>
       </View>
 
       {/* Login link */}
@@ -454,5 +539,40 @@ const s = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: colors.primary,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  dividerText: {
+    paddingHorizontal: 10,
+    fontSize: 12,
+    color: colors.textFaint,
+  },
+  socialBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  socialBtnLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  socialText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
   },
 });

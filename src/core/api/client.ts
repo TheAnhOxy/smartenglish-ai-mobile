@@ -17,11 +17,15 @@ const getGatewayUrl = () => {
   if (Platform.OS === 'web') {
     if (typeof window !== 'undefined' && window.location) {
       const hostname = window.location.hostname;
-      if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      // Khi test trên localhost / 127.0.0.1, luôn gọi thẳng gateway local http://localhost:8080 để tránh CORS của ngrok
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return 'http://localhost:8080';
+      }
+      if (hostname) {
         return `http://${hostname}:8080`;
       }
     }
-    if (envUrl) {
+    if (envUrl && !envUrl.includes('ngrok')) {
       return envUrl.replace(/\/$/, '');
     }
     return 'http://localhost:8080';
