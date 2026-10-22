@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   ScrollView,
   StyleSheet,
+  Platform,
 } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
@@ -17,7 +18,17 @@ import { LoxeraFoxMascot } from '@/src/core/components/LoxeraFoxMascot';
 import { colors } from '@/src/theme/colors';
 import { usePressSpring } from '@/src/hooks/usePressSpring';
 import { useStaggerReveal } from '@/src/hooks/useStaggerReveal';
-import { ShieldAlert, Eye, EyeOff, Mail, Lock } from 'lucide-react-native';
+import { ShieldAlert, Eye, EyeOff, Mail, Lock, ArrowRight } from 'lucide-react-native';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+import {
+  GOOGLE_CLIENT_ID,
+  GOOGLE_IOS_CLIENT_ID,
+  loadGoogleGsiScript,
+  signInWithGoogleWeb,
+} from '../../infrastructure/googleAuthHelper';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -27,11 +38,74 @@ export const LoginScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const { login, isPending, isError, error } = useAuthFlow();
+  const [validationError, setValidationError] = useState('');
+  const { login, googleLogin, isPending, isError, error } = useAuthFlow();
+
+  // Khởi tạo trước Google Identity Services trên Web
+  React.useEffect(() => {
+    if (Platform.OS === 'web') {
+      loadGoogleGsiScript().catch((e) => console.warn('Lỗi tải Google SDK Web:', e));
+    }
+  }, []);
+
+  // Cấu hình Google Sign-In qua Expo AuthSession cho môi trường Native (Android/iOS)
+  const [googleRequest, googleResponse, promptGoogleAsync] = Google.useAuthRequest({
+    clientId: GOOGLE_CLIENT_ID,
+    webClientId: GOOGLE_CLIENT_ID,
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    iosClientId: GOOGLE_IOS_CLIENT_ID,
+  });
+
+  React.useEffect(() => {
+    if (googleResponse?.type === 'success') {
+      const token =
+        googleResponse.authentication?.idToken ||
+        googleResponse.authentication?.accessToken ||
+        (googleResponse.params as any)?.id_token ||
+        (googleResponse.params as any)?.access_token;
+      if (token) {
+        googleLogin(token);
+      }
+    }
+  }, [googleResponse]);
 
   const handleLogin = () => {
-    if (!email.trim() || !password.trim()) return;
-    login({ email: email.trim(), password: password.trim() });
+    setValidationError('');
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !password.trim()) {
+      setValidationError('Vui lòng nhập đầy đủ Email và Mật khẩu.');
+      return;
+    }
+
+    // Ràng buộc nghiêm ngặt: Chỉ cho phép Email/Gmail, không cho phép số điện thoại
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      setValidationError('Vui lòng nhập đúng định dạng email (ví dụ: hocvien@gmail.com). Hệ thống không hỗ trợ đăng nhập bằng số điện thoại.');
+      return;
+    }
+
+    login({ email: cleanEmail, password: password.trim() });
+  };
+
+  const handleGooglePress = async () => {
+    setValidationError('');
+    try {
+      if (Platform.OS === 'web') {
+        // Trên Web: Dùng Google Identity Services chính thức để tránh lỗi COOP (Cross-Origin-Opener-Policy)
+        await signInWithGoogleWeb(
+          (token) => googleLogin(token),
+          (errMsg) => setValidationError(errMsg)
+        );
+        return;
+      }
+
+      if (promptGoogleAsync) {
+        await promptGoogleAsync();
+      }
+    } catch (err: any) {
+      console.warn('Google sign in prompt error:', err);
+      setValidationError('Không thể mở đăng nhập Google lúc này. Vui lòng thử lại.');
+    }
   };
 
   const loginSpring = usePressSpring(0.97);
@@ -39,6 +113,16 @@ export const LoginScreen = () => {
   const cardAnim1 = useStaggerReveal(1, 60);
 
   const safeTop = (insets.top || 16) + 12;
+
+  const rawErrorMessage =
+    validationError ||
+    (isError
+      ? (error as any)?.response?.data?.message || (error as any)?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại.'
+      : '');
+
+  const isEmailUnverified =
+    rawErrorMessage.toLowerCase().includes('chưa được xác thực email') ||
+    rawErrorMessage.toLowerCase().includes('xác thực mã otp');
 
   return (
     <ScrollView
@@ -63,26 +147,38 @@ export const LoginScreen = () => {
         <Text style={s.formTitle}>Đăng nhập tài khoản</Text>
 
         {/* Error Box */}
-        {isError && (
+        {rawErrorMessage ? (
           <View style={s.errorBox}>
             <ShieldAlert color={colors.danger} size={16} strokeWidth={2} />
-            <Text style={s.errorText}>
-              {(error as any)?.response?.data?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại.'}
-            </Text>
+            <View style={{ flex: 1, marginLeft: 8 }}>
+              <Text style={s.errorText}>{rawErrorMessage}</Text>
+              {isEmailUnverified && email.trim() ? (
+                <TouchableOpacity
+                  style={s.verifyNowBtn}
+                  onPress={() => router.push(`/(auth)/verify-otp?email=${encodeURIComponent(email.trim())}` as any)}
+                >
+                  <Text style={s.verifyNowText}>Xác thực mã OTP ngay</Text>
+                  <ArrowRight color={colors.primary} size={14} strokeWidth={2.2} style={{ marginLeft: 4 }} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
           </View>
-        )}
+        ) : null}
 
-        {/* Email Field */}
+        {/* Email Field - Bắt buộc Gmail / Email, không có số điện thoại */}
         <View style={s.inputGroup}>
-          <Text style={s.inputLabel}>Email</Text>
+          <Text style={s.inputLabel}>Địa chỉ Email / Gmail</Text>
           <View style={s.inputWrapper}>
             <Mail color={colors.textFaint} size={16} strokeWidth={1.8} style={s.inputIcon} />
             <TextInput
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(txt) => {
+                setEmail(txt);
+                setValidationError('');
+              }}
               keyboardType="email-address"
               autoCapitalize="none"
-              placeholder="email@example.com"
+              placeholder="hocvien@gmail.com"
               placeholderTextColor={colors.textFaint}
               style={s.inputField}
             />
@@ -96,21 +192,25 @@ export const LoginScreen = () => {
             <Lock color={colors.textFaint} size={16} strokeWidth={1.8} style={s.inputIcon} />
             <TextInput
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(txt) => {
+                setPassword(txt);
+                setValidationError('');
+              }}
               secureTextEntry={!showPassword}
               placeholder="••••••••"
               placeholderTextColor={colors.textFaint}
               style={s.inputFieldPassword}
             />
             <Pressable
-              onPress={() => setShowPassword(v => !v)}
+              onPress={() => setShowPassword((v) => !v)}
               style={s.eyeBtn}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              {showPassword
-                ? <EyeOff color={colors.textFaint} size={16} strokeWidth={1.8} />
-                : <Eye color={colors.textFaint} size={16} strokeWidth={1.8} />
-              }
+              {showPassword ? (
+                <EyeOff color={colors.textFaint} size={16} strokeWidth={1.8} />
+              ) : (
+                <Eye color={colors.textFaint} size={16} strokeWidth={1.8} />
+              )}
             </Pressable>
           </View>
         </View>
@@ -143,13 +243,13 @@ export const LoginScreen = () => {
       </View>
 
       <View style={s.socialRow}>
-        <Pressable style={s.socialBtn}>
-          <Text style={s.socialBtnLabel}>G</Text>
+        <Pressable
+          style={s.socialBtn}
+          onPress={handleGooglePress}
+          disabled={isPending}
+        >
+          <Text style={[s.socialBtnLabel, { color: '#EA4335' }]}>G</Text>
           <Text style={s.socialText}>Google</Text>
-        </Pressable>
-        <Pressable style={s.socialBtn}>
-          <Text style={s.socialBtnLabel}></Text>
-          <Text style={s.socialText}>Apple</Text>
         </Pressable>
       </View>
 
@@ -230,8 +330,19 @@ const s = StyleSheet.create({
   errorText: {
     fontSize: 13,
     color: colors.danger,
-    flex: 1,
     lineHeight: 18,
+  },
+  verifyNowBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    paddingVertical: 2,
+  },
+  verifyNowText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
   inputGroup: {
     marginBottom: 14,
