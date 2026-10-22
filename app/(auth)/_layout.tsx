@@ -13,6 +13,8 @@ export default function AuthLayout() {
       <Stack.Screen name="placement-test" />
       <Stack.Screen name="placement-result" />
       <Stack.Screen name="login" />
+      <Stack.Screen name="register" />
+      <Stack.Screen name="verify-otp" />
       <Stack.Screen name="login-success" />
     </Stack>
   );
