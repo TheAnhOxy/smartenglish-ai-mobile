@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   Pressable,
   Image,
   StyleSheet,
+  ActivityIndicator,
+  RefreshControl,
   Dimensions,
 } from 'react-native';
 import {
@@ -31,6 +33,9 @@ import {
   AlertCircle,
   BarChart3,
   Compass,
+  Users,
+  Globe,
+  RotateCcw,
 } from 'lucide-react-native';
 import Animated, {
   FadeInDown,
@@ -47,27 +52,35 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, palette } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
 import { useAuthStore } from '@/src/core/flows/authStore';
+import {
+  fetchProgressStatsApi,
+  fetchAiAssessmentApi,
+  fetchLeaderboardApi,
+  StudentProgressData,
+  StudentAssessmentData,
+  LeaderboardData,
+  RemedialQuiz,
+} from '../../data/analyticsApi';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Subcomponent for Animated Chart Bar (7-day time distribution)
 interface ChartBarItemProps {
-  item: { day: string; min: number };
+  item: { dayLabel: string; minutes: number; isToday: boolean };
   idx: number;
   barHeight: SharedValue<number>;
 }
 
 const ChartBarItem: React.FC<ChartBarItemProps> = ({ item, idx, barHeight }) => {
-  const isToday = idx === 3; // T5 is today
   const animStyle = useAnimatedStyle(() => ({
     height: `${barHeight.value}%`,
   }));
 
   return (
     <View style={s.chartCol}>
-      {isToday && (
+      {item.isToday && (
         <View style={s.todayTooltip}>
-          <Text style={s.todayTooltipText}>{item.min}p</Text>
+          <Text style={s.todayTooltipText}>{item.minutes}p</Text>
         </View>
       )}
       <View style={s.chartBarTrack}>
@@ -75,11 +88,11 @@ const ChartBarItem: React.FC<ChartBarItemProps> = ({ item, idx, barHeight }) => 
           style={[
             s.chartBarFill,
             animStyle,
-            { backgroundColor: isToday ? colors.secondary : palette.border },
+            { backgroundColor: item.isToday ? colors.secondary : palette.border },
           ]}
         />
       </View>
-      <Text style={[s.chartDay, isToday && s.chartDayActive]}>{item.day}</Text>
+      <Text style={[s.chartDay, item.isToday && s.chartDayActive]}>{item.dayLabel}</Text>
     </View>
   );
 };
@@ -89,15 +102,27 @@ export const AnalyticsScreen = () => {
   const insets = useSafeAreaInsets();
   const { currentUser } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'progress' | 'analytics' | 'ranking'>('progress');
-  const [selectedFilter, setSelectedFilter] = useState('Tuần này');
-  const [selectedAnalysisCategory, setSelectedAnalysisCategory] = useState('Tất cả');
+  const [rankingSubTab, setRankingSubTab] = useState<'global' | 'friends'>('global');
+  const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Real backend data states
+  const [progressData, setProgressData] = useState<StudentProgressData | null>(null);
+  const [assessmentData, setAssessmentData] = useState<StudentAssessmentData | null>(null);
+  const [leaderboardData, setLeaderboardData] = useState<LeaderboardData | null>(null);
+
+  // Interactive Remedial Practice state
+  const [activeQuizIndex, setActiveQuizIndex] = useState(0);
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [showExplanation, setShowExplanation] = useState(false);
+  const [quizScore, setQuizScore] = useState(0);
 
   // Animated progress bars for skills
   const vocabWidth = useSharedValue(0);
   const grammarWidth = useSharedValue(0);
   const speakingWidth = useSharedValue(0);
   const listeningWidth = useSharedValue(0);
-  const writingWidth = useSharedValue(0);
+  const readingWidth = useSharedValue(0);
 
   // Animated bar heights for 7-day chart
   const barHeights = [
@@ -110,69 +135,59 @@ export const AnalyticsScreen = () => {
     useSharedValue(0),
   ];
 
-  useEffect(() => {
-    // Skill bars animation
-    vocabWidth.value = withTiming(85, { duration: 800 });
-    grammarWidth.value = withTiming(70, { duration: 900 });
-    speakingWidth.value = withTiming(78, { duration: 1000 });
-    listeningWidth.value = withTiming(65, { duration: 1100 });
-    writingWidth.value = withTiming(55, { duration: 1200 });
+  const loadData = useCallback(async () => {
+    try {
+      const uid = currentUser?.id ? String(currentUser.id) : undefined;
+      const [prog, assess, lb] = await Promise.all([
+        fetchProgressStatsApi(uid),
+        fetchAiAssessmentApi(uid),
+        fetchLeaderboardApi(rankingSubTab, uid),
+      ]);
 
-    // Chart bars animation
-    const chartVals = [35, 45, 25, 80, 55, 40, 60];
-    chartVals.forEach((val, idx) => {
-      barHeights[idx].value = withSpring(val, { damping: 12, stiffness: 90 });
-    });
-  }, []);
+      setProgressData(prog);
+      setAssessmentData(assess);
+      setLeaderboardData(lb);
+
+      // Animate Skill bars
+      const skills = prog.skillRadarScores;
+      vocabWidth.value = withTiming(skills.vocabulary || 10, { duration: 800 });
+      grammarWidth.value = withTiming(skills.grammar || 10, { duration: 900 });
+      speakingWidth.value = withTiming(skills.speaking || 10, { duration: 1000 });
+      listeningWidth.value = withTiming(skills.listening || 10, { duration: 1100 });
+      readingWidth.value = withTiming(skills.reading || 10, { duration: 1200 });
+
+      // Animate 7-day Chart bars
+      const maxMins = Math.max(1, ...(prog.weeklyChart?.map((d) => d.minutes) || [1]));
+      prog.weeklyChart?.forEach((item, idx) => {
+        if (idx < 7) {
+          const pct = Math.max(8, Math.min(100, Math.round((item.minutes / maxMins) * 90)));
+          barHeights[idx].value = withSpring(pct, { damping: 12, stiffness: 90 });
+        }
+      });
+    } catch (err) {
+      console.error('[AnalyticsScreen] Load data failed:', err);
+    } finally {
+      setIsLoading(false);
+      setRefreshing(false);
+    }
+  }, [currentUser?.id, rankingSubTab]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadData();
+  };
 
   const vocabStyle = useAnimatedStyle(() => ({ width: `${vocabWidth.value}%` }));
   const grammarStyle = useAnimatedStyle(() => ({ width: `${grammarWidth.value}%` }));
   const speakingStyle = useAnimatedStyle(() => ({ width: `${speakingWidth.value}%` }));
   const listeningStyle = useAnimatedStyle(() => ({ width: `${listeningWidth.value}%` }));
-  const writingStyle = useAnimatedStyle(() => ({ width: `${writingWidth.value}%` }));
+  const readingStyle = useAnimatedStyle(() => ({ width: `${readingWidth.value}%` }));
 
-  const weeklyData = [
-    { day: 'T2', min: 25 },
-    { day: 'T3', min: 40 },
-    { day: 'T4', min: 15 },
-    { day: 'T5', min: 50 },
-    { day: 'T6', min: 30 },
-    { day: 'T7', min: 20 },
-    { day: 'CN', min: 35 },
-  ];
-
-  const streakDays = [
-    { day: 'T2', checked: true, isToday: false },
-    { day: 'T3', checked: true, isToday: false },
-    { day: 'T4', checked: true, isToday: false },
-    { day: 'T5', checked: true, isToday: true },
-    { day: 'T6', checked: false, isToday: false },
-    { day: 'T7', checked: false, isToday: false },
-    { day: 'CN', checked: false, isToday: false },
-  ];
-
-  const skillData = [
-    { label: 'Từ Vựng', score: 85, level: 'B2 Cao cấp', animStyle: vocabStyle, color: '#0EA5E9', bgSoft: '#E0F2FE' },
-    { label: 'Ngữ Pháp', score: 70, level: 'B1 Trung cấp', animStyle: grammarStyle, color: '#2563A8', bgSoft: '#DBEAFE' },
-    { label: 'Phát Âm & Nói', score: 78, level: 'B1+ Khá', animStyle: speakingStyle, color: '#059669', bgSoft: '#D1FAE5' },
-    { label: 'Nghe Hiểu', score: 65, level: 'B1 Trung cấp', animStyle: listeningStyle, color: '#7C3AED', bgSoft: '#EDE9FE' },
-    { label: 'Kỹ Năng Viết', score: 55, level: 'A2 Cơ bản', animStyle: writingStyle, color: '#D97706', bgSoft: '#FEF3C7' },
-  ];
-
-  const analysisCategories = ['Tất cả', 'Ngữ pháp', 'Từ vựng', 'Phát âm', 'Lộ trình'];
-
-  const leaderboard = [
-    { rank: 1, name: 'Minh Anh', xp: 2850, avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120', trend: 'up' as const, delta: '+2' },
-    { rank: 2, name: 'Hoàng Nam', xp: 2720, avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120', trend: 'same' as const, delta: '0' },
-    { rank: 3, name: 'Bạn (Minh)', xp: 2640, avatar: currentUser?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120', trend: 'up' as const, delta: '+1', isMe: true },
-    { rank: 4, name: 'Thu Hà', xp: 2410, avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=120', trend: 'down' as const, delta: '-1' },
-    { rank: 5, name: 'Đức Anh', xp: 2280, avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120', trend: 'down' as const, delta: '-1' },
-    { rank: 6, name: 'Lan Phương', xp: 2150, avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120', trend: 'up' as const, delta: '+3' },
-    { rank: 7, name: 'Quốc Bảo', xp: 1980, avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120', trend: 'down' as const, delta: '-2' },
-    { rank: 8, name: 'Mai Linh', xp: 1850, avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120', trend: 'up' as const, delta: '+1' },
-  ];
-
-  // Radar Pentagon Points Calculation
+  // Radar Pentagon Points Calculation (dynamic based on real scores)
   const cx = 110;
   const cy = 105;
   const maxR = 68;
@@ -188,7 +203,23 @@ export const AnalyticsScreen = () => {
     return points.join(' ');
   };
 
-  const userSkillRatios = [0.85, 0.70, 0.78, 0.65, 0.55];
+  const radarScores = progressData?.skillRadarScores || {
+    vocabulary: 0,
+    grammar: 0,
+    speaking: 0,
+    reading: 0,
+    listening: 0,
+  };
+
+  // Convert 0-100 score to 0.1 - 1.0 ratio
+  const userSkillRatios = [
+    Math.max(0.12, (radarScores.vocabulary || 0) / 100),
+    Math.max(0.12, (radarScores.grammar || 0) / 100),
+    Math.max(0.12, (radarScores.speaking || 0) / 100),
+    Math.max(0.12, (radarScores.reading || 0) / 100),
+    Math.max(0.12, (radarScores.listening || 0) / 100),
+  ];
+
   const userSkillPoints = userSkillRatios
     .map((ratio, i) => {
       const angle = (Math.PI / 180) * (i * 72 - 90);
@@ -198,7 +229,83 @@ export const AnalyticsScreen = () => {
     })
     .join(' ');
 
+  const getSkillLevelStr = (score: number) => {
+    if (score >= 80) return 'B2 Cao cấp';
+    if (score >= 60) return 'B1 Khá';
+    if (score >= 40) return 'A2 Trung bình';
+    return 'A1 Khởi đầu';
+  };
+
+  const skillData = [
+    {
+      label: 'Từ Vựng',
+      score: radarScores.vocabulary,
+      level: getSkillLevelStr(radarScores.vocabulary),
+      animStyle: vocabStyle,
+      color: '#0EA5E9',
+    },
+    {
+      label: 'Ngữ Pháp',
+      score: radarScores.grammar,
+      level: getSkillLevelStr(radarScores.grammar),
+      animStyle: grammarStyle,
+      color: '#2563A8',
+    },
+    {
+      label: 'Phát Âm & Nói',
+      score: radarScores.speaking,
+      level: getSkillLevelStr(radarScores.speaking),
+      animStyle: speakingStyle,
+      color: '#059669',
+    },
+    {
+      label: 'Nghe Hiểu',
+      score: radarScores.listening,
+      level: getSkillLevelStr(radarScores.listening),
+      animStyle: listeningStyle,
+      color: '#7C3AED',
+    },
+    {
+      label: 'Đọc Hiểu',
+      score: radarScores.reading,
+      level: getSkillLevelStr(radarScores.reading),
+      animStyle: readingStyle,
+      color: '#D97706',
+    },
+  ];
+
   const safeTop = (insets.top || 16) + 8;
+
+  // Active remedial quiz handling
+  const remedialList = assessmentData?.remedialQuizzes || [];
+  const currentQuiz: RemedialQuiz | undefined = remedialList[activeQuizIndex];
+
+  const handleSelectOption = (opt: string) => {
+    if (selectedOption !== null) return; // Prevent changing after selection
+    setSelectedOption(opt);
+    setShowExplanation(true);
+    if (currentQuiz && opt.trim().toLowerCase().startsWith(currentQuiz.correctAnswer.trim().toLowerCase()) ||
+        (currentQuiz && opt.trim().toLowerCase() === currentQuiz.correctAnswer.trim().toLowerCase())) {
+      setQuizScore((prev) => prev + 1);
+    }
+  };
+
+  const handleNextQuiz = () => {
+    setSelectedOption(null);
+    setShowExplanation(false);
+    if (activeQuizIndex < remedialList.length - 1) {
+      setActiveQuizIndex((prev) => prev + 1);
+    } else {
+      setActiveQuizIndex(0); // restart or loop
+    }
+  };
+
+  // Leaderboard data
+  const rankList = leaderboardData?.rankList || [];
+  const top1 = rankList[0];
+  const top2 = rankList[1];
+  const top3 = rankList[2];
+  const restRankList = rankList.slice(3);
 
   return (
     <View style={s.root}>
@@ -238,26 +345,36 @@ export const AnalyticsScreen = () => {
         </View>
       </View>
 
-      <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={s.scroll}
+        contentContainerStyle={s.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.secondary]} />}
+      >
+        {isLoading && !progressData ? (
+          <View style={{ paddingVertical: 60, alignItems: 'center', justifyContent: 'center' }}>
+            <ActivityIndicator size="large" color={colors.secondary} />
+            <Text style={{ marginTop: 12, color: palette.textSoft, fontFamily: font.family }}>
+              Đang tải dữ liệu học tập thực tế...
+            </Text>
+          </View>
+        ) : null}
+
         {/* ═════════════════════════════════════════════════════════════════ */}
         {/* TAB 1: TIẾN ĐỘ HỌC TẬP (PROGRESS) */}
         {/* ═════════════════════════════════════════════════════════════════ */}
-        {activeTab === 'progress' && (
+        {activeTab === 'progress' && progressData && (
           <View>
             {/* Header Lựa Chọn Thời Gian */}
             <Animated.View entering={FadeInDown.delay(50)} style={s.progressSectionHeader}>
               <View style={s.progressSectionTitleWrap}>
                 <BarChart3 color={palette.primary} size={18} />
-                <Text style={s.progressSectionTitle}>Chỉ số học tập</Text>
+                <Text style={s.progressSectionTitle}>Chỉ số học tập thực tế</Text>
               </View>
 
-              <Pressable
-                onPress={() => setSelectedFilter(selectedFilter === 'Tuần này' ? 'Tháng này' : 'Tuần này')}
-                style={s.filterDropdownBtn}
-              >
-                <Text style={s.filterDropdownText}>{selectedFilter}</Text>
-                <ChevronDown color={palette.textSoft} size={14} />
-              </Pressable>
+              <View style={s.filterDropdownBtn}>
+                <Text style={s.filterDropdownText}>Tuần này</Text>
+              </View>
             </Animated.View>
 
             {/* Streak Card Rực Rỡ với Gradient Cam Lửa */}
@@ -273,41 +390,54 @@ export const AnalyticsScreen = () => {
                     <Flame color="#FFFFFF" size={24} fill="#FFFFFF" />
                   </View>
                   <View style={s.streakHeaderRight}>
-                    <Text style={s.streakMainTitle}>15 ngày liên tiếp!</Text>
-                    <Text style={s.streakSubTitle}>Kỷ lục cá nhân: 23 ngày • Giữ vững phong độ 🔥</Text>
+                    <Text style={s.streakMainTitle}>
+                      {progressData.streakDays > 0
+                        ? `${progressData.streakDays} ngày liên tiếp!`
+                        : 'Bắt đầu chuỗi ngày học!'}
+                    </Text>
+                    <Text style={s.streakSubTitle}>
+                      {progressData.streakDays > 0
+                        ? 'Duy trì học mỗi ngày để giữ vững chuỗi phong độ 🔥'
+                        : 'Học bài mỗi ngày để thắp sáng chuỗi lửa đầu tiên! 🔥'}
+                    </Text>
                   </View>
                 </View>
 
                 {/* 7 Days Row */}
                 <View style={s.streakDaysRow}>
-                  {streakDays.map((item, idx) => (
-                    <View key={idx} style={s.streakDayItem}>
-                      <Text style={[s.streakDayLabel, item.isToday && s.streakDayLabelToday]}>
-                        {item.day}
-                      </Text>
-                      <View
-                        style={[
-                          s.streakCheckSquare,
-                          item.checked && s.streakCheckSquareActive,
-                          item.isToday && s.streakCheckSquareToday,
-                        ]}
-                      >
-                        {item.checked ? (
-                          <Check color="#FFFFFF" size={13} strokeWidth={3} />
-                        ) : (
-                          <View style={s.streakUncheckedDot} />
-                        )}
+                  {progressData.weeklyChart.map((item, idx) => {
+                    const isChecked = item.minutes > 0;
+                    return (
+                      <View key={idx} style={s.streakDayItem}>
+                        <Text style={[s.streakDayLabel, item.isToday && s.streakDayLabelToday]}>
+                          {item.dayLabel}
+                        </Text>
+                        <View
+                          style={[
+                            s.streakCheckSquare,
+                            isChecked && s.streakCheckSquareActive,
+                            item.isToday && s.streakCheckSquareToday,
+                          ]}
+                        >
+                          {isChecked ? (
+                            <Check color="#FFFFFF" size={13} strokeWidth={3} />
+                          ) : (
+                            <View style={s.streakUncheckedDot} />
+                          )}
+                        </View>
+                        {item.isToday && <View style={s.todayDotIndicator} />}
                       </View>
-                      {item.isToday && <View style={s.todayDotIndicator} />}
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
 
                 {/* Milestone Next Goal */}
                 <View style={s.streakNextGoalRow}>
                   <Award color="#FFE7DB" size={14} />
                   <Text style={s.streakNextGoalText}>
-                    Còn 2 ngày nữa để mở khóa huy hiệu <Text style={{ fontWeight: '800' }}>Tuần Vàng 🏅</Text>
+                    {progressData.streakDays > 0
+                      ? `Đã tích lũy ${progressData.streakDays} ngày học. Mục tiêu kế tiếp: ${progressData.streakDays + 3} ngày 🏅`
+                      : 'Hoàn thành 1 bài học hôm nay để kích hoạt chuỗi Streak!'}
                   </Text>
                 </View>
               </ExpoLinearGradient>
@@ -319,36 +449,40 @@ export const AnalyticsScreen = () => {
                 <View style={[s.statIconBox, { backgroundColor: '#E0F2FE' }]}>
                   <BookOpen color="#0284C7" size={18} />
                 </View>
-                <Text style={s.statVal}>127</Text>
-                <Text style={s.statLabel}>Từ đã thuộc</Text>
-                <Text style={s.statTrendGreen}>+14 từ tuần này</Text>
+                <Text style={s.statVal}>{progressData.masteredWords}</Text>
+                <Text style={s.statLabel}>Từ đã thành thạo</Text>
+                <Text style={s.statTrendGreen}>Tổng {progressData.totalWordsLearned} từ SRS</Text>
               </View>
 
               <View style={s.statBox}>
                 <View style={[s.statIconBox, { backgroundColor: '#FEF3C7' }]}>
                   <Target color="#D97706" size={18} />
                 </View>
-                <Text style={s.statVal}>82%</Text>
+                <Text style={s.statVal}>{progressData.quizAccuracyPct}%</Text>
                 <Text style={s.statLabel}>Độ chính xác Quiz</Text>
-                <Text style={s.statTrendGreen}>+5% vs tuần trước</Text>
+                <Text style={s.statTrendGreen}>{progressData.totalQuizCount} bài đã giải</Text>
               </View>
 
               <View style={s.statBox}>
                 <View style={[s.statIconBox, { backgroundColor: '#EDE9FE' }]}>
                   <Clock color="#7C3AED" size={18} />
                 </View>
-                <Text style={s.statVal}>4.2h</Text>
+                <Text style={s.statVal}>
+                  {(progressData.totalStudyMinutes / 60).toFixed(1)}h
+                </Text>
                 <Text style={s.statLabel}>Thời gian học</Text>
-                <Text style={s.statTrendNeutral}>Mục tiêu: 5.0h</Text>
+                <Text style={s.statTrendNeutral}>Tuần này: {progressData.weeklyMinutes} phút</Text>
               </View>
 
               <View style={s.statBox}>
                 <View style={[s.statIconBox, { backgroundColor: '#DCFCE7' }]}>
                   <Zap color="#16A34A" size={18} fill="#16A34A" />
                 </View>
-                <Text style={s.statVal}>1.8s</Text>
+                <Text style={s.statVal}>{progressData.avgResponseTimeSec}s</Text>
                 <Text style={s.statLabel}>Tốc độ phản xạ</Text>
-                <Text style={s.statTrendGreen}>Top 15% học viên</Text>
+                <Text style={s.statTrendGreen}>
+                  {progressData.avgResponseTimeSec > 0 ? 'Thời gian trả lời TB' : 'Chưa có lượt thi'}
+                </Text>
               </View>
             </Animated.View>
 
@@ -357,20 +491,30 @@ export const AnalyticsScreen = () => {
               <View style={s.cardHeaderRow}>
                 <View>
                   <Text style={s.cardTitleBig}>Biểu đồ mạng nhện kỹ năng</Text>
-                  <Text style={s.cardSub}>Đánh giá toàn diện 5 trụ cột ngôn ngữ</Text>
+                  <Text style={s.cardSub}>Đánh giá thực tế 5 trụ cột ngôn ngữ</Text>
                 </View>
                 <View style={s.pillBadge}>
-                  <Text style={s.pillBadgeText}>B1 Independent</Text>
+                  <Text style={s.pillBadgeText}>Dữ liệu thật</Text>
                 </View>
               </View>
 
               <View style={s.radarContainer}>
                 {/* Labels around Pentagon */}
-                <Text style={[s.radarLabel, s.radarLabelTop]}>Từ vựng (85%)</Text>
-                <Text style={[s.radarLabel, s.radarLabelRight]}>Ngữ pháp (70%)</Text>
-                <Text style={[s.radarLabel, s.radarLabelBottomRight]}>Nói (78%)</Text>
-                <Text style={[s.radarLabel, s.radarLabelBottomLeft]}>Đọc (65%)</Text>
-                <Text style={[s.radarLabel, s.radarLabelLeft]}>Nghe (55%)</Text>
+                <Text style={[s.radarLabel, s.radarLabelTop]}>
+                  Từ vựng ({radarScores.vocabulary}%)
+                </Text>
+                <Text style={[s.radarLabel, s.radarLabelRight]}>
+                  Ngữ pháp ({radarScores.grammar}%)
+                </Text>
+                <Text style={[s.radarLabel, s.radarLabelBottomRight]}>
+                  Nói ({radarScores.speaking}%)
+                </Text>
+                <Text style={[s.radarLabel, s.radarLabelBottomLeft]}>
+                  Đọc ({radarScores.reading}%)
+                </Text>
+                <Text style={[s.radarLabel, s.radarLabelLeft]}>
+                  Nghe ({radarScores.listening}%)
+                </Text>
 
                 <Svg height="210" width="220" viewBox="0 0 220 210">
                   <Defs>
@@ -448,104 +592,36 @@ export const AnalyticsScreen = () => {
               </View>
             </Animated.View>
 
-            {/* BIỂU ĐỒ 3: THỜI GIAN HỌC 7 NGÀY (BAR CHART) */}
+            {/* BIỂU ĐỒ 3: THỜI LƯỢNG HỌC 7 NGÀY (CỘT ĐỘNG) */}
             <Animated.View entering={FadeInDown.delay(380)} style={s.card}>
               <View style={s.cardHeaderRow}>
                 <View>
-                  <Text style={s.cardTitleBig}>Thời gian học mỗi ngày</Text>
-                  <Text style={s.cardSub}>Tổng 210 phút trong 7 ngày qua</Text>
+                  <Text style={s.cardTitleBig}>Phân bổ thời gian học 7 ngày</Text>
+                  <Text style={s.cardSub}>Tổng tuần: {progressData.weeklyMinutes} phút</Text>
                 </View>
-                <View style={s.trendBadgeGreen}>
-                  <TrendingUp color="#059669" size={13} />
-                  <Text style={s.trendBadgeGreenText}>+18%</Text>
+                <View style={s.trendBadgeBlue}>
+                  <Text style={s.trendBadgeBlueText}>{progressData.lessonsCompleted} bài hoàn thành</Text>
                 </View>
               </View>
 
               <View style={s.chartRow}>
-                {weeklyData.map((item, idx) => (
+                {progressData.weeklyChart.map((item, idx) => (
                   <ChartBarItem
                     key={idx}
                     item={item}
                     idx={idx}
-                    barHeight={barHeights[idx]}
+                    barHeight={barHeights[idx] || barHeights[0]}
                   />
                 ))}
               </View>
-            </Animated.View>
-
-            {/* BIỂU ĐỒ 4: ĐIỂM QUIZ TUẦN NÀY (CURVED WAVE LINE CHART) */}
-            <Animated.View entering={FadeInDown.delay(440)} style={s.card}>
-              <View style={s.cardHeaderRow}>
-                <View>
-                  <Text style={s.cardTitleBig}>Xu hướng điểm Quiz</Text>
-                  <Text style={s.cardSub}>Độ ổn định tăng dần qua các bài thi</Text>
-                </View>
-                <View style={s.trendBadgeBlue}>
-                  <Text style={s.trendBadgeBlueText}>TB: 82%</Text>
-                </View>
-              </View>
-
-              <View style={{ height: 130, marginTop: 14 }}>
-                <Svg height="100" width={SCREEN_WIDTH - 80} viewBox="0 0 300 100">
-                  <Defs>
-                    <LinearGradient id="waveGrad" x1="0" y1="0" x2="0" y2="1">
-                      <Stop offset="0" stopColor="#00B0F0" stopOpacity="0.4" />
-                      <Stop offset="1" stopColor="#00B0F0" stopOpacity="0.0" />
-                    </LinearGradient>
-                  </Defs>
-
-                  {/* Gradient Area Fill */}
-                  <Path
-                    d="M 10,75 Q 50,65 90,55 T 170,45 T 250,55 T 290,25 L 290,100 L 10,100 Z"
-                    fill="url(#waveGrad)"
-                  />
-
-                  {/* Curved Wave Line */}
-                  <Path
-                    d="M 10,75 Q 50,65 90,55 T 170,45 T 250,55 T 290,25"
-                    fill="none"
-                    stroke="#1F4E79"
-                    strokeWidth="3.2"
-                  />
-
-                  {/* Data Points */}
-                  <Circle cx="10" cy="75" r="3.5" fill="#1F4E79" />
-                  <Circle cx="90" cy="55" r="3.5" fill="#1F4E79" />
-                  <Circle cx="170" cy="45" r="4.5" fill="#00B0F0" stroke="#FFFFFF" strokeWidth="2" />
-                  <Circle cx="250" cy="55" r="3.5" fill="#1F4E79" />
-                  <Circle cx="290" cy="25" r="5" fill="#1F4E79" stroke="#00B0F0" strokeWidth="2" />
-                </Svg>
-
-                <View style={s.lineChartDaysRow}>
-                  {['T2 (65%)', 'T3 (70%)', 'T4 (75%)', 'T5 (85%)', 'T6 (80%)', 'T7 (82%)', 'CN (92%)'].map((d, i) => (
-                    <Text key={i} style={[s.lineChartDayText, i === 3 && { color: colors.secondary, fontWeight: '800' }]}>
-                      {d.split(' ')[0]}
-                    </Text>
-                  ))}
-                </View>
-              </View>
-            </Animated.View>
-
-            {/* Báo Cáo Chi Tiết PDF */}
-            <Animated.View entering={FadeInDown.delay(500)} style={s.pdfCtaWrap}>
-              <Pressable
-                onPress={() => alert('Đang xuất báo cáo chi tiết quá trình học tập...')}
-                style={s.pdfBtn}
-              >
-                <View style={s.pdfBtnLeft}>
-                  <FileText color={palette.primary} size={18} />
-                  <Text style={s.pdfBtnText}>Xuất báo cáo năng lực chi tiết (PDF)</Text>
-                </View>
-                <ArrowRight color={palette.primary} size={16} />
-              </Pressable>
             </Animated.View>
           </View>
         )}
 
         {/* ═════════════════════════════════════════════════════════════════ */}
-        {/* TAB 2: ĐÁNH GIÁ NĂNG LỰC & GỢI Ý THÔNG MINH (ANALYTICS) */}
+        {/* TAB 2: ĐÁNH GIÁ NĂNG LỰC & GỢI Ý THÔNG MINH AI (ASSESSMENT) */}
         {/* ═════════════════════════════════════════════════════════════════ */}
-        {activeTab === 'analytics' && (
+        {activeTab === 'analytics' && assessmentData && (
           <View>
             {/* Thẻ Điểm Năng Lực Tổng Quát */}
             <Animated.View entering={FadeInDown.delay(100)} style={s.overviewScoreCard}>
@@ -556,96 +632,82 @@ export const AnalyticsScreen = () => {
                 style={s.overviewGradient}
               >
                 <View style={s.overviewScoreLeft}>
-                  <Text style={s.overviewScoreSub}>Chỉ số thông thạo</Text>
-                  <Text style={s.overviewScoreMain}>74<Text style={s.overviewScoreMax}>/100</Text></Text>
+                  <Text style={s.overviewScoreSub}>Chỉ số thông thạo AI Audit</Text>
+                  <Text style={s.overviewScoreMain}>
+                    {assessmentData.overallMasteryScore}
+                    <Text style={s.overviewScoreMax}>/100</Text>
+                  </Text>
                   <View style={s.overviewCefrBadge}>
-                    <Text style={s.overviewCefrText}>Tương đương B1 (TOEIC 550-650)</Text>
+                    <Text style={s.overviewCefrText}>{assessmentData.levelClassification}</Text>
                   </View>
                 </View>
 
                 <View style={s.overviewScoreRight}>
                   <Sparkles color="#FFE7DB" size={32} />
-                  <Text style={s.overviewGrowth}>+8 điểm trong tháng</Text>
+                  <Text style={s.overviewGrowth}>
+                    {assessmentData.totalMistakesRecorded} lỗi sai đã ghi nhận
+                  </Text>
                 </View>
               </ExpoLinearGradient>
             </Animated.View>
 
-            {/* Bộ Lọc Danh Mục Phân Tích */}
-            <Animated.View entering={FadeInDown.delay(180)} style={s.chipsRow}>
-              {analysisCategories.map((cat) => {
-                const isSelected = selectedAnalysisCategory === cat;
-                return (
-                  <Pressable
-                    key={cat}
-                    onPress={() => setSelectedAnalysisCategory(cat)}
-                    style={[s.chipBtn, isSelected && s.chipBtnActive]}
-                  >
-                    <Text style={[s.chipText, isSelected && s.chipTextActive]}>{cat}</Text>
-                  </Pressable>
-                );
-              })}
-            </Animated.View>
-
-            {/* GỢI Ý THÔNG MINH (SMART TIPS CARD) */}
-            <Animated.View entering={FadeInDown.delay(260)} style={s.tipCard}>
+            {/* GỢI Ý THÔNG MINH TỪ TRỢ LÝ AI DỰA TRÊN LỊCH SỬ BÀI HỌC */}
+            <Animated.View entering={FadeInDown.delay(180)} style={s.tipCard}>
               <View style={s.tipCardHeaderRow}>
                 <View style={s.tipIconBox}>
                   <Lightbulb color="#D97706" size={18} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.tipCardTitle}>Gợi ý trọng tâm hôm nay</Text>
-                  <Text style={s.tipCardSub}>Dựa trên lịch sử bài tập gần nhất</Text>
+                  <Text style={s.tipCardTitle}>Nhận xét từ AI Assistant</Text>
+                  <Text style={s.tipCardSub}>
+                    Audit dựa trên {assessmentData.completedLessonsCount} bài học & {assessmentData.vocabularyReviewedCount} từ vựng
+                  </Text>
                 </View>
               </View>
 
               <Text style={s.tipCardContent}>
-                "Bạn thường nhầm lẫn giữa <Text style={{ fontWeight: '700', color: '#B45309' }}>'Make' vs 'Do'</Text> trong các cụm collocations công sở. Luyện 5 câu trắc nghiệm chuyên đề này sẽ giúp tăng 15% điểm ngữ pháp."
+                {assessmentData.summaryInsight || 'Đang cập nhật đánh giá học lực...'}
               </Text>
-
-              <View style={s.suggestionChipsRow}>
-                <Pressable
-                  onPress={() => router.push('/(student)/practice/quiz/quiz-101' as any)}
-                  style={s.sugChipBtnPrimary}
-                >
-                  <Zap color="#FFFFFF" size={13} fill="#FFFFFF" />
-                  <Text style={s.sugChipPrimaryText}>Luyện 5 câu Quiz ngay</Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={() => router.push('/(student)/learn' as any)}
-                  style={s.sugChipBtnSecondary}
-                >
-                  <Text style={s.sugChipSecondaryText}>Xem lý thuyết</Text>
-                </Pressable>
-              </View>
             </Animated.View>
 
-            {/* MA TRẬN: CẦN CẢI THIỆN & ĐIỂM MẠNH */}
-            <Animated.View entering={FadeInDown.delay(340)} style={s.matrixContainer}>
-              <Text style={s.matrixTitle}>Phân Tích Chi Tiết Điểm Mạnh & Yếu</Text>
+            {/* MA TRẬN: LỖ HỔNG CẦN KHẮC PHỤC (WEAKNESSES) & ĐIỂM MẠNH (STRENGTHS) */}
+            <Animated.View entering={FadeInDown.delay(260)} style={s.matrixContainer}>
+              <Text style={s.matrixTitle}>Phân Tích Chi Tiết Lỗi Sai & Điểm Yếu</Text>
 
               {/* Box 1: Cần Cải Thiện */}
               <View style={s.matrixBoxWarning}>
                 <View style={s.matrixBoxHeader}>
                   <AlertCircle color="#DC2626" size={18} />
-                  <Text style={s.matrixWarningTitle}>LỖ HỔNG CẦN KHẮC PHỤC</Text>
-                </View>
-                
-                <View style={s.pitfallItem}>
-                  <Text style={s.pitfallHeader}>1. Collocations: 'Make' vs 'Do' (Độ chính xác: 45%)</Text>
-                  <Text style={s.pitfallDesc}>Bạn hay dùng sai 'make homework' thay vì 'do homework'.</Text>
-                  <View style={s.pitfallExample}>
-                    <Text style={s.pitfallExampleText}>✓ Đúng: do homework, do business, make a decision.</Text>
-                  </View>
+                  <Text style={s.matrixWarningTitle}>LỖ HỔNG GHI NHẬN TỪ BÀI TẬP</Text>
                 </View>
 
-                <View style={s.pitfallItem}>
-                  <Text style={s.pitfallHeader}>2. Phát âm đuôi '-ed' (Độ chính xác: 58%)</Text>
-                  <Text style={s.pitfallDesc}>Dễ quên phân biệt 3 cách đọc /t/, /d/, /ɪd/ khi gặp động từ quá khứ.</Text>
-                  <View style={s.pitfallExample}>
-                    <Text style={s.pitfallExampleText}>✓ Wanted /ɪd/, Watched /t/, Played /d/.</Text>
+                {assessmentData.weaknesses.map((w, idx) => (
+                  <View key={w.id || idx} style={s.pitfallItem}>
+                    <Text style={s.pitfallHeader}>
+                      {idx + 1}. {w.ruleName} ({w.category})
+                    </Text>
+                    <Text style={s.pitfallDesc}>{w.description}</Text>
+                    {w.correctiveRule ? (
+                      <View style={s.pitfallExample}>
+                        <Text style={s.pitfallExampleText}>💡 Quy tắc: {w.correctiveRule}</Text>
+                      </View>
+                    ) : null}
                   </View>
-                </View>
+                ))}
+
+                {/* Từ vựng SRS hay quên */}
+                {assessmentData.weakVocabulary && assessmentData.weakVocabulary.length > 0 && (
+                  <View style={{ marginTop: 8 }}>
+                    <Text style={[s.pitfallHeader, { color: '#DC2626' }]}>
+                      ⚠️ Từ vựng SRS có tỷ lệ quên cao:
+                    </Text>
+                    {assessmentData.weakVocabulary.slice(0, 4).map((wv, i) => (
+                      <Text key={i} style={[s.pitfallDesc, { marginLeft: 8, marginTop: 2 }]}>
+                        • <Text style={{ fontWeight: '700' }}>{wv.word}</Text>: {wv.meaning} (quên {wv.lapsesCount} lần)
+                      </Text>
+                    ))}
+                  </View>
+                )}
               </View>
 
               {/* Box 2: Điểm Mạnh */}
@@ -655,165 +717,251 @@ export const AnalyticsScreen = () => {
                   <Text style={s.matrixSuccessTitle}>ĐIỂM MẠNH ĐÃ LÀM CHỦ</Text>
                 </View>
 
-                <View style={s.pitfallItem}>
-                  <Text style={s.strengthHeader}>1. Trọng âm từ 3 âm tiết (Độ chính xác: 88%)</Text>
-                  <Text style={s.pitfallDesc}>Ngữ điệu và cách nhấn trọng âm chuẩn xác theo ngữ điệu người bản xứ.</Text>
-                </View>
-
-                <View style={s.pitfallItem}>
-                  <Text style={s.strengthHeader}>2. Từ vựng chủ đề Công sở & Giao tiếp (85%)</Text>
-                  <Text style={s.pitfallDesc}>Ghi nhớ xuất sắc các từ vựng SRS chủ đề Business & Travel.</Text>
-                </View>
+                {assessmentData.strengths.map((str, idx) => (
+                  <View key={idx} style={s.pitfallItem}>
+                    <Text style={s.strengthHeader}>
+                      {idx + 1}. {str}
+                    </Text>
+                  </View>
+                ))}
               </View>
             </Animated.View>
 
-            {/* ĐỀ XUẤT BÀI TẬP CỦNG CỐ NGAY */}
-            <Animated.View entering={FadeInDown.delay(420)} style={s.card}>
-              <Text style={s.cardTitleBig}>Đề xuất bài luyện tập khắc phục</Text>
-              <Text style={[s.cardSub, { marginBottom: 14 }]}>Chọn nhanh để cải thiện ngay hôm nay</Text>
-
-              <Pressable
-                onPress={() => router.push('/(student)/practice/quiz/quiz-101' as any)}
-                style={s.recomItem}
-              >
-                <View style={s.recomLeft}>
-                  <View style={[s.recomIcon, { backgroundColor: '#FEE2E2' }]}>
-                    <Text style={{ fontSize: 16 }}>⚠️</Text>
+            {/* BÀI TẬP CỦNG CỐ AI TRỰC TIẾP (INTERACTIVE REMEDIAL PRACTICE) */}
+            {currentQuiz && (
+              <Animated.View entering={FadeInDown.delay(340)} style={s.remedialCard}>
+                <View style={s.remedialHeaderRow}>
+                  <View style={s.remedialBadge}>
+                    <Zap color="#D97706" size={14} fill="#D97706" />
+                    <Text style={s.remedialBadgeText}>
+                      Luyện Tập Lỗi Sai ({activeQuizIndex + 1}/{remedialList.length})
+                    </Text>
                   </View>
-                  <View>
-                    <Text style={s.recomTitle}>Phân biệt 'Make' & 'Do' nhanh</Text>
-                    <Text style={s.recomSub}>5 câu trắc nghiệm • 3 phút</Text>
-                  </View>
+                  <Text style={s.remedialTopic}>{currentQuiz.targetTopic}</Text>
                 </View>
-                <ChevronRight color={palette.textSoft} size={18} />
-              </Pressable>
 
-              <Pressable
-                onPress={() => router.push('/(student)/learn' as any)}
-                style={s.recomItem}
-              >
-                <View style={s.recomLeft}>
-                  <View style={[s.recomIcon, { backgroundColor: '#EDE9FE' }]}>
-                    <Text style={{ fontSize: 16 }}>🎙️</Text>
-                  </View>
-                  <View>
-                    <Text style={s.recomTitle}>Quy tắc phát âm đuôi '-ed'</Text>
-                    <Text style={s.recomSub}>Bài giảng tương tác • 5 phút</Text>
-                  </View>
+                <Text style={s.remedialQuestion}>{currentQuiz.question}</Text>
+
+                {/* Options list */}
+                <View style={s.remedialOptionsWrap}>
+                  {currentQuiz.options.map((opt, oIdx) => {
+                    const isSelected = selectedOption === opt;
+                    const isCorrect =
+                      opt.trim().toLowerCase().startsWith(currentQuiz.correctAnswer.trim().toLowerCase()) ||
+                      opt.trim().toLowerCase() === currentQuiz.correctAnswer.trim().toLowerCase();
+
+                    let optionBorder = palette.border;
+                    let optionBg = palette.surface;
+                    let textColor = palette.text;
+
+                    if (selectedOption !== null) {
+                      if (isCorrect) {
+                        optionBorder = '#16A34A';
+                        optionBg = '#DCFCE7';
+                        textColor = '#16A34A';
+                      } else if (isSelected) {
+                        optionBorder = '#DC2626';
+                        optionBg = '#FEE2E2';
+                        textColor = '#DC2626';
+                      }
+                    }
+
+                    return (
+                      <Pressable
+                        key={oIdx}
+                        onPress={() => handleSelectOption(opt)}
+                        style={[
+                          s.remedialOptionBtn,
+                          { borderColor: optionBorder, backgroundColor: optionBg },
+                        ]}
+                      >
+                        <Text style={[s.remedialOptionText, { color: textColor }]}>{opt}</Text>
+                        {selectedOption !== null && isCorrect && (
+                          <CheckCircle2 color="#16A34A" size={18} />
+                        )}
+                        {selectedOption !== null && isSelected && !isCorrect && (
+                          <AlertCircle color="#DC2626" size={18} />
+                        )}
+                      </Pressable>
+                    );
+                  })}
                 </View>
-                <ChevronRight color={palette.textSoft} size={18} />
-              </Pressable>
-            </Animated.View>
+
+                {/* Explanation */}
+                {showExplanation && (
+                  <View style={s.remedialExplainBox}>
+                    <Text style={s.remedialExplainTitle}>💡 Lời giải chi tiết:</Text>
+                    <Text style={s.remedialExplainText}>{currentQuiz.explanation}</Text>
+                    <Pressable onPress={handleNextQuiz} style={s.remedialNextBtn}>
+                      <Text style={s.remedialNextBtnText}>
+                        {activeQuizIndex < remedialList.length - 1 ? 'Câu tiếp theo ➔' : 'Luyện lại từ đầu ↺'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                )}
+              </Animated.View>
+            )}
           </View>
         )}
 
         {/* ═════════════════════════════════════════════════════════════════ */}
-        {/* TAB 3: XẾP HẠNG SÔI NỔI (RANKING & LEAGUE) */}
+        {/* TAB 3: BẢNG XẾP HẠNG (LEADERBOARD) */}
         {/* ═════════════════════════════════════════════════════════════════ */}
-        {activeTab === 'ranking' && (
+        {activeTab === 'ranking' && leaderboardData && (
           <View>
+            {/* Sub-tab Switcher: Toàn Hệ Thống vs Bạn Bè */}
+            <View style={s.subTabRow}>
+              <Pressable
+                onPress={() => setRankingSubTab('global')}
+                style={[s.subTabBtn, rankingSubTab === 'global' && s.subTabBtnActive]}
+              >
+                <Globe color={rankingSubTab === 'global' ? '#FFFFFF' : palette.textSoft} size={14} />
+                <Text style={[s.subTabBtnText, rankingSubTab === 'global' && s.subTabBtnTextActive]}>
+                  Toàn hệ thống (Top 10)
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => setRankingSubTab('friends')}
+                style={[s.subTabBtn, rankingSubTab === 'friends' && s.subTabBtnActive]}
+              >
+                <Users color={rankingSubTab === 'friends' ? '#FFFFFF' : palette.textSoft} size={14} />
+                <Text style={[s.subTabBtnText, rankingSubTab === 'friends' && s.subTabBtnTextActive]}>
+                  Bạn chung / Bạn bè
+                </Text>
+              </Pressable>
+            </View>
+
             {/* League Header Card */}
             <Animated.View entering={FadeInDown.delay(100)} style={s.card}>
               <View style={s.leagueHeaderRow}>
                 <View style={s.leagueLeft}>
                   <Medal color="#0EA5E9" size={22} />
                   <View>
-                    <Text style={s.leagueTitle}>Silver League — Hạng Bạc</Text>
-                    <Text style={s.leagueSub}>Top 3 thăng hạng Gold League • Cuối bảng xuống hạng Bronze</Text>
+                    <Text style={s.leagueTitle}>{leaderboardData.leagueName}</Text>
+                    <Text style={s.leagueSub}>
+                      Tuần thi đấu #{leaderboardData.weekNumber} • Điểm xếp hạng tuần hiện tại
+                    </Text>
                   </View>
-                </View>
-                <View style={s.badgeCountdown}>
-                  <Clock color="#D97706" size={12} />
-                  <Text style={s.badgeCountdownText}>2 ngày 14h</Text>
-                </View>
-              </View>
-
-              {/* League Division Zones Bar */}
-              <View style={s.leagueZoneContainer}>
-                <View style={s.leagueZoneTrack}>
-                  <View style={[s.leagueZoneSection, { flex: 3, backgroundColor: '#22C55E' }]} />
-                  <View style={[s.leagueZoneSection, { flex: 4, backgroundColor: '#E2E8F0' }]} />
-                  <View style={[s.leagueZoneSection, { flex: 3, backgroundColor: '#EF4444' }]} />
-                </View>
-                <View style={s.leagueZoneLabels}>
-                  <Text style={[s.leagueZoneText, { color: '#16A34A' }]}>▲ Thăng hạng (Top 3)</Text>
-                  <Text style={s.leagueZoneText}>An toàn</Text>
-                  <Text style={[s.leagueZoneText, { color: '#DC2626' }]}>▼ Xuống hạng</Text>
                 </View>
               </View>
             </Animated.View>
 
             {/* BỤC PODIUM 3D (TOP 1, 2, 3) */}
-            <Animated.View entering={FadeInDown.delay(200)} style={s.podiumCard}>
-              <Text style={s.podiumCardTitle}>Vinh danh Tuần này</Text>
+            {top1 && (
+              <Animated.View entering={FadeInDown.delay(200)} style={s.podiumCard}>
+                <Text style={s.podiumCardTitle}>Vinh Danh Top 3 Tuần Này</Text>
 
-              <View style={s.podiumRow}>
-                {/* Rank 2 (Silver) */}
-                <View style={s.podiumCol}>
-                  <View style={s.podiumMedalBadge}>
-                    <Text style={{ fontSize: 20 }}>🥈</Text>
-                  </View>
-                  <Image source={{ uri: leaderboard[1].avatar }} style={[s.podiumAvatar, { borderColor: '#94A3B8' }]} />
-                  <Text style={s.podiumName} numberOfLines={1}>{leaderboard[1].name}</Text>
-                  <View style={[s.podiumXpBadge, { backgroundColor: '#F1F5F9' }]}>
-                    <Text style={[s.podiumXp, { color: '#475569' }]}>{leaderboard[1].xp} XP</Text>
-                  </View>
-                  <ExpoLinearGradient
-                    colors={['#CBD5E1', '#94A3B8']}
-                    style={[s.podiumBar, { height: 65 }]}
-                  >
-                    <Text style={s.podiumBarNum}>#2</Text>
-                  </ExpoLinearGradient>
-                </View>
+                <View style={s.podiumRow}>
+                  {/* Rank 2 (Silver) */}
+                  {top2 ? (
+                    <View style={s.podiumCol}>
+                      <View style={s.podiumMedalBadge}>
+                        <Text style={{ fontSize: 20 }}>🥈</Text>
+                      </View>
+                      <Image
+                        source={{
+                          uri:
+                            top2.avatarUrl ||
+                            'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120',
+                        }}
+                        style={[s.podiumAvatar, { borderColor: '#94A3B8' }]}
+                      />
+                      <Text style={s.podiumName} numberOfLines={1}>
+                        {top2.displayName || top2.username}
+                      </Text>
+                      <View style={[s.podiumXpBadge, { backgroundColor: '#F1F5F9' }]}>
+                        <Text style={[s.podiumXp, { color: '#475569' }]}>{top2.weeklyXp} XP</Text>
+                      </View>
+                      <ExpoLinearGradient colors={['#CBD5E1', '#94A3B8']} style={[s.podiumBar, { height: 65 }]}>
+                        <Text style={s.podiumBarNum}>#2</Text>
+                      </ExpoLinearGradient>
+                    </View>
+                  ) : (
+                    <View style={s.podiumCol} />
+                  )}
 
-                {/* Rank 1 (Gold - Center) */}
-                <View style={[s.podiumCol, { marginTop: -20 }]}>
-                  <View style={s.podiumCrownBadge}>
-                    <Crown color="#F59E0B" size={26} fill="#F59E0B" />
+                  {/* Rank 1 (Gold - Center) */}
+                  <View style={[s.podiumCol, { marginTop: -20 }]}>
+                    <View style={s.podiumCrownBadge}>
+                      <Crown color="#F59E0B" size={26} fill="#F59E0B" />
+                    </View>
+                    <Image
+                      source={{
+                        uri:
+                          top1.avatarUrl ||
+                          'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120',
+                      }}
+                      style={[s.podiumAvatarLg, { borderColor: '#F59E0B' }]}
+                    />
+                    <Text
+                      style={[s.podiumName, { color: palette.primary, fontWeight: '800' }]}
+                      numberOfLines={1}
+                    >
+                      {top1.displayName || top1.username}
+                    </Text>
+                    <View style={[s.podiumXpBadge, { backgroundColor: '#FEF3C7' }]}>
+                      <Text style={[s.podiumXp, { color: '#D97706' }]}>{top1.weeklyXp} XP</Text>
+                    </View>
+                    <ExpoLinearGradient
+                      colors={['#FBBF24', '#F59E0B', '#D97706']}
+                      style={[s.podiumBar, { height: 95 }]}
+                    >
+                      <Text style={[s.podiumBarNum, { color: '#FFFFFF' }]}>#1</Text>
+                    </ExpoLinearGradient>
                   </View>
-                  <Image source={{ uri: leaderboard[0].avatar }} style={[s.podiumAvatarLg, { borderColor: '#F59E0B' }]} />
-                  <Text style={[s.podiumName, { color: palette.primary, fontWeight: '800' }]} numberOfLines={1}>
-                    {leaderboard[0].name}
-                  </Text>
-                  <View style={[s.podiumXpBadge, { backgroundColor: '#FEF3C7' }]}>
-                    <Text style={[s.podiumXp, { color: '#D97706' }]}>{leaderboard[0].xp} XP</Text>
-                  </View>
-                  <ExpoLinearGradient
-                    colors={['#FBBF24', '#F59E0B', '#D97706']}
-                    style={[s.podiumBar, { height: 95 }]}
-                  >
-                    <Text style={[s.podiumBarNum, { color: '#FFFFFF' }]}>#1</Text>
-                  </ExpoLinearGradient>
-                </View>
 
-                {/* Rank 3 (Bronze) */}
-                <View style={s.podiumCol}>
-                  <View style={s.podiumMedalBadge}>
-                    <Text style={{ fontSize: 20 }}>🥉</Text>
-                  </View>
-                  <Image source={{ uri: leaderboard[2].avatar }} style={[s.podiumAvatar, { borderColor: '#F97316' }]} />
-                  <Text style={[s.podiumName, { color: colors.secondary, fontWeight: '800' }]} numberOfLines={1}>
-                    {leaderboard[2].name}
-                  </Text>
-                  <View style={[s.podiumXpBadge, { backgroundColor: '#E0F2FE' }]}>
-                    <Text style={[s.podiumXp, { color: palette.primary }]}>{leaderboard[2].xp} XP</Text>
-                  </View>
-                  <ExpoLinearGradient
-                    colors={['#FDBA74', '#FB923C']}
-                    style={[s.podiumBar, { height: 50 }]}
-                  >
-                    <Text style={s.podiumBarNum}>#3</Text>
-                  </ExpoLinearGradient>
+                  {/* Rank 3 (Bronze) */}
+                  {top3 ? (
+                    <View style={s.podiumCol}>
+                      <View style={s.podiumMedalBadge}>
+                        <Text style={{ fontSize: 20 }}>🥉</Text>
+                      </View>
+                      <Image
+                        source={{
+                          uri:
+                            top3.avatarUrl ||
+                            'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120',
+                        }}
+                        style={[s.podiumAvatar, { borderColor: '#F97316' }]}
+                      />
+                      <Text
+                        style={[s.podiumName, { color: colors.secondary, fontWeight: '800' }]}
+                        numberOfLines={1}
+                      >
+                        {top3.displayName || top3.username}
+                      </Text>
+                      <View style={[s.podiumXpBadge, { backgroundColor: '#E0F2FE' }]}>
+                        <Text style={[s.podiumXp, { color: palette.primary }]}>{top3.weeklyXp} XP</Text>
+                      </View>
+                      <ExpoLinearGradient colors={['#FDBA74', '#FB923C']} style={[s.podiumBar, { height: 50 }]}>
+                        <Text style={s.podiumBarNum}>#3</Text>
+                      </ExpoLinearGradient>
+                    </View>
+                  ) : (
+                    <View style={s.podiumCol} />
+                  )}
                 </View>
-              </View>
-            </Animated.View>
+              </Animated.View>
+            )}
 
             {/* DANH SÁCH BẢNG XẾP HẠNG ĐẦY ĐỦ */}
             <Animated.View entering={FadeInDown.delay(300)}>
-              <Text style={[s.cardTitleBig, { marginBottom: 12, marginTop: 8 }]}>Bảng Xếp Hạng Tuần</Text>
-              
-              {leaderboard.map((member) => (
-                <View key={member.rank} style={[s.lbRow, member.isMe && s.lbRowMe]}>
+              <Text style={[s.cardTitleBig, { marginBottom: 12, marginTop: 8 }]}>
+                {rankingSubTab === 'global' ? 'Top 10 Hệ Thống' : 'Danh Sách Bạn Bè'}
+              </Text>
+
+              {rankList.length === 0 ? (
+                <View style={[s.card, { alignItems: 'center', paddingVertical: 32 }]}>
+                  <Users color={palette.textSoft} size={36} />
+                  <Text style={{ color: palette.textSoft, marginTop: 8, fontFamily: font.family }}>
+                    Chưa có học viên nào trong bảng xếp hạng này.
+                  </Text>
+                </View>
+              ) : null}
+
+              {rankList.map((member) => (
+                <View key={member.userId} style={[s.lbRow, member.isMe && s.lbRowMe]}>
                   <View style={s.lbLeft}>
                     <View
                       style={[
@@ -835,12 +983,22 @@ export const AnalyticsScreen = () => {
                       </Text>
                     </View>
 
-                    <Image source={{ uri: member.avatar }} style={s.lbAvatar} />
-                    
+                    <Image
+                      source={{
+                        uri:
+                          member.avatarUrl ||
+                          'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120',
+                      }}
+                      style={s.lbAvatar}
+                    />
+
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Text style={[s.lbName, member.isMe && { color: colors.secondary, fontWeight: '800' }]}>
-                          {member.name}
+                        <Text
+                          style={[s.lbName, member.isMe && { color: colors.secondary, fontWeight: '800' }]}
+                          numberOfLines={1}
+                        >
+                          {member.displayName || member.username}
                         </Text>
                         {member.isMe && (
                           <View style={s.meBadge}>
@@ -848,7 +1006,7 @@ export const AnalyticsScreen = () => {
                           </View>
                         )}
                       </View>
-                      <Text style={s.lbXp}>{member.xp.toLocaleString()} XP</Text>
+                      <Text style={s.lbXp}>{member.weeklyXp.toLocaleString()} XP tuần này</Text>
                     </View>
                   </View>
 
@@ -869,7 +1027,7 @@ export const AnalyticsScreen = () => {
                         member.trend === 'down' && { color: '#DC2626' },
                       ]}
                     >
-                      {member.delta}
+                      {member.delta || '0'}
                     </Text>
                   </View>
                 </View>
@@ -880,17 +1038,21 @@ export const AnalyticsScreen = () => {
             <Animated.View entering={FadeInDown.delay(400)} style={s.posCard}>
               <View style={s.posRow}>
                 <View style={s.posRankCircle}>
-                  <Text style={s.posRankText}>#3</Text>
+                  <Text style={s.posRankText}>
+                    {leaderboardData.userRank > 0 ? `#${leaderboardData.userRank}` : '-'}
+                  </Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.posTitle}>Vị Trí Của Bạn: Top 3 Thăng Hạng 🚀</Text>
-                  <Text style={s.posSub}>Chỉ còn 80 XP nữa để vượt Hoàng Nam (#2). Thi 1 bài Quiz để san bằng điểm số!</Text>
+                  <Text style={s.posTitle}>Vị Trí Của Bạn: Hạng {leaderboardData.userRank || 'chưa xếp'}</Text>
+                  <Text style={s.posSub}>
+                    Bạn đang có {leaderboardData.userWeeklyXp} XP tuần này. Học ngay để thăng hạng!
+                  </Text>
                 </View>
                 <Pressable
-                  onPress={() => router.push('/(student)/practice/quiz/quiz-101' as any)}
+                  onPress={() => router.push('/(student)/practice' as any)}
                   style={s.posCtaBtn}
                 >
-                  <Text style={s.posCtaBtnText}>Đua Top</Text>
+                  <Text style={s.posCtaBtnText}>Luyện Tập</Text>
                 </Pressable>
               </View>
             </Animated.View>
@@ -909,32 +1071,6 @@ const s = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  brandSub: {
-    fontSize: 11,
-    fontFamily: font.family,
-    color: palette.textSoft,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontFamily: font.family,
-    fontWeight: '800',
-    color: palette.primary,
-  },
-  headerAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: colors.secondary,
   },
   switcherRow: {
     flexDirection: 'row',
@@ -977,6 +1113,36 @@ const s = StyleSheet.create({
     alignSelf: 'center',
   },
 
+  // Sub Tab Switcher
+  subTabRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    padding: 3,
+    borderRadius: 12,
+    marginBottom: 14,
+  },
+  subTabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  subTabBtnActive: {
+    backgroundColor: colors.secondary,
+  },
+  subTabBtnText: {
+    fontSize: 12,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: palette.textSoft,
+  },
+  subTabBtnTextActive: {
+    color: '#FFFFFF',
+  },
+
   // Progress Section
   progressSectionHeader: {
     flexDirection: 'row',
@@ -996,9 +1162,6 @@ const s = StyleSheet.create({
     color: palette.text,
   },
   filterDropdownBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
     backgroundColor: palette.surface,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -1327,23 +1490,6 @@ const s = StyleSheet.create({
     color: colors.secondary,
     fontWeight: '800',
   },
-
-  // Trend Badges
-  trendBadgeGreen: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  trendBadgeGreenText: {
-    fontSize: 11,
-    fontFamily: font.family,
-    fontWeight: '700',
-    color: '#16A34A',
-  },
   trendBadgeBlue: {
     backgroundColor: palette.primarySoft,
     paddingHorizontal: 8,
@@ -1352,42 +1498,6 @@ const s = StyleSheet.create({
   },
   trendBadgeBlueText: {
     fontSize: 11,
-    fontFamily: font.family,
-    fontWeight: '700',
-    color: palette.primary,
-  },
-  lineChartDaysRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 4,
-  },
-  lineChartDayText: {
-    fontSize: 10,
-    fontFamily: font.family,
-    color: palette.textSoft,
-  },
-
-  // PDF CTA
-  pdfCtaWrap: {
-    marginBottom: 20,
-  },
-  pdfBtn: {
-    backgroundColor: palette.surface,
-    padding: 16,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: palette.border,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  pdfBtnLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  pdfBtnText: {
-    fontSize: 13,
     fontFamily: font.family,
     fontWeight: '700',
     color: palette.primary,
@@ -1455,33 +1565,6 @@ const s = StyleSheet.create({
     marginTop: 4,
   },
 
-  chipsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
-  },
-  chipBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 100,
-    backgroundColor: palette.surface,
-    borderWidth: 1,
-    borderColor: palette.border,
-  },
-  chipBtnActive: {
-    backgroundColor: palette.primary,
-    borderColor: palette.primary,
-  },
-  chipText: {
-    fontSize: 12,
-    fontFamily: font.family,
-    fontWeight: '600',
-    color: palette.textSoft,
-  },
-  chipTextActive: {
-    color: '#FFFFFF',
-  },
-
   // Smart Tip
   tipCard: {
     backgroundColor: '#FFFBEB',
@@ -1517,44 +1600,10 @@ const s = StyleSheet.create({
     color: '#B45309',
   },
   tipCardContent: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: font.family,
     color: '#78350F',
-    lineHeight: 18,
-    marginBottom: 14,
-  },
-  suggestionChipsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  sugChipBtnPrimary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#D97706',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 10,
-  },
-  sugChipPrimaryText: {
-    fontSize: 11,
-    fontFamily: font.family,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  sugChipBtnSecondary: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-  },
-  sugChipSecondaryText: {
-    fontSize: 11,
-    fontFamily: font.family,
-    fontWeight: '700',
-    color: '#B45309',
+    lineHeight: 20,
   },
 
   // Matrix
@@ -1633,44 +1682,107 @@ const s = StyleSheet.create({
     marginTop: 4,
   },
   pitfallExampleText: {
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: font.family,
     color: '#334155',
     fontStyle: 'italic',
   },
 
-  // Recommended Practice Items
-  recomItem: {
+  // Remedial Quiz Card
+  remedialCard: {
+    backgroundColor: palette.surface,
+    padding: 18,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    marginBottom: 20,
+  },
+  remedialHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: palette.border,
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  recomLeft: {
+  remedialBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
-  recomIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  recomTitle: {
-    fontSize: 13,
+  remedialBadgeText: {
+    fontSize: 11,
     fontFamily: font.family,
-    fontWeight: '700',
-    color: palette.text,
+    fontWeight: '800',
+    color: '#D97706',
   },
-  recomSub: {
+  remedialTopic: {
     fontSize: 11,
     fontFamily: font.family,
     color: palette.textSoft,
-    marginTop: 2,
+    fontWeight: '600',
+  },
+  remedialQuestion: {
+    fontSize: 15,
+    fontFamily: font.family,
+    fontWeight: '800',
+    color: palette.text,
+    marginBottom: 14,
+    lineHeight: 22,
+  },
+  remedialOptionsWrap: {
+    gap: 8,
+    marginBottom: 14,
+  },
+  remedialOptionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  remedialOptionText: {
+    fontSize: 13,
+    fontFamily: font.family,
+    fontWeight: '700',
+    flex: 1,
+  },
+  remedialExplainBox: {
+    backgroundColor: '#F8FAFC',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  remedialExplainTitle: {
+    fontSize: 12,
+    fontFamily: font.family,
+    fontWeight: '800',
+    color: palette.primary,
+    marginBottom: 4,
+  },
+  remedialExplainText: {
+    fontSize: 12,
+    fontFamily: font.family,
+    color: palette.text,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  remedialNextBtn: {
+    backgroundColor: colors.secondary,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  remedialNextBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontFamily: font.family,
+    fontWeight: '800',
   },
 
   // TAB 3: RANKING & LEAGUE
@@ -1678,7 +1790,6 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
   },
   leagueLeft: {
     flexDirection: 'row',
@@ -1697,42 +1808,6 @@ const s = StyleSheet.create({
     fontFamily: font.family,
     color: palette.textSoft,
     marginTop: 2,
-  },
-  badgeCountdown: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  badgeCountdownText: {
-    fontSize: 10,
-    fontFamily: font.family,
-    fontWeight: '700',
-    color: '#D97706',
-  },
-  leagueZoneContainer: {
-    marginTop: 8,
-  },
-  leagueZoneTrack: {
-    flexDirection: 'row',
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  leagueZoneSection: {},
-  leagueZoneLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 6,
-  },
-  leagueZoneText: {
-    fontSize: 9,
-    fontFamily: font.family,
-    fontWeight: '600',
-    color: palette.textSoft,
   },
 
   // Podium
@@ -1852,9 +1927,10 @@ const s = StyleSheet.create({
     color: palette.textSoft,
   },
   lbAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E2E8F0',
   },
   lbName: {
     fontSize: 13,
@@ -1864,12 +1940,12 @@ const s = StyleSheet.create({
   },
   meBadge: {
     backgroundColor: colors.secondary,
-    paddingHorizontal: 5,
+    paddingHorizontal: 6,
     paddingVertical: 1,
-    borderRadius: 4,
+    borderRadius: 6,
   },
   meBadgeText: {
-    fontSize: 8,
+    fontSize: 9,
     fontFamily: font.family,
     fontWeight: '800',
     color: '#FFFFFF',
@@ -1878,34 +1954,29 @@ const s = StyleSheet.create({
     fontSize: 11,
     fontFamily: font.family,
     color: palette.textSoft,
-    marginTop: 1,
+    marginTop: 2,
   },
   trendBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 2,
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 8,
-    gap: 2,
   },
   trendText: {
     fontSize: 10,
     fontFamily: font.family,
     fontWeight: '700',
-    color: palette.textSoft,
   },
 
-  // Sticky Bottom User Rank Card
+  // Position Card
   posCard: {
     backgroundColor: palette.primary,
-    padding: 14,
-    borderRadius: 18,
-    marginTop: 10,
-    shadowColor: palette.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 5,
+    padding: 16,
+    borderRadius: 20,
+    marginTop: 12,
+    marginBottom: 20,
   },
   posRow: {
     flexDirection: 'row',
@@ -1916,14 +1987,14 @@ const s = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: colors.secondary,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   posRankText: {
     fontSize: 14,
     fontFamily: font.family,
-    fontWeight: '900',
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   posTitle: {
@@ -1933,7 +2004,7 @@ const s = StyleSheet.create({
     color: '#FFFFFF',
   },
   posSub: {
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: font.family,
     color: 'rgba(255, 255, 255, 0.8)',
     marginTop: 2,
@@ -1941,13 +2012,13 @@ const s = StyleSheet.create({
   posCtaBtn: {
     backgroundColor: colors.secondary,
     paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingVertical: 8,
     borderRadius: 10,
   },
   posCtaBtnText: {
+    color: '#FFFFFF',
     fontSize: 11,
     fontFamily: font.family,
     fontWeight: '800',
-    color: '#FFFFFF',
   },
 });
