@@ -64,7 +64,15 @@ export const loginApi = async (emailOrUsername: string, password_hash: string): 
   }
 };
 
-export const registerApi = async (payload: RegisterPayload): Promise<LoginResponse> => {
+export interface RegisterResult {
+  email: string;
+  displayName: string;
+  requireOtp: boolean;
+  expiresInSec: number;
+  message: string;
+}
+
+export const registerApi = async (payload: RegisterPayload): Promise<RegisterResult> => {
   try {
     const response = await apiClient.post<any>('/api/v1/auth/register', {
       email: payload.email,
@@ -76,27 +84,73 @@ export const registerApi = async (payload: RegisterPayload): Promise<LoginRespon
       targetGoal: payload.targetGoal || 'TOEIC 750',
       referralCode: payload.referralCode || undefined
     });
-    const data = response.data?.data || response.data;
-    // Some register responses return only tokens (no user object) - handle both
-    const userFromResponse = data.user || {};
+    const res = response.data?.data || response.data;
     return {
-      access_token: data.accessToken || data.access_token || '',
-      refresh_token: data.refreshToken || data.refresh_token || '',
-      user: {
-        ...mapUserProfile(userFromResponse, payload.email),
-        // Override with what we know from the registration payload
-        display_name: payload.displayName,
-        email: payload.email,
-        role: 'student',
-        plan: 'free' as any,
-        cefr_level: payload.cefrLevel || 'B1',
-        target_goal: payload.targetGoal || 'TOEIC 750',
-        onboarding_completed: false,
-        is_email_verified: false
-      }
+      email: res?.email || payload.email,
+      displayName: res?.displayName || payload.displayName,
+      requireOtp: Boolean(res?.requireOtp ?? true),
+      expiresInSec: Number(res?.expiresInSec || 300),
+      message: response.data?.message || res?.message || 'Đăng ký tài khoản thành công! Vui lòng xác thực mã OTP.'
     };
   } catch (err: any) {
     console.warn('Real Auth API register error:', err?.response?.data || err.message);
+    throw err;
+  }
+};
+
+export const verifyOtpApi = async (email: string, otpCode: string): Promise<LoginResponse> => {
+  try {
+    const response = await apiClient.post<any>('/api/v1/auth/verify-otp', {
+      email: email.trim(),
+      otpCode: otpCode.trim()
+    });
+    const data = response.data?.data || response.data;
+    const token = data?.accessToken || data?.access_token;
+    if (!token) {
+      throw new Error(data?.message || 'Xác thực OTP thất bại');
+    }
+    return {
+      access_token: token,
+      refresh_token: data.refreshToken || data.refresh_token || '',
+      user: mapUserProfile(data.user, email)
+    };
+  } catch (err: any) {
+    console.warn('Verify OTP error:', err?.response?.data || err.message);
+    throw err;
+  }
+};
+
+export const resendOtpApi = async (email: string): Promise<{ message: string }> => {
+  try {
+    const response = await apiClient.post<any>('/api/v1/auth/resend-otp', {
+      email: email.trim()
+    });
+    return {
+      message: response.data?.message || 'Mã OTP mới đã được gửi vào email của bạn.'
+    };
+  } catch (err: any) {
+    console.warn('Resend OTP error:', err?.response?.data || err.message);
+    throw err;
+  }
+};
+
+export const googleLoginApi = async (idToken: string): Promise<LoginResponse> => {
+  try {
+    const response = await apiClient.post<any>('/api/v1/auth/google', {
+      idToken: idToken.trim()
+    });
+    const data = response.data?.data || response.data;
+    const token = data?.accessToken || data?.access_token;
+    if (!token) {
+      throw new Error(data?.message || 'Đăng nhập Google không thành công');
+    }
+    return {
+      access_token: token,
+      refresh_token: data.refreshToken || data.refresh_token || '',
+      user: mapUserProfile(data.user)
+    };
+  } catch (err: any) {
+    console.warn('Google Login error:', err?.response?.data || err.message);
     throw err;
   }
 };
