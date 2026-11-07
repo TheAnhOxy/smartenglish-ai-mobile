@@ -279,6 +279,10 @@ export interface WritingAnalysis {
 }
 
 export interface ChatMessage {
+  is_quota_message?: boolean;
+  is_error?: boolean;
+  quota_used?: number;
+  quota_limit?: number | null;
   message_id: string;
   role: 'user' | 'assistant';
   content: string;
