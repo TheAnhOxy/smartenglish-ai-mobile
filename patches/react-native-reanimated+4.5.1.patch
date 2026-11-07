@@ -1,0 +1,247 @@
+diff --git a/node_modules/react-native-reanimated/lib/module/ReanimatedModule/NativeReanimated.js b/node_modules/react-native-reanimated/lib/module/ReanimatedModule/NativeReanimated.js
+index cd3fbe1..9eafadc 100644
+--- a/node_modules/react-native-reanimated/lib/module/ReanimatedModule/NativeReanimated.js
++++ b/node_modules/react-native-reanimated/lib/module/ReanimatedModule/NativeReanimated.js
+@@ -41,9 +41,12 @@ class NativeReanimatedModule {
+         return;
+       }
+     }
+-    if (global.__reanimatedModuleProxy === undefined) {
+-      throw new Error(`[Reanimated] Native part of Reanimated doesn't seem to be initialized.
+-See https://docs.swmansion.com/react-native-reanimated/docs/guides/troubleshooting#native-part-of-reanimated-doesnt-seem-to-be-initialized for more details.`);
++    if (
++      global.__reanimatedModuleProxy === undefined ||
++      typeof global.__reanimatedModuleProxy.setDynamicFeatureFlag !== 'function'
++    ) {
++      this.#reanimatedModuleProxy = new DummyReanimatedModuleProxy();
++      return;
+     }
+     if (__DEV__ && !globalThis.RN$Bridgeless && !SHOULD_BE_USE_WEB) {
+       throw new Error('[Reanimated] Reanimated 4 supports only the React Native New Architecture and web.');
+@@ -167,11 +170,19 @@ function installTurboModule() {
+   if (globalThis.__reanimatedModuleProxy) {
+     return true;
+   }
+-  globalThis.__UI_WORKLET_RUNTIME_HOLDER = getUIRuntimeHolder();
+-  globalThis.__UI_SCHEDULER_HOLDER = getUISchedulerHolder();
+-  const status = ReanimatedTurboModule.installTurboModule();
+-  delete globalThis.__UI_WORKLET_RUNTIME_HOLDER;
+-  delete globalThis.__UI_SCHEDULER_HOLDER;
+-  return status;
++  try {
++    globalThis.__UI_WORKLET_RUNTIME_HOLDER = typeof getUIRuntimeHolder === 'function' ? getUIRuntimeHolder() : undefined;
++    globalThis.__UI_SCHEDULER_HOLDER = typeof getUISchedulerHolder === 'function' ? getUISchedulerHolder() : undefined;
++    const status = ReanimatedTurboModule && typeof ReanimatedTurboModule.installTurboModule === 'function'
++      ? ReanimatedTurboModule.installTurboModule()
++      : false;
++    delete globalThis.__UI_WORKLET_RUNTIME_HOLDER;
++    delete globalThis.__UI_SCHEDULER_HOLDER;
++    return status;
++  } catch (e) {
++    delete globalThis.__UI_WORKLET_RUNTIME_HOLDER;
++    delete globalThis.__UI_SCHEDULER_HOLDER;
++    return false;
++  }
+ }
+ //# sourceMappingURL=NativeReanimated.js.map
+\ No newline at end of file
+diff --git a/node_modules/react-native-reanimated/lib/module/index.js b/node_modules/react-native-reanimated/lib/module/index.js
+index 409dc83..18b95d8 100644
+--- a/node_modules/react-native-reanimated/lib/module/index.js
++++ b/node_modules/react-native-reanimated/lib/module/index.js
+@@ -7,7 +7,11 @@ import { ReanimatedModule } from './ReanimatedModule';
+ // TODO: Specify the initialization pipeline since now there's no
+ // universal source of truth for it.
+ // is-tree-shakable-suppress
+-initializeReanimatedModule(ReanimatedModule);
++try {
++  initializeReanimatedModule(ReanimatedModule);
++} catch (e) {
++  // Graceful fallback
++}
+ 
+ // eslint-disable-next-line import/first
+ import * as Animated from "./Animated.js";
+diff --git a/node_modules/react-native-reanimated/lib/module/initializers.js b/node_modules/react-native-reanimated/lib/module/initializers.js
+index 0dc1433..1a9a225 100644
+--- a/node_modules/react-native-reanimated/lib/module/initializers.js
++++ b/node_modules/react-native-reanimated/lib/module/initializers.js
+@@ -15,11 +15,20 @@ export function initializeReanimatedModule(ReanimatedModule) {
+ 
+ // is-tree-shakable-suppress
+ if (!SHOULD_BE_USE_WEB) {
+-  globalThis.__toggleSlowAnimationsOnUIRuntime = () => toggleSlowAnimationsOnUIRuntime();
+-  runOnUISync(() => {
+-    'worklet';
+-
+-    global._tagToJSPropNamesMapping = {};
+-  });
++  try {
++    if (typeof toggleSlowAnimationsOnUIRuntime === 'function') {
++      globalThis.__toggleSlowAnimationsOnUIRuntime = () => toggleSlowAnimationsOnUIRuntime();
++    }
++    if (typeof runOnUISync === 'function') {
++      runOnUISync(() => {
++        'worklet';
++        try {
++          global._tagToJSPropNamesMapping = {};
++        } catch (_) {}
++      });
++    }
++  } catch (e) {
++    // Graceful fallback on Expo Go
++  }
+ }
+ //# sourceMappingURL=initializers.js.map
+\ No newline at end of file
+diff --git a/node_modules/react-native-reanimated/lib/module/layoutReanimation/animationsManager.js b/node_modules/react-native-reanimated/lib/module/layoutReanimation/animationsManager.js
+index d9da7b5..055a7a4 100644
+--- a/node_modules/react-native-reanimated/lib/module/layoutReanimation/animationsManager.js
++++ b/node_modules/react-native-reanimated/lib/module/layoutReanimation/animationsManager.js
+@@ -104,10 +104,18 @@ function createLayoutAnimationManager() {
+ 
+ // is-tree-shakable-suppress
+ if (!SHOULD_BE_USE_WEB) {
+-  runOnUISync(() => {
+-    'worklet';
++  try {
++    if (typeof runOnUISync === 'function') {
++      runOnUISync(() => {
++        'worklet';
+ 
+-    global.LayoutAnimationsManager = createLayoutAnimationManager();
+-  });
++        try {
++          global.LayoutAnimationsManager = createLayoutAnimationManager();
++        } catch (_) {}
++      });
++    }
++  } catch (e) {
++    // Graceful fallback on Expo Go
++  }
+ }
+ //# sourceMappingURL=animationsManager.js.map
+\ No newline at end of file
+diff --git a/node_modules/react-native-reanimated/src/ReanimatedModule/NativeReanimated.ts b/node_modules/react-native-reanimated/src/ReanimatedModule/NativeReanimated.ts
+index 1377e03..19fcd3f 100644
+--- a/node_modules/react-native-reanimated/src/ReanimatedModule/NativeReanimated.ts
++++ b/node_modules/react-native-reanimated/src/ReanimatedModule/NativeReanimated.ts
+@@ -75,11 +75,12 @@ class NativeReanimatedModule implements IReanimatedModule {
+       }
+     }
+ 
+-    if (global.__reanimatedModuleProxy === undefined) {
+-      throw new Error(
+-        `[Reanimated] Native part of Reanimated doesn't seem to be initialized.
+-See https://docs.swmansion.com/react-native-reanimated/docs/guides/troubleshooting#native-part-of-reanimated-doesnt-seem-to-be-initialized for more details.`
+-      );
++    if (
++      global.__reanimatedModuleProxy === undefined ||
++      typeof (global.__reanimatedModuleProxy as any).setDynamicFeatureFlag !== 'function'
++    ) {
++      this.#reanimatedModuleProxy = new DummyReanimatedModuleProxy();
++      return;
+     }
+     if (__DEV__ && !globalThis.RN$Bridgeless && !SHOULD_BE_USE_WEB) {
+       throw new Error(
+@@ -306,10 +307,18 @@ function installTurboModule() {
+     return true;
+   }
+ 
+-  globalThis.__UI_WORKLET_RUNTIME_HOLDER = getUIRuntimeHolder();
+-  globalThis.__UI_SCHEDULER_HOLDER = getUISchedulerHolder();
+-  const status = ReanimatedTurboModule!.installTurboModule();
+-  delete globalThis.__UI_WORKLET_RUNTIME_HOLDER;
+-  delete globalThis.__UI_SCHEDULER_HOLDER;
+-  return status;
++  try {
++    globalThis.__UI_WORKLET_RUNTIME_HOLDER = typeof getUIRuntimeHolder === 'function' ? getUIRuntimeHolder() : undefined;
++    globalThis.__UI_SCHEDULER_HOLDER = typeof getUISchedulerHolder === 'function' ? getUISchedulerHolder() : undefined;
++    const status = (ReanimatedTurboModule && typeof (ReanimatedTurboModule as any).installTurboModule === 'function')
++      ? (ReanimatedTurboModule as any).installTurboModule()
++      : false;
++    delete globalThis.__UI_WORKLET_RUNTIME_HOLDER;
++    delete globalThis.__UI_SCHEDULER_HOLDER;
++    return status;
++  } catch (e) {
++    delete globalThis.__UI_WORKLET_RUNTIME_HOLDER;
++    delete globalThis.__UI_SCHEDULER_HOLDER;
++    return false;
++  }
+ }
+diff --git a/node_modules/react-native-reanimated/src/index.ts b/node_modules/react-native-reanimated/src/index.ts
+index 61745ee..b1a067f 100644
+--- a/node_modules/react-native-reanimated/src/index.ts
++++ b/node_modules/react-native-reanimated/src/index.ts
+@@ -8,7 +8,11 @@ import { ReanimatedModule } from './ReanimatedModule';
+ // TODO: Specify the initialization pipeline since now there's no
+ // universal source of truth for it.
+ // is-tree-shakable-suppress
+-initializeReanimatedModule(ReanimatedModule);
++try {
++  initializeReanimatedModule(ReanimatedModule);
++} catch (e) {
++  // Graceful fallback
++}
+ 
+ // eslint-disable-next-line import/first
+ import * as Animated from './Animated';
+diff --git a/node_modules/react-native-reanimated/src/initializers.ts b/node_modules/react-native-reanimated/src/initializers.ts
+index 1923743..6b7fcb0 100644
+--- a/node_modules/react-native-reanimated/src/initializers.ts
++++ b/node_modules/react-native-reanimated/src/initializers.ts
+@@ -24,10 +24,21 @@ export function initializeReanimatedModule(
+ 
+ // is-tree-shakable-suppress
+ if (!SHOULD_BE_USE_WEB) {
+-  globalThis.__toggleSlowAnimationsOnUIRuntime = () =>
+-    toggleSlowAnimationsOnUIRuntime();
+-  runOnUISync(() => {
+-    'worklet';
+-    global._tagToJSPropNamesMapping = {};
+-  });
++  try {
++    if (typeof toggleSlowAnimationsOnUIRuntime === 'function') {
++      globalThis.__toggleSlowAnimationsOnUIRuntime = () =>
++        toggleSlowAnimationsOnUIRuntime();
++    }
++    if (typeof runOnUISync === 'function') {
++      runOnUISync(() => {
++        'worklet';
++        try {
++          global._tagToJSPropNamesMapping = {};
++        } catch (_) {}
++      });
++    }
++  } catch (e) {
++    // Graceful fallback on Expo Go
++  }
+ }
++
+diff --git a/node_modules/react-native-reanimated/src/layoutReanimation/animationsManager.ts b/node_modules/react-native-reanimated/src/layoutReanimation/animationsManager.ts
+index 7b0f9c2..b466a05 100644
+--- a/node_modules/react-native-reanimated/src/layoutReanimation/animationsManager.ts
++++ b/node_modules/react-native-reanimated/src/layoutReanimation/animationsManager.ts
+@@ -131,10 +131,18 @@ function createLayoutAnimationManager(): {
+ 
+ // is-tree-shakable-suppress
+ if (!SHOULD_BE_USE_WEB) {
+-  runOnUISync(() => {
+-    'worklet';
+-    global.LayoutAnimationsManager = createLayoutAnimationManager();
+-  });
++  try {
++    if (typeof runOnUISync === 'function') {
++      runOnUISync(() => {
++        'worklet';
++        try {
++          global.LayoutAnimationsManager = createLayoutAnimationManager();
++        } catch (_) {}
++      });
++    }
++  } catch (e) {
++    // Graceful fallback on Expo Go
++  }
+ }
+ 
+ export type LayoutAnimationsManager = ReturnType<
