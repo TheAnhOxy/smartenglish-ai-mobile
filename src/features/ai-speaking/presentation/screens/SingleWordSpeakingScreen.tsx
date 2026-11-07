@@ -7,9 +7,20 @@ import {
   Platform,
   ActivityIndicator,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { Mic, Square, Volume2, Sparkles, ChevronLeft, Play, RotateCcw, CheckCircle2 } from 'lucide-react-native';
+import {
+  Mic,
+  Square,
+  Volume2,
+  Sparkles,
+  ChevronLeft,
+  Play,
+  RotateCcw,
+  CheckCircle2,
+  AlertTriangle,
+} from 'lucide-react-native';
 import Animated, {
   useAnimatedStyle,
   withRepeat,
@@ -27,17 +38,21 @@ import {
   useAudioPlayerStatus,
   useAudioRecorder,
 } from 'expo-audio';
+import { Audio } from 'expo-av';
 import * as Speech from 'expo-speech';
 import { createManagedWebAudio, speakText, stopSpeech } from '@/src/core/services/speechService';
 import { colors, palette } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
-import { ProgressRing } from '@/src/components/ui/ProgressRing';
 import {
   evaluatePronunciationApi,
   PronunciationAssessmentData,
   fetchPronunciationLessonsApi,
   PronunciationLesson,
 } from '../../data/speakingApi';
+import { CircularAccuracyRing } from '../components/CircularAccuracyRing';
+import { IpaSyllableBreakdownCard } from '../components/IpaSyllableBreakdownCard';
+import { SpeakingMetricsGrid } from '../components/SpeakingMetricsGrid';
+import { MouthShapeGuideModal } from './MouthShapeGuideModal';
 
 export const SingleWordSpeakingScreen = () => {
   const router = useRouter();
@@ -48,7 +63,7 @@ export const SingleWordSpeakingScreen = () => {
   const [targetIpa, setTargetIpa] = useState<string>('/fəˈnæmənəl/');
   const [meaning, setMeaning] = useState<string>('tính từ • Phi thường, kỳ diệu, ấn tượng');
 
-  // Trạng thái ghi âm và AI phân tích: BAN ĐẦU KHÔNG CÓ SCORE FAKE!
+  // Trạng thái thu âm và kết quả AI chấm
   const [isRecording, setIsRecording] = useState(false);
   const [hasRecorded, setHasRecorded] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
@@ -59,6 +74,10 @@ export const SingleWordSpeakingScreen = () => {
   const [recordTime, setRecordTime] = useState(0);
   const [isPlayingUserVoice, setIsPlayingUserVoice] = useState(false);
   const [isPlayingNative, setIsPlayingNative] = useState(false);
+  const [micNotice, setMicNotice] = useState<string | null>(null);
+  const [showMouthGuide, setShowMouthGuide] = useState(false);
+
+  const isActionProcessingRef = useRef(false);
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const player = useAudioPlayer(recordedUri);
@@ -70,7 +89,7 @@ export const SingleWordSpeakingScreen = () => {
   const pulseScale = useSharedValue(1);
   const micRipple = useSharedValue(0);
 
-  // Tải thông tin từ vựng mục tiêu từ Backend dựa vào lessonId hoặc target
+  // Tải thông tin từ vựng mục tiêu từ Backend
   useEffect(() => {
     fetchPronunciationLessonsApi().then((list) => {
       const found = list.find(
@@ -87,10 +106,17 @@ export const SingleWordSpeakingScreen = () => {
         setTargetWord(target);
         setTargetIpa(`/${target.toLowerCase()}/`);
         setMeaning('Luyện phát âm từ vựng mục tiêu');
+      } else if (list && list.length > 0) {
+        const first = list[0];
+        setCurrentLesson(first);
+        setTargetWord(first.targetText);
+        setTargetIpa(first.ipaTranscription || `/${first.targetText}/`);
+        setMeaning(first.meaningVi || 'Luyện phát âm chuẩn theo bảng phiên âm IPA quốc tế');
       }
     });
   }, [lessonId, target]);
 
+  // Bộ đếm thời gian thu âm & hiệu ứng sóng
   useEffect(() => {
     let interval: any;
     if (isRecording) {
@@ -113,17 +139,24 @@ export const SingleWordSpeakingScreen = () => {
     setIsPlayingUserVoice(playerStatus.playing);
   }, [playerStatus.playing]);
 
-  // Ngắt toàn bộ âm thanh khi người dùng rời màn hình hoặc unmount
+  // An toàn: Ngắt toàn bộ âm thanh và giải phóng micro khi unmount hoặc rời tab
   useFocusEffect(
     useCallback(() => {
       return () => {
         stopSpeech();
         Speech.stop();
         try {
+          if (recorder.isRecording) {
+            recorder.stop().catch(() => {});
+          }
+        } catch (_) {}
+        try {
           player.pause();
         } catch (_) {}
+        setIsRecording(false);
+        setIsEvaluating(false);
       };
-    }, [player])
+    }, [player, recorder])
   );
 
   useEffect(() => {
@@ -131,10 +164,15 @@ export const SingleWordSpeakingScreen = () => {
       stopSpeech();
       Speech.stop();
       try {
+        if (recorder.isRecording) {
+          recorder.stop().catch(() => {});
+        }
+      } catch (_) {}
+      try {
         player.pause();
       } catch (_) {}
     };
-  }, [player]);
+  }, [player, recorder]);
 
   const playNativeAudio = () => {
     setIsPlayingNative(true);
@@ -147,7 +185,12 @@ export const SingleWordSpeakingScreen = () => {
     });
   };
 
+  // Khởi động thu âm an toàn với kiểm tra quyền 2 lớp (Zero-Crash)
   const startRecording = async () => {
+    if (isActionProcessingRef.current || isRecording) return;
+    isActionProcessingRef.current = true;
+    setMicNotice(null);
+
     try {
       if (Platform.OS === 'web' && typeof window !== 'undefined' && navigator.mediaDevices) {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -164,12 +207,29 @@ export const SingleWordSpeakingScreen = () => {
           webAudioBlobUrlRef.current = url;
           setRecordedUri(url);
 
+          // Chuyển âm thanh web sang base64 để gửi tới AI backend
+          let base64Audio: string | undefined = undefined;
+          try {
+            base64Audio = await new Promise<string | undefined>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                const res = reader.result as string;
+                resolve(res?.includes(',') ? res.split(',')[1] : res);
+              };
+              reader.onerror = () => resolve(undefined);
+              reader.readAsDataURL(audioBlob);
+            });
+          } catch (e) {
+            console.warn('[Web Audio] Base64 conversion fallback:', e);
+          }
+
           // Phân tích thật từ Backend AI
           setIsEvaluating(true);
           try {
             const res = await evaluatePronunciationApi({
               targetText: targetWord,
               targetIpa: targetIpa,
+              audioBase64: base64Audio,
               sessionType: 'SINGLE_WORD',
             });
             setAssessment(res);
@@ -185,25 +245,65 @@ export const SingleWordSpeakingScreen = () => {
         mediaRecorderRef.current.start();
         setIsRecording(true);
       } else {
-        const permission = await AudioModule.requestRecordingPermissionsAsync();
-        if (!permission.granted) return;
+        // Kiểm tra quyền Micro an toàn 2 lớp (expo-audio + expo-av fallback)
+        let hasPermission = false;
+        try {
+          const perm = await AudioModule.requestRecordingPermissionsAsync();
+          hasPermission = Boolean(perm?.granted);
+        } catch (_) {
+          try {
+            const avPerm = await Audio.requestPermissionsAsync();
+            hasPermission = Boolean(avPerm?.granted);
+          } catch (permErr) {
+            console.warn('[Microphone] Permission check error:', permErr);
+          }
+        }
 
-        await setAudioModeAsync({
-          allowsRecording: true,
-          playsInSilentMode: true,
-        });
+        if (!hasPermission) {
+          const msg = 'Vui lòng cấp quyền Microphone trong Cài đặt để SmartEnglish AI có thể lắng nghe giọng đọc của bạn.';
+          setMicNotice(msg);
+          if (Platform.OS !== 'web') {
+            Alert.alert('Cần quyền Microphone', msg);
+          }
+          setIsRecording(false);
+          return;
+        }
+
+        // Thiết lập Audio Mode an toàn
+        try {
+          await setAudioModeAsync({
+            allowsRecording: true,
+            playsInSilentMode: true,
+          });
+        } catch (_) {
+          try {
+            await Audio.setAudioModeAsync({
+              allowsRecordingIOS: true,
+              playsInSilentModeIOS: true,
+            });
+          } catch (_) {}
+        }
 
         await recorder.prepareToRecordAsync();
         recorder.record();
         setIsRecording(true);
       }
     } catch (err) {
-      console.log('Start recording error:', err);
+      console.warn('[Microphone] Start recording error:', err);
       setIsRecording(false);
+      setMicNotice('Không thể kích hoạt micro. Vui lòng kiểm tra quyền thiết bị và thử lại!');
+    } finally {
+      setTimeout(() => {
+        isActionProcessingRef.current = false;
+      }, 300);
     }
   };
 
+  // Dừng thu âm an toàn và kích hoạt AI chấm điểm tức thì
   const stopRecording = async () => {
+    if (isActionProcessingRef.current) return;
+    isActionProcessingRef.current = true;
+
     try {
       if (Platform.OS === 'web' && mediaRecorderRef.current) {
         mediaRecorderRef.current.stop();
@@ -211,15 +311,37 @@ export const SingleWordSpeakingScreen = () => {
         setIsRecording(false);
       } else if (recorder.isRecording) {
         await recorder.stop();
-        setRecordedUri(recorder.uri);
+        const uri = recorder.uri;
+        setRecordedUri(uri);
         setIsRecording(false);
 
-        // Gọi Backend AI phân tích thật
+        // Chuyển bản ghi âm thiết bị thật thành base64 gửi cho AI Backend
+        let base64Audio: string | undefined = undefined;
+        if (uri) {
+          try {
+            const res = await fetch(uri);
+            const blob = await res.blob();
+            base64Audio = await new Promise<string | undefined>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                const str = reader.result as string;
+                resolve(str?.includes(',') ? str.split(',')[1] : str);
+              };
+              reader.onerror = () => resolve(undefined);
+              reader.readAsDataURL(blob);
+            });
+          } catch (audioErr) {
+            console.warn('[Native Audio] Base64 conversion fallback:', audioErr);
+          }
+        }
+
+        // Gọi Backend AI phân tích phát âm
         setIsEvaluating(true);
         try {
           const res = await evaluatePronunciationApi({
             targetText: targetWord,
             targetIpa: targetIpa,
+            audioBase64: base64Audio,
             sessionType: 'SINGLE_WORD',
           });
           setAssessment(res);
@@ -234,9 +356,13 @@ export const SingleWordSpeakingScreen = () => {
         setIsRecording(false);
       }
     } catch (err) {
-      console.log('Stop recording error:', err);
+      console.warn('[Microphone] Stop recording error:', err);
       setIsRecording(false);
       setIsEvaluating(false);
+    } finally {
+      setTimeout(() => {
+        isActionProcessingRef.current = false;
+      }, 300);
     }
   };
 
@@ -274,7 +400,7 @@ export const SingleWordSpeakingScreen = () => {
 
   return (
     <View style={s.root}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
         {/* Top Header */}
         <Animated.View entering={FadeInDown.duration(300)} style={s.headerRow}>
           <Pressable
@@ -289,14 +415,22 @@ export const SingleWordSpeakingScreen = () => {
             style={s.backBtn}
           >
             <ChevronLeft color={palette.text} size={20} />
-            <Text style={s.backBtnText}>Chế độ Luyện nói</Text>
+            <Text style={s.backBtnText}>Luyện phát âm IPA</Text>
           </Pressable>
           <View style={s.tagBadge}>
             <Text style={s.tagBadgeText}>
-              {currentLesson?.category || 'IPA / Từ đơn'}
+              {currentLesson?.category || 'AI Pronunciation'}
             </Text>
           </View>
         </Animated.View>
+
+        {/* Thông báo quyền Micro nếu có lỗi */}
+        {micNotice && (
+          <View style={s.noticeBox}>
+            <AlertTriangle color="#D97706" size={16} />
+            <Text style={s.noticeText}>{micNotice}</Text>
+          </View>
+        )}
 
         {/* Word Display Box */}
         <Animated.View entering={FadeInDown.delay(80).duration(300)} style={s.wordCard}>
@@ -304,13 +438,13 @@ export const SingleWordSpeakingScreen = () => {
           <Text style={s.ipaText}>{targetIpa}</Text>
           <Text style={s.meaningText}>{meaning}</Text>
 
-          {/* Reference Native Audio Player Button */}
+          {/* Nút phát âm chuẩn bản ngữ */}
           <Pressable onPress={playNativeAudio} style={s.nativeAudioBtn}>
             <Volume2 color={isPlayingNative ? colors.primary : colors.textSoft} size={16} />
             <Text style={s.nativeAudioText}>Phát âm chuẩn mẫu</Text>
           </Pressable>
 
-          {/* Waveform Visualizer */}
+          {/* Sóng âm thanh Skia */}
           <View style={s.waveformWrap}>
             <Canvas style={{ width: '100%', height: 32 }}>
               <Path
@@ -330,11 +464,11 @@ export const SingleWordSpeakingScreen = () => {
           </View>
         </Animated.View>
 
-        {/* ─── TRẠNG THÁI 1: CHƯA THU ÂM (SẴN SÀNG LUYỆN TẬP, KHÔNG FAKE ĐIỂM SỐ) ─── */}
+        {/* ─── TRẠNG THÁI 1: CHƯA THU ÂM (SẴN SÀNG LUYỆN TẬP) ─── */}
         {!hasRecorded && !isEvaluating && (
           <Animated.View entering={FadeInDown.delay(140).duration(300)} style={s.readyCard}>
             <View style={s.readyIconWrap}>
-              <Mic color={palette.primary} size={26} />
+              <Mic color="#10B981" size={28} />
             </View>
             <Text style={s.readyTitle}>Sẵn sàng luyện phát âm</Text>
             <Text style={s.readySubtitle}>
@@ -348,66 +482,62 @@ export const SingleWordSpeakingScreen = () => {
           </Animated.View>
         )}
 
-        {/* ─── TRẠNG THÁI 2: ĐANG GỬI BE PHÂN TÍCH ─── */}
+        {/* ─── TRẠNG THÁI 2: ĐANG GỬI AI PHÂN TÍCH ÂM VỊ ─── */}
         {isEvaluating && (
           <Animated.View entering={FadeInDown.duration(260)} style={s.evaluatingCard}>
-            <ActivityIndicator color={palette.primary} size="large" style={{ marginBottom: 12 }} />
-            <Text style={s.evaluatingTitle}>AI đang phân tích phát âm...</Text>
+            <ActivityIndicator color="#10B981" size="large" style={{ marginBottom: 12 }} />
+            <Text style={s.evaluatingTitle}>AI đang phân tích sóng âm & đối chiếu IPA...</Text>
             <Text style={s.evaluatingSubtitle}>
-              Đang đối chiếu âm vị IPA, trọng âm và độ lưu loát với giọng bản xứ
+              Đang chấm điểm Độ chính xác, Lưu loát, Trọng âm và tìm kiếm các âm vị phát âm sai
             </Text>
           </Animated.View>
         )}
 
-        {/* ─── TRẠNG THÁI 3: ĐÃ CÓ KẾT QUẢ CHẤM ĐIỂM THẬT TỪ BE ─── */}
+        {/* ─── TRẠNG THÁI 3: ĐÃ CÓ KẾT QUẢ CHẤM ĐIỂM THẬT TỪ AI ─── */}
         {hasRecorded && score !== null && assessment && (
           <Animated.View entering={FadeInDown.delay(160).duration(300)} style={s.scoreCard}>
-            <View style={s.scoreRingWrap}>
-              <ProgressRing
-                size={88}
-                strokeWidth={8}
-                progress={score / 100}
-                startColor={score >= 80 ? colors.success : score >= 60 ? colors.warning : colors.danger}
-                endColor={score >= 80 ? colors.successDark : score >= 60 ? colors.warningDark : colors.dangerDark}
+            {/* Vòng tròn phần trăm chính xác (Circular Accuracy Ring) */}
+            <View style={s.ringHeaderSection}>
+              <CircularAccuracyRing
+                score={score}
+                size={110}
+                strokeWidth={10}
+                label="ĐỘ CHUẨN"
               />
-              <View style={s.scoreOverlay}>
-                <Text style={s.scoreNumber}>{score}%</Text>
-                <Text style={s.scoreLabel}>ĐỘ CHUẨN</Text>
+              <View style={s.scoreSummaryWrap}>
+                <Text style={s.scoreTitle}>
+                  {score >= 80
+                    ? '🎉 Xuất sắc! Chuẩn giọng bản ngữ'
+                    : score >= 60
+                    ? '👍 Khá tốt! Cần chú ý âm đuôi'
+                    : '💪 Cần luyện tập thêm khẩu hình'}
+                </Text>
+                <Text style={s.scoreSubTitle}>
+                  {score >= 80
+                    ? 'Ngữ điệu tự nhiên, các âm vị phát âm rất rõ ràng.'
+                    : 'Hãy xem chi tiết âm tiết tô đỏ bên dưới để điều chỉnh.'}
+                </Text>
               </View>
             </View>
 
-            <Text style={s.scoreTitle}>
-              {score >= 80
-                ? '🎉 Phát âm rất chuẩn giọng bản xứ!'
-                : score >= 60
-                ? '👍 Khá tốt! Cần chú ý thêm trọng âm & âm đuôi'
-                : '💪 Cần luyện tập thêm khẩu hình'}
-            </Text>
+            {/* 4 Chỉ Số Đánh Giá Chi Tiết */}
+            <SpeakingMetricsGrid
+              accuracy={assessment.accuracyScore}
+              fluency={assessment.fluencyScore}
+              stress={assessment.stressScore}
+              intonation={assessment.intonationScore}
+            />
 
-            {/* 4 Chỉ Số Đánh Giá Chi Tiết Từ BE */}
-            <View style={s.metricGrid}>
-              <View style={s.metricItem}>
-                <Text style={s.metricVal}>{assessment.accuracyScore}%</Text>
-                <Text style={s.metricLbl}>Chính xác</Text>
-              </View>
-              <View style={s.metricDivider} />
-              <View style={s.metricItem}>
-                <Text style={s.metricVal}>{assessment.stressScore}%</Text>
-                <Text style={s.metricLbl}>Trọng âm</Text>
-              </View>
-              <View style={s.metricDivider} />
-              <View style={s.metricItem}>
-                <Text style={s.metricVal}>{assessment.intonationScore}%</Text>
-                <Text style={s.metricLbl}>Ngữ điệu</Text>
-              </View>
-              <View style={s.metricDivider} />
-              <View style={s.metricItem}>
-                <Text style={s.metricVal}>{assessment.fluencyScore}%</Text>
-                <Text style={s.metricLbl}>Lưu loát</Text>
-              </View>
-            </View>
+            {/* Tô đỏ âm tiết IPA đọc sai để làm nổi bật thế mạnh AI */}
+            <IpaSyllableBreakdownCard
+              syllables={assessment.syllables}
+              targetWord={targetWord}
+              targetIpa={targetIpa}
+              mouthShapeGuide={currentLesson?.mouthShapeGuide}
+              onOpenMouthGuide={() => setShowMouthGuide(true)}
+            />
 
-            {/* Nhận xét AI thực tế */}
+            {/* Nhận xét chi tiết từ AI */}
             {assessment.errorFeedback && assessment.errorFeedback.length > 0 && (
               <View style={s.feedbackBox}>
                 <Text style={s.feedbackTitle}>Nhận xét từ AI:</Text>
@@ -460,7 +590,7 @@ export const SingleWordSpeakingScreen = () => {
         )}
       </ScrollView>
 
-      {/* Record Mic Button Controls */}
+      {/* Record Mic Button Controls (Chuẩn 2-State Mic UI) */}
       <View style={s.micSection}>
         <Animated.View style={animatedPulseStyle}>
           <Pressable
@@ -485,9 +615,19 @@ export const SingleWordSpeakingScreen = () => {
             ? 'Đang gửi AI phân tích âm thanh...'
             : isRecording
             ? `Đang thu âm 00:0${recordTime}s • Chạm để hoàn tất & chấm điểm`
-            : 'Chạm micro để thu âm trực tiếp'}
+            : 'Chạm micro để thu âm giọng nói'}
         </Text>
       </View>
+
+      <MouthShapeGuideModal
+        visible={showMouthGuide}
+        onClose={() => setShowMouthGuide(false)}
+        targetWord={targetWord}
+        targetIpa={targetIpa}
+        mouthShapeGuide={currentLesson?.mouthShapeGuide}
+        mispronouncedPhoneme={assessment?.syllables?.find((s) => !s.isCorrect)?.ipa}
+        feedback={assessment?.syllables?.find((s) => !s.isCorrect)?.feedback}
+      />
     </View>
   );
 };
@@ -530,6 +670,24 @@ const s = StyleSheet.create({
     fontWeight: '700',
     color: palette.primary,
   },
+  noticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFFBEB',
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    marginBottom: 14,
+  },
+  noticeText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#B45309',
+    lineHeight: 17,
+    fontWeight: '600',
+  },
   wordCard: {
     backgroundColor: '#FFFFFF',
     padding: 24,
@@ -553,9 +711,9 @@ const s = StyleSheet.create({
     letterSpacing: -0.5,
   },
   ipaText: {
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: font.family,
-    fontWeight: '600',
+    fontWeight: '700',
     color: palette.primary,
     marginBottom: 8,
   },
@@ -602,10 +760,10 @@ const s = StyleSheet.create({
     marginBottom: 16,
   },
   readyIconWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: palette.primarySoft,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#ECFDF5',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
@@ -650,10 +808,11 @@ const s = StyleSheet.create({
     elevation: 2,
   },
   evaluatingTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: palette.text,
     marginBottom: 4,
+    textAlign: 'center',
   },
   evaluatingSubtitle: {
     fontSize: 12.5,
@@ -663,11 +822,10 @@ const s = StyleSheet.create({
   },
   scoreCard: {
     backgroundColor: '#FFFFFF',
-    padding: 20,
+    padding: 18,
     borderRadius: 24,
     borderWidth: 1,
     borderColor: palette.border,
-    alignItems: 'center',
     shadowColor: palette.text,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04,
@@ -675,179 +833,132 @@ const s = StyleSheet.create({
     elevation: 2,
     marginBottom: 16,
   },
-  scoreRingWrap: {
-    width: 88,
-    height: 88,
-    justifyContent: 'center',
+  ringHeaderSection: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
-    position: 'relative',
+    gap: 16,
+    marginBottom: 14,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
-  scoreOverlay: {
-    position: 'absolute',
-    alignItems: 'center',
-  },
-  scoreNumber: {
-    fontSize: 22,
-    fontFamily: font.family,
-    fontWeight: '800',
-    color: palette.text,
-  },
-  scoreLabel: {
-    fontSize: 9,
-    fontFamily: font.family,
-    fontWeight: '700',
-    color: palette.textSoft,
-    letterSpacing: 0.5,
+  scoreSummaryWrap: {
+    flex: 1,
   },
   scoreTitle: {
-    fontSize: 14,
-    fontFamily: font.family,
-    fontWeight: '700',
-    color: palette.text,
-    marginBottom: 14,
-    textAlign: 'center',
-  },
-  metricGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    width: '100%',
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  metricItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  metricVal: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
-    color: palette.text,
+    color: '#0F172A',
+    marginBottom: 4,
   },
-  metricLbl: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: palette.textSoft,
-    marginTop: 2,
-  },
-  metricDivider: {
-    width: 1,
-    height: 22,
-    backgroundColor: '#E2E8F0',
+  scoreSubTitle: {
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 17,
   },
   feedbackBox: {
-    width: '100%',
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#BBF7D0',
-    borderRadius: 12,
-    padding: 10,
-    marginBottom: 14,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 14,
   },
   feedbackTitle: {
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: '800',
-    color: '#15803D',
+    color: '#334155',
     marginBottom: 4,
   },
   feedbackText: {
     fontSize: 12,
-    color: '#166534',
-    lineHeight: 17,
+    color: '#475569',
+    lineHeight: 18,
   },
   playbackRow: {
     flexDirection: 'row',
     gap: 8,
     width: '100%',
+    marginTop: 14,
   },
   playbackBtn: {
     flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
     backgroundColor: palette.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
     paddingVertical: 11,
-    borderRadius: 14,
+    borderRadius: 12,
   },
   playbackBtnActive: {
-    backgroundColor: colors.primaryDeep,
+    backgroundColor: '#0284C7',
   },
   playbackBtnText: {
-    fontSize: 12,
-    fontFamily: font.family,
-    fontWeight: '700',
     color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   retryBtn: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 5,
+    flex: 1,
     backgroundColor: '#F1F5F9',
-    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
     paddingVertical: 11,
-    borderRadius: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   retryBtnText: {
+    color: '#334155',
     fontSize: 12,
     fontWeight: '700',
-    color: '#334155',
   },
   analysisBtn: {
-    flex: 1,
+    backgroundColor: '#4F46E5',
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: palette.text,
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: 14,
     paddingVertical: 11,
-    borderRadius: 14,
+    borderRadius: 12,
   },
   analysisBtnText: {
-    fontSize: 12,
-    fontFamily: font.family,
-    fontWeight: '700',
     color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   micSection: {
     alignItems: 'center',
     paddingTop: 8,
   },
   micBtn: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 6,
+    marginBottom: 8,
   },
   micBtnNormal: {
-    backgroundColor: palette.primary,
-    shadowColor: palette.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
+    backgroundColor: '#10B981', // Xanh ngọc bích chuẩn
+    shadowColor: '#10B981',
   },
   micBtnRecording: {
-    backgroundColor: palette.danger,
-    shadowColor: palette.danger,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 6,
+    backgroundColor: '#EF4444', // Đỏ cam khi đang thu âm
+    shadowColor: '#EF4444',
   },
   micHintText: {
-    fontSize: 12.5,
-    fontFamily: font.family,
+    fontSize: 12,
+    color: '#64748B',
     fontWeight: '600',
-    color: palette.textSoft,
+    textAlign: 'center',
   },
 });
