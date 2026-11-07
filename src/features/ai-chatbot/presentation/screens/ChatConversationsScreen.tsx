@@ -96,6 +96,8 @@ export const ChatConversationsScreen = () => {
   const [quotaError, setQuotaError] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
+  const dailyLimit = isPremium ? 999 : 15;
+  const [usedMessages, setUsedMessages] = useState(0);
   const [inputText, setInputText] = useState('');
   const [selectedLevel, setSelectedLevel] = useState<EnglishLevel>(getEnglishLevel(currentUser?.cefr_level));
   const [showLevelPicker, setShowLevelPicker] = useState(false);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -310,6 +310,80 @@ export const RoleplaySessionScreen = () => {
     scenario.image_url ||
     'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80';
 
+  // ── TÍNH TOÁN ĐÁNH GIÁ THỰC TẾ 100% TỪ LƯỢT THOẠI CỦA HỌC VIÊN ──
+  const sessionEvaluation = useMemo(() => {
+    const userTurns = turns.filter((t) => t.role === 'user');
+    const userTurnsCount = userTurns.length;
+
+    if (userTurnsCount === 0) {
+      return {
+        turnsCount: 0,
+        fluency: 0,
+        level: 'A1',
+        feedback: `Bạn chưa gửi lượt thoại nào. Hãy nhấn vào Micro hoặc nhập câu trả lời để đàm thoại cùng ${scenario.partner_name || scenario.ai_persona} nhé!`,
+      };
+    }
+
+    // 1. Phân tích số từ thực tế của các câu nói
+    const wordsPerTurn = userTurns.map((t) =>
+      t.text.trim().split(/\s+/).filter(Boolean).length
+    );
+    const totalWords = wordsPerTurn.reduce((sum, count) => sum + count, 0);
+    const avgWords = totalWords / userTurnsCount;
+
+    // 2. Tính điểm độ trôi chảy thực tế (Fluency Score)
+    let baseFluency = 30;
+    if (avgWords < 3) {
+      baseFluency = 35 + Math.round(avgWords * 5); // 35 - 50%
+    } else if (avgWords < 7) {
+      baseFluency = 50 + Math.round((avgWords - 3) * 6); // 50 - 74%
+    } else if (avgWords < 12) {
+      baseFluency = 75 + Math.round((avgWords - 7) * 3); // 75 - 90%
+    } else {
+      baseFluency = 90 + Math.min(6, Math.round(avgWords - 12)); // 90 - 96%
+    }
+
+    // Nhân hệ số tích cực theo số lượt tương tác
+    const turnFactor = Math.min(1.0, 0.65 + userTurnsCount * 0.1);
+    const calculatedFluency = Math.min(98, Math.max(15, Math.round(baseFluency * turnFactor)));
+
+    // 3. Đánh giá trình độ CEFR thực tế
+    let calculatedLevel = 'A1';
+    if (avgWords >= 10 && userTurnsCount >= 3) {
+      calculatedLevel = 'B2';
+    } else if (avgWords >= 6 && userTurnsCount >= 2) {
+      calculatedLevel = 'B1';
+    } else if (avgWords >= 3) {
+      calculatedLevel = 'A2';
+    } else {
+      calculatedLevel = 'A1';
+    }
+
+    // 4. Nhận xét của AI bám sát theo đúng tình huống kịch bản và câu nói của học viên
+    const partnerName = scenario.partner_name || scenario.ai_persona || 'đối tác AI';
+    const scenarioTitle = scenario.title || 'tình huống thực tế';
+
+    let dynamicFeedback = '';
+    if (userTurnsCount === 1) {
+      if (avgWords < 4) {
+        dynamicFeedback = `Bạn vừa trao đổi 1 câu ngắn (${totalWords} từ) với ${partnerName}. Để nâng cao độ trôi chảy trong tình huống '${scenarioTitle}', hãy thử ghép thành câu hoàn chỉnh hơn nhé!`;
+      } else {
+        dynamicFeedback = `Khởi đầu tốt với ${totalWords} từ trong lượt trao đổi đầu tiên. Hãy duy trì trò chuyện thêm nhiều lượt với ${partnerName} để AI đánh giá phản xạ ngữ pháp chuyên sâu hơn.`;
+      }
+    } else if (avgWords < 4) {
+      dynamicFeedback = `Bạn đã hoàn thành ${userTurnsCount} lượt thoại cùng ${partnerName} trong bối cảnh '${scenarioTitle}'. Các câu trả lời còn hơi ngắn, hãy bổ sung thêm liên từ (because, and, so) để câu nói mượt mà hơn.`;
+    } else {
+      dynamicFeedback = `Phản xạ tương đối tự nhiên trong tình huống '${scenarioTitle}'! Bạn đã duy trì được ${userTurnsCount} lượt đàm thoại với ${partnerName} (trung bình ${Math.round(avgWords)} từ/lượt). Tiếp tục phát huy ngữ điệu và vốn từ này nhé!`;
+    }
+
+    return {
+      turnsCount: userTurnsCount,
+      fluency: calculatedFluency,
+      level: calculatedLevel,
+      feedback: dynamicFeedback,
+    };
+  }, [turns, scenario]);
+
   return (
     <View style={s.root}>
       {/* ── TOP BAR (Sạch sẽ, thân thiện, không icon robot) ────────────────── */}
@@ -324,7 +398,7 @@ export const RoleplaySessionScreen = () => {
               } catch (_) {}
             }
             const userTurnsCount = turns.filter((t) => t.role === 'user').length;
-            if (userTurnsCount === 0) {
+            if (userTurnsCount < 2) {
               router.back();
               return;
             }
@@ -385,6 +459,27 @@ export const RoleplaySessionScreen = () => {
             ) : (
               <Volume2 color="#4F46E5" size={16} />
             )}
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              stopSpeech();
+              Speech.stop();
+              setShowSummaryModal(true);
+            }}
+            style={[
+              s.iconBtn,
+              {
+                width: 'auto',
+                paddingHorizontal: 9,
+                backgroundColor: '#EEF2FF',
+                borderWidth: 1,
+                borderColor: '#C7D2FE',
+              },
+            ]}
+            accessibilityLabel="Kết thúc phiên"
+          >
+            <Text style={{ fontSize: 11, fontWeight: '700', color: '#4F46E5' }}>Kết thúc</Text>
           </Pressable>
         </View>
       </View>
@@ -553,26 +648,28 @@ export const RoleplaySessionScreen = () => {
 
             <View style={s.scoreBox}>
               <View style={s.scoreItem}>
-                <Text style={s.scoreNumber}>{turns.length}</Text>
+                <Text style={s.scoreNumber}>{sessionEvaluation.turnsCount}</Text>
                 <Text style={s.scoreLabel}>Lượt thoại</Text>
               </View>
               <View style={s.scoreDivider} />
               <View style={s.scoreItem}>
-                <Text style={[s.scoreNumber, { color: '#4F46E5' }]}>88%</Text>
+                <Text style={[s.scoreNumber, { color: '#4F46E5' }]}>
+                  {sessionEvaluation.fluency}%
+                </Text>
                 <Text style={s.scoreLabel}>Độ trôi chảy</Text>
               </View>
               <View style={s.scoreDivider} />
               <View style={s.scoreItem}>
-                <Text style={[s.scoreNumber, { color: '#059669' }]}>A2+</Text>
+                <Text style={[s.scoreNumber, { color: '#059669' }]}>
+                  {sessionEvaluation.level}
+                </Text>
                 <Text style={s.scoreLabel}>Trình độ</Text>
               </View>
             </View>
 
             <View style={s.feedbackCard}>
               <Text style={s.feedbackTitle}>Nhận xét của AI:</Text>
-              <Text style={s.feedbackText}>
-                Phản xạ tương đối tự nhiên, ngữ điệu rõ ràng. Chú ý kéo dài nguyên âm và phát âm rõ âm đuôi khi gọi món.
-              </Text>
+              <Text style={s.feedbackText}>{sessionEvaluation.feedback}</Text>
             </View>
 
             <View style={s.modalActions}>

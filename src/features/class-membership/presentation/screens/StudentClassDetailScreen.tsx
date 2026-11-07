@@ -3,6 +3,7 @@ import { View, Text, Pressable, ScrollView, ActivityIndicator, StatusBar, FlatLi
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Users } from 'lucide-react-native';
 import { StudentAssignmentsScreen } from './StudentAssignmentsScreen';
+import { StudentGradesTab } from './StudentGradesTab';
 import {
   useClassDetail,
   useClassMembers,
@@ -12,7 +13,7 @@ import {
 export const StudentClassDetailScreen = () => {
   const { classId } = useLocalSearchParams<{ classId?: string }>();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'curriculum' | 'assignments' | 'members'>('curriculum');
+  const [activeTab, setActiveTab] = useState<'curriculum' | 'assignments' | 'grades' | 'members'>('curriculum');
 
   const validClassId = classId ? String(classId) : '';
   const { data: currentClass, isLoading: isClassLoading, isError: isClassError, error: classError, refetch: refetchClass } = useClassDetail(validClassId);
@@ -133,16 +134,16 @@ export const StudentClassDetailScreen = () => {
           <Text className="text-xs text-emerald-600 font-semibold">● Đang hoạt động</Text>
         </View>
 
-        {/* 3 Tabs Bar */}
+        {/* 4 Tabs Bar */}
         <View className="flex-row bg-gray-100 p-1 rounded-xl">
           <Pressable
             onPress={() => setActiveTab('curriculum')}
             className={`flex-1 py-2 rounded-lg items-center ${
-              activeTab === 'curriculum' ? 'bg-white shadow-xs' : ''
+              activeTab === 'curriculum' ? 'bg-white shadow-sm' : ''
             }`}
           >
             <Text
-              className={`font-bold text-xs ${
+              className={`font-bold text-[11px] ${
                 activeTab === 'curriculum' ? 'text-primary' : 'text-gray-500'
               }`}
             >
@@ -153,11 +154,11 @@ export const StudentClassDetailScreen = () => {
           <Pressable
             onPress={() => setActiveTab('assignments')}
             className={`flex-1 py-2 rounded-lg items-center ${
-              activeTab === 'assignments' ? 'bg-white shadow-xs' : ''
+              activeTab === 'assignments' ? 'bg-white shadow-sm' : ''
             }`}
           >
             <Text
-              className={`font-bold text-xs ${
+              className={`font-bold text-[11px] ${
                 activeTab === 'assignments' ? 'text-primary' : 'text-gray-500'
               }`}
             >
@@ -166,13 +167,28 @@ export const StudentClassDetailScreen = () => {
           </Pressable>
 
           <Pressable
-            onPress={() => setActiveTab('members')}
+            onPress={() => setActiveTab('grades')}
             className={`flex-1 py-2 rounded-lg items-center ${
-              activeTab === 'members' ? 'bg-white shadow-xs' : ''
+              activeTab === 'grades' ? 'bg-white shadow-sm' : ''
             }`}
           >
             <Text
-              className={`font-bold text-xs ${
+              className={`font-bold text-[11px] ${
+                activeTab === 'grades' ? 'text-primary' : 'text-gray-500'
+              }`}
+            >
+              Bảng điểm
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setActiveTab('members')}
+            className={`flex-1 py-2 rounded-lg items-center ${
+              activeTab === 'members' ? 'bg-white shadow-sm' : ''
+            }`}
+          >
+            <Text
+              className={`font-bold text-[11px] ${
                 activeTab === 'members' ? 'text-primary' : 'text-gray-500'
               }`}
             >
@@ -188,7 +204,7 @@ export const StudentClassDetailScreen = () => {
         {activeTab === 'curriculum' && (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
             {/* Attached Course Banner */}
-            <View className="bg-gradient-to-r from-sky-50 to-indigo-50 bg-sky-50 p-4 rounded-2xl border border-sky-200 mb-4 shadow-xs">
+            <View className="bg-gradient-to-r from-sky-50 to-indigo-50 bg-sky-50 p-4 rounded-2xl border border-sky-200 mb-4 shadow-sm">
               <View className="flex-row items-center gap-2 mb-1.5">
                 <Text className="text-lg">📚</Text>
                 <Text className="text-xs font-bold text-sky-900 uppercase tracking-wide">
@@ -270,7 +286,12 @@ export const StudentClassDetailScreen = () => {
           <StudentAssignmentsScreen classId={classId || '1'} />
         )}
 
-        {/* TAB 3: MEMBERS */}
+        {/* TAB 3: GRADES (BẢNG ĐIỂM) */}
+        {activeTab === 'grades' && (
+          <StudentGradesTab classId={validClassId} className={currentClass?.name} />
+        )}
+
+        {/* TAB 4: MEMBERS */}
         {activeTab === 'members' && (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
             {/* Teacher section */}
@@ -292,6 +313,13 @@ export const StudentClassDetailScreen = () => {
                     </View>
                   </View>
                   <Text className="text-xs text-gray-500">Trực tiếp giao bài tập & chấm điểm</Text>
+                  {currentClass?.courseTitle ? (
+                    <View className="flex-row items-center gap-1.5 mt-2 bg-sky-50 px-2.5 py-1 rounded-lg border border-sky-100 self-start">
+                      <Text className="text-[11px] text-sky-800 font-semibold">
+                        📚 Khóa học phụ trách: {currentClass.courseTitle}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
               </View>
             </View>

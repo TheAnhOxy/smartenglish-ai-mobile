@@ -3,6 +3,8 @@ import {
   View,
   Text,
   ScrollView,
+  FlatList,
+  RefreshControl,
   Pressable,
   Image,
   TextInput,
@@ -13,6 +15,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -40,6 +43,7 @@ import {
   Sparkles,
   Send,
   UserCheck,
+  Download,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
@@ -53,6 +57,7 @@ import {
   ChatMessageDto,
   FriendshipRequestDto,
   fetchCommunityPostsApi,
+  fetchCommunityPostsPaginatedApi,
   createCommunityPostApi,
   togglePostLikeApi,
   fetchUserConversationsApi,
@@ -61,6 +66,8 @@ import {
   createDirectConversationApi,
   fetchFriendRequestsApi,
   fetchSentFriendRequestsApi,
+  getStoredSentFriendRequestIds,
+  getStoredSentFriendRequests,
   fetchFriendsApi,
   respondFriendRequestApi,
   sendPresenceHeartbeatApi,
@@ -134,9 +141,13 @@ export const SocialFeedScreen = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
 
-  // ─── 1. Feed State ───
+  // ─── 1. Feed State (Scalable Infinite Pagination) ───
   const [posts, setPosts] = useState<CommunityPostDto[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
+  const [feedPage, setFeedPage] = useState(0);
+  const [hasMorePosts, setHasMorePosts] = useState(true);
+  const [loadingMorePosts, setLoadingMorePosts] = useState(false);
+  const [refreshingPosts, setRefreshingPosts] = useState(false);
   const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newPostContent, setNewPostContent] = useState('');
@@ -155,13 +166,17 @@ export const SocialFeedScreen = () => {
 
   // ─── 3. Requests State ───
   const [pendingRequests, setPendingRequests] = useState<FriendshipRequestDto[]>([]);
-  const [sentRequests, setSentRequests] = useState<FriendshipRequestDto[]>([]);
+  const [sentRequests, setSentRequests] = useState<FriendshipRequestDto[]>(() =>
+    getStoredSentFriendRequests(currentUserId)
+  );
   const [friendsList, setFriendsList] = useState<any[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(true);
 
   // ─── 4. Community Users & Group Creation State ───
   const [communityUsers, setCommunityUsers] = useState<any[]>([]);
-  const [sentRequestIds, setSentRequestIds] = useState<Set<number>>(new Set());
+  const [sentRequestIds, setSentRequestIds] = useState<Set<number>>(() =>
+    new Set(getStoredSentFriendRequestIds(currentUserId))
+  );
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [selectedGroupMemberIds, setSelectedGroupMemberIds] = useState<Set<number>>(new Set());
@@ -175,13 +190,21 @@ export const SocialFeedScreen = () => {
   const [commentingPost, setCommentingPost] = useState<CommunityPostDto | null>(null);
   const [sharingPost, setSharingPost] = useState<CommunityPostDto | null>(null);
 
-  // ─── Load Real Feed Posts ───
-  const loadPosts = useCallback(async () => {
+  // ─── Load Real Feed Posts (Infinite Pagination & Cache Sync) ───
+  const loadPosts = useCallback(async (isRefresh = false) => {
     try {
-      const data = await fetchCommunityPostsApi(0, 20);
-      setPosts(data);
+      if (isRefresh) {
+        setRefreshingPosts(true);
+      } else {
+        setLoadingPosts(true);
+      }
+      const res = await fetchCommunityPostsPaginatedApi(0, 15);
+      setPosts(res.posts);
+      setFeedPage(0);
+      setHasMorePosts(res.hasMore);
+
       const initialLikes = new Set<string>();
-      data.forEach((p: CommunityPostDto) => {
+      res.posts.forEach((p: CommunityPostDto) => {
         if (p.likedUserIds && p.likedUserIds.includes(currentUserId)) {
           initialLikes.add(p.id);
         }
@@ -191,8 +214,33 @@ export const SocialFeedScreen = () => {
       console.warn('loadPosts error:', err);
     } finally {
       setLoadingPosts(false);
+      setRefreshingPosts(false);
     }
   }, [currentUserId]);
+
+  const handleLoadMorePosts = useCallback(async () => {
+    if (loadingMorePosts || !hasMorePosts || loadingPosts || refreshingPosts) return;
+    try {
+      setLoadingMorePosts(true);
+      const nextPage = feedPage + 1;
+      const res = await fetchCommunityPostsPaginatedApi(nextPage, 15);
+      if (res.posts && res.posts.length > 0) {
+        setPosts((prev) => {
+          const existingIds = new Set(prev.map((p) => p.id));
+          const uniqueNew = res.posts.filter((p) => !existingIds.has(p.id));
+          return [...prev, ...uniqueNew];
+        });
+        setFeedPage(nextPage);
+        setHasMorePosts(res.hasMore && res.posts.length >= 15);
+      } else {
+        setHasMorePosts(false);
+      }
+    } catch (err) {
+      console.warn('handleLoadMorePosts error:', err);
+    } finally {
+      setLoadingMorePosts(false);
+    }
+  }, [loadingMorePosts, hasMorePosts, loadingPosts, refreshingPosts, feedPage]);
 
   // ─── Load Real Conversations (Always includes Community Group) ───
   const loadConversations = useCallback(async () => {
@@ -240,7 +288,13 @@ export const SocialFeedScreen = () => {
       setPendingRequests(pending);
       setSentRequests(sent);
       setFriendsList(friends);
-      setSentRequestIds(new Set(sent.map((s: any) => Number(s.addresseeId))));
+
+      const localIds = getStoredSentFriendRequestIds(currentUserId);
+      const allSentIds = new Set<number>([
+        ...sent.map((s: any) => Number(s.addresseeId)),
+        ...localIds,
+      ]);
+      setSentRequestIds(allSentIds);
     } catch (err) {
       console.warn('loadRequests error:', err);
     } finally {
@@ -923,123 +977,189 @@ export const SocialFeedScreen = () => {
               <DatabaseLoader size="sm" message="Đang tải..." />
             </View>
           ) : (
-            <ScrollView
-              style={{ flex: 1 }}
+            <FlatList
+              data={displayedPosts}
+              keyExtractor={(item, index) => item.id || `post-${index}`}
+              renderItem={({ item: post, index }) => {
+                const isLiked = likedPostIds.has(post.id);
+                const isTeacher =
+                  (post.authorRole || '').toUpperCase().includes('GIÁO') ||
+                  (post.authorRole || '').toUpperCase().includes('TEACHER');
+                const isAdmin =
+                  (post.authorRole || '').toUpperCase().includes('QUẢN') ||
+                  (post.authorRole || '').toUpperCase().includes('ADMIN');
+
+                return (
+                  <Animated.View
+                    key={post.id || `post-${index}`}
+                    entering={FadeInDown.delay(Math.min(index, 6) * 50)}
+                    style={s.postCard}
+                  >
+                    <View style={s.postHeader}>
+                      {cleanAvatarUrl(post.authorAvatar) ? (
+                        <Image
+                          source={{ uri: cleanAvatarUrl(post.authorAvatar)! }}
+                          style={s.postAvatar}
+                        />
+                      ) : (
+                        <View style={s.avatarLetterBg}>
+                          <Text style={s.avatarLetter}>
+                            {(post.authorName || 'S').charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.postAuthor}>{post.authorName || 'Người dùng SmartEnglish'}</Text>
+                        <Text style={s.postTime}>{formatTimeAgo(post.createdAt)}</Text>
+                      </View>
+
+                      {isTeacher && (
+                        <View style={s.badgeSharedDeck}>
+                          <BookOpen color="#0369A1" size={12} />
+                          <Text style={s.badgeSharedDeckText}>Giáo viên</Text>
+                        </View>
+                      )}
+                      {isAdmin && (
+                        <View style={s.badgeAchievement}>
+                          <Award color="#B45309" size={12} />
+                          <Text style={s.badgeAchievementText}>Quản trị viên</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    <Text style={s.postContent}>{post.content}</Text>
+
+                    {post.mediaUrl && (
+                      <Pressable
+                        onPress={() => {
+                          setViewingImageUrl(post.mediaUrl!);
+                          setViewingImageCaption(post.mediaCaption || post.content);
+                          setViewingImageAuthor(post.authorName || null);
+                        }}
+                        style={s.achievementGraphicBox}
+                      >
+                        <Image
+                          source={{ uri: post.mediaUrl }}
+                          style={s.achievementGraphicImg}
+                          resizeMode="contain"
+                        />
+
+                        {/* Nút bấm ở giữa ảnh để xem toàn màn hình giống trên Web Admin */}
+                        <View style={s.viewFullImageBadge}>
+                          <Text style={s.viewFullImageText}>Bấm để xem ảnh to toàn màn hình</Text>
+                        </View>
+
+                        {post.mediaCaption && (
+                          <View style={s.achievementOverlay}>
+                            <Text style={s.achievementSub}>{post.mediaCaption}</Text>
+                          </View>
+                        )}
+                      </Pressable>
+                    )}
+
+                    {/* Tệp tài liệu đính kèm (nếu có) */}
+                    {post.attachment && (
+                      <View style={s.postAttachmentCard}>
+                        <View style={s.postAttachmentInfo}>
+                          <View style={s.pdfBadge}>
+                            <Text style={s.pdfBadgeText}>
+                              {post.attachment.type ? post.attachment.type.toUpperCase() : 'PDF'}
+                            </Text>
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={s.postAttachmentName} numberOfLines={1}>
+                              {post.attachment.name || 'Tài liệu đính kèm'}
+                            </Text>
+                            {post.attachment.size && (
+                              <Text style={s.postAttachmentSize}>{post.attachment.size}</Text>
+                            )}
+                          </View>
+                        </View>
+                        <Pressable
+                          onPress={() => {
+                            if (post.attachment?.url) {
+                              Linking.openURL(post.attachment.url).catch(() => {
+                                Alert.alert('Thông báo', 'Không thể mở liên kết tài liệu.');
+                              });
+                            } else {
+                              Alert.alert('Thông báo', `Tài liệu: ${post.attachment?.name || 'Tệp đính kèm'}`);
+                            }
+                          }}
+                          style={s.downloadBtn}
+                        >
+                          <Download color="#475569" size={14} />
+                          <Text style={s.downloadBtnText}>Tải về</Text>
+                        </Pressable>
+                      </View>
+                    )}
+
+                    {post.tags && post.tags.length > 0 && (
+                      <View style={s.tagsRow}>
+                        {post.tags.map((t: string, tIdx: number) => (
+                          <View key={tIdx} style={s.tagPill}>
+                            <Text style={s.tagPillText}>#{t}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+
+                    <View style={s.postFooter}>
+                      <Pressable onPress={() => handleToggleLike(post.id)} style={s.actionBtn}>
+                        <Heart
+                          color={isLiked ? '#EF4444' : '#64748B'}
+                          fill={isLiked ? '#EF4444' : 'none'}
+                          size={18}
+                        />
+                        <Text style={[s.actionText, isLiked && { color: '#EF4444', fontWeight: '700' }]}>
+                          {post.likesCount || 0}
+                        </Text>
+                      </Pressable>
+
+                      <Pressable onPress={() => setCommentingPost(post)} style={s.actionBtn}>
+                        <MessageSquare color="#64748B" size={18} />
+                        <Text style={s.actionText}>
+                          {post.commentsCount ?? (post.comments ? post.comments.length : 0)}
+                        </Text>
+                      </Pressable>
+
+                      <Pressable onPress={() => setSharingPost(post)} style={s.actionBtn}>
+                        <Share2 color="#64748B" size={18} />
+                      </Pressable>
+                    </View>
+                  </Animated.View>
+                );
+              }}
+              onEndReached={handleLoadMorePosts}
+              onEndReachedThreshold={0.5}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshingPosts}
+                  onRefresh={() => loadPosts(true)}
+                  colors={['#4F46E5']}
+                  tintColor="#4F46E5"
+                />
+              }
+              initialNumToRender={5}
+              maxToRenderPerBatch={5}
+              windowSize={7}
+              removeClippedSubviews={Platform.OS === 'android'}
               showsVerticalScrollIndicator={false}
-            >
-              {displayedPosts.length === 0 ? (
+              contentContainerStyle={{ paddingBottom: 100 }}
+              ListEmptyComponent={
                 <View style={s.emptyBox}>
                   <Globe color="#94A3B8" size={40} />
                   <Text style={s.emptyTitle}>Chưa có bài viết nào</Text>
                   <Text style={s.emptySub}>Hãy là người đầu tiên chia sẻ cảm nghĩ hoặc tài liệu nhé!</Text>
                 </View>
-              ) : (
-                displayedPosts.map((post, index) => {
-                  const isLiked = likedPostIds.has(post.id);
-                  const isTeacher = (post.authorRole || '').toUpperCase().includes('GIÁO') || (post.authorRole || '').toUpperCase().includes('TEACHER');
-                  const isAdmin = (post.authorRole || '').toUpperCase().includes('QUẢN') || (post.authorRole || '').toUpperCase().includes('ADMIN');
-
-                  return (
-                    <Animated.View
-                      key={post.id || `post-${index}`}
-                      entering={FadeInDown.delay(index * 60)}
-                      style={s.postCard}
-                    >
-                      <View style={s.postHeader}>
-                        {cleanAvatarUrl(post.authorAvatar) ? (
-                          <Image
-                            source={{ uri: cleanAvatarUrl(post.authorAvatar)! }}
-                            style={s.postAvatar}
-                          />
-                        ) : (
-                          <View style={s.avatarLetterBg}>
-                            <Text style={s.avatarLetter}>
-                              {(post.authorName || 'S').charAt(0).toUpperCase()}
-                            </Text>
-                          </View>
-                        )}
-                        <View style={{ flex: 1 }}>
-                          <Text style={s.postAuthor}>{post.authorName || 'Người dùng SmartEnglish'}</Text>
-                          <Text style={s.postTime}>{formatTimeAgo(post.createdAt)}</Text>
-                        </View>
-
-                        {isTeacher && (
-                          <View style={s.badgeSharedDeck}>
-                            <BookOpen color="#0369A1" size={12} />
-                            <Text style={s.badgeSharedDeckText}>Giáo viên</Text>
-                          </View>
-                        )}
-                        {isAdmin && (
-                          <View style={s.badgeAchievement}>
-                            <Award color="#B45309" size={12} />
-                            <Text style={s.badgeAchievementText}>Quản trị viên</Text>
-                          </View>
-                        )}
-                      </View>
-
-                      <Text style={s.postContent}>{post.content}</Text>
-
-                      {post.mediaUrl && (
-                        <Pressable
-                          onPress={() => {
-                            setViewingImageUrl(post.mediaUrl!);
-                            setViewingImageCaption(post.mediaCaption || post.content);
-                            setViewingImageAuthor(post.authorName || null);
-                          }}
-                          style={s.achievementGraphicBox}
-                        >
-                          <Image
-                            source={{ uri: post.mediaUrl }}
-                            style={s.achievementGraphicImg}
-                            resizeMode="cover"
-                          />
-                          {post.mediaCaption && (
-                            <View style={s.achievementOverlay}>
-                              <Text style={s.achievementSub}>{post.mediaCaption}</Text>
-                            </View>
-                          )}
-                        </Pressable>
-                      )}
-
-                      {post.tags && post.tags.length > 0 && (
-                        <View style={s.tagsRow}>
-                          {post.tags.map((t: string, tIdx: number) => (
-                            <View key={tIdx} style={s.tagPill}>
-                              <Text style={s.tagPillText}>#{t}</Text>
-                            </View>
-                          ))}
-                        </View>
-                      )}
-
-                      <View style={s.postFooter}>
-                        <Pressable onPress={() => handleToggleLike(post.id)} style={s.actionBtn}>
-                          <Heart
-                            color={isLiked ? '#EF4444' : '#64748B'}
-                            fill={isLiked ? '#EF4444' : 'none'}
-                            size={18}
-                          />
-                          <Text style={[s.actionText, isLiked && { color: '#EF4444', fontWeight: '700' }]}>
-                            {post.likesCount || 0}
-                          </Text>
-                        </Pressable>
-
-                        <Pressable onPress={() => setCommentingPost(post)} style={s.actionBtn}>
-                          <MessageSquare color="#64748B" size={18} />
-                          <Text style={s.actionText}>
-                            {post.commentsCount ?? (post.comments ? post.comments.length : 0)}
-                          </Text>
-                        </Pressable>
-
-                        <Pressable onPress={() => setSharingPost(post)} style={s.actionBtn}>
-                          <Share2 color="#64748B" size={18} />
-                        </Pressable>
-                      </View>
-                    </Animated.View>
-                  );
-                })
-              )}
-              <View style={{ height: 80 }} />
-            </ScrollView>
+              }
+              ListFooterComponent={
+                loadingMorePosts ? (
+                  <View style={{ paddingVertical: 18, alignItems: 'center', justifyContent: 'center' }}>
+                    <ActivityIndicator size="small" color="#4F46E5" />
+                  </View>
+                ) : null
+              }
+            />
           )}
 
           <Pressable onPress={() => setShowCreateModal(true)} style={s.fabBtn}>
@@ -2225,8 +2345,97 @@ const s = StyleSheet.create({
   badgeSharedDeck: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#E0F2FE', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100 },
   badgeSharedDeckText: { fontSize: 10, fontWeight: '700', color: '#0369A1' },
   postContent: { fontSize: 13.5, color: '#334155', lineHeight: 21, fontWeight: '400', marginBottom: 12 },
-  achievementGraphicBox: { height: 160, borderRadius: 16, overflow: 'hidden', marginBottom: 12, position: 'relative' },
+  achievementGraphicBox: {
+    height: 290,
+    backgroundColor: '#090D16',
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 12,
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
   achievementGraphicImg: { width: '100%', height: '100%' },
+  viewFullImageBadge: {
+    position: 'absolute',
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  viewFullImageText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  postAttachmentCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  postAttachmentInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    marginRight: 8,
+  },
+  pdfBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pdfBadgeText: {
+    color: '#DC2626',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  postAttachmentName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  postAttachmentSize: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  downloadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  downloadBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
   achievementOverlay: { position: 'absolute', bottom: 10, left: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.65)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
   achievementSub: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },

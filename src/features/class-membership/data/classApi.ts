@@ -41,6 +41,9 @@ export interface ClassAssignmentDTO {
   isGraded?: boolean;
   status?: 'Chưa làm' | 'Đang làm' | 'Đã nộp' | 'Đạt' | 'Chưa đạt';
   submittedCount?: number;
+  score?: number | string;
+  grade?: number | string;
+  feedback?: string;
 }
 
 export interface CourseLessonDTO {
