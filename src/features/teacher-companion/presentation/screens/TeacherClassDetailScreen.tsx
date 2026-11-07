@@ -106,7 +106,7 @@ export const TeacherClassDetailScreen = () => {
           onPress={handleOpenWebPortal}
           className="border border-secondary py-3.5 rounded-xl items-center active:bg-secondary/10"
         >
-          <Text className="text-secondary font-bold text-base">Mở Web Portal Để Chấm Điểm & Giao Bài 🌐</Text>
+          <Text className="text-secondary font-bold text-base">Mở trang web để chấm bài & giao bài</Text>
         </Pressable>
       </View>
     </View>

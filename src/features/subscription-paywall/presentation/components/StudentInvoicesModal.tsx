@@ -145,10 +145,7 @@ export const StudentInvoicesModal: React.FC<StudentInvoicesModalProps> = ({
                 <FileCheck2 color="#0284C7" size={20} />
               </View>
               <View>
-                <Text style={styles.title}>Quản Lý Hóa Đơn Điện Tử</Text>
-                <Text style={styles.subtitle}>
-                  Chuẩn hóa đơn điện tử SePay eInvoice Napas 24/7
-                </Text>
+                <Text style={styles.title}>Hóa đơn điện tử</Text>
               </View>
             </View>
             <Pressable onPress={onClose} style={styles.closeBtn}>
@@ -239,29 +236,9 @@ export const StudentInvoicesModal: React.FC<StudentInvoicesModalProps> = ({
               </View>
             ) : (
               /* ========================================================================= */
-              /* GIAO DIỆN QUẢN LÝ DANH SÁCH HÓA ĐƠN CHUẨN SEPAY EINVOICE                  */
+              /* GIAO DIỆN DANH SÁCH HÓA ĐƠN                                               */
               /* ========================================================================= */
               <View style={{ paddingBottom: 24 }}>
-                {/* 1. Thẻ Thống Kê Tổng Quan */}
-                <View style={styles.statsRow}>
-                  <View style={styles.statCard}>
-                    <Text style={styles.statNum}>{orders.length}</Text>
-                    <Text style={styles.statLabel}>Tổng hóa đơn</Text>
-                  </View>
-                  <View style={[styles.statCard, { borderLeftColor: '#10B981', borderLeftWidth: 3 }]}>
-                    <Text style={[styles.statNum, { color: '#059669' }]}>{paidCount}</Text>
-                    <Text style={styles.statLabel}>Đã thanh toán</Text>
-                  </View>
-                  <View style={[styles.statCard, { borderLeftColor: '#F59E0B', borderLeftWidth: 3 }]}>
-                    <Text style={[styles.statNum, { color: '#D97706' }]}>{pendingCount}</Text>
-                    <Text style={styles.statLabel}>Chờ quét QR</Text>
-                  </View>
-                  <View style={[styles.statCard, { borderLeftColor: '#EF4444', borderLeftWidth: 3 }]}>
-                    <Text style={[styles.statNum, { color: '#DC2626' }]}>{refundedCount}</Text>
-                    <Text style={styles.statLabel}>Đã hoàn tiền</Text>
-                  </View>
-                </View>
-
                 {/* 2. Thanh Tìm Kiếm Đơn Hàng / Hóa Đơn */}
                 <View style={styles.searchBar}>
                   <Search color="#64748B" size={16} />
@@ -390,7 +367,9 @@ export const StudentInvoicesModal: React.FC<StudentInvoicesModalProps> = ({
                           {/* Body Thẻ: Tên Gói & Cổng Thanh Toán */}
                           <View style={{ marginTop: 8 }}>
                             <Text style={styles.sepayCardPlanName}>
-                              {ord.planName || 'Gói Học Viên Premium'}
+                              {(ord.planName && !ord.planName.includes('Giảng Viên') && !ord.planName.includes('Teacher')) || (typeof ord.amount === 'number' && ord.amount > 50000)
+                                ? (ord.planName || 'Gói Học Viên Pro')
+                                : 'Gói Học Viên Pro'}
                             </Text>
                           </View>
 

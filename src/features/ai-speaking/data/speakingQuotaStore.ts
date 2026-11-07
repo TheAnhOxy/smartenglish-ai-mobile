@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Platform } from 'react-native';
 
-export const FREE_SPEAKING_DAILY_LIMIT = 20;
+export const FREE_SPEAKING_DAILY_LIMIT = 10;
 
 export interface SpeakingDailyQuota {
   date: string;

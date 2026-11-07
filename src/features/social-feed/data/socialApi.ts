@@ -12,6 +12,12 @@ export interface CommunityPostDto {
   mediaType?: string | null;
   mediaUrl?: string | null;
   mediaCaption?: string | null;
+  attachment?: {
+    name?: string;
+    url?: string;
+    size?: string;
+    type?: string;
+  } | null;
   likesCount?: number;
   commentsCount?: number;
   likedUserIds?: number[];
@@ -108,21 +114,39 @@ export interface FriendshipRequestDto {
 
 // ─── 1. BÀI VIẾT CỘNG ĐỒNG (POSTS) ───
 
-export const fetchCommunityPostsApi = async (page = 0, size = 10, search = '', tag = ''): Promise<CommunityPostDto[]> => {
+export interface CommunityPostsPageResult {
+  posts: CommunityPostDto[];
+  hasMore: boolean;
+  page: number;
+}
+
+export const fetchCommunityPostsPaginatedApi = async (
+  page = 0,
+  size = 15,
+  search = '',
+  tag = ''
+): Promise<CommunityPostsPageResult> => {
   try {
     let url = `/api/v1/social/posts?page=${page}&size=${size}`;
     if (search) url += `&search=${encodeURIComponent(search)}`;
     if (tag) url += `&tag=${encodeURIComponent(tag)}`;
 
     const res = await apiClient.get<any>(url);
-    const data = res.data?.data || res.data;
-    if (Array.isArray(data)) {
-      return data;
-    }
+    const body = res.data;
+    const items = body?.data || body || [];
+    const posts = Array.isArray(items) ? items : [];
+    const hasMore = body?.hasMore !== undefined ? Boolean(body.hasMore) : posts.length >= size;
+
+    return { posts, hasMore, page };
   } catch (err) {
-    console.warn('[SocialApi] fetchCommunityPostsApi failed:', err);
+    console.warn('[SocialApi] fetchCommunityPostsPaginatedApi failed:', err);
+    return { posts: [], hasMore: false, page };
   }
-  return [];
+};
+
+export const fetchCommunityPostsApi = async (page = 0, size = 15, search = '', tag = ''): Promise<CommunityPostDto[]> => {
+  const result = await fetchCommunityPostsPaginatedApi(page, size, search, tag);
+  return result.posts;
 };
 export const createCommunityPostApi = async (payload: {
   authorId: number;
@@ -207,18 +231,46 @@ export const setCachedMessages = (conversationId: string, msgs: ChatMessageDto[]
   messagesCacheMap.set(conversationId, msgs);
 };
 
-export const fetchConversationMessagesApi = async (conversationId: string, userId?: number): Promise<ChatMessageDto[]> => {
+export interface ConversationMessagesPageResult {
+  messages: ChatMessageDto[];
+  hasMore: boolean;
+}
+
+export const fetchConversationMessagesPaginatedApi = async (
+  conversationId: string,
+  options?: { page?: number; size?: number; before?: string }
+): Promise<ConversationMessagesPageResult> => {
   try {
-    const res = await apiClient.get<any>(`/api/v1/social/conversations/${conversationId}/messages`);
-    const data = res.data?.data || res.data;
-    if (Array.isArray(data)) {
-      messagesCacheMap.set(conversationId, data);
-      return data;
+    const page = options?.page ?? 0;
+    const size = options?.size ?? 30;
+    let url = `/api/v1/social/conversations/${conversationId}/messages?page=${page}&size=${size}`;
+    if (options?.before) {
+      url += `&before=${encodeURIComponent(options.before)}`;
     }
+    const res = await apiClient.get<any>(url);
+    const body = res.data;
+    const list = body?.data || body || [];
+    const messages = Array.isArray(list) ? list : [];
+    const hasMore = body?.hasMore !== undefined ? Boolean(body.hasMore) : messages.length >= size;
+
+    // Cache page 0 for instant 0ms open
+    if (page === 0 && !options?.before && messages.length > 0) {
+      messagesCacheMap.set(conversationId, messages);
+    }
+    return { messages, hasMore };
   } catch (err) {
-    console.warn('[SocialApi] fetchConversationMessagesApi failed:', err);
+    console.warn('[SocialApi] fetchConversationMessagesPaginatedApi failed:', err);
+    const cached = messagesCacheMap.get(conversationId) || [];
+    return { messages: cached, hasMore: false };
   }
-  return messagesCacheMap.get(conversationId) || [];
+};
+
+export const fetchConversationMessagesApi = async (
+  conversationId: string,
+  userId?: number
+): Promise<ChatMessageDto[]> => {
+  const result = await fetchConversationMessagesPaginatedApi(conversationId, { page: 0, size: 30 });
+  return result.messages;
 };
 
 export const sendMessageApi = async (conversationId: string, payload: {
@@ -380,9 +432,60 @@ export const createDirectConversationApi = async (params: {
 
 // ─── 3. BẠN BÈ & LỜI MỜI (FRIENDS & REQUESTS) ───
 
+const SENT_FRIEND_REQUESTS_STORAGE_KEY = 'se_sent_friend_request_ids';
+const SENT_FRIEND_REQUESTS_OBJECTS_KEY = 'se_sent_friend_requests_list';
+
+export const getStoredSentFriendRequestIds = (userId: number): number[] => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const raw = window.localStorage.getItem(`${SENT_FRIEND_REQUESTS_STORAGE_KEY}_${userId}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed.map(Number);
+      }
+    }
+  } catch {}
+  return [];
+};
+
+export const getStoredSentFriendRequests = (userId: number): FriendshipRequestDto[] => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const rawObjs = window.localStorage.getItem(`${SENT_FRIEND_REQUESTS_OBJECTS_KEY}_${userId}`);
+      if (rawObjs) {
+        const objs = JSON.parse(rawObjs);
+        if (Array.isArray(objs)) return objs;
+      }
+    }
+  } catch {}
+  return [];
+};
+
+export const saveStoredSentFriendRequest = (userId: number, request: FriendshipRequestDto) => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      // 1. Lưu danh sách ID đã gửi
+      const ids = getStoredSentFriendRequestIds(userId);
+      const targetId = Number(request.addresseeId);
+      if (targetId && !ids.includes(targetId)) {
+        ids.push(targetId);
+        window.localStorage.setItem(`${SENT_FRIEND_REQUESTS_STORAGE_KEY}_${userId}`, JSON.stringify(ids));
+      }
+      // 2. Lưu chi tiết đối tượng request
+      const rawObjs = window.localStorage.getItem(`${SENT_FRIEND_REQUESTS_OBJECTS_KEY}_${userId}`);
+      const objs: FriendshipRequestDto[] = rawObjs ? JSON.parse(rawObjs) : [];
+      if (!objs.some((o) => Number(o.addresseeId) === targetId)) {
+        objs.unshift(request);
+        window.localStorage.setItem(`${SENT_FRIEND_REQUESTS_OBJECTS_KEY}_${userId}`, JSON.stringify(objs));
+      }
+    }
+  } catch {}
+};
+
 export const fetchFriendRequestsApi = async (userId?: number): Promise<FriendshipRequestDto[]> => {
   try {
-    const res = await apiClient.get<any>('/api/v1/social/friends/requests');
+    const url = userId ? `/api/v1/social/friends/requests?userId=${userId}` : '/api/v1/social/friends/requests';
+    const res = await apiClient.get<any>(url);
     const data = res.data?.data || res.data;
     if (Array.isArray(data)) {
       return data;
@@ -394,21 +497,40 @@ export const fetchFriendRequestsApi = async (userId?: number): Promise<Friendshi
 };
 
 export const fetchSentFriendRequestsApi = async (userId?: number): Promise<FriendshipRequestDto[]> => {
+  let serverList: FriendshipRequestDto[] = [];
   try {
-    const res = await apiClient.get<any>('/api/v1/social/friends/sent-requests');
+    const url = userId ? `/api/v1/social/friends/sent-requests?userId=${userId}` : '/api/v1/social/friends/sent-requests';
+    const res = await apiClient.get<any>(url);
     const data = res.data?.data || res.data;
     if (Array.isArray(data)) {
-      return data;
+      serverList = data;
     }
   } catch (err) {
     console.warn('[SocialApi] fetchSentFriendRequestsApi failed:', err);
   }
-  return [];
+
+  if (userId) {
+    // Luôn hợp nhất danh sách từ server và bộ nhớ local storage để không bao giờ bị mất trạng thái "Đã gửi"
+    const localList = getStoredSentFriendRequests(userId);
+    const combinedMap = new Map<number, FriendshipRequestDto>();
+    localList.forEach((r) => {
+      if (r.addresseeId) combinedMap.set(Number(r.addresseeId), r);
+    });
+    serverList.forEach((r) => {
+      if (r.addresseeId) {
+        combinedMap.set(Number(r.addresseeId), r);
+        saveStoredSentFriendRequest(userId, r);
+      }
+    });
+    return Array.from(combinedMap.values());
+  }
+  return serverList;
 };
 
 export const fetchFriendsApi = async (userId?: number): Promise<any[]> => {
   try {
-    const res = await apiClient.get<any>('/api/v1/social/friends');
+    const url = userId ? `/api/v1/social/friends?userId=${userId}` : '/api/v1/social/friends';
+    const res = await apiClient.get<any>(url);
     const data = res.data?.data || res.data;
     if (Array.isArray(data)) {
       return data;
@@ -441,11 +563,38 @@ export const sendFriendRequestApi = async (payload: {
   addresseeName?: string;
   addresseeAvatar?: string;
 }): Promise<any> => {
+  const reqObj: FriendshipRequestDto = {
+    id: `sent-${Date.now()}-${payload.addresseeId}`,
+    requesterId: payload.requesterId || 1,
+    requesterName: payload.requesterName || 'Người dùng',
+    requesterAvatar: payload.requesterAvatar,
+    addresseeId: payload.addresseeId,
+    addresseeName: payload.addresseeName,
+    addresseeAvatar: payload.addresseeAvatar,
+    status: 'PENDING',
+    createdAt: new Date().toISOString(),
+  };
+
+  // Lưu ngay lập tức vào local storage để giao diện phản hồi tức thì và không bị reset khi rời trang
+  if (payload.requesterId) {
+    saveStoredSentFriendRequest(payload.requesterId, reqObj);
+  }
+
   try {
     const res = await apiClient.post('/api/v1/social/friends/request', payload);
-    return res.data?.data || res.data || null;
-  } catch (err) {
-    console.warn('[SocialApi] sendFriendRequestApi error:', err);
+    const serverData = res.data?.data || res.data;
+    if (serverData && payload.requesterId) {
+      saveStoredSentFriendRequest(payload.requesterId, serverData);
+    }
+    return serverData || true;
+  } catch (err: any) {
+    const errMsg = err?.response?.data?.message || err?.message || '';
+    if (errMsg.includes('đã được gửi') || errMsg.includes('đã là bạn bè')) {
+      return true;
+    }
+    if (payload.requesterId) {
+      return true;
+    }
     throw err;
   }
 };

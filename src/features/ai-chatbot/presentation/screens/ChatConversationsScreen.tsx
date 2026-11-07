@@ -115,7 +115,7 @@ export const ChatConversationsScreen = () => {
   const isPremium = currentUser?.plan !== 'free';
   const scrollRef = useRef<ScrollView>(null);
 
-  const dailyLimit = isPremium ? 999 : 30;
+  const dailyLimit = isPremium ? 999 : 15;
   const [usedMessages, setUsedMessages] = useState(0);
   const [inputText, setInputText] = useState('');
   const [selectedLevel, setSelectedLevel] = useState<EnglishLevel>('Intermediate');

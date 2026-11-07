@@ -66,7 +66,7 @@ export const TeacherClassesScreen = () => {
           ListEmptyComponent={
             <View className="py-16 items-center justify-center">
               <Text className="text-sm font-medium text-neutralGray">Bạn chưa có lớp học nào.</Text>
-              <Text className="text-xs text-neutralGray/70 mt-1">Các lớp được tạo trên Web Portal sẽ xuất hiện tại đây.</Text>
+              <Text className="text-xs text-neutralGray/70 mt-1">Các lớp được tạo trên trang web quản trị sẽ xuất hiện tại đây.</Text>
             </View>
           }
         />

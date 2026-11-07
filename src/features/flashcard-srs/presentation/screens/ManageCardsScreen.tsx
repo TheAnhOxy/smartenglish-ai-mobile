@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, FlatList, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { RotateCcw, AlertCircle } from 'lucide-react-native';
+import { RotateCcw, AlertCircle, Volume2 } from 'lucide-react-native';
 import { searchWordsApi, WordDetail } from '../../data/vocabularyApi';
+import { speakText } from '@/src/core/services/speechService';
 
 export const ManageCardsScreen = () => {
   const router = useRouter();
@@ -111,7 +112,16 @@ export const ManageCardsScreen = () => {
           renderItem={({ item }) => (
             <View className="bg-cardWhite p-4 rounded-2xl border border-gray-100 mb-3 shadow-sm flex-row justify-between items-center">
               <View className="flex-1 mr-2">
-                <Text className="text-base font-bold text-neutralInk mb-0.5">{item.word}</Text>
+                <View className="flex-row items-center gap-2 mb-0.5">
+                  <Text className="text-base font-bold text-neutralInk">{item.word}</Text>
+                  <Pressable
+                    onPress={() => speakText(item.word, { language: 'en-US' })}
+                    className="p-1 rounded-full bg-primary/10 active:opacity-70"
+                    accessibilityLabel="Phát âm"
+                  >
+                    <Volume2 size={14} color="#FF6B35" />
+                  </Pressable>
+                </View>
                 {item.ipaUs ? <Text className="text-xs text-secondary">{item.ipaUs}</Text> : null}
                 {item.definitionVi ? (
                   <Text className="text-xs text-neutralGray mt-0.5" numberOfLines={1}>{item.definitionVi}</Text>

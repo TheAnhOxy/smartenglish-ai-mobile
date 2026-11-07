@@ -7,6 +7,7 @@ import {
   Image,
   StyleSheet,
   Platform,
+  Alert,
 } from 'react-native';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
@@ -38,6 +39,15 @@ import {
   useAudioPlayerStatus,
   useAudioRecorder,
 } from 'expo-audio';
+import { Audio } from 'expo-av';
+import { CircularAccuracyRing } from '../components/CircularAccuracyRing';
+import { IpaSyllableBreakdownCard } from '../components/IpaSyllableBreakdownCard';
+import { SpeakingMetricsGrid } from '../components/SpeakingMetricsGrid';
+import {
+  extractAndEvaluateSyllables,
+  evaluatePronunciationApi,
+  fetchPronunciationLessonsApi,
+} from '../../data/speakingApi';
 
 export const SpeakingFeedbackScreen = () => {
   const router = useRouter();
@@ -52,6 +62,16 @@ export const SpeakingFeedbackScreen = () => {
     audioUri?: string;
   }>();
 
+  const targetWord = params.word || 'Phenomenal';
+  const targetIpa = params.ipa || '/fəˈnæmənəl/';
+  const initialScore = params.score ? Number(params.score) : 85;
+
+  const [currentScore, setCurrentScore] = useState<number>(initialScore);
+  const [accuracy, setAccuracy] = useState<number>(params.accuracy ? Number(params.accuracy) : 86);
+  const [stress, setStress] = useState<number>(params.stress ? Number(params.stress) : 80);
+  const [intonation, setIntonation] = useState<number>(params.intonation ? Number(params.intonation) : 82);
+  const [fluency, setFluency] = useState<number>(params.fluency ? Number(params.fluency) : 88);
+
   const [isPlayingNative, setIsPlayingNative] = useState(false);
   const [isPlayingUserVoice, setIsPlayingUserVoice] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -59,17 +79,28 @@ export const SpeakingFeedbackScreen = () => {
   const [recordedUri, setRecordedUri] = useState<string | null>(params.audioUri || null);
   const [recordTime, setRecordTime] = useState(0);
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
+  const [mouthGuide, setMouthGuide] = useState<string>('');
+
+  useEffect(() => {
+    fetchPronunciationLessonsApi().then((list) => {
+      const found = list.find((item) => item.targetText.toLowerCase() === targetWord.toLowerCase());
+      if (found?.mouthShapeGuide) {
+        setMouthGuide(found.mouthShapeGuide);
+      }
+    });
+  }, [targetWord]);
+
+  const syllables = extractAndEvaluateSyllables(targetWord, targetIpa, accuracy);
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const player = useAudioPlayer(recordedUri);
   const playerStatus = useAudioPlayerStatus(player);
 
-  // Web MediaRecorder Fallback Refs
   const mediaRecorderRef = useRef<any>(null);
   const audioChunksRef = useRef<any[]>([]);
   const webAudioBlobUrlRef = useRef<string | null>(null);
+  const isActionProcessingRef = useRef(false);
 
-  // Pulse animation for mic recording
   const pulseScale = useSharedValue(1);
 
   useEffect(() => {
@@ -94,64 +125,42 @@ export const SpeakingFeedbackScreen = () => {
     setIsPlayingUserVoice(playerStatus.playing);
   }, [playerStatus.playing]);
 
-  // Ngắt toàn bộ âm thanh và micro khi unmount hoặc rời màn hình
   useFocusEffect(
     useCallback(() => {
       return () => {
         stopSpeech();
         Speech.stop();
         try {
+          if (recorder.isRecording) {
+            recorder.stop().catch(() => {});
+          }
+        } catch (_) {}
+        try {
           player.pause();
         } catch (_) {}
-        if (Platform.OS === 'web' && mediaRecorderRef.current) {
-          try {
-            mediaRecorderRef.current.stop();
-            mediaRecorderRef.current.stream?.getTracks?.().forEach((t: any) => t.stop());
-          } catch (_) {}
-        }
+        setIsRecording(false);
       };
-    }, [player])
+    }, [player, recorder])
   );
 
-  useEffect(() => {
-    return () => {
-      stopSpeech();
-      Speech.stop();
-      try {
-        player.pause();
-      } catch (_) {}
-      if (Platform.OS === 'web' && mediaRecorderRef.current) {
-        try {
-          mediaRecorderRef.current.stop();
-          mediaRecorderRef.current.stream?.getTracks?.().forEach((t: any) => t.stop());
-        } catch (_) {}
-      }
-    };
-  }, [player]);
-
-  // Play Native Audio Target (No alert popup)
   const playNativeTargetAudio = () => {
-    try {
-      setIsPlayingNative(true);
-      void speakText(params.word || 'Phenomenal', {
-        language: 'en-US',
-        pitch: 1.0,
-        rate: 0.85,
-        onDone: () => setIsPlayingNative(false),
-        onError: () => setIsPlayingNative(false),
-      });
-    } catch (err) {
-      console.log('Error playing native audio:', err);
-      setIsPlayingNative(false);
-    }
+    setIsPlayingNative(true);
+    void speakText(targetWord, {
+      language: 'en-US',
+      pitch: 1.0,
+      rate: 0.85,
+      onDone: () => setIsPlayingNative(false),
+      onError: () => setIsPlayingNative(false),
+    });
   };
 
-  // Start Micro Recording (Real Microphone)
   const startAudioRecording = async () => {
+    if (isActionProcessingRef.current || isRecording) return;
+    isActionProcessingRef.current = true;
     setNoticeMessage(null);
+
     try {
       if (Platform.OS === 'web' && typeof window !== 'undefined' && navigator.mediaDevices) {
-        // Web Browser Micro Recording via MediaRecorder
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorderRef.current = new (window as any).MediaRecorder(stream);
         audioChunksRef.current = [];
@@ -162,42 +171,100 @@ export const SpeakingFeedbackScreen = () => {
           }
         };
 
-        mediaRecorderRef.current.onstop = () => {
+        mediaRecorderRef.current.onstop = async () => {
           const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
           const audioUrl = URL.createObjectURL(audioBlob);
           webAudioBlobUrlRef.current = audioUrl;
           setRecordedUri(audioUrl);
           setHasRecording(true);
+
+          let base64Audio: string | undefined = undefined;
+          try {
+            base64Audio = await new Promise<string | undefined>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                const res = reader.result as string;
+                resolve(res?.includes(',') ? res.split(',')[1] : res);
+              };
+              reader.onerror = () => resolve(undefined);
+              reader.readAsDataURL(audioBlob);
+            });
+          } catch (e) {
+            console.warn('[Web Audio] Base64 conversion fallback:', e);
+          }
+
+          evaluatePronunciationApi({
+            targetText: targetWord,
+            targetIpa,
+            audioBase64: base64Audio,
+            sessionType: 'SINGLE_WORD',
+          }).then((res) => {
+            setCurrentScore(res.overallScore);
+            setAccuracy(res.accuracyScore);
+            setStress(res.stressScore);
+            setIntonation(res.intonationScore);
+            setFluency(res.fluencyScore);
+          }).catch(() => {});
         };
 
         mediaRecorderRef.current.start();
         setIsRecording(true);
       } else {
-        // Mobile native recording via expo-audio.
-        const permission = await AudioModule.requestRecordingPermissionsAsync();
-        if (!permission.granted) {
-          setNoticeMessage('Vui lòng cho phép ứng dụng truy cập Micro để thu âm!');
+        // Kiểm tra quyền Micro 2 lớp
+        let hasPermission = false;
+        try {
+          const perm = await AudioModule.requestRecordingPermissionsAsync();
+          hasPermission = Boolean(perm?.granted);
+        } catch (_) {
+          try {
+            const avPerm = await Audio.requestPermissionsAsync();
+            hasPermission = Boolean(avPerm?.granted);
+          } catch (_) {}
+        }
+
+        if (!hasPermission) {
+          const msg = 'Vui lòng cho phép ứng dụng truy cập Micro để thu âm phát âm của bạn.';
+          setNoticeMessage(msg);
+          if (Platform.OS !== 'web') {
+            Alert.alert('Cần quyền Microphone', msg);
+          }
+          setIsRecording(false);
           return;
         }
 
-        await setAudioModeAsync({
-          allowsRecording: true,
-          playsInSilentMode: true,
-        });
+        try {
+          await setAudioModeAsync({
+            allowsRecording: true,
+            playsInSilentMode: true,
+          });
+        } catch (_) {
+          try {
+            await Audio.setAudioModeAsync({
+              allowsRecordingIOS: true,
+              playsInSilentModeIOS: true,
+            });
+          } catch (_) {}
+        }
 
         await recorder.prepareToRecordAsync();
         recorder.record();
         setIsRecording(true);
       }
     } catch (err) {
-      console.log('Failed to start recording:', err);
+      console.warn('[Feedback] Failed to start recording:', err);
       setIsRecording(false);
       setNoticeMessage('Không thể truy cập micro. Vui lòng kiểm tra quyền thiết bị!');
+    } finally {
+      setTimeout(() => {
+        isActionProcessingRef.current = false;
+      }, 300);
     }
   };
 
-  // Stop Micro Recording
   const stopAudioRecording = async () => {
+    if (isActionProcessingRef.current) return;
+    isActionProcessingRef.current = true;
+
     try {
       if (Platform.OS === 'web' && mediaRecorderRef.current) {
         mediaRecorderRef.current.stop();
@@ -205,15 +272,53 @@ export const SpeakingFeedbackScreen = () => {
         setIsRecording(false);
       } else if (recorder.isRecording) {
         await recorder.stop();
-        setRecordedUri(recorder.uri);
-        setHasRecording(Boolean(recorder.uri));
+        const uri = recorder.uri;
+        setRecordedUri(uri);
+        setHasRecording(Boolean(uri));
         setIsRecording(false);
+
+        let base64Audio: string | undefined = undefined;
+        if (uri) {
+          try {
+            const res = await fetch(uri);
+            const blob = await res.blob();
+            base64Audio = await new Promise<string | undefined>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                const str = reader.result as string;
+                resolve(str?.includes(',') ? str.split(',')[1] : str);
+              };
+              reader.onerror = () => resolve(undefined);
+              reader.readAsDataURL(blob);
+            });
+          } catch (audioErr) {
+            console.warn('[Feedback Audio] Base64 conversion fallback:', audioErr);
+          }
+        }
+
+        // Đánh giá cập nhật điểm số
+        evaluatePronunciationApi({
+          targetText: targetWord,
+          targetIpa,
+          audioBase64: base64Audio,
+          sessionType: 'SINGLE_WORD',
+        }).then((res) => {
+          setCurrentScore(res.overallScore);
+          setAccuracy(res.accuracyScore);
+          setStress(res.stressScore);
+          setIntonation(res.intonationScore);
+          setFluency(res.fluencyScore);
+        }).catch(() => {});
       } else {
         setIsRecording(false);
       }
     } catch (err) {
-      console.log('Failed to stop recording:', err);
+      console.warn('[Feedback] Failed to stop recording:', err);
       setIsRecording(false);
+    } finally {
+      setTimeout(() => {
+        isActionProcessingRef.current = false;
+      }, 300);
     }
   };
 
@@ -225,25 +330,21 @@ export const SpeakingFeedbackScreen = () => {
     }
   };
 
-  // Playback Real User Recorded Voice
   const playUserVoiceAudio = async () => {
     setNoticeMessage(null);
     if (!hasRecording || (!recordedUri && !webAudioBlobUrlRef.current)) {
-      setNoticeMessage('Chưa có bản ghi âm! Vui lòng ấn nút Micro bên dưới để thu âm giọng nói của bạn trước.');
+      setNoticeMessage('Chưa có bản ghi âm! Vui lòng ấn nút Micro bên dưới để thu âm trước.');
       return;
     }
 
     try {
       setIsPlayingUserVoice(true);
-
       if (Platform.OS === 'web' && webAudioBlobUrlRef.current) {
-        // Web Audio element playback
         const audio = createManagedWebAudio(webAudioBlobUrlRef.current);
         audio.onended = () => setIsPlayingUserVoice(false);
         audio.onerror = () => setIsPlayingUserVoice(false);
         await audio.play();
       } else if (recordedUri) {
-        // Native playback via expo-audio.
         player.play();
       } else {
         setIsPlayingUserVoice(false);
@@ -265,12 +366,6 @@ export const SpeakingFeedbackScreen = () => {
             try {
               player.pause();
             } catch (_) {}
-            if (Platform.OS === 'web' && mediaRecorderRef.current) {
-              try {
-                mediaRecorderRef.current.stop();
-                mediaRecorderRef.current.stream?.getTracks?.().forEach((t: any) => t.stop());
-              } catch (_) {}
-            }
             router.back();
           }}
           style={s.closeBtn}
@@ -278,16 +373,15 @@ export const SpeakingFeedbackScreen = () => {
           <X color="#475569" size={22} />
         </Pressable>
 
-        <Text style={s.headerTitle}>Loxera Speaking AI</Text>
+        <Text style={s.headerTitle}>Chi tiết phản hồi AI</Text>
 
         <View style={s.streakBadge}>
           <Zap color="#0EA5E9" size={14} fill="#0EA5E9" />
-          <Text style={s.streakText}>🔥 12 Days</Text>
+          <Text style={s.streakText}>AI Speaking</Text>
         </View>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-        {/* Notice Message Toast if user hasn't recorded yet */}
         {noticeMessage && (
           <View style={s.noticeBox}>
             <AlertCircle color="#D97706" size={16} />
@@ -295,33 +389,46 @@ export const SpeakingFeedbackScreen = () => {
           </View>
         )}
 
-        {/* Score Gauge Circle */}
+        {/* Vòng tròn phần trăm chính xác (Circular Accuracy Ring) */}
         <View style={s.scoreContainer}>
-          <View style={s.scoreCircle}>
-            <Text style={s.scoreNumber}>
-              {params.score ? `${params.score}%` : hasRecording ? '85%' : '--'}
-            </Text>
-            <Text style={s.scoreLabel}>
-              {params.score
-                ? Number(params.score) >= 80
-                  ? 'GREAT'
-                  : 'GOOD'
-                : hasRecording
-                ? 'GREAT'
-                : 'CẦN GHI ÂM'}
-            </Text>
-          </View>
-
-          {/* Word Title & Phonetic */}
-          <Text style={s.wordTitle}>{params.word || 'Phenomenal'}</Text>
-          <Text style={s.ipaText}>{params.ipa || '/fəˈnæmənəl/'}</Text>
+          <CircularAccuracyRing
+            score={currentScore}
+            size={110}
+            strokeWidth={10}
+            label="ĐỘ CHUẨN"
+          />
+          <Text style={s.wordTitle}>{targetWord}</Text>
+          <Text style={s.ipaText}>{targetIpa}</Text>
+          <Text style={s.scoreTitleText}>
+            {currentScore >= 80
+              ? '🎉 Xuất sắc! Phát âm chuẩn giọng bản xứ'
+              : currentScore >= 60
+              ? '👍 Khá tốt! Cần chú ý thêm trọng âm & âm đuôi'
+              : '💪 Cần luyện tập thêm khẩu hình'}
+          </Text>
         </View>
+
+        {/* 4 Chỉ Số Đánh Giá Chi Tiết */}
+        <SpeakingMetricsGrid
+          accuracy={accuracy}
+          fluency={fluency}
+          stress={stress}
+          intonation={intonation}
+        />
+
+        {/* Tô đỏ âm tiết IPA đọc sai để làm nổi bật thế mạnh AI */}
+        <IpaSyllableBreakdownCard
+          syllables={syllables}
+          targetWord={targetWord}
+          targetIpa={targetIpa}
+          mouthShapeGuide={mouthGuide}
+        />
 
         {/* Audio Match Card (Native vs Your Voice) */}
         <View style={s.card}>
           <View style={s.cardTitleRow}>
             <Activity color="#0EA5E9" size={20} />
-            <Text style={s.cardTitleText}>Audio Match (So Sánh Giọng Nói)</Text>
+            <Text style={s.cardTitleText}>So sánh dạng sóng âm thanh</Text>
           </View>
 
           {/* Target Native Waveform */}
@@ -334,8 +441,7 @@ export const SpeakingFeedbackScreen = () => {
             </Pressable>
 
             <View style={{ flex: 1 }}>
-              <Text style={s.audioLabelText}>Target (Native Mẫu)</Text>
-              {/* Teal Waveform Bars */}
+              <Text style={s.audioLabelText}>Target (Bản thu âm chuẩn mẫu)</Text>
               <View style={s.waveformRow}>
                 <View style={[s.waveBar, { height: 12, backgroundColor: '#0EA5E9' }]} />
                 <View style={[s.waveBar, { height: 24, backgroundColor: '#0EA5E9' }]} />
@@ -350,7 +456,7 @@ export const SpeakingFeedbackScreen = () => {
 
           <View style={s.divider} />
 
-          {/* Your Voice Waveform (Plays real recorded audio) */}
+          {/* Your Voice Waveform */}
           <View style={s.audioRow}>
             <Pressable
               onPress={playUserVoiceAudio}
@@ -365,9 +471,8 @@ export const SpeakingFeedbackScreen = () => {
 
             <View style={{ flex: 1 }}>
               <Text style={[s.audioLabelUserText, !hasRecording && { color: '#94A3B8' }]}>
-                {hasRecording ? 'Your Voice (Bản Ghi Âm Của Bạn 🎧)' : 'Your Voice (Chưa Có Bản Ghi Âm 🎙️)'}
+                {hasRecording ? 'Your Voice (Bản ghi âm giọng của bạn)' : 'Your Voice (Chưa có bản ghi âm)'}
               </Text>
-              {/* Orange/Cyan Waveform Bars */}
               <View style={s.waveformRow}>
                 <View style={[s.waveBar, { height: 14, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
                 <View style={[s.waveBar, { height: 28, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
@@ -381,79 +486,46 @@ export const SpeakingFeedbackScreen = () => {
           </View>
         </View>
 
-        {/* 🎙️ REAL MICROPHONE RECORDING MODULE */}
-        <View style={s.recordModuleCard}>
-          <Text style={s.recordModuleTitle}>🎙️ Ghi Âm Thực Tế Giọng Nói Của Bạn</Text>
-          <Text style={s.recordModuleSub}>
-            Chạm vào nút Micro bên dưới để cho phép ứng dụng thu âm thật giọng nói của bạn, sau đó nghe lại chính xác bản ghi âm đó.
-          </Text>
-
-          <View style={s.recordControlRow}>
-            <Animated.View style={animatedPulseStyle}>
-              <Pressable
-                onPress={toggleRecording}
-                style={[
-                  s.micBtn,
-                  isRecording ? s.micBtnRecording : s.micBtnNormal,
-                ]}
-              >
-                {isRecording ? (
-                  <Square color="#FFFFFF" size={24} />
-                ) : (
-                  <Mic color="#FFFFFF" size={28} />
-                )}
-              </Pressable>
-            </Animated.View>
-
-            <View style={s.recordStatusWrap}>
-              <Text style={s.recordStatusTitle}>
-                {isRecording
-                  ? `Đang thu âm... 00:0${recordTime}s 🔴`
-                  : hasRecording
-                  ? '✅ Đã ghi âm xong! Bạn có thể bấm "Your Voice" để nghe lại'
-                  : 'Bấm micro để bắt đầu thu âm giọng thật'}
-              </Text>
-              <Text style={s.recordStatusSub}>
-                {isRecording ? 'Nói từ "Phenomenal" vào micro...' : 'Thu âm thật qua Micro thiết bị'}
-              </Text>
-            </View>
-          </View>
-        </View>
-
         {/* Tips to Improve Card */}
         <View style={s.card}>
           <View style={s.cardTitleRow}>
             <Lightbulb color="#D97706" size={18} />
-            <Text style={s.cardTitleText}>Tips to Improve (Mẹo Cải Thiện)</Text>
+            <Text style={s.cardTitleText}>Mẹo cải thiện phát âm</Text>
           </View>
 
           <Text style={s.tipContentText}>
-            Tập trung vào khẩu hình âm <Text style={{ fontWeight: '800', color: '#0EA5E9' }}>/n/</Text>: Đặt đầu lưỡi chạm vào nướu răng trên ngay phía sau răng cửa.
+            Tập trung vào khẩu hình âm chính: Hãy hạ hàm dưới và giữ hơi đều đặn trong vòm họng.
           </Text>
 
           <View style={s.diagramBox}>
-            <Image
-              source={{ uri: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=600' }}
-              style={s.diagramImg}
-            />
-            <View style={s.diagramBadge}>
-              <Text style={s.diagramBadgeText}>Tongue Position: Alveolar Ridge</Text>
+            <View style={s.diagramVisualCard}>
+              <View style={s.anatomyGuideRow}>
+                <View style={s.anatomyPill}>
+                  <Text style={s.anatomyPillEmoji}>👄</Text>
+                  <Text style={s.anatomyPillLabel}>Độ mở môi</Text>
+                  <Text style={s.anatomyPillVal}>Hé mở tự nhiên</Text>
+                </View>
+                <View style={s.anatomyPill}>
+                  <Text style={s.anatomyPillEmoji}>👅</Text>
+                  <Text style={s.anatomyPillLabel}>Vị trí lưỡi</Text>
+                  <Text style={s.anatomyPillVal}>Đầu lưỡi thả lỏng</Text>
+                </View>
+                <View style={s.anatomyPill}>
+                  <Text style={s.anatomyPillEmoji}>💨</Text>
+                  <Text style={s.anatomyPillLabel}>Luồng hơi</Text>
+                  <Text style={s.anatomyPillVal}>Đều đặn, dứt khoát</Text>
+                </View>
+              </View>
+              {Boolean(mouthGuide) && (
+                <View style={s.mouthGuideBackendBox}>
+                  <Text style={s.mouthGuideBackendTitle}>Chỉ dẫn chuyên môn:</Text>
+                  <Text style={s.mouthGuideBackendText}>{mouthGuide}</Text>
+                </View>
+              )}
             </View>
-          </View>
-        </View>
-
-        {/* Syllables & Stress Card */}
-        <View style={[s.card, { alignItems: 'center' }]}>
-          <Activity color="#0284C7" size={20} />
-          <Text style={[s.cardTitleText, { marginTop: 6, marginBottom: 4 }]}>Syllable Stress</Text>
-          <Text style={s.stressText}>
-            Nhấn trọng âm vào âm tiết thứ hai: phe-<Text style={{ fontWeight: '800', color: '#0EA5E9' }}>NOM</Text>-e-nal
-          </Text>
-          <View style={s.stressDotsRow}>
-            <View style={[s.dot, { width: 10, height: 10 }]} />
-            <View style={[s.dot, { width: 16, height: 16, backgroundColor: '#0EA5E9' }]} />
-            <View style={[s.dot, { width: 10, height: 10 }]} />
-            <View style={[s.dot, { width: 10, height: 10 }]} />
+            <View style={s.diagramBadge}>
+              <Text style={s.diagramBadgeText}>Vị trí đặt lưỡi & luồng hơi chuẩn giọng Mỹ</Text>
+            </View>
           </View>
         </View>
 
@@ -467,14 +539,14 @@ export const SpeakingFeedbackScreen = () => {
           style={s.retryBtn}
         >
           <RotateCcw color="#0EA5E9" size={18} />
-          <Text style={s.retryBtnText}>Thử Lại</Text>
+          <Text style={s.retryBtnText}>Luyện lại</Text>
         </Pressable>
 
         <Pressable
-          onPress={() => router.push('/(student)/practice/speaking/unit-roleplay' as any)}
+          onPress={() => router.push('/(student)/practice/speaking' as any)}
           style={s.nextBtn}
         >
-          <Text style={s.nextBtnText}>Từ Tiếp Theo</Text>
+          <Text style={s.nextBtnText}>Danh sách bài</Text>
           <ArrowRight color="#FFFFFF" size={18} />
         </Pressable>
       </View>
@@ -485,7 +557,7 @@ export const SpeakingFeedbackScreen = () => {
 const s = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F0F7FF',
+    backgroundColor: '#F8FAFC',
     paddingTop: 48,
     paddingHorizontal: 20,
     paddingBottom: 24,
@@ -498,34 +570,41 @@ const s = StyleSheet.create({
     marginBottom: 14,
   },
   closeBtn: {
-    padding: 4,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
-    color: '#1E3A5F',
+    color: '#0F172A',
   },
   streakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#E0F2FE',
+    backgroundColor: '#EEF2FF',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 100,
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: '#C7D2FE',
   },
   streakText: {
     fontSize: 11,
-    fontWeight: '800',
-    color: '#0369A1',
+    fontWeight: '700',
+    color: '#4F46E5',
   },
   noticeBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#FFFBEB',
     padding: 12,
     borderRadius: 14,
     borderWidth: 1,
@@ -533,77 +612,68 @@ const s = StyleSheet.create({
     marginBottom: 12,
   },
   noticeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#92400E',
     flex: 1,
+    fontSize: 12,
+    color: '#B45309',
+    fontWeight: '600',
   },
   scoreContainer: {
-    alignItems: 'center',
-    marginVertical: 14,
-  },
-  scoreCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
     backgroundColor: '#FFFFFF',
-    borderWidth: 4,
-    borderColor: '#BAE6FD',
-    justifyContent: 'center',
+    borderRadius: 24,
+    padding: 20,
     alignItems: 'center',
-    shadowColor: '#1E3A5F',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  scoreNumber: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#1E3A5F',
-  },
-  scoreLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#0EA5E9',
-    letterSpacing: 1,
-    marginTop: 2,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 10,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   wordTitle: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '800',
-    color: '#1E3A5F',
-    marginTop: 14,
-    marginBottom: 4,
+    color: '#0F172A',
+    marginTop: 10,
+    letterSpacing: -0.5,
   },
   ipaText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#64748B',
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#4F46E5',
+    marginTop: 2,
+  },
+  scoreTitleText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+    marginTop: 6,
+    textAlign: 'center',
   },
   card: {
     backgroundColor: '#FFFFFF',
-    padding: 18,
-    borderRadius: 24,
+    borderRadius: 20,
+    padding: 16,
     borderWidth: 1,
-    borderColor: '#DBEAFE',
-    marginBottom: 16,
-    shadowColor: '#1E3A5F',
+    borderColor: '#E2E8F0',
+    marginTop: 12,
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
-    shadowRadius: 10,
+    shadowRadius: 8,
     elevation: 2,
   },
   cardTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   cardTitleText: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#1E3A5F',
+    color: '#0F172A',
   },
   audioRow: {
     flexDirection: 'row',
@@ -611,46 +681,23 @@ const s = StyleSheet.create({
     gap: 12,
   },
   playCircleBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#E0F2FE',
-    justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#BAE6FD',
+    justifyContent: 'center',
   },
   playCircleBtnActive: {
-    backgroundColor: '#0EA5E9',
-  },
-  audioLabelText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
-    marginBottom: 4,
-  },
-  waveformRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 4,
-    height: 32,
-  },
-  waveBar: {
-    width: 6,
-    borderRadius: 3,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
-    marginVertical: 12,
+    backgroundColor: '#0284C7',
   },
   playCircleBtnUser: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#0EA5E9',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   playCircleBtnUserActive: {
     backgroundColor: '#0284C7',
@@ -658,172 +705,152 @@ const s = StyleSheet.create({
   playCircleBtnDisabled: {
     backgroundColor: '#CBD5E1',
   },
+  audioLabelText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0284C7',
+    marginBottom: 4,
+  },
   audioLabelUserText: {
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '700',
     color: '#0EA5E9',
     marginBottom: 4,
   },
-  recordModuleCard: {
-    backgroundColor: '#FFFFFF',
-    padding: 18,
-    borderRadius: 24,
-    borderWidth: 1.5,
-    borderColor: '#BAE6FD',
-    marginBottom: 16,
-    shadowColor: '#0EA5E9',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  recordModuleTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1E3A5F',
-    marginBottom: 4,
-  },
-  recordModuleSub: {
-    fontSize: 12,
-    color: '#64748B',
-    lineHeight: 18,
-    fontWeight: '500',
-    marginBottom: 14,
-  },
-  recordControlRow: {
+  waveformRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    backgroundColor: '#F0F9FF',
-    padding: 14,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#E0F2FE',
+    gap: 4,
+    height: 32,
   },
-  micBtn: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    justifyContent: 'center',
-    alignItems: 'center',
+  waveBar: {
+    width: 4,
+    borderRadius: 4,
   },
-  micBtnNormal: {
-    backgroundColor: '#0EA5E9',
-    shadowColor: '#0EA5E9',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  micBtnRecording: {
-    backgroundColor: '#EF4444',
-    shadowColor: '#EF4444',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  recordStatusWrap: {
-    flex: 1,
-  },
-  recordStatusTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#1E3A5F',
-    marginBottom: 2,
-  },
-  recordStatusSub: {
-    fontSize: 11,
-    color: '#64748B',
-    fontWeight: '500',
+  divider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 12,
   },
   tipContentText: {
-    fontSize: 13,
-    color: '#334155',
-    lineHeight: 20,
-    fontWeight: '500',
+    fontSize: 12.5,
+    color: '#475569',
+    lineHeight: 18,
     marginBottom: 12,
   },
   diagramBox: {
-    height: 140,
-    borderRadius: 16,
+    borderRadius: 14,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E0F2FE',
     position: 'relative',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 14,
   },
-  diagramImg: {
-    width: '100%',
-    height: '100%',
+  diagramVisualCard: {
+    marginBottom: 8,
+  },
+  anatomyGuideRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 10,
+  },
+  anatomyPill: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  anatomyPillEmoji: {
+    fontSize: 20,
+    marginBottom: 4,
+  },
+  anatomyPillLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+    marginBottom: 2,
+    textAlign: 'center',
+  },
+  anatomyPillVal: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#1E293B',
+    textAlign: 'center',
+  },
+  mouthGuideBackendBox: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    marginTop: 4,
+  },
+  mouthGuideBackendTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1D4ED8',
+    marginBottom: 2,
+  },
+  mouthGuideBackendText: {
+    fontSize: 12,
+    color: '#1E3A8A',
+    lineHeight: 18,
   },
   diagramBadge: {
     position: 'absolute',
     bottom: 8,
     left: 8,
-    backgroundColor: 'rgba(30, 58, 95, 0.8)',
-    paddingHorizontal: 10,
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   diagramBadgeText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#FFFFFF',
-  },
-  stressText: {
-    fontSize: 12,
-    color: '#64748B',
-    marginBottom: 10,
-  },
-  stressDotsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  dot: {
-    borderRadius: 50,
-    backgroundColor: '#CBD5E1',
   },
   bottomBtnRow: {
     flexDirection: 'row',
-    gap: 12,
-    paddingTop: 8,
+    gap: 10,
+    paddingTop: 12,
   },
   retryBtn: {
     flex: 1,
-    paddingVertical: 15,
-    borderRadius: 18,
-    borderWidth: 2,
-    borderColor: '#0EA5E9',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
     backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#BAE6FD',
   },
   retryBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0EA5E9',
+    color: '#0284C7',
+    fontSize: 13,
+    fontWeight: '700',
   },
   nextBtn: {
     flex: 1,
-    paddingVertical: 15,
-    borderRadius: 18,
-    backgroundColor: '#0EA5E9',
+    backgroundColor: '#4F46E5',
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
-    shadowColor: '#0EA5E9',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 4,
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 14,
   },
   nextBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
     color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

@@ -147,7 +147,7 @@ export const SpeakingHomeScreen = () => {
           )}
         </View>
 
-        {/* ── Segmented Control / Tab Switcher (Gọn gàng, không tràn màn hình) ── */}
+        {/* ── Segmented Control / Tab Switcher (Gọn gàng, tinh tế) ── */}
         <View style={s.tabContainer}>
           <Pressable
             onPress={() => setActiveTab('roleplay')}
@@ -158,7 +158,7 @@ export const SpeakingHomeScreen = () => {
               size={16}
             />
             <Text style={[s.tabText, activeTab === 'roleplay' && s.tabTextActive]}>
-              Hội thoại
+              Hội thoại AI
             </Text>
           </Pressable>
 
@@ -171,12 +171,12 @@ export const SpeakingHomeScreen = () => {
               size={16}
             />
             <Text style={[s.tabText, activeTab === 'pronunciation' && s.tabTextActive]}>
-              Phát âm
+              Luyện phát âm IPA
             </Text>
           </Pressable>
         </View>
 
-        {/* ── Category Chips Filter ─────────────────────────────────────── */}
+        {/* ── Category Chips Filter (Pill thanh thoát, chuẩn tông màu hệ thống) ── */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -321,7 +321,7 @@ export const SpeakingHomeScreen = () => {
           </View>
         )}
 
-        {/* ── TAB 2: DANH SÁCH BÀI PHÁT ÂM IPA (CARD ITEM CHUẨN) ────────── */}
+        {/* ── TAB 2: DANH SÁCH BÀI PHÁT ÂM IPA (CARD ITEM CHUẨN GIAO DIỆN) ────────── */}
         {!loading && activeTab === 'pronunciation' && (
           <View style={s.cardsGrid}>
             {filteredLessons.length === 0 ? (
@@ -352,15 +352,13 @@ export const SpeakingHomeScreen = () => {
                         pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] },
                       ]}
                     >
+                      {/* Header: Icon + Category + CEFR Tag */}
                       <View style={s.pronCardHeader}>
-                        {/* Khối ký hiệu IPA lớn nổi bật */}
-                        <View style={s.ipaBadge}>
-                          <Text style={s.ipaBadgeSymbol}>
-                            {item.ipaTranscription || '/.../'}
-                          </Text>
+                        <View style={s.pronIconBox}>
+                          <Volume2 color="#4F46E5" size={18} strokeWidth={2.2} />
                         </View>
 
-                        <View style={{ flex: 1, marginLeft: 12 }}>
+                        <View style={s.pronHeaderMeta}>
                           <View style={s.pronCardLevelRow}>
                             <View
                               style={[
@@ -372,14 +370,32 @@ export const SpeakingHomeScreen = () => {
                               ]}
                             >
                               <Text style={[s.cefrLevelTextMini, { color: cefr.text }]}>
-                                {item.cefrLevel}
+                                {item.cefrLevel || 'A1'}
                               </Text>
                             </View>
-                            <Text style={s.pronCategoryText}>{item.category}</Text>
+                            <Text style={s.pronCategoryText} numberOfLines={1}>
+                              {item.category || 'Phát âm'}
+                            </Text>
                           </View>
 
                           <Text style={s.pronTitle} numberOfLines={1}>
                             {item.title}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Thanh từ vựng & Phiên âm IPA co giãn chuẩn xác, không vỡ layout */}
+                      <View style={s.pronTargetBar}>
+                        <View style={s.pronTargetLeft}>
+                          <Text style={s.pronTargetLabel}>Mẫu:</Text>
+                          <Text style={s.pronTargetWord} numberOfLines={1}>
+                            {item.targetText}
+                          </Text>
+                        </View>
+
+                        <View style={s.ipaPill}>
+                          <Text style={s.ipaPillText} numberOfLines={1}>
+                            {item.ipaTranscription || `/${item.targetText?.toLowerCase()}/`}
                           </Text>
                         </View>
                       </View>
@@ -393,15 +409,13 @@ export const SpeakingHomeScreen = () => {
 
                       {/* Footer bài phát âm */}
                       <View style={s.pronFooter}>
-                        <View style={s.pronSampleWordBox}>
-                          <Volume2 color={ADMIN_THEME.primary} size={13} />
-                          <Text style={s.pronSampleWordText}>
-                            Mẫu: {item.targetText}
-                          </Text>
+                        <View style={s.pronFooterAiBadge}>
+                          <Sparkles color="#6366F1" size={13} strokeWidth={2} />
+                          <Text style={s.pronFooterAiText}>Chấm khẩu hình AI</Text>
                         </View>
                         <View style={s.startBtn}>
-                          <Text style={s.startBtnText}>Thực hành</Text>
-                          <ChevronRight color={ADMIN_THEME.primary} size={14} />
+                          <Text style={s.startBtnText}>Luyện ngay</Text>
+                          <ChevronRight color={ADMIN_THEME.primary} size={14} strokeWidth={2.5} />
                         </View>
                       </View>
                     </Pressable>
@@ -555,28 +569,34 @@ const s = StyleSheet.create({
 
   // Category Chips
   categoryList: {
-    gap: 6,
+    gap: 8,
     paddingBottom: 14,
+    paddingTop: 2,
   },
   catChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 999,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: ADMIN_THEME.border,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
   },
   catChipActive: {
-    backgroundColor: ADMIN_THEME.textMain,
-    borderColor: ADMIN_THEME.textMain,
+    backgroundColor: '#EEF2FF',
+    borderColor: '#C7D2FE',
   },
   catChipText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
-    color: ADMIN_THEME.textSub,
+    color: '#64748B',
   },
   catChipTextActive: {
-    color: '#FFFFFF',
+    color: '#4F46E5',
     fontWeight: '700',
   },
 
@@ -709,36 +729,35 @@ const s = StyleSheet.create({
   // Pronunciation Card Item
   pronCard: {
     backgroundColor: ADMIN_THEME.cardBg,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#CBD5E1',
-    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 16,
     marginBottom: 14,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 5,
-    elevation: 3,
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   pronCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  ipaBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 10,
-    backgroundColor: ADMIN_THEME.primarySoft,
+  pronIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#EEF2FF',
     borderWidth: 1,
-    borderColor: ADMIN_THEME.primaryBorder,
+    borderColor: '#E0E7FF',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  ipaBadgeSymbol: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: ADMIN_THEME.primary,
+  pronHeaderMeta: {
+    flex: 1,
+    marginLeft: 12,
   },
   pronCardLevelRow: {
     flexDirection: 'row',
@@ -749,7 +768,7 @@ const s = StyleSheet.create({
   cefrLevelTagMini: {
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: 6,
     borderWidth: 1,
   },
   cefrLevelTextMini: {
@@ -758,17 +777,64 @@ const s = StyleSheet.create({
   },
   pronCategoryText: {
     fontSize: 11,
-    color: ADMIN_THEME.textMuted,
+    fontWeight: '600',
+    color: '#64748B',
+    textTransform: 'uppercase',
   },
   pronTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
     color: ADMIN_THEME.textMain,
+  },
+  pronTargetBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginBottom: 8,
+  },
+  pronTargetLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+    marginRight: 8,
+  },
+  pronTargetLabel: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  pronTargetWord: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1E293B',
+    flexShrink: 1,
+  },
+  ipaPill: {
+    backgroundColor: '#EEF2FF',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    maxWidth: '52%',
+  },
+  ipaPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4F46E5',
+    fontStyle: 'italic',
   },
   pronDesc: {
     fontSize: 12,
     color: ADMIN_THEME.textSub,
-    lineHeight: 17,
+    lineHeight: 18,
     marginBottom: 10,
   },
   pronFooter: {
@@ -779,15 +845,19 @@ const s = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: '#F1F5F9',
   },
-  pronSampleWordBox: {
+  pronFooterAiBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
+    backgroundColor: '#F5F3FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
-  pronSampleWordText: {
+  pronFooterAiText: {
     fontSize: 11,
     fontWeight: '600',
-    color: ADMIN_THEME.textSub,
+    color: '#6366F1',
   },
 
   // Empty & Loading

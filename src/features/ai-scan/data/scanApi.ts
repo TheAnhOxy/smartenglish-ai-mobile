@@ -3,7 +3,7 @@ import { analyzeImageWithGemini } from '@/src/features/ai-chatbot/data/geminiSer
 
 export interface ScanQuota {
   scans_used_today: number;
-  scans_limit: number; // 10 for Free, 999 for Premium
+  scans_limit: number; // 5 for Free, 999 for Premium
   is_premium: boolean;
 }
 
@@ -26,7 +26,7 @@ export interface DetectedObjectItem {
 export const fetchScanQuotaApi = async (isPremium: boolean): Promise<ScanQuota> => {
   return {
     scans_used_today: 3,
-    scans_limit: isPremium ? 999 : 10,
+    scans_limit: isPremium ? 999 : 5,
     is_premium: isPremium
   };
 };

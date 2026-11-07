@@ -160,7 +160,7 @@ export const RoleplayScenariosScreen = () => {
             <View style={s.emptyBox}>
               <Bot color={colors.textFaint} size={36} />
               <Text style={s.emptyTitle}>Chưa có kịch bản nào</Text>
-              <Text style={s.emptyDesc}>Backend chưa cung cấp dữ liệu roleplay</Text>
+              <Text style={s.emptyDesc}>Các kịch bản luyện nói đang được cập nhật</Text>
             </View>
           }
         />

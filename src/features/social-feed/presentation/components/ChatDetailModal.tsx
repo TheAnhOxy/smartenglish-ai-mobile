@@ -6,6 +6,7 @@ import {
   TextInput,
   Pressable,
   Image,
+  FlatList,
   ScrollView,
   StyleSheet,
   ActivityIndicator,
@@ -36,6 +37,7 @@ import {
   ChatConversationDto,
   ChatMessageDto,
   fetchConversationMessagesApi,
+  fetchConversationMessagesPaginatedApi,
   sendMessageApi,
   markConversationAsReadApi,
   toggleMessagePinApi,
@@ -83,76 +85,132 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
   isOnline = false,
 }) => {
   const insets = useSafeAreaInsets();
-  const scrollRef = useRef<ScrollView>(null);
+  const flatListRef = useRef<FlatList<ChatMessageDto>>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasInitiallyScrolled = useRef(false);
 
   const convId = conversation?.id;
   const initialCached = convId ? getCachedMessages(convId) : null;
-  const [messages, setMessages] = useState<ChatMessageDto[]>(initialCached || []);
+  // Inverted FlatList: index 0 is newest message, so reverse cached chronological list
+  const [messages, setMessages] = useState<ChatMessageDto[]>(
+    initialCached ? [...initialCached].reverse() : []
+  );
   const [loading, setLoading] = useState(!initialCached || initialCached.length === 0);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [hasMoreOlder, setHasMoreOlder] = useState(true);
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(40);
 
   // Advanced features state
   const [replyingTo, setReplyingTo] = useState<ChatMessageDto | null>(null);
   const [selectedMsgForAction, setSelectedMsgForAction] = useState<ChatMessageDto | null>(null);
   const [activeTypingUsers, setActiveTypingUsers] = useState<{ userId: number; userName: string }[]>([]);
 
-  // ─── 1. Load messages & Mark as read ───
-  const loadMessages = useCallback(async (isInitial = false) => {
+  // ─── 1. Load Initial Messages (Page 0) ───
+  const loadInitialMessages = useCallback(async () => {
     if (!convId) return;
     try {
-      if (isInitial && messages.length === 0) setLoading(true);
-      const data = await fetchConversationMessagesApi(convId, currentUserId);
-      if (Array.isArray(data)) {
-        setMessages((prev) => {
-          const hasNew = data.length > prev.length;
-          if (hasNew || !hasInitiallyScrolled.current) {
-            setTimeout(() => {
-              scrollRef.current?.scrollToEnd({ animated: hasInitiallyScrolled.current });
-              hasInitiallyScrolled.current = true;
-            }, 60);
-          }
-          return data;
-        });
+      const res = await fetchConversationMessagesPaginatedApi(convId, { page: 0, size: 30 });
+      if (Array.isArray(res.messages)) {
+        // Reverse chronological [older -> newer] to [newest -> older] for inverted FlatList
+        const inverted = [...res.messages].reverse();
+        setMessages(inverted);
+        setHasMoreOlder(res.hasMore && res.messages.length >= 30);
       }
-      // Đánh dấu đã đọc
       markConversationAsReadApi(convId, currentUserId).catch(() => {});
     } catch (err) {
-      console.warn('loadMessages error:', err);
+      console.warn('loadInitialMessages error:', err);
     } finally {
-      if (isInitial) setLoading(false);
+      setLoading(false);
     }
-  }, [convId, currentUserId, messages.length]);
+  }, [convId, currentUserId]);
 
-  // ─── 2. Polling for messages and typing indicators ───
+  // ─── 2. Load Older Messages (Cursor-based using oldest message timestamp) ───
+  const loadOlderMessages = useCallback(async () => {
+    if (loadingOlder || !hasMoreOlder || messages.length === 0 || !convId) return;
+    try {
+      setLoadingOlder(true);
+      const oldestMsg = messages[messages.length - 1];
+      const res = await fetchConversationMessagesPaginatedApi(convId, {
+        size: 30,
+        before: oldestMsg?.createdAt,
+        page: Math.floor(messages.length / 30),
+      });
+
+      if (res.messages && res.messages.length > 0) {
+        const olderInverted = [...res.messages].reverse();
+        setMessages((prev) => {
+          const existingIds = new Set(prev.map((m) => m.id));
+          const uniqueOlder = olderInverted.filter((m) => !existingIds.has(m.id));
+          return [...prev, ...uniqueOlder];
+        });
+        setHasMoreOlder(res.hasMore && res.messages.length >= 30);
+      } else {
+        setHasMoreOlder(false);
+      }
+    } catch (err) {
+      console.warn('loadOlderMessages error:', err);
+    } finally {
+      setLoadingOlder(false);
+    }
+  }, [loadingOlder, hasMoreOlder, messages, convId]);
+
+  // ─── 3. Polling Sync for New Messages & Typing Indicators ───
+  const syncLatestMessages = useCallback(async () => {
+    if (!convId) return;
+    try {
+      const res = await fetchConversationMessagesPaginatedApi(convId, { page: 0, size: 15 });
+      if (res.messages && res.messages.length > 0) {
+        setMessages((prev) => {
+          const existingMap = new Map(prev.map((m) => [m.id, m]));
+          const newItems: ChatMessageDto[] = [];
+          let hasUpdates = false;
+
+          for (const msg of res.messages) {
+            const existing = existingMap.get(msg.id);
+            if (!existing) {
+              newItems.push(msg);
+              hasUpdates = true;
+            } else if (
+              existing.isRecalled !== msg.isRecalled ||
+              existing.isPinned !== msg.isPinned ||
+              (existing.reactions?.length || 0) !== (msg.reactions?.length || 0)
+            ) {
+              existingMap.set(msg.id, msg);
+              hasUpdates = true;
+            }
+          }
+
+          if (!hasUpdates) return prev;
+
+          const reversedNew = [...newItems].reverse();
+          const updated = prev.map((m) => existingMap.get(m.id) || m);
+          return [...reversedNew, ...updated];
+        });
+      }
+    } catch {
+      // silent polling error
+    }
+  }, [convId]);
+
   useEffect(() => {
     if (visible && convId) {
-      hasInitiallyScrolled.current = false;
       const cachedMsgs = getCachedMessages(convId);
       if (cachedMsgs && cachedMsgs.length > 0) {
-        setMessages(cachedMsgs);
+        setMessages([...cachedMsgs].reverse());
         setLoading(false);
-        setTimeout(() => {
-          scrollRef.current?.scrollToEnd({ animated: false });
-          hasInitiallyScrolled.current = true;
-        }, 50);
+      } else {
+        setLoading(true);
       }
-      loadMessages(!cachedMsgs || cachedMsgs.length === 0);
-      setVisibleCount(40);
+      loadInitialMessages();
 
-      // Realtime polling sync for messages every 2.0s
       const msgTimer = setInterval(() => {
-        loadMessages(false);
-      }, 2000);
+        syncLatestMessages();
+      }, 2500);
 
-      // Realtime polling sync for typing every 1.5s
       const typingTimer = setInterval(async () => {
         const typers = await fetchTypingApi(convId);
         setActiveTypingUsers(typers.filter((t) => Number(t.userId) !== currentUserId));
-      }, 1500);
+      }, 2000);
 
       return () => {
         clearInterval(msgTimer);
@@ -165,9 +223,9 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
       setSelectedMsgForAction(null);
       setActiveTypingUsers([]);
     }
-  }, [visible, convId, loadMessages, currentUserId, currentUserName]);
+  }, [visible, convId, loadInitialMessages, syncLatestMessages, currentUserId, currentUserName]);
 
-  // ─── 3. Handle Typing in TextInput ───
+  // ─── 4. Handle Typing in TextInput ───
   const handleInputChange = (text: string) => {
     setInputText(text);
     if (!convId) return;
@@ -179,7 +237,7 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
     }, 2500);
   };
 
-  // ─── 4. Send Text Message (Supports Reply) ───
+  // ─── 5. Send Text Message (Supports Reply) ───
   const handleSendText = async () => {
     if (!inputText.trim() || !convId || isSending) return;
     const text = inputText.trim();
@@ -216,8 +274,8 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
       createdAt: new Date().toISOString(),
     };
 
-    setMessages((prev) => [...prev, tempMsg]);
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
+    setMessages((prev) => [tempMsg, ...prev]);
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
 
     try {
       const sent = await sendMessageApi(convId, {
@@ -289,8 +347,8 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
           createdAt: new Date().toISOString(),
         };
 
-        setMessages((prev) => [...prev, tempMsg]);
-        setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
+        setMessages((prev) => [tempMsg, ...prev]);
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
 
         const sent = await sendMessageApi(convId, {
           senderId: currentUserId,
@@ -346,8 +404,8 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
           createdAt: new Date().toISOString(),
         };
 
-        setMessages((prev) => [...prev, tempMsg]);
-        setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
+        setMessages((prev) => [tempMsg, ...prev]);
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
 
         const sent = await sendMessageApi(convId, {
           senderId: currentUserId,
@@ -447,14 +505,6 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
 
   const hasRealHeaderAvatar = Boolean(rawHeaderAvatar);
   const headerInitialLetter = (headerTitle || 'U').trim().charAt(0).toUpperCase();
-
-  // Pagination slice
-  const displayedMessages =
-    messages.length > visibleCount
-      ? messages.slice(messages.length - visibleCount)
-      : messages;
-
-  const hasMoreOldMessages = messages.length > visibleCount;
 
   // Active pinned message in room
   const pinnedMessage = messages.find((m) => m.isPinned);
@@ -632,332 +682,327 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
           <View style={styles.loadingWrap}>
             <DatabaseLoader size="sm" message="Đang tải tin nhắn..." />
           </View>
+        ) : messages.length === 0 ? (
+          <View style={styles.emptyMessagesWrap}>
+            <Text style={styles.emptyMessagesText}>
+              Chưa có tin nhắn nào. Hãy gửi lời chào đầu tiên! 👋
+            </Text>
+          </View>
         ) : (
-          <ScrollView
-            ref={scrollRef}
-            onContentSizeChange={() => {
-              if (!hasInitiallyScrolled.current && messages.length > 0) {
-                scrollRef.current?.scrollToEnd({ animated: false });
-                hasInitiallyScrolled.current = true;
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            inverted
+            keyExtractor={(item, index) => item.id || `msg-${index}`}
+            renderItem={({ item: msg, index }) => {
+              const isMe = msg.senderId === currentUserId;
+              const olderMsg = index < messages.length - 1 ? messages[index + 1] : null;
+              const newerMsg = index > 0 ? messages[index - 1] : null;
+
+              const dateLabel = getDateSeparatorLabel(msg.createdAt, olderMsg?.createdAt);
+
+              let isSameSenderAsOlder = false;
+              let isOlderWithin30Mins = false;
+              if (olderMsg) {
+                isSameSenderAsOlder = olderMsg.senderId === msg.senderId;
+                if (isSameSenderAsOlder && msg.createdAt && olderMsg.createdAt) {
+                  const diff = Math.abs(new Date(msg.createdAt).getTime() - new Date(olderMsg.createdAt).getTime());
+                  isOlderWithin30Mins = diff < 30 * 60 * 1000;
+                } else {
+                  isOlderWithin30Mins = true;
+                }
               }
-            }}
-            style={styles.messageScroll}
-            contentContainerStyle={styles.messageScrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Load Older Messages Button */}
-            {hasMoreOldMessages && (
-              <Pressable
-                onPress={() => setVisibleCount((prev) => prev + 30)}
-                style={styles.loadOlderBtn}
-              >
-                <Clock color="#64748B" size={13} />
-                <Text style={styles.loadOlderText}>
-                  Xem tin nhắn cũ hơn ({messages.length - visibleCount} tin nhắn)
-                </Text>
-              </Pressable>
-            )}
+              const isFirstOfSequence = !isSameSenderAsOlder || !isOlderWithin30Mins;
 
-            {displayedMessages.length === 0 ? (
-              <View style={styles.emptyMessagesWrap}>
-                <Text style={styles.emptyMessagesText}>
-                  Chưa có tin nhắn nào. Hãy gửi lời chào đầu tiên! 👋
-                </Text>
-              </View>
-            ) : (
-              displayedMessages.map((msg, index) => {
-                const isMe = msg.senderId === currentUserId;
-                const prevMsg = index > 0 ? displayedMessages[index - 1] : null;
-                const nextMsg =
-                  index < displayedMessages.length - 1 ? displayedMessages[index + 1] : null;
-
-                const dateLabel = getDateSeparatorLabel(msg.createdAt, prevMsg?.createdAt);
-
-                let isSameSenderAsPrev = false;
-                let isPrevWithin30Mins = false;
-                if (prevMsg) {
-                  isSameSenderAsPrev = prevMsg.senderId === msg.senderId;
-                  if (isSameSenderAsPrev && msg.createdAt && prevMsg.createdAt) {
-                    const diff =
-                      new Date(msg.createdAt).getTime() - new Date(prevMsg.createdAt).getTime();
-                    isPrevWithin30Mins = diff < 30 * 60 * 1000;
-                  } else {
-                    isPrevWithin30Mins = true;
-                  }
+              let isSameSenderAsNewer = false;
+              let isNewerWithin30Mins = false;
+              if (newerMsg) {
+                isSameSenderAsNewer = newerMsg.senderId === msg.senderId;
+                if (isSameSenderAsNewer && msg.createdAt && newerMsg.createdAt) {
+                  const diff = Math.abs(new Date(newerMsg.createdAt).getTime() - new Date(msg.createdAt).getTime());
+                  isNewerWithin30Mins = diff < 30 * 60 * 1000;
+                } else {
+                  isNewerWithin30Mins = true;
                 }
-                const isFirstOfSequence = !isSameSenderAsPrev || !isPrevWithin30Mins;
+              }
+              const isLastOfSequence = !isSameSenderAsNewer || !isNewerWithin30Mins;
 
-                let isSameSenderAsNext = false;
-                let isNextWithin30Mins = false;
-                if (nextMsg) {
-                  isSameSenderAsNext = nextMsg.senderId === msg.senderId;
-                  if (isSameSenderAsNext && msg.createdAt && nextMsg.createdAt) {
-                    const diff =
-                      new Date(nextMsg.createdAt).getTime() - new Date(msg.createdAt).getTime();
-                    isNextWithin30Mins = diff < 30 * 60 * 1000;
-                  } else {
-                    isNextWithin30Mins = true;
-                  }
-                }
-                const isLastOfSequence = !isSameSenderAsNext || !isNextWithin30Mins;
+              const isImage = msg.type === 'IMAGE' || (Boolean(msg.attachmentUrl) && !msg.attachmentName);
+              const isFile = msg.type === 'FILE' || (Boolean(msg.attachmentUrl) && Boolean(msg.attachmentName));
+              const isSharedPost = msg.type === 'SHARE_POST' || Boolean(msg.sharedPost);
 
-                const isImage = msg.type === 'IMAGE' || (Boolean(msg.attachmentUrl) && !msg.attachmentName);
-                const isFile = msg.type === 'FILE' || (Boolean(msg.attachmentUrl) && Boolean(msg.attachmentName));
-                const isSharedPost = msg.type === 'SHARE_POST' || Boolean(msg.sharedPost);
+              return (
+                <View key={msg.id || `msg-${index}`}>
+                  {dateLabel && (
+                    <View style={styles.dateSeparatorWrap}>
+                      <Text style={styles.dateSeparatorText}>{dateLabel}</Text>
+                    </View>
+                  )}
 
-                return (
-                  <View key={msg.id || index}>
-                    {dateLabel && (
-                      <View style={styles.dateSeparatorWrap}>
-                        <Text style={styles.dateSeparatorText}>{dateLabel}</Text>
-                      </View>
+                  <View
+                    style={[
+                      styles.messageRow,
+                      isMe ? styles.messageRowMe : styles.messageRowOther,
+                      isLastOfSequence ? styles.messageRowLast : styles.messageRowNormal,
+                    ]}
+                  >
+                    {/* Avatar on other's last message of sequence */}
+                    {!isMe && (
+                      isLastOfSequence ? (
+                        (() => {
+                          const senderMatchedUser = msg.senderId && communityUsers
+                            ? communityUsers.find((u: any) => Number(u.id) === Number(msg.senderId))
+                            : null;
+                          const senderAvatar = !isGroup
+                            ? (rawHeaderAvatar || cleanAvatarUrl(senderMatchedUser?.avatarUrl || senderMatchedUser?.avatar) || cleanAvatarUrl(msg.senderAvatar))
+                            : (cleanAvatarUrl(senderMatchedUser?.avatarUrl || senderMatchedUser?.avatar) || cleanAvatarUrl(msg.senderAvatar));
+                          const senderName = msg.senderName || senderMatchedUser?.displayName || senderMatchedUser?.name || headerTitle;
+                          const senderInitial = (senderName || 'U').trim().charAt(0).toUpperCase();
+
+                          return senderAvatar ? (
+                            <Image
+                              source={{ uri: senderAvatar }}
+                              style={styles.senderAvatar}
+                            />
+                          ) : (
+                            <View
+                              style={[
+                                styles.senderAvatar,
+                                {
+                                  backgroundColor: '#EEF2FF',
+                                  justifyContent: 'center',
+                                  alignItems: 'center',
+                                  borderWidth: 1,
+                                  borderColor: '#C7D2FE',
+                                },
+                              ]}
+                            >
+                              <Text style={{ fontSize: 11, fontWeight: '700', color: '#4F46E5' }}>
+                                {senderInitial}
+                              </Text>
+                            </View>
+                          );
+                        })()
+                      ) : (
+                        <View style={styles.avatarSpacer} />
+                      )
                     )}
 
                     <View
                       style={[
-                        styles.messageRow,
-                        isMe ? styles.messageRowMe : styles.messageRowOther,
-                        isLastOfSequence ? styles.messageRowLast : styles.messageRowNormal,
+                        styles.bubbleWrap,
+                        isMe ? styles.bubbleWrapMe : styles.bubbleWrapOther,
                       ]}
                     >
-                      {/* Avatar on other's last message of sequence */}
-                      {!isMe && (
-                        isLastOfSequence ? (
-                          (() => {
-                            const senderMatchedUser = msg.senderId && communityUsers
-                              ? communityUsers.find((u: any) => Number(u.id) === Number(msg.senderId))
-                              : null;
-                            const senderAvatar = !isGroup
-                              ? (rawHeaderAvatar || cleanAvatarUrl(senderMatchedUser?.avatarUrl || senderMatchedUser?.avatar) || cleanAvatarUrl(msg.senderAvatar))
-                              : (cleanAvatarUrl(senderMatchedUser?.avatarUrl || senderMatchedUser?.avatar) || cleanAvatarUrl(msg.senderAvatar));
-                            const senderName = msg.senderName || senderMatchedUser?.displayName || senderMatchedUser?.name || headerTitle;
-                            const senderInitial = (senderName || 'U').trim().charAt(0).toUpperCase();
-
-                            return senderAvatar ? (
-                              <Image
-                                source={{ uri: senderAvatar }}
-                                style={styles.senderAvatar}
-                              />
-                            ) : (
-                              <View
-                                style={[
-                                  styles.senderAvatar,
-                                  {
-                                    backgroundColor: '#EEF2FF',
-                                    justifyContent: 'center',
-                                    alignItems: 'center',
-                                    borderWidth: 1,
-                                    borderColor: '#C7D2FE',
-                                  },
-                                ]}
-                              >
-                                <Text style={{ fontSize: 11, fontWeight: '700', color: '#4F46E5' }}>
-                                  {senderInitial}
-                                </Text>
-                              </View>
-                            );
-                          })()
-                        ) : (
-                          <View style={styles.avatarSpacer} />
-                        )
+                      {/* Sender Name in group */}
+                      {!isMe && isGroup && isFirstOfSequence && (
+                        <Text style={styles.senderNameLabel}>{msg.senderName}</Text>
                       )}
 
-                      <View
-                        style={[
-                          styles.bubbleWrap,
-                          isMe ? styles.bubbleWrapMe : styles.bubbleWrapOther,
-                        ]}
-                      >
-                        {/* Sender Name in group */}
-                        {!isMe && isGroup && isFirstOfSequence && (
-                          <Text style={styles.senderNameLabel}>{msg.senderName}</Text>
-                        )}
-
-                        {/* CASE 1: STANDALONE CLEAN IMAGE (No text, no wrapper frame) */}
-                        {isImage && msg.attachmentUrl ? (
-                          <Pressable
-                            onPress={() => onViewImage?.(msg.attachmentUrl!)}
-                            onLongPress={() => setSelectedMsgForAction(msg)}
-                            style={styles.cleanImageCard}
-                          >
-                            <Image
-                              source={{ uri: msg.attachmentUrl }}
-                              style={styles.cleanImage}
-                              resizeMode="cover"
-                            />
-                            <View style={styles.cleanImageBadge}>
-                              {msg.isPinned && (
-                                <Pin size={10} color="#FDE047" style={{ marginRight: 3 }} />
-                              )}
-                              <Text style={styles.cleanImageBadgeTime}>
-                                {formatMsgTime(msg.createdAt)}
+                      {/* CASE 1: STANDALONE CLEAN IMAGE (No text, no wrapper frame) */}
+                      {isImage && msg.attachmentUrl ? (
+                        <Pressable
+                          onPress={() => onViewImage?.(msg.attachmentUrl!)}
+                          onLongPress={() => setSelectedMsgForAction(msg)}
+                          style={styles.cleanImageCard}
+                        >
+                          <Image
+                            source={{ uri: msg.attachmentUrl }}
+                            style={styles.cleanImage}
+                            resizeMode="cover"
+                          />
+                          <View style={styles.cleanImageBadge}>
+                            {msg.isPinned && (
+                              <Pin size={10} color="#FDE047" style={{ marginRight: 3 }} />
+                            )}
+                            <Text style={styles.cleanImageBadgeTime}>
+                              {formatMsgTime(msg.createdAt)}
+                            </Text>
+                          </View>
+                          {renderReactionBadges(msg, isMe)}
+                        </Pressable>
+                      ) : (
+                        /* CASE 2: REGULAR BUBBLE / FILE / SHARED POST */
+                        <Pressable
+                          onLongPress={() => setSelectedMsgForAction(msg)}
+                          style={[
+                            styles.bubble,
+                            isMe ? styles.bubbleMe : styles.bubbleOther,
+                          ]}
+                        >
+                          {/* Reply Quote Preview inside bubble */}
+                          {msg.replyTo && (
+                            <View
+                              style={[
+                                styles.replyQuoteBox,
+                                isMe ? styles.replyQuoteBoxMe : styles.replyQuoteBoxOther,
+                              ]}
+                            >
+                              <Text style={styles.replyQuoteAuthor}>{msg.replyTo.senderName}</Text>
+                              <Text
+                                style={[styles.replyQuoteText, isMe && { color: '#E2E8F0' }]}
+                                numberOfLines={1}
+                              >
+                                {msg.replyTo.content}
                               </Text>
                             </View>
-                            {renderReactionBadges(msg, isMe)}
-                          </Pressable>
-                        ) : (
-                          /* CASE 2: REGULAR BUBBLE / FILE / SHARED POST */
-                          <Pressable
-                            onLongPress={() => setSelectedMsgForAction(msg)}
-                            style={[
-                              styles.bubble,
-                              isMe ? styles.bubbleMe : styles.bubbleOther,
-                            ]}
-                          >
-                            {/* Reply Quote Preview inside bubble */}
-                            {msg.replyTo && (
-                              <View
-                                style={[
-                                  styles.replyQuoteBox,
-                                  isMe ? styles.replyQuoteBoxMe : styles.replyQuoteBoxOther,
-                                ]}
-                              >
-                                <Text style={styles.replyQuoteAuthor}>{msg.replyTo.senderName}</Text>
-                                <Text
-                                  style={[styles.replyQuoteText, isMe && { color: '#E2E8F0' }]}
-                                  numberOfLines={1}
-                                >
-                                  {msg.replyTo.content}
-                                </Text>
-                              </View>
-                            )}
+                          )}
 
-                            {/* Shared Post Card */}
-                            {isSharedPost && msg.sharedPost && (
-                              <Pressable
-                                onPress={() => onNavigateToPost?.(msg.sharedPost!.postId)}
-                                style={[
-                                  styles.sharedPostCard,
-                                  isMe ? styles.sharedPostCardMe : styles.sharedPostCardOther,
-                                ]}
-                              >
-                                <View style={styles.sharedPostHeader}>
-                                  {Boolean(cleanAvatarUrl(msg.sharedPost.authorAvatar)) && (
-                                    <Image
-                                      source={{ uri: cleanAvatarUrl(msg.sharedPost.authorAvatar) }}
-                                      style={styles.sharedPostAvatar}
-                                    />
-                                  )}
-                                  <View style={{ flex: 1 }}>
-                                    <Text
-                                      style={[styles.sharedPostAuthor, isMe && { color: '#FFFFFF' }]}
-                                    >
-                                      {msg.sharedPost.authorName}
-                                    </Text>
-                                    <Text
-                                      style={[styles.sharedPostSub, isMe && { color: '#93C5FD' }]}
-                                    >
-                                      • Bài viết cộng đồng
-                                    </Text>
-                                  </View>
-                                  <View style={styles.sharedPostBadge}>
-                                    <Text style={styles.sharedPostBadgeText}>Xem →</Text>
-                                  </View>
-                                </View>
-
-                                <Text
-                                  style={[styles.sharedPostExcerpt, isMe && { color: '#E2E8F0' }]}
-                                  numberOfLines={2}
-                                >
-                                  "{msg.sharedPost.content}"
-                                </Text>
-
-                                {Boolean(msg.sharedPost.imageUrl) && (
+                          {/* Shared Post Card */}
+                          {isSharedPost && msg.sharedPost && (
+                            <Pressable
+                              onPress={() => onNavigateToPost?.(msg.sharedPost!.postId)}
+                              style={[
+                                styles.sharedPostCard,
+                                isMe ? styles.sharedPostCardMe : styles.sharedPostCardOther,
+                              ]}
+                            >
+                              <View style={styles.sharedPostHeader}>
+                                {Boolean(cleanAvatarUrl(msg.sharedPost.authorAvatar)) && (
                                   <Image
-                                    source={{ uri: msg.sharedPost.imageUrl }}
-                                    style={styles.sharedPostImg}
-                                    resizeMode="cover"
+                                    source={{ uri: cleanAvatarUrl(msg.sharedPost.authorAvatar) }}
+                                    style={styles.sharedPostAvatar}
                                   />
                                 )}
-                              </Pressable>
-                            )}
-
-                            {/* File Card (Clean document attachment without duplicated text) */}
-                            {isFile && (
-                              <View
-                                style={[
-                                  styles.fileCard,
-                                  isMe ? styles.fileCardMe : styles.fileCardOther,
-                                ]}
-                              >
-                                <View style={styles.fileIconBox}>
-                                  <FileText color="#DC2626" size={18} />
-                                </View>
                                 <View style={{ flex: 1 }}>
                                   <Text
-                                    style={[styles.fileName, isMe && { color: '#FFFFFF' }]}
-                                    numberOfLines={1}
+                                    style={[styles.sharedPostAuthor, isMe && { color: '#FFFFFF' }]}
                                   >
-                                    {msg.attachmentName || 'Tài liệu đính kèm'}
+                                    {msg.sharedPost.authorName}
                                   </Text>
                                   <Text
-                                    style={[styles.fileSize, isMe && { color: '#CBD5E1' }]}
+                                    style={[styles.sharedPostSub, isMe && { color: '#93C5FD' }]}
                                   >
-                                    {msg.attachmentSize || 'Tệp tài liệu'}
+                                    • Bài viết cộng đồng
                                   </Text>
                                 </View>
-                                <Download color={isMe ? '#FFFFFF' : '#64748B'} size={16} />
+                                <View style={styles.sharedPostBadge}>
+                                  <Text style={styles.sharedPostBadgeText}>Xem →</Text>
+                                </View>
                               </View>
-                            )}
 
-                            {/* Text Content (Suppressed if duplicate file/image label) */}
-                            {msg.content &&
-                              !isSharedPost &&
-                              !isFile &&
-                              !msg.content.startsWith('[Tệp đính kèm]') &&
-                              !msg.content.startsWith('[Hình ảnh]') && (
+                              <Text
+                                style={[styles.sharedPostExcerpt, isMe && { color: '#E2E8F0' }]}
+                                numberOfLines={2}
+                              >
+                                "{msg.sharedPost.content}"
+                              </Text>
+
+                              {Boolean(msg.sharedPost.imageUrl) && (
+                                <Image
+                                  source={{ uri: msg.sharedPost.imageUrl }}
+                                  style={styles.sharedPostImg}
+                                  resizeMode="cover"
+                                />
+                              )}
+                            </Pressable>
+                          )}
+
+                          {/* File Card (Clean document attachment without duplicated text) */}
+                          {isFile && (
+                            <View
+                              style={[
+                                styles.fileCard,
+                                isMe ? styles.fileCardMe : styles.fileCardOther,
+                              ]}
+                            >
+                              <View style={styles.fileIconBox}>
+                                <FileText color="#DC2626" size={18} />
+                              </View>
+                              <View style={{ flex: 1 }}>
                                 <Text
-                                  style={[
-                                    styles.bubbleText,
-                                    isMe ? styles.bubbleTextMe : styles.bubbleTextOther,
-                                    msg.isRecalled && { fontStyle: 'italic', opacity: 0.75 },
-                                  ]}
+                                  style={[styles.fileName, isMe && { color: '#FFFFFF' }]}
+                                  numberOfLines={1}
                                 >
-                                  {msg.content}
+                                  {msg.attachmentName || 'Tài liệu đính kèm'}
                                 </Text>
-                              )}
+                                <Text
+                                  style={[styles.fileSize, isMe && { color: '#CBD5E1' }]}
+                                >
+                                  {msg.attachmentSize || 'Tệp tài liệu'}
+                                </Text>
+                              </View>
+                              <Download color={isMe ? '#FFFFFF' : '#64748B'} size={16} />
+                            </View>
+                          )}
 
-                            {/* Message Time and Pinned indicator */}
-                            <View style={styles.bubbleFooter}>
-                              {msg.isPinned && (
-                                <Pin size={10} color="#F59E0B" style={{ marginRight: 3 }} />
-                              )}
+                          {/* Text Content */}
+                          {msg.content &&
+                            !isSharedPost &&
+                            !isFile &&
+                            !msg.content.startsWith('[Tệp đính kèm]') &&
+                            !msg.content.startsWith('[Hình ảnh]') && (
                               <Text
                                 style={[
-                                  styles.bubbleTime,
-                                  isMe ? styles.bubbleTimeMe : styles.bubbleTimeOther,
+                                  styles.bubbleText,
+                                  isMe ? styles.bubbleTextMe : styles.bubbleTextOther,
+                                  msg.isRecalled && { fontStyle: 'italic', opacity: 0.75 },
                                 ]}
                               >
-                                {formatMsgTime(msg.createdAt)}
+                                {msg.content}
                               </Text>
-                            </View>
+                            )}
 
-                            {renderReactionBadges(msg, isMe)}
-                          </Pressable>
-                        )}
-                      </View>
+                          {/* Message Time and Pinned indicator */}
+                          <View style={styles.bubbleFooter}>
+                            {msg.isPinned && (
+                              <Pin size={10} color="#F59E0B" style={{ marginRight: 3 }} />
+                            )}
+                            <Text
+                              style={[
+                                styles.bubbleTime,
+                                isMe ? styles.bubbleTimeMe : styles.bubbleTimeOther,
+                              ]}
+                            >
+                              {formatMsgTime(msg.createdAt)}
+                            </Text>
+                          </View>
+
+                          {renderReactionBadges(msg, isMe)}
+                        </Pressable>
+                      )}
                     </View>
                   </View>
-                );
-              })
-            )}
-
-            {/* Dynamic Typing Indicator */}
-            {activeTypingUsers.length > 0 && (
-              <View style={styles.typingIndicatorRow}>
-                <View style={styles.typingBubble}>
-                  <View style={styles.typingDotWrap}>
-                    <View style={styles.typingDot} />
-                    <View style={styles.typingDot} />
-                    <View style={styles.typingDot} />
-                  </View>
-                  <Text style={styles.typingText}>
-                    {activeTypingUsers[0].userName || 'Ai đó'} đang soạn tin nhắn...
-                  </Text>
                 </View>
-              </View>
-            )}
-          </ScrollView>
+              );
+            }}
+            onEndReached={loadOlderMessages}
+            onEndReachedThreshold={0.3}
+            initialNumToRender={20}
+            maxToRenderPerBatch={10}
+            windowSize={7}
+            removeClippedSubviews={Platform.OS === 'android'}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.messageScrollContent}
+            ListHeaderComponent={
+              activeTypingUsers.length > 0 ? (
+                <View style={styles.typingIndicatorRow}>
+                  <View style={styles.typingBubble}>
+                    <View style={styles.typingDotWrap}>
+                      <View style={styles.typingDot} />
+                      <View style={styles.typingDot} />
+                      <View style={styles.typingDot} />
+                    </View>
+                    <Text style={styles.typingText}>
+                      {activeTypingUsers[0].userName || 'Ai đó'} đang soạn tin nhắn...
+                    </Text>
+                  </View>
+                </View>
+              ) : null
+            }
+            ListFooterComponent={
+              loadingOlder ? (
+                <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+                  <ActivityIndicator size="small" color="#4F46E5" />
+                </View>
+              ) : hasMoreOlder && messages.length >= 30 ? (
+                <Pressable onPress={loadOlderMessages} style={styles.loadOlderBtn}>
+                  <Clock color="#64748B" size={13} />
+                  <Text style={styles.loadOlderText}>Tải thêm tin nhắn cũ</Text>
+                </Pressable>
+              ) : null
+            }
+          />
         )}
 
         {/* Reply Preview Bar above Input */}
