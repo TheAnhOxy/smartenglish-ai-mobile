@@ -7,54 +7,70 @@ export interface ChatConversationItem {
   last_message: string;
   last_message_at: string;
 }
+export interface ChatQuota {
+  quota_used: number;
+  quota_limit: number | null;
+  quota_exceeded: boolean;
+  is_premium?: boolean;
+}
+export interface ChatApiResponse extends Partial<ChatQuota> {
+  transcript?: string;
+  success: boolean;
+  reply: string;
+  error?: string | null;
+}
+export interface TutorAudio { base64: string; mimeType: 'audio/webm' | 'audio/mp4' | 'audio/m4a' | 'audio/wav' | 'audio/ogg' }
+export interface ChatTurn { role: 'user' | 'model'; content: string }
+type ApiEnvelope<T> = T | { data: T };
+const unwrap = <T,>(body: ApiEnvelope<T>): T => 'data' in (body as object)
+  ? (body as { data: T }).data : body as T;
 
-// In-session conversation history sent to backend for multi-turn context
-let _conversationHistory: Array<{ role: 'user' | 'model'; content: string }> = [];
+let historyOwner = '';
+let historyVersion = 0;
+let conversationHistory: ChatTurn[] = [];
+export const clearChatHistory = () => { conversationHistory = []; historyVersion++; };
 
-export const clearChatHistory = () => {
-  _conversationHistory = [];
+export const getChatQuotaApi = async (): Promise<ChatQuota> => {
+  const response = await apiClient.get<ApiEnvelope<ChatQuota>>('/api/v1/ai-practice/chat/quota');
+  return unwrap(response.data);
 };
 
-/**
- * Sends a message to the backend AI chat endpoint (/api/v1/ai-practice/chat).
- * The backend proxies to Gemini — no API key needed on mobile.
- */
+/** All tutor clients share this contract. API keys stay on the backend. */
+export const requestTutorReply = async (
+  text: string, cefrLevel: string, history: ChatTurn[], audio?: TutorAudio
+): Promise<ChatApiResponse> => {
+  const response = await apiClient.post<ApiEnvelope<ChatApiResponse>>('/api/v1/ai-practice/chat', {
+    message: text, cefrLevel, history: history.slice(-6),
+    ...(audio ? { audioBase64: audio.base64, audioMimeType: audio.mimeType } : {}),
+  }, { timeout: audio ? 45000 : 30000 });
+  return unwrap(response.data);
+};
+
 export const sendChatMessageApi = async (
-  text: string,
-  cefrLevel: string = 'Intermediate',
-  topic: string = 'Tự do'
+  text: string, cefrLevel: string = 'Intermediate'
 ): Promise<ChatMessage> => {
+  const owner = getCurrentUserId();
+  if (owner !== historyOwner) { clearChatHistory(); historyOwner = owner; }
+  const version = historyVersion;
   try {
-    // Include recent history (last 10 turns) for multi-turn conversation
-    const recentHistory = _conversationHistory.slice(-10);
-
-    const response = await apiClient.post<any>('/api/v1/ai-practice/chat', {
-      message: text,
-      cefrLevel,
-      topic,
-      history: recentHistory
-    });
-
-    const data = response.data?.data || response.data;
-    const reply: string = data?.reply || data?.message || 'Loxera AI đang bận, vui lòng thử lại sau.';
-
-    // Append user + AI turns to local history for multi-turn context
-    _conversationHistory.push({ role: 'user', content: text });
-    _conversationHistory.push({ role: 'model', content: reply });
-
+    const data = await requestTutorReply(text, cefrLevel, conversationHistory);
+    const failed = !data.success || !data.reply;
+    if (!failed && !data.quota_exceeded && owner === getCurrentUserId() && version === historyVersion) {
+      conversationHistory = [...conversationHistory,
+        { role: 'user' as const, content: text },
+        { role: 'model' as const, content: data.reply }].slice(-6);
+    }
     return {
-      message_id: `m-${Date.now()}`,
-      role: 'assistant',
-      content: reply,
-      sent_at: new Date().toISOString()
+      message_id: `m-${Date.now()}`, role: 'assistant',
+      content: data.reply || data.error || 'Loxera AI đang bận, vui lòng thử lại sau.',
+      sent_at: new Date().toISOString(), is_quota_message: !!data.quota_exceeded,
+      is_error: failed, quota_used: data.quota_used, quota_limit: data.quota_limit,
     };
-  } catch (err: any) {
-    console.warn('[chatbotApi] AI chat API error:', err?.message || err);
+  } catch (error: unknown) {
     return {
-      message_id: `m-err-${Date.now()}`,
-      role: 'assistant',
-      content: 'Không thể kết nối với Loxera AI lúc này. Vui lòng kiểm tra kết nối mạng và thử lại.',
-      sent_at: new Date().toISOString()
+      message_id: `m-err-${Date.now()}`, role: 'assistant',
+      content: 'Không thể kết nối với Loxera AI. Kiểm tra mạng và thử lại.',
+      sent_at: new Date().toISOString(), is_error: true,
     };
   }
 };
