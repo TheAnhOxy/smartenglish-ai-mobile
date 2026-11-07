@@ -31,7 +31,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DatabaseLoader } from '@/src/components/ui/DatabaseLoader';
-import { cleanAvatarUrl } from '../screens/SocialFeedScreen';
+import { cleanAvatarUrl } from '../utils/avatarHelper';
 import {
   ChatConversationDto,
   ChatMessageDto,
