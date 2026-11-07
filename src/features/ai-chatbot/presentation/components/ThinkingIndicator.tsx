@@ -1,52 +1,58 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withSequence,
-  withTiming,
-  withDelay,
-  Easing,
-} from 'react-native-reanimated';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { Sparkles } from 'lucide-react-native';
 import { LoxeraFoxMascot } from '@/src/core/components/LoxeraFoxMascot';
 
 const PulseDot = ({ delay }: { delay: number }) => {
-  const translateY = useSharedValue(0);
-  const opacity = useSharedValue(0.4);
+  const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    translateY.value = withDelay(
-      delay,
-      withRepeat(
-        withSequence(
-          withTiming(-6, { duration: 400, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0, { duration: 400, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        true
-      )
-    );
-    opacity.value = withDelay(
-      delay,
-      withRepeat(
-        withSequence(
-          withTiming(1, { duration: 400 }),
-          withTiming(0.4, { duration: 400 })
-        ),
-        -1,
-        true
-      )
-    );
-  }, []);
+    let isMounted = true;
+    const timeout = setTimeout(() => {
+      if (!isMounted) return;
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(anim, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim, {
+            toValue: 0,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }, delay);
 
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-    opacity: opacity.value,
-  }));
+    return () => {
+      isMounted = false;
+      clearTimeout(timeout);
+    };
+  }, [delay, anim]);
 
-  return <Animated.View style={[styles.dot, animStyle]} />;
+  const translateY = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -6],
+  });
+
+  const opacity = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.4, 1],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.dot,
+        {
+          transform: [{ translateY }],
+          opacity,
+        },
+      ]}
+    />
+  );
 };
 
 export const ThinkingIndicator: React.FC = () => {
