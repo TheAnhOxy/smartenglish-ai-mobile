@@ -1,26 +1,31 @@
-import { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
-import { spring } from '@/src/theme/motion';
+import { useRef } from 'react';
+import { Animated } from 'react-native';
 
-// Mọi Pressable/TouchableOpacity PHẢI dùng hook này
-// Dùng spring.snappy để có phản hồi tức thì khi ngón tay chạm
-// Thiếu bước này là nguyên nhân #1 khiến app "đơ" — ngón tay bấm mà UI im lặng 100-150ms
-
+// Phản hồi tức thì khi ngón tay chạm, dùng Animated native driver mượt mà 60fps trên mọi thiết bị
 export function usePressSpring(scaleTo = 0.97) {
-  const scale = useSharedValue(1);
+  const scale = useRef(new Animated.Value(1)).current;
 
   const onPressIn = () => {
-    'worklet';
-    scale.value = withSpring(scaleTo, spring.snappy);
+    Animated.spring(scale, {
+      toValue: scaleTo,
+      useNativeDriver: true,
+      speed: 24,
+      bounciness: 4,
+    }).start();
   };
 
   const onPressOut = () => {
-    'worklet';
-    scale.value = withSpring(1, spring.snappy);
+    Animated.spring(scale, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 24,
+      bounciness: 4,
+    }).start();
   };
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+  const animatedStyle = {
+    transform: [{ scale }],
+  };
 
   return {
     animatedStyle,
@@ -28,3 +33,4 @@ export function usePressSpring(scaleTo = 0.97) {
     onPressOut,
   };
 }
+
