@@ -1,14 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Image, Text, StyleSheet } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withSequence,
-  withTiming,
-  withDelay,
-  Easing,
-} from 'react-native-reanimated';
+import React, { useEffect, useRef } from 'react';
+import { View, Image, Text, StyleSheet, Animated, Easing } from 'react-native';
 import { BookOpen, Sparkles } from 'lucide-react-native';
 import { colors } from '@/src/theme/colors';
 
@@ -25,139 +16,97 @@ export const LoxeraFoxMascot: React.FC<LoxeraFoxMascotProps> = ({
   showBook = true,
   animated = true,
 }) => {
-  const translateY = useSharedValue(0);
-  const scale = useSharedValue(1);
-  const glowScale = useSharedValue(1);
-  const glowOpacity = useSharedValue(0.3);
+  const translateY = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(1)).current;
+  const glowScale = useRef(new Animated.Value(1)).current;
+  const glowOpacity = useRef(new Animated.Value(0.3)).current;
 
   // Book reading & floating magic sparkles animations
-  const bookRotate = useSharedValue(0);
-  const bookY = useSharedValue(0);
-  const sparkle1Y = useSharedValue(0);
-  const sparkle2Y = useSharedValue(0);
-  const sparkleOpacity = useSharedValue(0.4);
+  const bookRotate = useRef(new Animated.Value(0)).current;
+  const bookY = useRef(new Animated.Value(0)).current;
+  const sparkle1Y = useRef(new Animated.Value(0)).current;
+  const sparkleOpacity = useRef(new Animated.Value(0.4)).current;
 
   useEffect(() => {
     if (animated) {
       // Floating up and down
-      translateY.value = withRepeat(
-        withSequence(
-          withTiming(-10, { duration: 1600, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0, { duration: 1600, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        true
+      const animTranslate = Animated.loop(
+        Animated.sequence([
+          Animated.timing(translateY, { toValue: -10, duration: 1600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.timing(translateY, { toValue: 0, duration: 1600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        ])
       );
 
       // Subtle breathing scale
-      scale.value = withRepeat(
-        withSequence(
-          withTiming(1.05, { duration: 1600, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        true
+      const animScale = Animated.loop(
+        Animated.sequence([
+          Animated.timing(scale, { toValue: 1.05, duration: 1600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.timing(scale, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        ])
       );
 
       // Glow pulse
-      glowScale.value = withRepeat(
-        withSequence(
-          withTiming(1.25, { duration: 1300 }),
-          withTiming(1, { duration: 1300 })
-        ),
-        -1,
-        true
-      );
-
-      glowOpacity.value = withRepeat(
-        withSequence(
-          withTiming(0.6, { duration: 1300 }),
-          withTiming(0.25, { duration: 1300 })
-        ),
-        -1,
-        true
+      const animGlow = Animated.loop(
+        Animated.parallel([
+          Animated.sequence([
+            Animated.timing(glowScale, { toValue: 1.25, duration: 1300, useNativeDriver: true }),
+            Animated.timing(glowScale, { toValue: 1, duration: 1300, useNativeDriver: true }),
+          ]),
+          Animated.sequence([
+            Animated.timing(glowOpacity, { toValue: 0.6, duration: 1300, useNativeDriver: true }),
+            Animated.timing(glowOpacity, { toValue: 0.25, duration: 1300, useNativeDriver: true }),
+          ]),
+        ])
       );
 
       // Book subtle reading tilt & lift
-      bookY.value = withRepeat(
-        withSequence(
-          withTiming(-4, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-          withTiming(2, { duration: 1000, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        true
-      );
-
-      bookRotate.value = withRepeat(
-        withSequence(
-          withTiming(-4, { duration: 1400 }),
-          withTiming(4, { duration: 1400 })
-        ),
-        -1,
-        true
+      const animBook = Animated.loop(
+        Animated.parallel([
+          Animated.sequence([
+            Animated.timing(bookY, { toValue: -4, duration: 1000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+            Animated.timing(bookY, { toValue: 2, duration: 1000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          ]),
+          Animated.sequence([
+            Animated.timing(bookRotate, { toValue: -4, duration: 1400, useNativeDriver: true }),
+            Animated.timing(bookRotate, { toValue: 4, duration: 1400, useNativeDriver: true }),
+          ]),
+        ])
       );
 
       // Floating sparkles drifting upward
-      sparkle1Y.value = withRepeat(
-        withSequence(
-          withTiming(-14, { duration: 1800, easing: Easing.out(Easing.quad) }),
-          withTiming(0, { duration: 1800, easing: Easing.in(Easing.quad) })
-        ),
-        -1,
-        true
+      const animSparkle = Animated.loop(
+        Animated.parallel([
+          Animated.sequence([
+            Animated.timing(sparkle1Y, { toValue: -14, duration: 1800, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+            Animated.timing(sparkle1Y, { toValue: 0, duration: 1800, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+          ]),
+          Animated.sequence([
+            Animated.timing(sparkleOpacity, { toValue: 1, duration: 1000, useNativeDriver: true }),
+            Animated.timing(sparkleOpacity, { toValue: 0.3, duration: 1000, useNativeDriver: true }),
+          ]),
+        ])
       );
 
-      sparkle2Y.value = withDelay(
-        400,
-        withRepeat(
-          withSequence(
-            withTiming(-16, { duration: 2000, easing: Easing.out(Easing.quad) }),
-            withTiming(0, { duration: 2000, easing: Easing.in(Easing.quad) })
-          ),
-          -1,
-          true
-        )
-      );
+      animTranslate.start();
+      animScale.start();
+      animGlow.start();
+      animBook.start();
+      animSparkle.start();
 
-      sparkleOpacity.value = withRepeat(
-        withSequence(
-          withTiming(1, { duration: 1000 }),
-          withTiming(0.3, { duration: 1000 })
-        ),
-        -1,
-        true
-      );
+      return () => {
+        animTranslate.stop();
+        animScale.stop();
+        animGlow.stop();
+        animBook.stop();
+        animSparkle.stop();
+      };
     }
   }, [animated]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ],
-  }));
-
-  const glowStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: glowScale.value }],
-    opacity: glowOpacity.value,
-  }));
-
-  const bookAnimStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: bookY.value },
-      { rotate: `${bookRotate.value}deg` },
-    ],
-  }));
-
-  const sparkle1AnimStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: sparkle1Y.value }],
-    opacity: sparkleOpacity.value,
-  }));
-
-  const sparkle2AnimStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: sparkle2Y.value }],
-    opacity: sparkleOpacity.value,
-  }));
+  const rotateStr = bookRotate.interpolate({
+    inputRange: [-4, 4],
+    outputRange: ['-4deg', '4deg'],
+  });
 
   const containerSize = size + 30;
 
@@ -172,23 +121,40 @@ export const LoxeraFoxMascot: React.FC<LoxeraFoxMascotProps> = ({
               width: size * 0.95,
               height: size * 0.95,
               borderRadius: (size * 0.95) / 2,
+              opacity: glowOpacity,
+              transform: [{ scale: glowScale }],
             },
-            glowStyle,
           ]}
         />
       )}
 
       {/* Floating Magic Sparkles around Fox */}
       {showBook && (
-        <>
-          <Animated.View style={[styles.sparkleLeft, sparkle1AnimStyle]}>
-            <Sparkles color={colors.primary} size={15} />
-          </Animated.View>
-        </>
+        <Animated.View
+          style={[
+            styles.sparkleLeft,
+            {
+              opacity: sparkleOpacity,
+              transform: [{ translateY: sparkle1Y }],
+            },
+          ]}
+        >
+          <Sparkles color={colors.primary} size={15} />
+        </Animated.View>
       )}
 
       {/* Animated Loxera Fox Cutout Character Image */}
-      <Animated.View style={[styles.foxContainer, animatedStyle]}>
+      <Animated.View
+        style={[
+          styles.foxContainer,
+          {
+            transform: [
+              { translateY },
+              { scale },
+            ],
+          },
+        ]}
+      >
         <Image
           source={require('@/assets/images/LoxeraFront.png')}
           style={{ width: size, height: size }}
@@ -197,7 +163,17 @@ export const LoxeraFoxMascot: React.FC<LoxeraFoxMascotProps> = ({
 
         {/* Floating Book Reading Badge at the bottom of mascot */}
         {showBook && (
-          <Animated.View style={[styles.bookBadge, bookAnimStyle]}>
+          <Animated.View
+            style={[
+              styles.bookBadge,
+              {
+                transform: [
+                  { translateY: bookY },
+                  { rotate: rotateStr },
+                ],
+              },
+            ]}
+          >
             <View style={styles.bookIconWrap}>
               <BookOpen color={colors.primary} size={14} strokeWidth={2} />
             </View>
@@ -208,6 +184,8 @@ export const LoxeraFoxMascot: React.FC<LoxeraFoxMascotProps> = ({
     </View>
   );
 };
+
+export default LoxeraFoxMascot;
 
 const styles = StyleSheet.create({
   wrapper: {
