@@ -1,17 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withSpring,
-  withDelay,
-  withRepeat,
-  withSequence,
-  interpolate,
-  Easing,
-  runOnJS,
-} from 'react-native-reanimated';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Image, Animated, Easing } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 // ─── Config ─────────────────────────────────────────────────────────────────
@@ -29,35 +17,53 @@ const WORD_CONFIGS = [
 interface ChipProps { word: string; angle: number; radius: number; delay: number; }
 
 const FloatingWord: React.FC<ChipProps> = ({ word, angle, radius, delay }) => {
-  const opacity = useSharedValue(0);
-  const floatY  = useSharedValue(10);
+  const opacity = useRef(new Animated.Value(0)).current;
+  const floatY  = useRef(new Animated.Value(10)).current;
 
   useEffect(() => {
-    opacity.value = withDelay(delay, withTiming(1, { duration: 800 }));
-    floatY.value  = withDelay(delay, withRepeat(
-      withSequence(
-        withTiming(-10, { duration: 2400, easing: Easing.inOut(Easing.sin) }),
-        withTiming( 10, { duration: 2400, easing: Easing.inOut(Easing.sin) }),
-      ),
-      -1, true,
-    ));
-  }, []);
+    const timer = setTimeout(() => {
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }).start();
+
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(floatY, {
+            toValue: -10,
+            duration: 2400,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+          Animated.timing(floatY, {
+            toValue: 10,
+            duration: 2400,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [delay, floatY, opacity]);
 
   const rad = (angle * Math.PI) / 180;
   const tx  = Math.cos(rad) * radius;
   const ty  = Math.sin(rad) * radius;
 
-  const animStyle = useAnimatedStyle(() => ({
-    opacity:   opacity.value,
-    transform: [{ translateY: floatY.value }],
-  }));
-
   return (
     <Animated.View
       style={[
         s.wordChip,
-        { transform: [{ translateX: tx }, { translateY: ty }] },
-        animStyle,
+        {
+          opacity,
+          transform: [
+            { translateX: tx },
+            { translateY: Animated.add(new Animated.Value(ty), floatY) },
+          ],
+        },
       ]}
     >
       <Text style={s.wordChipText}>{word}</Text>
@@ -79,19 +85,19 @@ export const LoginSuccessScreen: React.FC = () => {
     return '/(student)/home';
   };
 
-  // Shared values
-  const bgOpacity    = useSharedValue(0);
-  const logoScale    = useSharedValue(0.25);
-  const logoOpacity  = useSharedValue(0);
-  const logoRotate   = useSharedValue(-10);
-  const ring1Scale   = useSharedValue(0.5);
-  const ring1Opacity = useSharedValue(0);
-  const ring2Scale   = useSharedValue(0.5);
-  const ring2Opacity = useSharedValue(0);
-  const textOpacity  = useSharedValue(0);
-  const textY        = useSharedValue(24);
-  const barProgress  = useSharedValue(0);
-  const exitOpacity  = useSharedValue(1);
+  // Shared animated values
+  const bgOpacity    = useRef(new Animated.Value(0)).current;
+  const logoScale    = useRef(new Animated.Value(0.25)).current;
+  const logoOpacity  = useRef(new Animated.Value(0)).current;
+  const logoRotate   = useRef(new Animated.Value(-10)).current;
+  const ring1Scale   = useRef(new Animated.Value(0.5)).current;
+  const ring1Opacity = useRef(new Animated.Value(0)).current;
+  const ring2Scale   = useRef(new Animated.Value(0.5)).current;
+  const ring2Opacity = useRef(new Animated.Value(0)).current;
+  const textOpacity  = useRef(new Animated.Value(0)).current;
+  const textY        = useRef(new Animated.Value(24)).current;
+  const barProgress  = useRef(new Animated.Value(0)).current;
+  const exitOpacity  = useRef(new Animated.Value(1)).current;
 
   const navigateOut = () => {
     const dest = getDestination();
@@ -100,69 +106,101 @@ export const LoginSuccessScreen: React.FC = () => {
 
   useEffect(() => {
     // Phase 1 – Background fade-in
-    bgOpacity.value = withTiming(1, { duration: 350 });
+    Animated.timing(bgOpacity, {
+      toValue: 1,
+      duration: 350,
+      useNativeDriver: true,
+    }).start();
 
-    // Phase 2 – Logo spring-in
-    logoOpacity.value = withDelay(200, withTiming(1, { duration: 700 }));
-    logoScale.value   = withDelay(200, withSpring(1, { damping: 10, stiffness: 80 }));
-    logoRotate.value  = withDelay(200, withTiming(0, { duration: 900, easing: Easing.out(Easing.cubic) }));
+    // Phase 2 – Logo spring-in (delay 200ms)
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(logoOpacity, { toValue: 1, duration: 700, useNativeDriver: true }),
+        Animated.spring(logoScale, { toValue: 1, friction: 6, tension: 70, useNativeDriver: true }),
+        Animated.timing(logoRotate, { toValue: 0, duration: 900, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]).start();
+    }, 200);
 
-    // Phase 3 – Pulse rings (staggered, slower)
-    ring1Scale.value   = withDelay(700, withRepeat(withSequence(withTiming(0.5, { duration: 0 }), withTiming(2.2, { duration: 2400, easing: Easing.out(Easing.quad) })), -1, false));
-    ring1Opacity.value = withDelay(700, withRepeat(withSequence(withTiming(0.6, { duration: 0 }), withTiming(0, { duration: 2400 })), -1, false));
-    ring2Scale.value   = withDelay(1400, withRepeat(withSequence(withTiming(0.5, { duration: 0 }), withTiming(2.2, { duration: 2400, easing: Easing.out(Easing.quad) })), -1, false));
-    ring2Opacity.value = withDelay(1400, withRepeat(withSequence(withTiming(0.6, { duration: 0 }), withTiming(0, { duration: 2400 })), -1, false));
+    // Phase 3 – Pulse rings
+    setTimeout(() => {
+      Animated.loop(
+        Animated.parallel([
+          Animated.sequence([
+            Animated.timing(ring1Scale, { toValue: 0.5, duration: 0, useNativeDriver: true }),
+            Animated.timing(ring1Scale, { toValue: 2.2, duration: 2400, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+          ]),
+          Animated.sequence([
+            Animated.timing(ring1Opacity, { toValue: 0.6, duration: 0, useNativeDriver: true }),
+            Animated.timing(ring1Opacity, { toValue: 0, duration: 2400, useNativeDriver: true }),
+          ]),
+        ])
+      ).start();
+    }, 700);
 
-    // Phase 4 – Text slide-up & fade-in
-    textOpacity.value = withDelay(900, withTiming(1, { duration: 700 }));
-    textY.value       = withDelay(900, withTiming(0, { duration: 700, easing: Easing.out(Easing.cubic) }));
+    setTimeout(() => {
+      Animated.loop(
+        Animated.parallel([
+          Animated.sequence([
+            Animated.timing(ring2Scale, { toValue: 0.5, duration: 0, useNativeDriver: true }),
+            Animated.timing(ring2Scale, { toValue: 2.2, duration: 2400, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+          ]),
+          Animated.sequence([
+            Animated.timing(ring2Opacity, { toValue: 0.6, duration: 0, useNativeDriver: true }),
+            Animated.timing(ring2Opacity, { toValue: 0, duration: 2400, useNativeDriver: true }),
+          ]),
+        ])
+      ).start();
+    }, 1400);
 
-    // Phase 5 – Progress bar fill (slower, 4s)
-    barProgress.value = withDelay(1000, withTiming(1, {
-      duration: 3800,
-      easing: Easing.bezier(0.25, 0.46, 0.45, 0.94),
-    }));
+    // Phase 4 – Text slide-up & fade-in (delay 900ms)
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(textOpacity, { toValue: 1, duration: 700, useNativeDriver: true }),
+        Animated.timing(textY, { toValue: 0, duration: 700, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]).start();
+    }, 900);
+
+    // Phase 5 – Progress bar fill (delay 1000ms)
+    setTimeout(() => {
+      Animated.timing(barProgress, {
+        toValue: 1,
+        duration: 3800,
+        easing: Easing.bezier(0.25, 0.46, 0.45, 0.94),
+        useNativeDriver: false,
+      }).start();
+    }, 1000);
 
     // Phase 6 – Fade-out & navigate after ~5s
     const timer = setTimeout(() => {
-      exitOpacity.value = withTiming(0, { duration: 500 }, () => {
-        runOnJS(navigateOut)();
+      Animated.timing(exitOpacity, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }).start(() => {
+        navigateOut();
       });
     }, 5000);
 
-    return () => clearTimeout(timer); // cleanup = no memory leak
+    return () => clearTimeout(timer);
   }, []);
 
-  // Animated styles
-  const bgStyle    = useAnimatedStyle(() => ({ opacity: bgOpacity.value }));
-  const logoStyle  = useAnimatedStyle(() => ({
-    opacity:   logoOpacity.value,
-    transform: [{ scale: logoScale.value }, { rotate: `${logoRotate.value}deg` }],
-  }));
-  const ring1Style = useAnimatedStyle(() => ({
-    opacity: ring1Opacity.value,
-    transform: [{ scale: ring1Scale.value }],
-  }));
-  const ring2Style = useAnimatedStyle(() => ({
-    opacity: ring2Opacity.value,
-    transform: [{ scale: ring2Scale.value }],
-  }));
-  const textStyle  = useAnimatedStyle(() => ({
-    opacity:   textOpacity.value,
-    transform: [{ translateY: textY.value }],
-  }));
-  const barStyle   = useAnimatedStyle(() => ({
-    width: `${interpolate(barProgress.value, [0, 1], [0, 100])}%` as any,
-  }));
-  const rootStyle  = useAnimatedStyle(() => ({ opacity: exitOpacity.value }));
+  const rotateStr = logoRotate.interpolate({
+    inputRange: [-10, 0],
+    outputRange: ['-10deg', '0deg'],
+  });
+
+  const barWidth = barProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
 
   const greeting = role === 'teacher' ? 'Xin chào Giáo Viên! 👋' : 'Xin chào Học Viên! 👋';
   const subtitle  = role === 'teacher' ? 'Đang tải lớp học của bạn...' : 'Đang chuẩn bị lộ trình học...';
 
   return (
-    <Animated.View style={[s.root, rootStyle]}>
+    <Animated.View style={[s.root, { opacity: exitOpacity }]}>
       {/* Background */}
-      <Animated.View style={[StyleSheet.absoluteFill, s.bg, bgStyle]} />
+      <Animated.View style={[StyleSheet.absoluteFill, s.bg, { opacity: bgOpacity }]} />
 
       {/* Decorative blobs */}
       <View style={s.blobTL} />
@@ -176,11 +214,35 @@ export const LoginSuccessScreen: React.FC = () => {
         ))}
 
         {/* Pulse rings */}
-        <Animated.View style={[s.ring, ring1Style]} />
-        <Animated.View style={[s.ring, ring2Style]} />
+        <Animated.View
+          style={[
+            s.ring,
+            {
+              opacity: ring1Opacity,
+              transform: [{ scale: ring1Scale }],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            s.ring,
+            {
+              opacity: ring2Opacity,
+              transform: [{ scale: ring2Scale }],
+            },
+          ]}
+        />
 
         {/* Logo */}
-        <Animated.View style={[s.logoCard, logoStyle]}>
+        <Animated.View
+          style={[
+            s.logoCard,
+            {
+              opacity: logoOpacity,
+              transform: [{ scale: logoScale }, { rotate: rotateStr }],
+            },
+          ]}
+        >
           <Image
             source={require('@/assets/images/loxera-logo.png')}
             style={s.logoImg}
@@ -190,7 +252,15 @@ export const LoginSuccessScreen: React.FC = () => {
       </View>
 
       {/* ── Text + Progress ── */}
-      <Animated.View style={[s.textBlock, textStyle]}>
+      <Animated.View
+        style={[
+          s.textBlock,
+          {
+            opacity: textOpacity,
+            transform: [{ translateY: textY }],
+          },
+        ]}
+      >
         {/* Success badge */}
         <View style={s.badge}>
           <Text style={s.badgeTick}>✓ </Text>
@@ -202,7 +272,7 @@ export const LoginSuccessScreen: React.FC = () => {
 
         {/* Glowing progress bar */}
         <View style={s.track}>
-          <Animated.View style={[s.fill, barStyle]} />
+          <Animated.View style={[s.fill, { width: barWidth }]} />
         </View>
 
         <Text style={s.powered}>Powered by Loxera AI · v2.0</Text>
@@ -210,6 +280,8 @@ export const LoginSuccessScreen: React.FC = () => {
     </Animated.View>
   );
 };
+
+export default LoginSuccessScreen;
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 const LOGO = 100;
