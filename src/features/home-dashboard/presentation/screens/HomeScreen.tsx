@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, Pressable, Image,
   StyleSheet,
@@ -39,7 +39,7 @@ import { usePressSpring } from '@/src/hooks/usePressSpring';
 import { useStaggerReveal } from '@/src/hooks/useStaggerReveal';
 import { usePulseRing } from '@/src/hooks/usePulseRing';
 import { useCountUp } from '@/src/hooks/useCountUp';
-import { useDailyQuestsQuery } from '../../application/useDashboard';
+import { useDailyQuestsQuery, useUserStatsQuery } from '../../application/useDashboard';
 import { claimDailyQuestRewardApi, DailyQuestItem } from '../../data/dashboardApi';
 
 const AnimatedText = Animated.createAnimatedComponent(Text);
@@ -81,8 +81,17 @@ function GradientCard({ gradient, shadowColor, icon, label, onPress, animatedSty
 export const HomeScreen = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { currentUser, userStats } = useAuthStore();
+  const { currentUser, userStats, setUserStats } = useAuthStore();
   const { saveWordsToDeck } = useDeckStore();
+
+  // Nạp dữ liệu thật về Gamification / Chuỗi học Streak / XP từ backend API
+  const { data: realUserStats } = useUserStatsQuery(String(currentUser?.id || ''));
+
+  useEffect(() => {
+    if (realUserStats) {
+      setUserStats(realUserStats);
+    }
+  }, [realUserStats, setUserStats]);
 
   const [isPlayingDailyWord, setIsPlayingDailyWord] = useState(false);
   const [isDailyWordSaved, setIsDailyWordSaved] = useState(false);
@@ -96,7 +105,7 @@ export const HomeScreen = () => {
 
   // XP count-up: sync DerivedValue -> React state
   const [displayXp, setDisplayXp] = useState(0);
-  const animatedXp = useCountUp(userStats?.xp_total ?? 0, 800);
+  const animatedXp = useCountUp((realUserStats?.xp_total ?? userStats?.xp_total) ?? 0, 800);
   useAnimatedReaction(
     () => animatedXp.value,
     (current) => runOnJS(setDisplayXp)(current)
@@ -207,7 +216,7 @@ export const HomeScreen = () => {
         {/* Streak: Lửa cam + nền streakSoft */}
         <View style={s.streakChip}>
           <Flame color={colors.streak} size={18} fill={colors.streak} />
-          <Text style={s.streakText}>{userStats?.streak_current ?? 0} ngày</Text>
+          <Text style={s.streakText}>{(realUserStats?.streak_current ?? userStats?.streak_current ?? 0)} ngày</Text>
         </View>
 
         {/* XP Progress: Vàng-cam + count-up animation */}
@@ -215,17 +224,17 @@ export const HomeScreen = () => {
           <View style={s.xpRow}>
             <Zap color={colors.xpDeep} size={14} fill={colors.xpDeep} />
             <Text style={s.xpText}>{displayXp.toLocaleString('vi-VN')} XP</Text>
-            <Text style={s.levelTag}>LVL {userStats?.level ?? 1}</Text>
+            <Text style={s.levelTag}>LVL {(realUserStats?.level ?? userStats?.level ?? 1)}</Text>
           </View>
           <View style={s.xpProgressBg}>
-            <View style={[s.xpProgressFill, { width: `${Math.min(((userStats?.xp_this_week ?? 0) / Math.max((userStats?.level ?? 1) * 500, 100)) * 100, 100)}%` }]} />
+            <View style={[s.xpProgressFill, { width: `${Math.min((((realUserStats?.xp_this_week ?? userStats?.xp_this_week ?? 0)) / Math.max(((realUserStats?.level ?? userStats?.level ?? 1)) * 500, 100)) * 100, 100)}%` }]} />
           </View>
         </View>
 
         {/* Coins: Vàng kim + nền coinSoft */}
         <View style={s.coinChip}>
           <Coins color={colors.coin} size={16} />
-          <Text style={s.coinText}>{userStats?.coins ?? 0}</Text>
+          <Text style={s.coinText}>{(realUserStats?.coins ?? userStats?.coins ?? 0).toLocaleString('vi-VN')}</Text>
         </View>
       </Animated.View>
 

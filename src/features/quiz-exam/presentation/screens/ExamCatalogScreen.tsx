@@ -16,7 +16,6 @@ import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
   Search,
   Mic,
-  Flame,
   Clock,
   ListChecks,
   Target,
@@ -219,17 +218,6 @@ export function ExamCatalogScreen() {
           <Pressable style={styles.micBtn}>
             <Mic size={18} color="#64748B" />
           </Pressable>
-        </View>
-
-                {/* Streak Badge Row */}
-        <View style={styles.streakBanner}>
-          <View style={styles.streakLeft}>
-            <View style={styles.flameCircle}>
-              <Flame size={16} color="#38BDF8" fill="#38BDF8" />
-            </View>
-            <Text style={styles.streakTitle}>Chuỗi học 5 ngày</Text>
-          </View>
-          <Text style={styles.streakXpText}>+200 XP</Text>
         </View>
 
         {/* Compact filters: two dropdowns share one right-aligned row. */}
@@ -599,52 +587,6 @@ const styles = StyleSheet.create({
   },
   filterDropdownOptionText: { fontSize: 12.5, fontWeight: '600', color: '#475569' },
   filterDropdownOptionTextActive: { color: '#0F2C59', fontWeight: '800' },
-  streakBanner: {
-    backgroundColor: '#0F2C59',
-    borderRadius: 20,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    shadowColor: '#0F2C59',
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
-  },
-  streakLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  flameCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  streakTexts: {
-    flex: 1,
-  },
-  streakTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  streakSubtitle: {
-    fontSize: 11,
-    color: '#BAE6FD',
-    marginTop: 2,
-  },
-  streakXpText: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#FFFFFF',
-  },
   loadingBox: {
     flexDirection: 'row',
     alignItems: 'center',
