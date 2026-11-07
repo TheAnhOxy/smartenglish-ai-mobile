@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useOnboardingStore } from '../../application/useOnboardingStore';
 import { fetchPlacementTestApi, submitPlacementTestApi } from '../../data/onboardingApi';
-import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { colors } from '@/src/theme/colors';
 import { X, ChevronRight, Check, AlertCircle, RefreshCw } from 'lucide-react-native';
 
@@ -56,10 +55,6 @@ export const PlacementTestScreen = () => {
   const progressPct = totalQuestions > 0 ? ((currentQuestionIndex + 1) / totalQuestions) * 100 : 0;
   const selectedAnswer = currentQuestion ? answers[currentQuestion.id] : undefined;
   const isLast = totalQuestions > 0 && currentQuestionIndex === totalQuestions - 1;
-
-  const animatedProgressStyle = useAnimatedStyle(() => ({
-    width: withTiming(`${progressPct}%` as any, { duration: 350 }),
-  }));
 
   const handleSelectOption = (optionId: string, optionText: string) => {
     if (!currentQuestion) return;
@@ -155,7 +150,7 @@ export const PlacementTestScreen = () => {
 
         {/* Progress Bar */}
         <View style={s.progressTrack}>
-          <Animated.View style={[s.progressFill, animatedProgressStyle]} />
+          <View style={[s.progressFill, { width: `${progressPct}%` }]} />
         </View>
 
         {/* Category Badge */}
