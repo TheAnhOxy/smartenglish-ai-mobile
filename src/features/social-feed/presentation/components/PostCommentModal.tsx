@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { X, Send, MessageSquare } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { cleanAvatarUrl } from '../screens/SocialFeedScreen';
+import { cleanAvatarUrl } from '../utils/avatarHelper';
 import { addPostCommentApi, CommunityPostDto } from '../../data/socialApi';
 
 interface PostCommentModalProps {

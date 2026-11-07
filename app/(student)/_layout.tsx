@@ -1,7 +1,6 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { StyleSheet } from 'react-native';
-import Animated from 'react-native-reanimated';
+import { Animated, StyleSheet } from 'react-native';
 import { GraduationCap, BarChart2, Home, Bot, User } from 'lucide-react-native';
 import { colors } from '@/src/theme/colors';
 import { useTabBounce } from '@/src/hooks/useTabBounce';

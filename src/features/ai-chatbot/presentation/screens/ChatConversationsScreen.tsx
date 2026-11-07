@@ -10,22 +10,9 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  Modal,
+  Animated,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withSequence,
-  withTiming,
-  withSpring,
-  Easing,
-  FadeInUp,
-  FadeInRight,
-  FadeInDown,
-  ZoomIn,
-} from 'react-native-reanimated';
 import {
   Info,
   Smile,
@@ -40,7 +27,6 @@ import {
   RefreshCw,
   CheckCircle2,
   Sliders,
-  Key,
 } from 'lucide-react-native';
 import * as Speech from 'expo-speech';
 import { speakText, stopSpeech } from '@/src/core/services/speechService';
@@ -50,12 +36,13 @@ import {
   sendMessageToGemini,
   EnglishLevel,
   ChatHistoryItem,
-  setCustomApiKey,
-  getApiKey,
+  getEnglishLevel,
 } from '../../data/geminiService';
 import { colors, palette } from '@/src/theme/colors';
+import { getChatQuotaApi, ChatQuota, TutorAudio } from '../../data/chatbotApi';
 import { font } from '@/src/theme/typography';
 import { MarkdownText } from '../components/MarkdownText';
+import { useTutorVoice } from '../../application/useTutorVoice';
 import { ThinkingIndicator } from '../components/ThinkingIndicator';
 
 export interface ChatMessage {
@@ -65,6 +52,9 @@ export interface ChatMessage {
   timestamp: string;
   isError?: boolean;
   rawError?: string;
+  excludeHistory?: boolean;
+  isQuota?: boolean;
+  responseMs?: number;
 }
 
 const LEVELS: EnglishLevel[] = [
@@ -75,35 +65,25 @@ const LEVELS: EnglishLevel[] = [
   'Advanced',
 ];
 
-const TOPICS = [
-  'Tự do',
-  'Ngữ pháp',
-  'Từ vựng',
-  'Phát âm',
-  'Hội thoại',
-  'TOEIC',
-  'IELTS',
-];
-
 const SUGGESTIONS = [
   {
     icon: '✍️',
-    title: 'Correct my sentence',
+    title: 'Sửa câu tiếng Anh',
     prompt: 'I have went to school yesterday. Is this correct?',
   },
   {
     icon: '📚',
-    title: 'Explain grammar',
+    title: 'Giải thích ngữ pháp',
     prompt: "What is the difference between 'make' and 'do'?",
   },
   {
     icon: '🔤',
-    title: 'Teach vocabulary',
+    title: 'Học từ vựng',
     prompt: "What does 'achieve' mean? Give me IPA, examples, and collocations.",
   },
   {
     icon: '🗣️',
-    title: 'Practice speaking',
+    title: 'Luyện hội thoại',
     prompt: 'Hi! Let us practice speaking English. Ask me a question about my day.',
   },
 ];
@@ -112,57 +92,64 @@ export const ChatConversationsScreen = () => {
   const router = useRouter();
   const { currentUser } = useAuthStore();
   const insets = useSafeAreaInsets();
-  const isPremium = currentUser?.plan !== 'free';
+  const [quota, setQuota] = useState<ChatQuota | null>(null);
+  const [quotaError, setQuotaError] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
   const dailyLimit = isPremium ? 999 : 15;
   const [usedMessages, setUsedMessages] = useState(0);
   const [inputText, setInputText] = useState('');
-  const [selectedLevel, setSelectedLevel] = useState<EnglishLevel>('Intermediate');
-  const [selectedTopic, setSelectedTopic] = useState('Tự do');
+  const [selectedLevel, setSelectedLevel] = useState<EnglishLevel>(getEnglishLevel(currentUser?.cefr_level));
   const [showLevelPicker, setShowLevelPicker] = useState(false);
-  const [showKeyModal, setShowKeyModal] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState(getApiKey());
+  const sending = useRef(false);
+  const quotaVersion = useRef(0);
+  useEffect(() => { setSelectedLevel(getEnglishLevel(currentUser?.cefr_level)); },
+    [currentUser?.cefr_level]);
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    const version = ++quotaVersion.current;
+    setQuota(null);
+    setQuotaError(false);
+    getChatQuotaApi().then((value) => { if (active && version === quotaVersion.current) setQuota(value); })
+      .catch(() => { if (active && version === quotaVersion.current) setQuotaError(true); });
+    return () => { active = false; };
+  }, [currentUser?.id]));
 
-  // Reanimated AI Avatar Pulse Aura
-  const avatarPulseScale = useSharedValue(1);
-  const avatarPulseOpacity = useSharedValue(0.3);
+  // AI Avatar Pulse Aura
+  const avatarPulseAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    avatarPulseScale.value = withRepeat(
-      withSequence(
-        withTiming(1.25, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1.0, { duration: 1500, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(avatarPulseAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(avatarPulseAnim, {
+          toValue: 0,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
     );
-    avatarPulseOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.6, { duration: 1500 }),
-        withTiming(0.2, { duration: 1500 })
-      ),
-      -1,
-      true
-    );
-  }, []);
+    loop.start();
+    return () => loop.stop();
+  }, [avatarPulseAnim]);
 
-  const avatarAuraStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: avatarPulseScale.value }],
-    opacity: avatarPulseOpacity.value,
-  }));
-
-  const handleSaveApiKey = () => {
-    if (!apiKeyInput.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập Gemini API Key.');
-      return;
-    }
-    setCustomApiKey(apiKeyInput);
-    setShowKeyModal(false);
-    Alert.alert('Thành công', 'Đã cập nhật Gemini API Key!');
-    if (lastFailedMessage) {
-      handleRetry();
-    }
+  const avatarAuraStyle = {
+    transform: [
+      {
+        scale: avatarPulseAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1.0, 1.25],
+        }),
+      },
+    ],
+    opacity: avatarPulseAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.2, 0.6],
+    }),
   };
 
   const [isLoading, setIsLoading] = useState(false);
@@ -174,7 +161,7 @@ export const ChatConversationsScreen = () => {
       id: 'welcome-1',
       role: 'ai',
       content:
-        "👋 **Xin chào! Tôi là Loxera AI - English Tutor cá nhân của bạn.**\n\nTôi có thể giúp bạn:\n- ✍️ Sửa lỗi ngữ pháp & câu từ tự nhiên\n- 📖 Giải thích từ vựng kèm IPA & collocations\n- 🗣️ Luyện tập hội thoại tiếng Anh & Phát âm\n- 🎯 Luyện thi TOEIC & IELTS\n\nHãy nhập câu hỏi hoặc chọn gợi ý bên dưới để bắt đầu nhé!",
+        "**Chào bạn, mình là Loxera AI.**\n\nGửi câu cần sửa, hỏi về từ vựng, phát âm, luyện hội thoại hoặc TOEIC/IELTS ngay tại đây. Mình sẽ tự nhận diện nhu cầu và hướng dẫn theo trình độ của bạn.\n\nHôm nay bạn muốn luyện điều gì?",
       timestamp: new Date().toLocaleTimeString('vi-VN', {
         hour: '2-digit',
         minute: '2-digit',
@@ -195,7 +182,8 @@ export const ChatConversationsScreen = () => {
    */
   const getGeminiHistory = (): ChatHistoryItem[] => {
     return messages
-      .filter((m) => !m.isError && m.id !== 'welcome-1')
+      .filter((m) => !m.isError && !m.excludeHistory && !m.id.startsWith('welcome-'))
+      .slice(-6)
       .map((m) => ({
         role: m.role === 'user' ? 'user' : 'model',
         parts: [{ text: m.content }],
@@ -205,22 +193,12 @@ export const ChatConversationsScreen = () => {
   /**
    * Send text to Gemini API
    */
-  const handleSend = async (textToSend?: string) => {
-    const text = (textToSend || inputText).trim();
-    if (!text || isLoading) return;
-
-    // Check daily quota
-    if (usedMessages >= dailyLimit) {
-      Alert.alert(
-        'Đạt giới hạn tin nhắn',
-        'Bạn đã dùng hết số tin nhắn miễn phí hôm nay. Vui lòng nâng cấp Premium để chat không giới hạn!',
-        [
-          { text: 'Đóng', style: 'cancel' },
-          { text: 'Nâng cấp Premium', onPress: () => router.push('/(student)/shop' as any) },
-        ]
-      );
-      return;
-    }
+  const handleSend = async (textToSend?: string, audio?: TutorAudio, fromVoice = false) => {
+    const text = audio ? '' : (textToSend || inputText).trim();
+    if ((!text && !audio) || sending.current) return;
+    voice.cancel();
+    const started = Date.now();
+    sending.current = true;
 
     const timestamp = new Date().toLocaleTimeString('vi-VN', {
       hour: '2-digit',
@@ -230,7 +208,7 @@ export const ChatConversationsScreen = () => {
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
-      content: text,
+      content: audio ? '🎙️ Đang nhận dạng giọng nói…' : text,
       timestamp,
     };
 
@@ -240,31 +218,56 @@ export const ChatConversationsScreen = () => {
     setInputText('');
     setIsLoading(true);
     setLastFailedMessage(null);
-    setUsedMessages((p) => p + 1);
 
     // Call Gemini Service
     const response = await sendMessageToGemini(
       text,
       history,
       selectedLevel,
-      selectedTopic
+      audio
     );
 
+    sending.current = false;
     setIsLoading(false);
+    if (audio) {
+      setMessages((prev) => prev.map((m) => m.id === userMsg.id
+        ? { ...m, content: response.transcript || '🎙️ Tin nhắn thoại' } : m));
+    }
+    if (response.quota_used !== undefined && response.quota_limit !== undefined) {
+      quotaVersion.current++;
+      setQuota({ quota_used: response.quota_used, quota_limit: response.quota_limit,
+        quota_exceeded: !!response.quota_exceeded ||
+          (response.quota_limit !== null && response.quota_used >= response.quota_limit),
+        is_premium: response.is_premium });
+      setQuotaError(false);
+    }
+    if (response.quota_exceeded || !response.success) {
+      setMessages((prev) => prev.map((m) => m.id === userMsg.id ? { ...m, excludeHistory: true } : m));
+    }
 
     if (response.success) {
       const aiReply: ChatMessage = {
         id: `ai-${Date.now()}`,
         role: 'ai',
         content: response.reply,
+        responseMs: Date.now() - started,
+        isQuota: !!response.quota_exceeded,
+        excludeHistory: !!response.quota_exceeded,
         timestamp: new Date().toLocaleTimeString('vi-VN', {
           hour: '2-digit',
           minute: '2-digit',
         }),
       };
       setMessages((prev) => [...prev, aiReply]);
+      if (fromVoice && !response.quota_exceeded) {
+        setIsSpeaking(aiReply.id);
+        void speakText(response.reply.replace(/[*_`#]/g, ''), {
+          language: /[àáạảãăâđêôơư]/i.test(response.reply) ? 'vi-VN' : 'en-US',
+          rate: 1.0, onDone: () => setIsSpeaking(null), onError: () => setIsSpeaking(null),
+        });
+      }
     } else {
-      setLastFailedMessage(text);
+      setLastFailedMessage(audio ? null : text);
       const errorMsg: ChatMessage = {
         id: `err-${Date.now()}`,
         role: 'ai',
@@ -274,11 +277,18 @@ export const ChatConversationsScreen = () => {
           minute: '2-digit',
         }),
         isError: true,
-        rawError: response.error,
+        rawError: response.error || undefined,
       };
       setMessages((prev) => [...prev, errorMsg]);
     }
   };
+
+  const voice = useTutorVoice({
+    onText: (text) => { void handleSend(text, undefined, true); },
+    onAudio: (audio) => { void handleSend(undefined, audio, true); },
+    onInterim: setInputText,
+  });
+  useFocusEffect(useCallback(() => () => voice.cancel(), [voice.cancel]));
 
   /**
    * Retry sending last failed message
@@ -303,12 +313,14 @@ export const ChatConversationsScreen = () => {
           text: 'Bắt đầu lại',
           style: 'destructive',
           onPress: () => {
+            if (sending.current) return;
             Speech.stop();
+            setLastFailedMessage(null);
             setMessages([
               {
                 id: `welcome-${Date.now()}`,
                 role: 'ai',
-                content: `👋 **Lịch sử đã được làm mới!**\nTrình độ hiện tại: **${selectedLevel}** | Chủ đề: **${selectedTopic}**.\n\nHãy gửi câu hỏi tiếng Anh của bạn hoặc chọn các gợi ý bên dưới!`,
+                content: `👋 **Lịch sử đã được làm mới!**\nTrình độ hiện tại: **${selectedLevel}**. Tôi sẽ tự nhận diện nhu cầu của bạn.\n\nHãy gửi câu hỏi tiếng Anh của bạn hoặc chọn các gợi ý bên dưới!`,
                 timestamp: new Date().toLocaleTimeString('vi-VN', {
                   hour: '2-digit',
                   minute: '2-digit',
@@ -337,7 +349,7 @@ export const ChatConversationsScreen = () => {
     const cleanText = text.replace(/[*_`#]/g, '').trim();
 
     void speakText(cleanText, {
-      language: 'en-US',
+      language: /[àáạảãăâđêôơư]/i.test(text) ? 'vi-VN' : 'en-US',
       pitch: 1.0,
       rate: 0.9,
       onDone: () => setIsSpeaking(null),
@@ -369,7 +381,7 @@ export const ChatConversationsScreen = () => {
   return (
     <KeyboardAvoidingView
       style={s.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={0}
     >
       {/* Header */}
@@ -400,7 +412,7 @@ export const ChatConversationsScreen = () => {
             <View>
               <Text style={s.aiName}>Loxera AI Tutor</Text>
               <Text style={s.statusSubtitle}>
-                English Tutor · Trình độ {selectedLevel}
+                Trợ lý tiếng Anh · {selectedLevel}
               </Text>
             </View>
           </View>
@@ -422,7 +434,7 @@ export const ChatConversationsScreen = () => {
 
         {/* Level Selector Dropdown Bar */}
         {showLevelPicker && (
-          <Animated.View entering={FadeInDown.duration(220)} style={s.levelPickerContainer}>
+          <View style={s.levelPickerContainer}>
             <Text style={s.levelPickerLabel}>Trình độ của bạn:</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={s.levelChipsRow}>
@@ -450,44 +462,20 @@ export const ChatConversationsScreen = () => {
                 ))}
               </View>
             </ScrollView>
-          </Animated.View>
+          </View>
         )}
 
-        {/* Topic Chips */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ marginTop: 8 }}
-        >
-          <View style={s.chipsRow}>
-            {TOPICS.map((topic) => (
-              <Pressable
-                key={topic}
-                onPress={() => setSelectedTopic(topic)}
-                style={[s.topicChip, selectedTopic === topic && s.topicChipActive]}
-              >
-                <Text
-                  style={[
-                    s.topicChipText,
-                    selectedTopic === topic && s.topicChipTextActive,
-                  ]}
-                >
-                  {topic}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </ScrollView>
       </View>
 
-      {/* Quota Banner — Safe below header */}
-      {!isPremium && (
-        <View style={s.quotaBanner}>
-          <Text style={s.quotaText}>
-            Quota hôm nay: còn {dailyLimit - usedMessages}/{dailyLimit} tin nhắn Gemini AI
-          </Text>
-        </View>
-      )}
+      <Pressable style={s.quotaBanner}
+        onPress={() => { if (quota && quota.quota_limit !== null) router.push('/(student)/shop'); }}>
+        <Text style={s.quotaText}>
+          {quota ? quota.quota_limit === null ? 'Premium · Học cùng Loxera AI không giới hạn'
+            : `Quota hôm nay: còn ${Math.max(0, quota.quota_limit - quota.quota_used)}/${quota.quota_limit} tin nhắn Gemini AI`
+            : quotaError ? 'Chưa tải được lượt chat · Sẽ kiểm tra khi gửi tin' : 'Đang kiểm tra lượt chat…'}
+        </Text>
+        {quota?.quota_exceeded && <Text style={s.quotaText}>Xem gói nâng cấp →</Text>}
+      </Pressable>
 
       {/* Messages Scroll Area */}
       <ScrollView
@@ -500,18 +488,18 @@ export const ChatConversationsScreen = () => {
         {messages.map((msg) => {
           if (msg.role === 'user') {
             return (
-              <Animated.View entering={FadeInRight.duration(280).springify()} key={msg.id} style={s.userBubbleWrap}>
+              <View key={msg.id} style={s.userBubbleWrap}>
                 <View style={s.userBubble}>
                   <Text style={s.userText}>{msg.content}</Text>
                 </View>
                 <Text style={s.timestampText}>{msg.timestamp}</Text>
-              </Animated.View>
+              </View>
             );
           }
 
           if (msg.isError) {
             return (
-              <Animated.View entering={FadeInUp.duration(300)} key={msg.id} style={s.errorCardWrap}>
+              <View key={msg.id} style={s.errorCardWrap}>
                 <View style={s.errorCard}>
                   <View style={s.errorHeader}>
                     <AlertCircle size={18} color="#DC2626" />
@@ -526,13 +514,13 @@ export const ChatConversationsScreen = () => {
                   </View>
                 </View>
                 <Text style={s.timestampText}>{msg.timestamp}</Text>
-              </Animated.View>
+              </View>
             );
           }
 
           // AI Response Message
           return (
-            <Animated.View entering={FadeInUp.duration(320).springify()} key={msg.id} style={s.aiBubbleWrap}>
+            <View key={msg.id} style={s.aiBubbleWrap}>
               <View style={s.aiBubbleHeader}>
                 <View style={s.aiBadgeSmall}>
                   <Bot size={12} color="#0EA5E9" />
@@ -563,8 +551,11 @@ export const ChatConversationsScreen = () => {
               <View style={s.aiBubble}>
                 <MarkdownText content={msg.content} textColor="#1E293B" />
               </View>
-              <Text style={s.timestampText}>{msg.timestamp}</Text>
-            </Animated.View>
+              {msg.isQuota && <Pressable onPress={() => router.push('/(student)/shop')}>
+                <Text style={s.quotaText}>Xem gói nâng cấp →</Text>
+              </Pressable>}
+              <Text style={s.timestampText}>{msg.timestamp}{msg.responseMs ? ` · ${(msg.responseMs / 1000).toFixed(1)} giây` : ''}</Text>
+            </View>
           );
         })}
 
@@ -573,7 +564,7 @@ export const ChatConversationsScreen = () => {
 
         {/* Suggestion Chips (Shown at start or when reset) */}
         {messages.length <= 2 && !isLoading && (
-          <Animated.View entering={FadeInDown.duration(350)} style={s.suggestionsSection}>
+          <View style={s.suggestionsSection}>
             <Text style={s.suggestionsHeader}>💡 Bạn có thể hỏi Loxera AI:</Text>
             <View style={s.suggestionsGrid}>
               {SUGGESTIONS.map((item, idx) => (
@@ -592,19 +583,45 @@ export const ChatConversationsScreen = () => {
                 </Pressable>
               ))}
             </View>
-          </Animated.View>
+          </View>
         )}
       </ScrollView>
 
+      <View style={s.voiceOptions}>
+        <Pressable accessibilityLabel="Đổi ngôn ngữ nhận giọng nói" disabled={voice.listening || isLoading}
+          onPress={() => voice.setLanguage(voice.language === 'en-US' ? 'vi-VN' : 'en-US')}>
+          <Text style={s.voiceStatus}>Micro: {voice.language === 'en-US' ? 'English' : 'Tiếng Việt'} · Nói xong tự gửi</Text>
+        </Pressable>
+        {Platform.OS === 'web' && <Pressable disabled={voice.listening || isLoading}
+          onPress={() => voice.setRecordAudio(!voice.recordAudio)}>
+          <Text style={s.voiceStatus}>{voice.recordAudio ? 'Chế độ: Ghi âm gửi AI' : 'Chế độ: Nhận giọng nói'}</Text>
+        </Pressable>}
+      </View>
+      {(voice.listening || voice.processing || voice.error) && <View style={s.voiceOptions}>
+        <Text accessibilityLiveRegion="polite" style={s.voiceStatus}>
+          {voice.listening ? 'Đang nghe… Bấm micro để dừng (tối đa 20 giây).'
+            : voice.processing ? 'Đang xử lý ghi âm…' : voice.error}
+        </Text>
+        {voice.listening && <Pressable onPress={voice.cancel}><Text style={s.voiceStatus}>Hủy</Text></Pressable>}
+      </View>}
       {/* Input Bar */}
       <View style={[s.inputBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={voice.listening ? 'Dừng micro và gửi' : 'Mở micro'}
+          disabled={isLoading || voice.processing}
+          onPress={() => { if (voice.listening) { void voice.stop(); } else {
+            void stopSpeech().then(() => voice.start());
+          } }}
+          style={[s.micBtn, voice.listening && s.micBtnActive]}>
+          <Mic size={20} color={voice.listening ? colors.surface : colors.primary} />
+        </Pressable>
         <TextInput
+          maxLength={4000}
           value={inputText}
           onChangeText={setInputText}
           placeholder={
             isLoading
               ? 'Loxera AI đang suy nghĩ...'
-              : `Nhập câu hỏi (${selectedTopic} - ${selectedLevel})...`
+              : 'Hỏi Loxera hoặc gửi câu tiếng Anh cần sửa…'
           }
           placeholderTextColor="#94A3B8"
           style={s.textInput}
@@ -629,60 +646,17 @@ export const ChatConversationsScreen = () => {
           )}
         </Pressable>
       </View>
-      <Modal
-        visible={showKeyModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowKeyModal(false)}
-      >
-        <View style={s.modalOverlay}>
-          <View style={s.modalCard}>
-            <View style={s.modalHeader}>
-              <Key size={20} color="#0EA5E9" />
-              <Text style={s.modalTitle}>Cấu hình Gemini API Key</Text>
-            </View>
 
-            <Text style={s.modalSubtitle}>
-              Dán API Key miễn phí từ Google AI Studio (bắt đầu bằng AIzaSy...)
-            </Text>
-
-            <TextInput
-              value={apiKeyInput}
-              onChangeText={setApiKeyInput}
-              placeholder="AIzaSy..."
-              placeholderTextColor="#94A3B8"
-              style={s.modalInput}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-
-            <Text style={s.modalGuideText}>
-              💡 Chưa có key? Lấy miễn phí tại: https://aistudio.google.com/app/apikey
-            </Text>
-
-            <View style={s.modalBtnRow}>
-              <Pressable
-                onPress={() => setShowKeyModal(false)}
-                style={s.modalCancelBtn}
-              >
-                <Text style={s.modalCancelText}>Hủy</Text>
-              </Pressable>
-
-              <Pressable
-                onPress={handleSaveApiKey}
-                style={s.modalSaveBtn}
-              >
-                <Text style={s.modalSaveText}>Lưu & Thử lại</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </KeyboardAvoidingView>
   );
 };
 
 const s = StyleSheet.create({
+  voiceOptions: { paddingHorizontal: 16, paddingVertical: 4, backgroundColor: colors.surface,
+    flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 },
+  voiceStatus: { fontSize: 11, color: colors.textSoft },
+  micBtn: { padding: 12, borderRadius: 24, backgroundColor: colors.surfaceMuted },
+  micBtnActive: { backgroundColor: colors.primary },
   root: { flex: 1, backgroundColor: '#F8FAFC', maxWidth: 600, width: '100%', alignSelf: 'center' },
 
   // Quota Banner
@@ -800,19 +774,7 @@ const s = StyleSheet.create({
   levelChipText: { fontSize: 11, fontWeight: '700', color: '#475569' },
   levelChipTextActive: { color: '#FFFFFF' },
 
-  // Topic Chips
-  chipsRow: { flexDirection: 'row', gap: 8 },
-  topicChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 100,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  topicChipActive: { backgroundColor: '#0F172A', borderColor: '#0F172A' },
-  topicChipText: { fontSize: 12, fontWeight: '700', color: '#475569' },
-  topicChipTextActive: { color: '#FFFFFF' },
+
 
   // Scroll Content
   messagesScroll: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },

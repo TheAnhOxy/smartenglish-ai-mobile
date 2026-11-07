@@ -1,0 +1,26 @@
+diff --git a/node_modules/expo-router/build/useScreens.js b/node_modules/expo-router/build/useScreens.js
+index e188124..3546b74 100644
+--- a/node_modules/expo-router/build/useScreens.js
++++ b/node_modules/expo-router/build/useScreens.js
+@@ -138,7 +138,11 @@ function useSortedScreens(order, protectedScreens, useOnlyUserDefinedScreens = f
+         return routeToScreen(value.route, value.props);
+     }), [sorted, protectedScreens]);
+ }
+-function fromImport(value, { ErrorBoundary, SuspenseFallback, unstable_settings, ...component }) {
++function fromImport(value, rawImport) {
++    if (!rawImport) {
++        console.error(`🚨 [EXPO_ROUTER_FAIL_ROUTE] Route failed to load: ${value?.contextKey}`);
++    }
++    const { ErrorBoundary, SuspenseFallback, unstable_settings, ...component } = rawImport || {};
+     // If possible, add a more helpful display name for the component stack to improve debugging of React errors such as `Text strings must be rendered within a <Text> component.`.
+     if (component?.default && __DEV__) {
+         component.default.displayName ??= `${component.default.name ?? 'Route'}(${value.contextKey})`;
+@@ -179,7 +183,7 @@ function fromImport(value, { ErrorBoundary, SuspenseFallback, unstable_settings,
+             SuspenseFallback,
+         };
+     }
+-    return { default: component.default, SuspenseFallback };
++    return { default: component?.default || EmptyRoute_1.EmptyRoute, SuspenseFallback };
+ }
+ // TODO: Maybe there's a more React-y way to do this?
+ // Without this store, the process enters a recursive loop.

@@ -1,0 +1,232 @@
+diff --git a/node_modules/react-native-worklets/lib/module/WorkletsModule/NativeWorklets.native.js b/node_modules/react-native-worklets/lib/module/WorkletsModule/NativeWorklets.native.js
+index 5d36669..f5d4ec5 100644
+--- a/node_modules/react-native-worklets/lib/module/WorkletsModule/NativeWorklets.native.js
++++ b/node_modules/react-native-worklets/lib/module/WorkletsModule/NativeWorklets.native.js
+@@ -121,6 +121,13 @@ See https://docs.swmansion.com/react-native-worklets/docs/guides/troubleshooting
+     return this.#workletsModuleProxy.scheduleOnUI(serializableArrayOfWorklets, scheduleStacks);
+   }
+   runOnUISync(worklet, scheduleStack) {
++    if (!this.#workletsModuleProxy || typeof this.#workletsModuleProxy.runOnUISync !== 'function') {
++      try {
++        return typeof worklet === 'function' ? worklet() : undefined;
++      } catch (e) {
++        return undefined;
++      }
++    }
+     return this.#workletsModuleProxy.runOnUISync(worklet, scheduleStack);
+   }
+   createWorkletRuntime(name, initializer, useDefaultQueue, customQueue, enableEventLoop) {
+@@ -169,10 +176,10 @@ See https://docs.swmansion.com/react-native-worklets/docs/guides/troubleshooting
+     this.#workletsModuleProxy.setDynamicFeatureFlag(name, value);
+   }
+   getUIRuntimeHolder() {
+-    return this.#workletsModuleProxy.getUIRuntimeHolder();
++    return this.#workletsModuleProxy && typeof this.#workletsModuleProxy.getUIRuntimeHolder === 'function' ? this.#workletsModuleProxy.getUIRuntimeHolder() : undefined;
+   }
+   getUISchedulerHolder() {
+-    return this.#workletsModuleProxy.getUISchedulerHolder();
++    return this.#workletsModuleProxy && typeof this.#workletsModuleProxy.getUISchedulerHolder === 'function' ? this.#workletsModuleProxy.getUISchedulerHolder() : undefined;
+   }
+   toggleSlowAnimationsOnUIRuntime() {
+     return WorkletsTurboModule?.toggleSlowAnimationsOnUIRuntime() ?? false;
+diff --git a/node_modules/react-native-worklets/lib/module/initializers/initializers.native.js b/node_modules/react-native-worklets/lib/module/initializers/initializers.native.js
+index 59af9d3..4bef02c 100644
+--- a/node_modules/react-native-worklets/lib/module/initializers/initializers.native.js
++++ b/node_modules/react-native-worklets/lib/module/initializers/initializers.native.js
+@@ -168,28 +168,32 @@ function initializeWorkletRuntime() {
+  */
+ function installRNBindingsOnUIRuntime() {
+   if (!WorkletsModule) {
+-    throw new Error('[Worklets] Worklets are trying to initialize the UI runtime without a valid WorkletsModule');
++    return;
+   }
+-  const runtimeBoundCapturableConsole = globalThis._WORKLETS_BUNDLE_MODE_ENABLED && !__DEV__ ? null : getMemorySafeCapturableConsole();
+-  runOnUISync(() => {
+-    'worklet';
++  try {
++    const runtimeBoundCapturableConsole = globalThis._WORKLETS_BUNDLE_MODE_ENABLED && !__DEV__ ? null : getMemorySafeCapturableConsole();
++    runOnUISync(() => {
++      'worklet';
+ 
+-    /**
+-     * TODO: Move `setupMicrotasks` and `setupRequestAnimationFrame` to a
+-     * separate function once we have a better way to distinguish between
+-     * Worklet Runtimes.
+-     */
+-    if (!globalThis._WORKLETS_BUNDLE_MODE_ENABLED) {
+-      setupConsole(runtimeBoundCapturableConsole);
+-    } else if (__DEV__) {
+-      setupConsoleForwarding(runtimeBoundCapturableConsole);
+-    }
+-    setupMicrotasks();
+-    setupRequestAnimationFrame();
+-    setupSetTimeout();
+-    setupSetImmediate();
+-    setupSetInterval();
+-    setupSerializer();
+-  });
++      /**
++       * TODO: Move `setupMicrotasks` and `setupRequestAnimationFrame` to a
++       * separate function once we have a better way to distinguish between
++       * Worklet Runtimes.
++       */
++      if (!globalThis._WORKLETS_BUNDLE_MODE_ENABLED) {
++        setupConsole(runtimeBoundCapturableConsole);
++      } else if (__DEV__) {
++        setupConsoleForwarding(runtimeBoundCapturableConsole);
++      }
++      setupMicrotasks();
++      setupRequestAnimationFrame();
++      setupSetTimeout();
++      setupSetImmediate();
++      setupSetInterval();
++      setupSerializer();
++    });
++  } catch (e) {
++    // Graceful fallback on Expo Go
++  }
+ }
+ //# sourceMappingURL=initializers.native.js.map
+\ No newline at end of file
+diff --git a/node_modules/react-native-worklets/lib/module/threads.native.js b/node_modules/react-native-worklets/lib/module/threads.native.js
+index a2e5882..7735cbd 100644
+--- a/node_modules/react-native-worklets/lib/module/threads.native.js
++++ b/node_modules/react-native-worklets/lib/module/threads.native.js
+@@ -129,6 +129,13 @@ export function runOnUI(worklet) {
+ // before it's transformed by Worklets Babel plugin.
+ 
+ export function runOnUISync(worklet, ...args) {
++  if (!WorkletsModule || typeof WorkletsModule.runOnUISync !== 'function') {
++    try {
++      return typeof worklet === 'function' ? worklet(...args) : undefined;
++    } catch (e) {
++      return undefined;
++    }
++  }
+   return WorkletsModule.runOnUISync(createSerializable(() => {
+     'worklet';
+ 
+diff --git a/node_modules/react-native-worklets/src/WorkletsModule/NativeWorklets.native.ts b/node_modules/react-native-worklets/src/WorkletsModule/NativeWorklets.native.ts
+index 7222992..e60d4fe 100644
+--- a/node_modules/react-native-worklets/src/WorkletsModule/NativeWorklets.native.ts
++++ b/node_modules/react-native-worklets/src/WorkletsModule/NativeWorklets.native.ts
+@@ -261,6 +261,13 @@ See https://docs.swmansion.com/react-native-worklets/docs/guides/troubleshooting
+     worklet: SerializableRef<TValue>,
+     scheduleStack: string | undefined
+   ): TReturn {
++    if (!this.#workletsModuleProxy || typeof (this.#workletsModuleProxy as any).runOnUISync !== 'function') {
++      try {
++        return typeof worklet === 'function' ? (worklet as any)() : (undefined as any);
++      } catch (e) {
++        return undefined as any;
++      }
++    }
+     return this.#workletsModuleProxy.runOnUISync(worklet, scheduleStack);
+   }
+ 
+@@ -393,11 +400,15 @@ See https://docs.swmansion.com/react-native-worklets/docs/guides/troubleshooting
+   }
+ 
+   getUIRuntimeHolder(): object {
+-    return this.#workletsModuleProxy.getUIRuntimeHolder();
++    return (this.#workletsModuleProxy && typeof this.#workletsModuleProxy.getUIRuntimeHolder === 'function')
++      ? this.#workletsModuleProxy.getUIRuntimeHolder()
++      : (undefined as any);
+   }
+ 
+   getUISchedulerHolder(): object {
+-    return this.#workletsModuleProxy.getUISchedulerHolder();
++    return (this.#workletsModuleProxy && typeof this.#workletsModuleProxy.getUISchedulerHolder === 'function')
++      ? this.#workletsModuleProxy.getUISchedulerHolder()
++      : (undefined as any);
+   }
+ 
+   toggleSlowAnimationsOnUIRuntime(): boolean {
+diff --git a/node_modules/react-native-worklets/src/initializers/initializers.native.ts b/node_modules/react-native-worklets/src/initializers/initializers.native.ts
+index dbeaf3a..fa20694 100644
+--- a/node_modules/react-native-worklets/src/initializers/initializers.native.ts
++++ b/node_modules/react-native-worklets/src/initializers/initializers.native.ts
+@@ -184,35 +184,37 @@ function initializeWorkletRuntime() {
+  */
+ function installRNBindingsOnUIRuntime() {
+   if (!WorkletsModule) {
+-    throw new Error(
+-      '[Worklets] Worklets are trying to initialize the UI runtime without a valid WorkletsModule'
+-    );
++    return;
+   }
+ 
+-  const runtimeBoundCapturableConsole =
+-    globalThis._WORKLETS_BUNDLE_MODE_ENABLED && !__DEV__
+-      ? null
+-      : getMemorySafeCapturableConsole();
+-
+-  runOnUISync(() => {
+-    'worklet';
+-    /**
+-     * TODO: Move `setupMicrotasks` and `setupRequestAnimationFrame` to a
+-     * separate function once we have a better way to distinguish between
+-     * Worklet Runtimes.
+-     */
+-
+-    if (!globalThis._WORKLETS_BUNDLE_MODE_ENABLED) {
+-      setupConsole(runtimeBoundCapturableConsole!);
+-    } else if (__DEV__) {
+-      setupConsoleForwarding(runtimeBoundCapturableConsole!);
+-    }
++  try {
++    const runtimeBoundCapturableConsole =
++      globalThis._WORKLETS_BUNDLE_MODE_ENABLED && !__DEV__
++        ? null
++        : getMemorySafeCapturableConsole();
++
++    runOnUISync(() => {
++      'worklet';
++      /**
++       * TODO: Move `setupMicrotasks` and `setupRequestAnimationFrame` to a
++       * separate function once we have a better way to distinguish between
++       * Worklet Runtimes.
++       */
++
++      if (!globalThis._WORKLETS_BUNDLE_MODE_ENABLED) {
++        setupConsole(runtimeBoundCapturableConsole!);
++      } else if (__DEV__) {
++        setupConsoleForwarding(runtimeBoundCapturableConsole!);
++      }
+ 
+-    setupMicrotasks();
+-    setupRequestAnimationFrame();
+-    setupSetTimeout();
+-    setupSetImmediate();
+-    setupSetInterval();
+-    setupSerializer();
+-  });
++      setupMicrotasks();
++      setupRequestAnimationFrame();
++      setupSetTimeout();
++      setupSetImmediate();
++      setupSetInterval();
++      setupSerializer();
++    });
++  } catch (e) {
++    // Graceful fallback on Expo Go
++  }
+ }
+diff --git a/node_modules/react-native-worklets/src/threads.native.ts b/node_modules/react-native-worklets/src/threads.native.ts
+index 258314b..4e19226 100644
+--- a/node_modules/react-native-worklets/src/threads.native.ts
++++ b/node_modules/react-native-worklets/src/threads.native.ts
+@@ -177,6 +177,13 @@ export function runOnUISync<Args extends unknown[], ReturnValue>(
+   worklet: WorkletFunction<Args, ReturnValue>,
+   ...args: Args
+ ): ReturnValue {
++  if (!WorkletsModule || typeof WorkletsModule.runOnUISync !== 'function') {
++    try {
++      return typeof worklet === 'function' ? (worklet as any)(...args) : (undefined as any);
++    } catch (e) {
++      return undefined as any;
++    }
++  }
+   return WorkletsModule.runOnUISync(
+     createSerializable(() => {
+       'worklet';

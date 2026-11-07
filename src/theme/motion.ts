@@ -38,12 +38,18 @@ export const timing = {
   slow: 400,
 } as const;
 
-// Easing chuẩn — dùng kèm withTiming
+// Easing chuẩn — dùng kèm withTiming (dùng getters để lazy-load an toàn)
 export const easings = {
   // Ra nhanh, giảm tốc mềm — hầu hết transition
-  out: Easing.out(Easing.cubic),
+  get out() {
+    return Easing.out(Easing.cubic);
+  },
   // Vào từ từ, ra nhanh — ẩn/dismiss
-  in: Easing.in(Easing.cubic),
+  get in() {
+    return Easing.in(Easing.cubic);
+  },
   // Cả hai chiều mượt — looping, idle animation
-  inOut: Easing.inOut(Easing.quad),
-} as const;
+  get inOut() {
+    return Easing.inOut(Easing.quad);
+  },
+};

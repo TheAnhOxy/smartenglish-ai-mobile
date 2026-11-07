@@ -9,7 +9,6 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter, useSegments }
 import * as SplashScreen from 'expo-splash-screen';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
 
 import { useColorScheme } from '@/components/useColorScheme';
@@ -19,8 +18,7 @@ import { stopAllAudio } from '@/src/core/services/speechService';
 import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync } from '@/src/features/notifications/application/pushNotificationService';
 
-// Tắt cảnh báo thuộc tính deprecated
-LogBox.ignoreAllLogs(true);
+// Tắt một số cảnh báo thuộc tính deprecated không cần thiết
 LogBox.ignoreLogs([
   'Expo AV has been deprecated',
   '[expo-av]',
@@ -28,6 +26,17 @@ LogBox.ignoreLogs([
   'shadow*',
   'boxShadow',
 ]);
+
+// Bắt toàn bộ lỗi runtime chưa xử lý để in trực tiếp ra Metro bundler
+if (typeof global !== 'undefined' && (global as any).ErrorUtils) {
+  const originalHandler = (global as any).ErrorUtils.getGlobalHandler();
+  (global as any).ErrorUtils.setGlobalHandler((err: any, isFatal: boolean) => {
+    console.error('🚨 [CRITICAL_UNCAUGHT_ERROR]:', err?.message || err, err?.stack || '');
+    if (originalHandler) {
+      originalHandler(err, isFatal);
+    }
+  });
+}
 
 if (__DEV__) {
   const originalWarn = console.warn;
@@ -63,7 +72,9 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (error) throw error;
+    if (error) {
+      console.warn('[RootLayout] Lỗi nạp font SpaceMono:', error);
+    }
   }, [error]);
 
   useEffect(() => {

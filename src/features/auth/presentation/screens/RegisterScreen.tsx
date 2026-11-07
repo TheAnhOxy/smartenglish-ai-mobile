@@ -15,7 +15,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthFlow } from '../../application/useAuthFlow';
 import { colors } from '@/src/theme/colors';
 import { usePressSpring } from '@/src/hooks/usePressSpring';
-import Animated from 'react-native-reanimated';
 import {
   ShieldAlert,
   Eye,
@@ -39,8 +38,6 @@ import {
 } from '../../infrastructure/googleAuthHelper';
 
 WebBrowser.maybeCompleteAuthSession();
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export const RegisterScreen = () => {
   const router = useRouter();

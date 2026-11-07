@@ -15,7 +15,7 @@ import {
 import { X, Search, Send, Link2, Check, ArrowRight } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { cleanAvatarUrl } from '../screens/SocialFeedScreen';
+import { cleanAvatarUrl } from '../utils/avatarHelper';
 import {
   CommunityPostDto,
   ChatConversationDto,

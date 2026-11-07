@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Dimensions,
+  Animated,
 } from 'react-native';
 import {
   Flame,
@@ -37,14 +38,6 @@ import {
   Globe,
   RotateCcw,
 } from 'lucide-react-native';
-import Animated, {
-  FadeInDown,
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withSpring,
-  SharedValue,
-} from 'react-native-reanimated';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import Svg, { Polygon, Line, Circle, Path, Defs, LinearGradient, Stop } from 'react-native-svg';
@@ -68,13 +61,16 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 interface ChartBarItemProps {
   item: { dayLabel: string; minutes: number; isToday: boolean };
   idx: number;
-  barHeight: SharedValue<number>;
+  barHeight: Animated.Value;
 }
 
 const ChartBarItem: React.FC<ChartBarItemProps> = ({ item, idx, barHeight }) => {
-  const animStyle = useAnimatedStyle(() => ({
-    height: `${barHeight.value}%`,
-  }));
+  const heightStyle = {
+    height: barHeight.interpolate({
+      inputRange: [0, 100],
+      outputRange: ['0%', '100%'],
+    }),
+  };
 
   return (
     <View style={s.chartCol}>
@@ -87,7 +83,7 @@ const ChartBarItem: React.FC<ChartBarItemProps> = ({ item, idx, barHeight }) => 
         <Animated.View
           style={[
             s.chartBarFill,
-            animStyle,
+            heightStyle,
             { backgroundColor: item.isToday ? colors.secondary : palette.border },
           ]}
         />
@@ -118,22 +114,22 @@ export const AnalyticsScreen = () => {
   const [quizScore, setQuizScore] = useState(0);
 
   // Animated progress bars for skills
-  const vocabWidth = useSharedValue(0);
-  const grammarWidth = useSharedValue(0);
-  const speakingWidth = useSharedValue(0);
-  const listeningWidth = useSharedValue(0);
-  const readingWidth = useSharedValue(0);
+  const vocabWidth = useRef(new Animated.Value(0)).current;
+  const grammarWidth = useRef(new Animated.Value(0)).current;
+  const speakingWidth = useRef(new Animated.Value(0)).current;
+  const listeningWidth = useRef(new Animated.Value(0)).current;
+  const readingWidth = useRef(new Animated.Value(0)).current;
 
   // Animated bar heights for 7-day chart
-  const barHeights = [
-    useSharedValue(0),
-    useSharedValue(0),
-    useSharedValue(0),
-    useSharedValue(0),
-    useSharedValue(0),
-    useSharedValue(0),
-    useSharedValue(0),
-  ];
+  const barHeights = useRef([
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+  ]).current;
 
   const loadData = useCallback(async () => {
     try {
@@ -150,18 +146,43 @@ export const AnalyticsScreen = () => {
 
       // Animate Skill bars
       const skills = prog.skillRadarScores;
-      vocabWidth.value = withTiming(skills.vocabulary || 10, { duration: 800 });
-      grammarWidth.value = withTiming(skills.grammar || 10, { duration: 900 });
-      speakingWidth.value = withTiming(skills.speaking || 10, { duration: 1000 });
-      listeningWidth.value = withTiming(skills.listening || 10, { duration: 1100 });
-      readingWidth.value = withTiming(skills.reading || 10, { duration: 1200 });
+      Animated.timing(vocabWidth, {
+        toValue: skills.vocabulary || 10,
+        duration: 800,
+        useNativeDriver: false,
+      }).start();
+      Animated.timing(grammarWidth, {
+        toValue: skills.grammar || 10,
+        duration: 900,
+        useNativeDriver: false,
+      }).start();
+      Animated.timing(speakingWidth, {
+        toValue: skills.speaking || 10,
+        duration: 1000,
+        useNativeDriver: false,
+      }).start();
+      Animated.timing(listeningWidth, {
+        toValue: skills.listening || 10,
+        duration: 1100,
+        useNativeDriver: false,
+      }).start();
+      Animated.timing(readingWidth, {
+        toValue: skills.reading || 10,
+        duration: 1200,
+        useNativeDriver: false,
+      }).start();
 
       // Animate 7-day Chart bars
       const maxMins = Math.max(1, ...(prog.weeklyChart?.map((d) => d.minutes) || [1]));
       prog.weeklyChart?.forEach((item, idx) => {
         if (idx < 7) {
           const pct = Math.max(8, Math.min(100, Math.round((item.minutes / maxMins) * 90)));
-          barHeights[idx].value = withSpring(pct, { damping: 12, stiffness: 90 });
+          Animated.spring(barHeights[idx], {
+            toValue: pct,
+            tension: 40,
+            friction: 7,
+            useNativeDriver: false,
+          }).start();
         }
       });
     } catch (err) {
@@ -170,7 +191,7 @@ export const AnalyticsScreen = () => {
       setIsLoading(false);
       setRefreshing(false);
     }
-  }, [currentUser?.id, rankingSubTab]);
+  }, [currentUser?.id, rankingSubTab, vocabWidth, grammarWidth, speakingWidth, listeningWidth, readingWidth, barHeights]);
 
   useEffect(() => {
     loadData();
@@ -181,11 +202,47 @@ export const AnalyticsScreen = () => {
     loadData();
   };
 
-  const vocabStyle = useAnimatedStyle(() => ({ width: `${vocabWidth.value}%` }));
-  const grammarStyle = useAnimatedStyle(() => ({ width: `${grammarWidth.value}%` }));
-  const speakingStyle = useAnimatedStyle(() => ({ width: `${speakingWidth.value}%` }));
-  const listeningStyle = useAnimatedStyle(() => ({ width: `${listeningWidth.value}%` }));
-  const readingStyle = useAnimatedStyle(() => ({ width: `${readingWidth.value}%` }));
+  const handleSwitchRankingSubTab = async (subTab: 'global' | 'friends') => {
+    setRankingSubTab(subTab);
+    try {
+      const uid = currentUser?.id ? String(currentUser.id) : undefined;
+      const lb = await fetchLeaderboardApi(subTab, uid);
+      setLeaderboardData(lb);
+    } catch (err) {
+      console.warn('[AnalyticsScreen] fetchLeaderboardApi failed:', err);
+    }
+  };
+
+  const vocabStyle = {
+    width: vocabWidth.interpolate({
+      inputRange: [0, 100],
+      outputRange: ['0%', '100%'],
+    }),
+  };
+  const grammarStyle = {
+    width: grammarWidth.interpolate({
+      inputRange: [0, 100],
+      outputRange: ['0%', '100%'],
+    }),
+  };
+  const speakingStyle = {
+    width: speakingWidth.interpolate({
+      inputRange: [0, 100],
+      outputRange: ['0%', '100%'],
+    }),
+  };
+  const listeningStyle = {
+    width: listeningWidth.interpolate({
+      inputRange: [0, 100],
+      outputRange: ['0%', '100%'],
+    }),
+  };
+  const readingStyle = {
+    width: readingWidth.interpolate({
+      inputRange: [0, 100],
+      outputRange: ['0%', '100%'],
+    }),
+  };
 
   // Radar Pentagon Points Calculation (dynamic based on real scores)
   const cx = 110;
@@ -366,7 +423,7 @@ export const AnalyticsScreen = () => {
         {activeTab === 'progress' && progressData && (
           <View>
             {/* Header Lựa Chọn Thời Gian */}
-            <Animated.View entering={FadeInDown.delay(50)} style={s.progressSectionHeader}>
+            <View style={s.progressSectionHeader}>
               <View style={s.progressSectionTitleWrap}>
                 <BarChart3 color={palette.primary} size={18} />
                 <Text style={s.progressSectionTitle}>Chỉ số học tập thực tế</Text>
@@ -375,10 +432,10 @@ export const AnalyticsScreen = () => {
               <View style={s.filterDropdownBtn}>
                 <Text style={s.filterDropdownText}>Tuần này</Text>
               </View>
-            </Animated.View>
+            </View>
 
             {/* Streak Card Rực Rỡ với Gradient Cam Lửa */}
-            <Animated.View entering={FadeInDown.delay(100)} style={s.streakWrapper}>
+            <View style={s.streakWrapper}>
               <ExpoLinearGradient
                 colors={['#FF7A45', '#E8592A', '#C2410C']}
                 start={{ x: 0, y: 0 }}
@@ -441,10 +498,10 @@ export const AnalyticsScreen = () => {
                   </Text>
                 </View>
               </ExpoLinearGradient>
-            </Animated.View>
+            </View>
 
             {/* 4 Thẻ Chỉ Số Nhanh (Grid 2x2) */}
-            <Animated.View entering={FadeInDown.delay(180)} style={s.statsGrid}>
+            <View style={s.statsGrid}>
               <View style={s.statBox}>
                 <View style={[s.statIconBox, { backgroundColor: '#E0F2FE' }]}>
                   <BookOpen color="#0284C7" size={18} />
@@ -484,10 +541,10 @@ export const AnalyticsScreen = () => {
                   {progressData.avgResponseTimeSec > 0 ? 'Thời gian trả lời TB' : 'Chưa có lượt thi'}
                 </Text>
               </View>
-            </Animated.View>
+            </View>
 
             {/* BIỂU ĐỒ 1: RADAR PENTAGON (MẠNG NHỆN 5 KỸ NĂNG) */}
-            <Animated.View entering={FadeInDown.delay(260)} style={s.card}>
+            <View style={s.card}>
               <View style={s.cardHeaderRow}>
                 <View>
                   <Text style={s.cardTitleBig}>Biểu đồ mạng nhện kỹ năng</Text>
@@ -563,10 +620,10 @@ export const AnalyticsScreen = () => {
                   })}
                 </Svg>
               </View>
-            </Animated.View>
+            </View>
 
             {/* BIỂU ĐỒ 2: CEFR SKILL MASTERY BARS */}
-            <Animated.View entering={FadeInDown.delay(320)} style={s.card}>
+            <View style={s.card}>
               <View style={s.cardHeaderRow}>
                 <Text style={s.cardTitleBig}>Chi tiết mức độ thành thạo</Text>
                 <Compass color={palette.primary} size={18} />
@@ -590,10 +647,10 @@ export const AnalyticsScreen = () => {
                   </View>
                 ))}
               </View>
-            </Animated.View>
+            </View>
 
             {/* BIỂU ĐỒ 3: THỜI LƯỢNG HỌC 7 NGÀY (CỘT ĐỘNG) */}
-            <Animated.View entering={FadeInDown.delay(380)} style={s.card}>
+            <View style={s.card}>
               <View style={s.cardHeaderRow}>
                 <View>
                   <Text style={s.cardTitleBig}>Phân bổ thời gian học 7 ngày</Text>
@@ -614,7 +671,7 @@ export const AnalyticsScreen = () => {
                   />
                 ))}
               </View>
-            </Animated.View>
+            </View>
           </View>
         )}
 
@@ -624,7 +681,7 @@ export const AnalyticsScreen = () => {
         {activeTab === 'analytics' && assessmentData && (
           <View>
             {/* Thẻ Điểm Năng Lực Tổng Quát */}
-            <Animated.View entering={FadeInDown.delay(100)} style={s.overviewScoreCard}>
+            <View style={s.overviewScoreCard}>
               <ExpoLinearGradient
                 colors={['#1F4E79', '#2563A8']}
                 start={{ x: 0, y: 0 }}
@@ -649,10 +706,10 @@ export const AnalyticsScreen = () => {
                   </Text>
                 </View>
               </ExpoLinearGradient>
-            </Animated.View>
+            </View>
 
             {/* GỢI Ý THÔNG MINH TỪ TRỢ LÝ AI DỰA TRÊN LỊCH SỬ BÀI HỌC */}
-            <Animated.View entering={FadeInDown.delay(180)} style={s.tipCard}>
+            <View style={s.tipCard}>
               <View style={s.tipCardHeaderRow}>
                 <View style={s.tipIconBox}>
                   <Lightbulb color="#D97706" size={18} />
@@ -668,10 +725,10 @@ export const AnalyticsScreen = () => {
               <Text style={s.tipCardContent}>
                 {assessmentData.summaryInsight || 'Đang cập nhật đánh giá học lực...'}
               </Text>
-            </Animated.View>
+            </View>
 
             {/* MA TRẬN: LỖ HỔNG CẦN KHẮC PHỤC (WEAKNESSES) & ĐIỂM MẠNH (STRENGTHS) */}
-            <Animated.View entering={FadeInDown.delay(260)} style={s.matrixContainer}>
+            <View style={s.matrixContainer}>
               <Text style={s.matrixTitle}>Phân Tích Chi Tiết Lỗi Sai & Điểm Yếu</Text>
 
               {/* Box 1: Cần Cải Thiện */}
@@ -725,11 +782,11 @@ export const AnalyticsScreen = () => {
                   </View>
                 ))}
               </View>
-            </Animated.View>
+            </View>
 
             {/* BÀI TẬP CỦNG CỐ AI TRỰC TIẾP (INTERACTIVE REMEDIAL PRACTICE) */}
             {currentQuiz && (
-              <Animated.View entering={FadeInDown.delay(340)} style={s.remedialCard}>
+              <View style={s.remedialCard}>
                 <View style={s.remedialHeaderRow}>
                   <View style={s.remedialBadge}>
                     <Zap color="#D97706" size={14} fill="#D97706" />
@@ -799,7 +856,7 @@ export const AnalyticsScreen = () => {
                     </Pressable>
                   </View>
                 )}
-              </Animated.View>
+              </View>
             )}
           </View>
         )}
@@ -812,7 +869,7 @@ export const AnalyticsScreen = () => {
             {/* Sub-tab Switcher: Toàn Hệ Thống vs Bạn Bè */}
             <View style={s.subTabRow}>
               <Pressable
-                onPress={() => setRankingSubTab('global')}
+                onPress={() => handleSwitchRankingSubTab('global')}
                 style={[s.subTabBtn, rankingSubTab === 'global' && s.subTabBtnActive]}
               >
                 <Globe color={rankingSubTab === 'global' ? '#FFFFFF' : palette.textSoft} size={14} />
@@ -822,7 +879,7 @@ export const AnalyticsScreen = () => {
               </Pressable>
 
               <Pressable
-                onPress={() => setRankingSubTab('friends')}
+                onPress={() => handleSwitchRankingSubTab('friends')}
                 style={[s.subTabBtn, rankingSubTab === 'friends' && s.subTabBtnActive]}
               >
                 <Users color={rankingSubTab === 'friends' ? '#FFFFFF' : palette.textSoft} size={14} />
@@ -833,7 +890,7 @@ export const AnalyticsScreen = () => {
             </View>
 
             {/* League Header Card */}
-            <Animated.View entering={FadeInDown.delay(100)} style={s.card}>
+            <View style={s.card}>
               <View style={s.leagueHeaderRow}>
                 <View style={s.leagueLeft}>
                   <Medal color="#0EA5E9" size={22} />
@@ -845,11 +902,11 @@ export const AnalyticsScreen = () => {
                   </View>
                 </View>
               </View>
-            </Animated.View>
+            </View>
 
             {/* BỤC PODIUM 3D (TOP 1, 2, 3) */}
             {top1 && (
-              <Animated.View entering={FadeInDown.delay(200)} style={s.podiumCard}>
+              <View style={s.podiumCard}>
                 <Text style={s.podiumCardTitle}>Vinh Danh Top 3 Tuần Này</Text>
 
                 <View style={s.podiumRow}>
@@ -942,11 +999,11 @@ export const AnalyticsScreen = () => {
                     <View style={s.podiumCol} />
                   )}
                 </View>
-              </Animated.View>
+              </View>
             )}
 
             {/* DANH SÁCH BẢNG XẾP HẠNG ĐẦY ĐỦ */}
-            <Animated.View entering={FadeInDown.delay(300)}>
+            <View>
               <Text style={[s.cardTitleBig, { marginBottom: 12, marginTop: 8 }]}>
                 {rankingSubTab === 'global' ? 'Top 10 Hệ Thống' : 'Danh Sách Bạn Bè'}
               </Text>
@@ -1032,10 +1089,10 @@ export const AnalyticsScreen = () => {
                   </View>
                 </View>
               ))}
-            </Animated.View>
+            </View>
 
             {/* THẺ VỊ TRÍ CÁ NHÂN NỔI BẬT GHIM Ở ĐÁY */}
-            <Animated.View entering={FadeInDown.delay(400)} style={s.posCard}>
+            <View style={s.posCard}>
               <View style={s.posRow}>
                 <View style={s.posRankCircle}>
                   <Text style={s.posRankText}>
@@ -1055,7 +1112,7 @@ export const AnalyticsScreen = () => {
                   <Text style={s.posCtaBtnText}>Luyện Tập</Text>
                 </Pressable>
               </View>
-            </Animated.View>
+            </View>
           </View>
         )}
       </ScrollView>

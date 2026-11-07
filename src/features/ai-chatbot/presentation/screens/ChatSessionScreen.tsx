@@ -1,13 +1,30 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, ScrollView, Pressable, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
-import { clearChatHistory } from '../../data/chatbotApi';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { View, Text, TextInput, ScrollView, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuthStore } from '@/src/core/flows/authStore';
+import { clearChatHistory, getChatQuotaApi } from '../../data/chatbotApi';
 import { useSendMessageMutation } from '../../application/useAiChatbot';
 import { SentenceRefactorSheetModal } from './SentenceRefactorSheetModal';
 import { ChatMessage } from '@/src/core/types/schema';
 
 export const ChatSessionScreen = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const userId = useAuthStore((state) => state.currentUser?.id);
+  const quotaVersion = useRef(0);
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    const version = ++quotaVersion.current;
+    setQuota(null);
+    getChatQuotaApi().then((value) => {
+      if (active && version === quotaVersion.current) {
+        setQuota({ used: value.quota_used, limit: value.quota_limit });
+      }
+    }).catch(() => { /* Sending still checks server quota. */ });
+    return () => { active = false; };
+  }, [userId]));
+  const [quota, setQuota] = useState<{ used: number; limit: number | null } | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -49,19 +66,28 @@ export const ChatSessionScreen = () => {
     sendMessage(textToSend, {
       onSuccess: (res) => {
         setMessages((prev) => [...prev, res]);
+        if (res.quota_used !== undefined && res.quota_limit !== undefined) {
+          quotaVersion.current++;
+          setQuota({ used: res.quota_used, limit: res.quota_limit });
+        }
         scrollToBottom();
       }
     });
   };
 
   return (
-    <View className="flex-1 bg-surface pt-14 px-6 justify-between pb-6">
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
+      className="flex-1 bg-surface px-6 justify-between">
       {/* Header */}
       <View>
         <Pressable onPress={() => router.back()} className="mb-2">
           <Text className="text-primary font-bold text-sm">← Danh Sách Chat</Text>
         </Pressable>
-        <Text className="text-xl font-bold text-neutralInk mb-4">Trợ Lý Sparky ⚡</Text>
+        <Text className="text-xl font-bold text-neutralInk mb-4">Loxera AI Tutor</Text>
+        {quota && <Text className="text-xs text-neutralGray mb-2">
+          {quota.limit === null ? 'Premium · Không giới hạn' : `Còn ${Math.max(0, quota.limit - quota.used)}/${quota.limit} tin nhắn hôm nay`}
+        </Text>}
       </View>
 
       {/* Messages */}
@@ -77,13 +103,16 @@ export const ChatSessionScreen = () => {
                 }`}
               >
                 <Text className={`text-xs font-bold mb-1 ${m.role === 'user' ? 'text-white/80' : 'text-secondary'}`}>
-                  {m.role === 'user' ? 'Bạn' : 'Trợ Lý Sparky'}
+                  {m.role === 'user' ? 'Bạn' : 'Loxera AI'}
                 </Text>
                 <Text className={`text-sm font-medium leading-6 ${m.role === 'user' ? 'text-white' : 'text-neutralInk'}`}>
                   {m.content}
                 </Text>
               </View>
 
+              {m.is_quota_message && <Pressable onPress={() => router.push('/(student)/shop')}>
+                <Text className="text-primary font-bold py-2">Xem gói nâng cấp →</Text>
+              </Pressable>}
               {/* Inline Grammar & Refactor Suggestion Card */}
               {m.grammar_check && (
                 <View className="bg-secondary/10 p-3 rounded-xl border border-secondary/30 mt-2 self-start max-w-[85%]">
@@ -104,7 +133,7 @@ export const ChatSessionScreen = () => {
           {isPending && (
             <View className="bg-cardWhite p-3 rounded-2xl border border-gray-100 self-start shadow-sm flex-row items-center gap-2">
               <ActivityIndicator color="#0F7173" size="small" />
-              <Text className="text-xs text-neutralGray">Sparky đang suy nghĩ...</Text>
+              <Text className="text-xs text-neutralGray">Loxera đang suy nghĩ…</Text>
             </View>
           )}
         </View>
@@ -113,6 +142,7 @@ export const ChatSessionScreen = () => {
       {/* Input Bar */}
       <View className="flex-row gap-2 items-center">
         <TextInput
+          maxLength={4000}
           value={input}
           onChangeText={setInput}
           placeholder="Nhập câu tin nhắn tiếng Anh..."
@@ -134,6 +164,6 @@ export const ChatSessionScreen = () => {
         alternatives={selectedRefactorList || []}
         onClose={() => setSelectedRefactorList(null)}
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 };

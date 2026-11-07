@@ -7,7 +7,9 @@
  * Legacy types are kept for compatibility with existing screens (AI Scan, AI Speaking).
  */
 
+import axios from 'axios';
 import { apiClient, getCurrentUserId } from '@/src/core/api/client';
+import { requestTutorReply, ChatApiResponse, TutorAudio } from './chatbotApi';
 
 export type EnglishLevel = 'Beginner' | 'Elementary' | 'Intermediate' | 'Upper-Intermediate' | 'Advanced';
 
@@ -16,18 +18,17 @@ export interface ChatHistoryItem {
   parts: Array<{ text: string }>;
 }
 
-export interface GeminiResponse {
-  success: boolean;
-  reply: string;
-  error?: string;
-}
+export type GeminiResponse = ChatApiResponse;
 
-let _customApiKey: string | null = null;
-export const setCustomApiKey = (key: string) => {
-  _customApiKey = key;
-};
-export const getApiKey = (): string => {
-  return _customApiKey || '';
+/** Maps saved CEFR profiles to the existing level picker labels. */
+export const getEnglishLevel = (level?: string | null): EnglishLevel => {
+  const levels: Record<string, EnglishLevel> = {
+    A1: 'Beginner', A2: 'Elementary', B1: 'Intermediate',
+    B2: 'Upper-Intermediate', C1: 'Advanced', C2: 'Advanced',
+    Beginner: 'Beginner', Elementary: 'Elementary', Intermediate: 'Intermediate',
+    'Upper-Intermediate': 'Upper-Intermediate', Advanced: 'Advanced',
+  };
+  return levels[level || ''] || 'Intermediate';
 };
 
 export interface VisionDetectedItem {
@@ -58,44 +59,16 @@ export interface GeminiVisionResponse {
  * History items are mapped from Gemini format to our backend format.
  */
 export const sendMessageToGemini = async (
-  userMessage: string,
-  history: ChatHistoryItem[],
-  level: EnglishLevel = 'Intermediate',
-  topic: string = 'Tự do'
+  userMessage: string, history: ChatHistoryItem[], level: EnglishLevel = 'Intermediate', audio?: TutorAudio
 ): Promise<GeminiResponse> => {
   try {
-    // Map Gemini-style history to our backend format
-    const backendHistory = history.slice(-10).map((h) => ({
-      role: h.role === 'user' ? 'user' : 'model',
-      content: h.parts.map((p) => p.text).join(' ')
-    }));
-
-    const response = await apiClient.post<any>('/api/v1/ai-practice/chat', {
-      message: userMessage,
-      cefrLevel: level,
-      topic,
-      history: backendHistory
-    });
-
-    const data = response.data?.data || response.data;
-    const reply: string = data?.reply || data?.message || '';
-
-    if (reply) {
-      return { success: true, reply };
-    }
-
-    return {
-      success: false,
-      reply: '',
-      error: 'Không thể kết nối với Loxera AI lúc này. Vui lòng thử lại.'
-    };
-  } catch (err: any) {
-    console.warn('[geminiService] Backend chat error:', err?.message || err);
-    return {
-      success: false,
-      reply: '',
-      error: 'Lỗi kết nối mạng khi kết nối AI. Vui lòng thử lại.'
-    };
+    return await requestTutorReply(userMessage, level, history.slice(-6).map((h) => ({
+      role: h.role, content: h.parts.map((p) => p.text).join(' '),
+    })), audio);
+  } catch (error: unknown) {
+    return { success: false, reply: '', error: axios.isAxiosError(error) && error.response?.status === 401
+      ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.'
+      : 'Lỗi kết nối mạng khi kết nối AI. Vui lòng thử lại.' };
   }
 };
 

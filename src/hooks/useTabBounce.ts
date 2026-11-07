@@ -1,30 +1,49 @@
-import { useEffect } from 'react';
-import { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
-import { spring } from '@/src/theme/motion';
+import { useEffect, useRef } from 'react';
+import { Animated } from 'react-native';
 
 // Hook cho tab bar icon: bounce lên khi active, trở về khi inactive
-// Dùng spring.bouncy để có cảm giác rõ độ nảy như Duolingo/BeReal
-
+// Dùng spring native driver để có cảm giác rõ độ nảy mượt mà, không phụ thuộc JSI/worklet
 export function useTabBounce(focused: boolean) {
-  const scale = useSharedValue(1);
-  const translateY = useSharedValue(0);
+  const scale = useRef(new Animated.Value(1)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (focused) {
-      scale.value = withSpring(1.18, spring.bouncy);
-      translateY.value = withSpring(-5, spring.bouncy);
+      Animated.parallel([
+        Animated.spring(scale, {
+          toValue: 1.18,
+          useNativeDriver: true,
+          friction: 4,
+          tension: 120,
+        }),
+        Animated.spring(translateY, {
+          toValue: -5,
+          useNativeDriver: true,
+          friction: 4,
+          tension: 120,
+        }),
+      ]).start();
     } else {
-      scale.value = withSpring(1, spring.snappy);
-      translateY.value = withSpring(0, spring.snappy);
+      Animated.parallel([
+        Animated.spring(scale, {
+          toValue: 1,
+          useNativeDriver: true,
+          friction: 6,
+          tension: 140,
+        }),
+        Animated.spring(translateY, {
+          toValue: 0,
+          useNativeDriver: true,
+          friction: 6,
+          tension: 140,
+        }),
+      ]).start();
     }
   }, [focused, scale, translateY]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: scale.value },
-      { translateY: translateY.value },
-    ],
-  }));
+  const animatedStyle = {
+    transform: [{ scale }, { translateY }],
+  };
 
   return { animatedStyle };
 }
