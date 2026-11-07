@@ -1,19 +1,8 @@
-import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Animated, Easing } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LoxeraFoxMascot } from '@/src/core/components/LoxeraFoxMascot';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withSpring,
-  withRepeat,
-  withDelay,
-  withSequence,
-  Easing,
-  FadeInDown,
-} from 'react-native-reanimated';
 import { colors } from '@/src/theme/colors';
 import { ArrowRight, PlayCircle } from 'lucide-react-native';
 
@@ -24,95 +13,81 @@ export const WelcomeScreen = () => {
   const insets = useSafeAreaInsets();
 
   // Logo entrance animations
-  const logoScale = useSharedValue(0.3);
-  const logoOpacity = useSharedValue(0);
-  const logoTranslateY = useSharedValue(-40);
+  const logoScale = useRef(new Animated.Value(0.3)).current;
+  const logoOpacity = useRef(new Animated.Value(0)).current;
+  const logoTranslateY = useRef(new Animated.Value(-40)).current;
+
+  // Content fade & slide
+  const contentFade = useRef(new Animated.Value(0)).current;
+  const contentY = useRef(new Animated.Value(20)).current;
 
   // Sparkle glow pulse
-  const glowScale = useSharedValue(1);
-  const glowOpacity = useSharedValue(0.3);
+  const glowScale = useRef(new Animated.Value(1)).current;
+  const glowOpacity = useRef(new Animated.Value(0.3)).current;
 
   // Floating particles
-  const particle1Y = useSharedValue(0);
-  const particle2Y = useSharedValue(0);
-  const particle3Y = useSharedValue(0);
+  const particle1Y = useRef(new Animated.Value(0)).current;
+  const particle2Y = useRef(new Animated.Value(0)).current;
+  const particle3Y = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     // Logo bounce-in
-    logoOpacity.value = withTiming(1, { duration: 600 });
-    logoScale.value = withSpring(1, { damping: 12, stiffness: 100 });
-    logoTranslateY.value = withSpring(0, { damping: 14, stiffness: 90 });
+    Animated.parallel([
+      Animated.timing(logoOpacity, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.spring(logoScale, { toValue: 1, friction: 6, tension: 70, useNativeDriver: true }),
+      Animated.spring(logoTranslateY, { toValue: 0, friction: 7, tension: 65, useNativeDriver: true }),
+      Animated.timing(contentFade, { toValue: 1, duration: 800, delay: 200, useNativeDriver: true }),
+      Animated.timing(contentY, { toValue: 0, duration: 800, delay: 200, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+    ]).start();
 
     // Glow pulse loop
-    glowScale.value = withRepeat(
-      withSequence(
-        withTiming(1.15, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
-    glowOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.45, { duration: 1800 }),
-        withTiming(0.12, { duration: 1800 })
-      ),
-      -1,
-      true
+    const animGlow = Animated.loop(
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(glowScale, { toValue: 1.15, duration: 1800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.timing(glowScale, { toValue: 1, duration: 1800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        ]),
+        Animated.sequence([
+          Animated.timing(glowOpacity, { toValue: 0.45, duration: 1800, useNativeDriver: true }),
+          Animated.timing(glowOpacity, { toValue: 0.12, duration: 1800, useNativeDriver: true }),
+        ]),
+      ])
     );
 
     // Floating particles
-    particle1Y.value = withRepeat(
-      withSequence(
-        withTiming(-16, { duration: 2200, easing: Easing.inOut(Easing.ease) }),
-        withTiming(16, { duration: 2200, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
+    const animP1 = Animated.loop(
+      Animated.sequence([
+        Animated.timing(particle1Y, { toValue: -16, duration: 2200, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(particle1Y, { toValue: 16, duration: 2200, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
     );
-    particle2Y.value = withDelay(
-      600,
-      withRepeat(
-        withSequence(
-          withTiming(14, { duration: 2600, easing: Easing.inOut(Easing.ease) }),
-          withTiming(-14, { duration: 2600, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        true
-      )
+
+    const animP2 = Animated.loop(
+      Animated.sequence([
+        Animated.timing(particle2Y, { toValue: 14, duration: 2600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(particle2Y, { toValue: -14, duration: 2600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
     );
-    particle3Y.value = withDelay(
-      1200,
-      withRepeat(
-        withSequence(
-          withTiming(-10, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
-          withTiming(10, { duration: 2000, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        true
-      )
+
+    const animP3 = Animated.loop(
+      Animated.sequence([
+        Animated.timing(particle3Y, { toValue: -10, duration: 2000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(particle3Y, { toValue: 10, duration: 2000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
     );
+
+    animGlow.start();
+    animP1.start();
+    setTimeout(() => animP2.start(), 600);
+    setTimeout(() => animP3.start(), 1200);
+
+    return () => {
+      animGlow.stop();
+      animP1.stop();
+      animP2.stop();
+      animP3.stop();
+    };
   }, []);
-
-  const logoAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: logoScale.value }, { translateY: logoTranslateY.value }],
-    opacity: logoOpacity.value,
-  }));
-
-  const glowAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: glowScale.value }],
-    opacity: glowOpacity.value,
-  }));
-
-  const particle1Style = useAnimatedStyle(() => ({
-    transform: [{ translateY: particle1Y.value }],
-  }));
-  const particle2Style = useAnimatedStyle(() => ({
-    transform: [{ translateY: particle2Y.value }],
-  }));
-  const particle3Style = useAnimatedStyle(() => ({
-    transform: [{ translateY: particle3Y.value }],
-  }));
 
   const safeTop = (insets.top || 16) + 12;
   const safeBottom = Math.max(insets.bottom, 24) + 12;
@@ -120,12 +95,12 @@ export const WelcomeScreen = () => {
   return (
     <View style={[styles.container, { paddingTop: safeTop, paddingBottom: safeBottom }]}>
       {/* Floating Decorative Particles */}
-      <Animated.View style={[styles.particle, styles.particle1, particle1Style]} />
-      <Animated.View style={[styles.particle, styles.particle2, particle2Style]} />
-      <Animated.View style={[styles.particle, styles.particle3, particle3Style]} />
+      <Animated.View style={[styles.particle, styles.particle1, { transform: [{ translateY: particle1Y }] }]} />
+      <Animated.View style={[styles.particle, styles.particle2, { transform: [{ translateY: particle2Y }] }]} />
+      <Animated.View style={[styles.particle, styles.particle3, { transform: [{ translateY: particle3Y }] }]} />
 
       {/* Top Brand Badge */}
-      <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.brandBadge}>
+      <Animated.View style={[styles.brandBadge, { opacity: contentFade, transform: [{ translateY: contentY }] }]}>
         <View style={styles.brandBadgeDot} />
         <Text style={styles.brandBadgeText}>SmartEnglish AI</Text>
       </Animated.View>
@@ -133,31 +108,65 @@ export const WelcomeScreen = () => {
       {/* Logo Section */}
       <View style={styles.logoSection}>
         {/* Glow Ring Behind Logo */}
-        <Animated.View style={[styles.glowRing, glowAnimStyle]} />
+        <Animated.View
+          style={[
+            styles.glowRing,
+            {
+              transform: [{ scale: glowScale }],
+              opacity: glowOpacity,
+            },
+          ]}
+        />
 
         {/* Loxera Fox Logo Mascot */}
-        <Animated.View style={[styles.logoCard, logoAnimStyle]}>
+        <Animated.View
+          style={[
+            styles.logoCard,
+            {
+              transform: [{ scale: logoScale }, { translateY: logoTranslateY }],
+              opacity: logoOpacity,
+            },
+          ]}
+        >
           <LoxeraFoxMascot size={200} showGlow showBook animated />
         </Animated.View>
 
         {/* App Title */}
         <Animated.Text
-          entering={FadeInDown.delay(300).duration(600)}
-          style={styles.appTitle}
+          style={[
+            styles.appTitle,
+            {
+              opacity: contentFade,
+              transform: [{ translateY: contentY }],
+            },
+          ]}
         >
           Loxera English
         </Animated.Text>
 
         {/* Tagline */}
         <Animated.Text
-          entering={FadeInDown.delay(450).duration(600)}
-          style={styles.tagline}
+          style={[
+            styles.tagline,
+            {
+              opacity: contentFade,
+              transform: [{ translateY: contentY }],
+            },
+          ]}
         >
           Trợ lý đồng hành thông minh giúp bạn{'\n'}làm chủ tiếng Anh với lộ trình cá nhân hóa.
         </Animated.Text>
 
         {/* Feature Pills — text only, no emoji */}
-        <Animated.View entering={FadeInDown.delay(550).duration(500)} style={styles.pillsRow}>
+        <Animated.View
+          style={[
+            styles.pillsRow,
+            {
+              opacity: contentFade,
+              transform: [{ translateY: contentY }],
+            },
+          ]}
+        >
           <View style={styles.featurePill}>
             <Text style={styles.featurePillText}>Cá nhân hóa</Text>
           </View>
@@ -171,50 +180,54 @@ export const WelcomeScreen = () => {
       </View>
 
       {/* Bottom CTA Buttons */}
-      <View style={styles.ctaSection}>
+      <Animated.View
+        style={[
+          styles.ctaSection,
+          {
+            opacity: contentFade,
+            transform: [{ translateY: contentY }],
+          },
+        ]}
+      >
         {/* Primary CTA — Register */}
-        <Animated.View entering={FadeInDown.delay(650).duration(500)}>
-          <TouchableOpacity
-            onPress={() => router.push('/(auth)/register' as any)}
-            activeOpacity={0.85}
-            style={styles.primaryBtn}
-          >
-            <Text style={styles.primaryBtnText}>Tạo Tài Khoản Mới</Text>
-            <ArrowRight color="#FFFFFF" size={18} strokeWidth={2.5} />
-          </TouchableOpacity>
-        </Animated.View>
+        <TouchableOpacity
+          onPress={() => router.push('/(auth)/register' as any)}
+          activeOpacity={0.85}
+          style={styles.primaryBtn}
+        >
+          <Text style={styles.primaryBtnText}>Tạo Tài Khoản Mới</Text>
+          <ArrowRight color="#FFFFFF" size={18} strokeWidth={2.5} />
+        </TouchableOpacity>
 
         {/* Secondary CTA — Placement Test */}
-        <Animated.View entering={FadeInDown.delay(780).duration(500)}>
-          <TouchableOpacity
-            onPress={() => router.push('/(auth)/choose-goal' as any)}
-            activeOpacity={0.85}
-            style={styles.secondaryBtn}
-          >
-            <PlayCircle color={colors.primary} size={18} strokeWidth={2} />
-            <Text style={styles.secondaryBtnText}>Bắt Đầu Ngay (Placement Test)</Text>
-          </TouchableOpacity>
-        </Animated.View>
+        <TouchableOpacity
+          onPress={() => router.push('/(auth)/choose-goal' as any)}
+          activeOpacity={0.85}
+          style={styles.secondaryBtn}
+        >
+          <PlayCircle color={colors.primary} size={18} strokeWidth={2} />
+          <Text style={styles.secondaryBtnText}>Bắt Đầu Ngay (Placement Test)</Text>
+        </TouchableOpacity>
 
         {/* Login link */}
-        <Animated.View entering={FadeInDown.delay(900).duration(500)}>
-          <TouchableOpacity
-            onPress={() => router.push('/(auth)/login' as any)}
-            activeOpacity={0.8}
-            style={styles.outlineBtn}
-          >
-            <Text style={styles.outlineBtnText}>Đã Có Tài Khoản? Đăng Nhập</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      </View>
+        <TouchableOpacity
+          onPress={() => router.push('/(auth)/login' as any)}
+          activeOpacity={0.8}
+          style={styles.outlineBtn}
+        >
+          <Text style={styles.outlineBtnText}>Đã Có Tài Khoản? Đăng Nhập</Text>
+        </TouchableOpacity>
+      </Animated.View>
     </View>
   );
 };
 
+export default WelcomeScreen;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#EEF2F7',  // rõ ràng hơn #F8FAFC, dễ phân biệt với trắng thuần
+    backgroundColor: '#EEF2F7',
     paddingHorizontal: 24,
     justifyContent: 'space-between',
   },
@@ -224,7 +237,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     alignSelf: 'center',
-    backgroundColor: colors.primary,  // nền navy đậm — chữ trắng contrast tốt
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 20,
@@ -238,7 +251,7 @@ const styles = StyleSheet.create({
   brandBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',  // chữ trắng trên nền navy — dễ đọc
+    color: '#FFFFFF',
     letterSpacing: 0.3,
   },
   // Logo section
