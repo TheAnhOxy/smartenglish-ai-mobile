@@ -8,6 +8,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
@@ -26,6 +27,8 @@ import {
   Star,
   Lock,
   Receipt,
+  Tag,
+  Gift,
 } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
@@ -39,10 +42,10 @@ import { apiClient, getCurrentUserId } from '@/src/core/api/client';
 import {
   fetchStudentPlansApi,
   subscribeToPlanApi,
+  validateCouponApi,
   StudentSubscriptionPlan,
 } from '@/src/features/subscription-paywall/data/subscriptionApi';
 import { SepayVietQrPaymentModal } from '../components/SepayVietQrPaymentModal';
-import { StudentInvoicesModal } from '../components/StudentInvoicesModal';
 
 export const PaywallScreen = () => {
   const router = useRouter();
@@ -58,6 +61,16 @@ export const PaywallScreen = () => {
   const [sepayOrder, setSepayOrder] = useState<any>(null);
   const [isInvoicesModalOpen, setIsInvoicesModalOpen] = useState(false);
   const [activeInvoiceOrderId, setActiveInvoiceOrderId] = useState<string | number | null>(null);
+  const [voucherCodeInput, setVoucherCodeInput] = useState('');
+  const [appliedVoucher, setAppliedVoucher] = useState<{
+    code: string;
+    discountAmount: number;
+    finalPrice: number;
+    message: string;
+    discountValue: number;
+  } | null>(null);
+  const [isValidatingVoucher, setIsValidatingVoucher] = useState(false);
+  const [voucherError, setVoucherError] = useState<string | null>(null);
 
   // Animation values
   const floatY = useSharedValue(0);
@@ -143,6 +156,64 @@ export const PaywallScreen = () => {
     return amount.toLocaleString('vi-VN') + ' đ';
   };
 
+  const getPlanBasePrice = (plan: StudentSubscriptionPlan) => {
+    return plan.priceYearly > 0 ? plan.priceYearly : plan.priceMonthly;
+  };
+
+  const handleApplyVoucher = async () => {
+    if (!voucherCodeInput.trim()) {
+      setVoucherError('Vui lòng nhập mã ưu đãi');
+      return;
+    }
+    try {
+      setIsValidatingVoucher(true);
+      setVoucherError(null);
+      const basePrice = getPlanBasePrice(selectedPlan);
+      const res = await validateCouponApi(voucherCodeInput, basePrice);
+      if (res.valid) {
+        setAppliedVoucher({
+          code: res.code,
+          discountAmount: res.discountAmount,
+          finalPrice: res.finalPrice,
+          message: res.message,
+          discountValue: res.discountValue,
+        });
+        Alert.alert('Áp dụng mã thành công 🎉', res.message);
+      } else {
+        setVoucherError(res.message || 'Mã ưu đãi không hợp lệ');
+        Alert.alert('Không hợp lệ', res.message || 'Mã ưu đãi không hợp lệ hoặc đã hết hạn');
+      }
+    } catch (e: any) {
+      setVoucherError('Lỗi kiểm tra mã ưu đãi');
+    } finally {
+      setIsValidatingVoucher(false);
+    }
+  };
+
+  const handleRemoveVoucher = () => {
+    setAppliedVoucher(null);
+    setVoucherCodeInput('');
+    setVoucherError(null);
+  };
+
+  // Tự động tính lại voucher khi người dùng đổi gói
+  useEffect(() => {
+    if (appliedVoucher) {
+      const basePrice = getPlanBasePrice(selectedPlan);
+      validateCouponApi(appliedVoucher.code, basePrice).then((res) => {
+        if (res.valid) {
+          setAppliedVoucher({
+            code: res.code,
+            discountAmount: res.discountAmount,
+            finalPrice: res.finalPrice,
+            message: res.message,
+            discountValue: res.discountValue,
+          });
+        }
+      });
+    }
+  }, [selectedPlanId]);
+
   const handleSubscribe = async () => {
     if (isPlanCurrent(selectedPlan.id)) {
       Alert.alert('Thông báo', 'Bạn đang sử dụng gói này rồi. Khi gói kết thúc, bạn có thể gia hạn tiếp.');
@@ -175,6 +246,7 @@ export const PaywallScreen = () => {
           billingCycle: cycle,
           customerName: customerName,
           customerEmail: customerEmail,
+          voucherCode: appliedVoucher?.code || undefined,
         }
       );
 
@@ -186,7 +258,9 @@ export const PaywallScreen = () => {
         orderCode: latestOrder.orderCode || `SEAI${Date.now() % 100000}`,
         amount:
           latestOrder.amount ||
-          (selectedPlan.priceYearly > 0
+          (appliedVoucher
+            ? appliedVoucher.finalPrice
+            : selectedPlan.priceYearly > 0
             ? selectedPlan.priceYearly
             : selectedPlan.priceMonthly),
         planName: selectedPlan.name,
@@ -339,7 +413,7 @@ export const PaywallScreen = () => {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => setIsInvoicesModalOpen(true)}
+            onPress={() => router.push('/(student)/profile/invoices' as any)}
             style={s.invoiceHeaderBtn}
           >
             <Receipt color="#0284C7" size={14} />
@@ -567,6 +641,128 @@ export const PaywallScreen = () => {
           )}
         </View>
 
+        
+        {/* 2.5. KHỐI NHẬP MÃ ƯU ĐÃI / VOUCHER */}
+        <View style={s.voucherSection}>
+          <View style={s.voucherHeaderRow}>
+            <View style={s.voucherIconPill}>
+              <Gift color="#0284C7" size={16} strokeWidth={2.2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.voucherHeaderTitle}>Mã ưu đãi / Voucher</Text>
+              <Text style={s.voucherHeaderSubtitle}>
+                Nhập mã giới thiệu giáo viên hoặc voucher để nhận ưu đãi
+              </Text>
+            </View>
+          </View>
+
+          {appliedVoucher ? (
+            <View style={s.appliedVoucherBox}>
+              <View style={s.appliedVoucherLeft}>
+                <CheckCircle2 color="#059669" size={18} strokeWidth={2.3} />
+                <View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={s.appliedVoucherCode}>{appliedVoucher.code}</Text>
+                    <View style={s.appliedDiscountBadge}>
+                      <Text style={s.appliedDiscountBadgeText}>
+                        GIẢM {appliedVoucher.discountValue}%
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={s.appliedVoucherDiscount}>
+                    Tiết kiệm {formatPriceVnd(appliedVoucher.discountAmount)} • Còn {formatPriceVnd(appliedVoucher.finalPrice)}
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={handleRemoveVoucher}
+                style={s.removeVoucherBtn}
+                activeOpacity={0.7}
+              >
+                <X color="#64748B" size={14} />
+                <Text style={s.removeVoucherBtnText}>Hủy</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={s.voucherInputGroup}>
+              <View style={s.voucherInputWrapper}>
+                <Tag color="#94A3B8" size={16} />
+                <TextInput
+                  value={voucherCodeInput}
+                  onChangeText={(txt) => {
+                    setVoucherCodeInput(txt);
+                    setVoucherError(null);
+                  }}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  placeholder="Nhập mã (VD: VIP99, TEST90...)"
+                  placeholderTextColor="#94A3B8"
+                  style={s.voucherTextInput}
+                />
+              </View>
+              <TouchableOpacity
+                onPress={handleApplyVoucher}
+                disabled={isValidatingVoucher || !voucherCodeInput.trim()}
+                style={[
+                  s.applyVoucherBtn,
+                  (!voucherCodeInput.trim() || isValidatingVoucher) && s.applyVoucherBtnDisabled,
+                ]}
+                activeOpacity={0.8}
+              >
+                {isValidatingVoucher ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={s.applyVoucherBtnText}>Áp dụng</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {voucherError && (
+            <Text style={s.voucherErrorText}>{voucherError}</Text>
+          )}
+        </View>
+
+        {/* 3. BẢNG SO SÁNH HẠN MỨC & QUYỀN LỢI CHI TIẾT */}
+        <View style={s.comparisonSection}>
+          <Text style={s.sectionHeaderTitle}>BẢNG SO SÁNH HẠN MỨC & QUYỀN LỢI</Text>
+          <Text style={s.comparisonSubtitle}>
+            So sánh chi tiết hạn mức Quota giữa gói Miễn Phí và các gói Nâng Cấp Pro
+          </Text>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tableScroll}>
+            <View style={s.tableContainer}>
+              {/* Table Header */}
+              <View style={s.tableHeaderRow}>
+                <Text style={[s.tableTh, { width: 140 }]}>Tính năng / Quyền lợi</Text>
+                <Text style={[s.tableTh, { width: 100, textAlign: 'center' }]}>Gói Miễn Phí</Text>
+                <Text style={[s.tableTh, { width: 110, textAlign: 'center', color: '#DC2626' }]}>Pro Tháng (20k)</Text>
+                <Text style={[s.tableTh, { width: 110, textAlign: 'center', color: '#D97706' }]}>Pro Năm (1.490k)</Text>
+                <Text style={[s.tableTh, { width: 115, textAlign: 'center', color: '#7C3AED' }]}>Trọn Đời (Lifetime)</Text>
+              </View>
+
+              {/* Rows */}
+              {[
+                { name: 'AI Chatbot hội thoại thông minh', free: '15 tin nhắn / ngày', pro: '∞ Không giới hạn' },
+                { name: 'Luyện nói & Chấm phát âm IPA', free: '10 câu / ngày', pro: '∞ Không giới hạn' },
+                { name: 'Chấm viết luận Writing', free: '2 bài / tuần', pro: '∞ Không giới hạn' },
+                { name: 'Quét ảnh giải bài tập AI', free: '5 ảnh / ngày', pro: '∞ Không giới hạn' },
+                { name: 'Tham gia lớp học của giáo viên', free: 'Tối đa 3 lớp', pro: '∞ Không giới hạn' },
+                { name: 'Kho đề thi TOEIC & Mock Test', free: 'Đề thi cơ bản', pro: '100% Đầy đủ đề mới' },
+                { name: 'Trải nghiệm không quảng cáo', free: '—', pro: '✓ Có' },
+              ].map((row, rIdx) => (
+                <View key={rIdx} style={[s.tableRow, rIdx % 2 === 1 && s.tableRowAlt]}>
+                  <Text style={[s.tableTdName, { width: 140 }]}>{row.name}</Text>
+                  <Text style={[s.tableTd, { width: 100, color: '#64748B' }]}>{row.free}</Text>
+                  <Text style={[s.tableTd, { width: 110, color: '#059669', fontWeight: '700' }]}>{row.pro}</Text>
+                  <Text style={[s.tableTd, { width: 110, color: '#059669', fontWeight: '700' }]}>{row.pro}</Text>
+                  <Text style={[s.tableTd, { width: 115, color: '#059669', fontWeight: '700' }]}>{row.pro}</Text>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+
         {/* Cam kết tin cậy */}
         <View style={s.trustFooterRow}>
           <View style={s.trustTag}>
@@ -615,12 +811,25 @@ export const PaywallScreen = () => {
               <View style={s.ctaTextGroup}>
                 <View style={s.ctaTitleRow}>
                   <Text style={s.ctaTitleText}>NÂNG CẤP PRO NGAY</Text>
-                  <Text style={s.ctaPriceText}>
-                    • {formatPriceVnd(selectedPlan.priceYearly || selectedPlan.priceMonthly)}
-                  </Text>
+                  {appliedVoucher ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Text style={[s.ctaPriceText, { textDecorationLine: 'line-through', opacity: 0.6, fontSize: 11 }]}>
+                        {formatPriceVnd(selectedPlan.priceYearly || selectedPlan.priceMonthly)}
+                      </Text>
+                      <Text style={[s.ctaPriceText, { color: '#FDE047', fontWeight: '900' }]}>
+                        • {formatPriceVnd(appliedVoucher.finalPrice)}
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={s.ctaPriceText}>
+                      • {formatPriceVnd(selectedPlan.priceYearly || selectedPlan.priceMonthly)}
+                    </Text>
+                  )}
                 </View>
                 <Text style={s.ctaSubtitleText}>
-                  Kích hoạt trọn vẹn đặc quyền AI • Đảm bảo an toàn 100%
+                  {appliedVoucher
+                    ? `Tiết kiệm ${formatPriceVnd(appliedVoucher.discountAmount)} • Quét VietQR nhận gói ngay`
+                    : 'Kích hoạt trọn vẹn đặc quyền AI • Đảm bảo an toàn 100%'}
                 </Text>
               </View>
               <View style={s.ctaArrowCircle}>
@@ -638,19 +847,12 @@ export const PaywallScreen = () => {
         order={sepayOrder}
         onSuccess={handlePaymentSuccess}
         onOpenInvoice={(ord) => {
-          setActiveInvoiceOrderId(ord?.id || ord?.orderCode || null);
-          setIsInvoicesModalOpen(true);
+          setIsSepayModalOpen(false);
+          router.push({
+            pathname: '/(student)/profile/invoices' as any,
+            params: { initialOrderId: String(ord?.id || ord?.orderCode || '') },
+          });
         }}
-      />
-
-      {/* Modal Lịch sử Giao dịch & Hóa đơn Điện tử (NĐ 123) */}
-      <StudentInvoicesModal
-        visible={isInvoicesModalOpen}
-        onClose={() => {
-          setIsInvoicesModalOpen(false);
-          setActiveInvoiceOrderId(null);
-        }}
-        initialOrderId={activeInvoiceOrderId}
       />
     </View>
   );
@@ -1193,6 +1395,60 @@ const s = StyleSheet.create({
     color: '#E0F2FE',
     marginTop: 2,
   },
+    comparisonSection: {
+    marginBottom: 20,
+  },
+  comparisonSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 12,
+    marginTop: -8,
+  },
+  tableScroll: {
+    marginHorizontal: -4,
+  },
+  tableContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+  },
+  tableHeaderRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F8FAFC',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  tableTh: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#334155',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  tableRowAlt: {
+    backgroundColor: '#F8FAFC',
+  },
+  tableTdName: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#1E293B',
+    paddingRight: 8,
+  },
+  tableTd: {
+    fontSize: 11,
+    textAlign: 'center',
+    color: '#475569',
+  },
   ctaArrowCircle: {
     width: 32,
     height: 32,
@@ -1201,5 +1457,149 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
+  },
+  voucherSection: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  voucherHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  voucherIconPill: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: '#E0F2FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  voucherHeaderTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  voucherHeaderSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  voucherInputGroup: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  voucherInputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    paddingHorizontal: 12,
+    height: 44,
+  },
+  voucherTextInput: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0F172A',
+    letterSpacing: 0.5,
+  },
+  applyVoucherBtn: {
+    height: 44,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    backgroundColor: '#0284C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  applyVoucherBtnDisabled: {
+    backgroundColor: '#94A3B8',
+    opacity: 0.6,
+  },
+  applyVoucherBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  appliedVoucherBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1.5,
+    borderColor: '#86EFAC',
+    borderRadius: 14,
+    padding: 12,
+  },
+  appliedVoucherLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  appliedVoucherCode: {
+    fontSize: 13,
+    fontWeight: '800',
+    fontFamily: 'monospace',
+    color: '#15803D',
+    letterSpacing: 0.5,
+  },
+  appliedDiscountBadge: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+  },
+  appliedDiscountBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#166534',
+  },
+  appliedVoucherDiscount: {
+    fontSize: 11,
+    color: '#166534',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  removeVoucherBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  removeVoucherBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  voucherErrorText: {
+    fontSize: 11,
+    color: '#EF4444',
+    fontWeight: '500',
+    marginTop: 6,
+    marginLeft: 4,
   },
 });
