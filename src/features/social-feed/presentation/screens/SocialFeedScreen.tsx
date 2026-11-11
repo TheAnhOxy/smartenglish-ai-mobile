@@ -103,26 +103,6 @@ import { cleanAvatarUrl } from '../utils/avatarHelper';
 export { cleanAvatarUrl };
 
 
-const TEACHERS_LIST = [
-  {
-    id: 2,
-    name: 'Thầy John Smith',
-    role: 'Senior Instructor',
-    avatar: undefined,
-  },
-  {
-    id: 3,
-    name: 'Cô Hoàng Thị Mai',
-    role: 'IELTS Speaking C2',
-    avatar: undefined,
-  },
-  {
-    id: 1,
-    name: 'Quản trị viên',
-    role: 'Hỗ trợ học viên 24/7',
-    avatar: undefined,
-  },
-];
 
 export const SocialFeedScreen = () => {
   const router = useRouter();
@@ -400,12 +380,12 @@ export const SocialFeedScreen = () => {
       ? `${conv.lastMessageSenderName}: `
       : '';
 
-    if (raw.startsWith('[Hình ảnh]')) return `${prefix}📷 [Hình ảnh]`;
+    if (raw.startsWith('[Hình ảnh]')) return `${prefix}[Hình ảnh]`;
     if (raw.startsWith('[Chia sẻ bài viết]') || raw.includes('chia sẻ một bài viết'))
-      return `${prefix}🔗 [Đã chia sẻ một bài viết]`;
+      return `${prefix}[Đã chia sẻ một bài viết]`;
     if (raw.startsWith('[Tệp đính kèm]') || raw.startsWith('[Tệp]')) {
       const fileName = raw.replace(/^\[Tệp( đính kèm)?\]\s*/, '').trim();
-      return fileName ? `${prefix}📄 [Tệp] ${fileName}` : `${prefix}📄 [Tệp đính kèm]`;
+      return fileName ? `${prefix}[Tệp] ${fileName}` : `${prefix}[Tệp đính kèm]`;
     }
     return `${prefix}${raw}`;
   };
@@ -462,7 +442,7 @@ export const SocialFeedScreen = () => {
 
       if (created) {
         setPosts((prev) => [created, ...prev]);
-        Alert.alert('Thành công', 'Bài viết của bạn đã được đăng lên cộng đồng! 🎉');
+        Alert.alert('Thành công', 'Bài viết của bạn đã được đăng lên cộng đồng!');
       } else {
         await loadPosts();
       }
@@ -523,7 +503,7 @@ export const SocialFeedScreen = () => {
   };
 
   // ─── Action: Quick Message Teacher ───
-  const handleStartTeacherChat = async (teacher: typeof TEACHERS_LIST[0]) => {
+  const handleStartTeacherChat = async (teacher: { id: number; name: string }) => {
     try {
       setLoadingConversations(true);
       const matchedTeacher = communityUsers.find((u: any) => Number(u.id) === teacher.id);
@@ -794,7 +774,7 @@ export const SocialFeedScreen = () => {
       const newGroupConv = await createGroupConversationApi({
         name: groupName.trim(),
         createdBy: currentUserId,
-        avatar: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=200',
+        avatar: '',
         members: [
           {
             userId: currentUserId,
@@ -810,7 +790,7 @@ export const SocialFeedScreen = () => {
         setShowCreateGroupModal(false);
         setGroupName('');
         setSelectedGroupMemberIds(new Set());
-        Alert.alert('Thành công', 'Đã tạo nhóm trò chuyện thành công! 🎉');
+        Alert.alert('Thành công', 'Đã tạo nhóm trò chuyện thành công!');
         handleOpenConversation(newGroupConv);
       } else {
         Alert.alert('Lỗi', 'Không thể tạo nhóm trò chuyện lúc này.');
@@ -1829,7 +1809,7 @@ export const SocialFeedScreen = () => {
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
                 <Pressable
                   onPress={() => {
-                    setNewPostContent((prev) => `${prev}\n🔥 Tôi vừa hoàn thành chuỗi streak 30 ngày học liên tục trên SmartEnglish AI!`.trim());
+                    setNewPostContent((prev) => `${prev}\nTôi vừa hoàn thành chuỗi streak 30 ngày học liên tục trên SmartEnglish AI!`.trim());
                     setSelectedTag('Achievement');
                   }}
                   style={s.achieveCard}
@@ -1843,7 +1823,7 @@ export const SocialFeedScreen = () => {
 
                 <Pressable
                   onPress={() => {
-                    setNewPostContent((prev) => `${prev}\n🏆 Mình vừa đạt mục tiêu B2 sau bài thi Toeic Placement Test!`.trim());
+                    setNewPostContent((prev) => `${prev}\nMình vừa đạt mục tiêu B2 sau bài thi Toeic Placement Test!`.trim());
                     setSelectedTag('Achievement');
                   }}
                   style={s.achieveCard}
@@ -1866,7 +1846,7 @@ export const SocialFeedScreen = () => {
               <View style={s.deckGridRow}>
                 <Pressable
                   onPress={() => {
-                    setNewPostContent((prev) => `${prev}\n📚 Mình vừa chia sẻ bộ thẻ IELTS Vocabulary 2024 (50 từ vựng cốt lõi), mời các bạn cùng ôn luyện!`.trim());
+                    setNewPostContent((prev) => `${prev}\nMình vừa chia sẻ bộ thẻ IELTS Vocabulary 2024 (50 từ vựng cốt lõi), mời các bạn cùng ôn luyện!`.trim());
                     setSelectedTag('Vocabulary');
                   }}
                   style={s.deckCard}
@@ -1880,7 +1860,7 @@ export const SocialFeedScreen = () => {
 
                 <Pressable
                   onPress={() => {
-                    setNewPostContent((prev) => `${prev}\n💬 Chia sẻ bộ từ vựng Giao tiếp hàng ngày (120 từ phản xạ nhanh), chúc các bạn học tốt!`.trim());
+                    setNewPostContent((prev) => `${prev}\nChia sẻ bộ từ vựng Giao tiếp hàng ngày (120 từ phản xạ nhanh), chúc các bạn học tốt!`.trim());
                     setSelectedTag('Vocabulary');
                   }}
                   style={s.deckCard}

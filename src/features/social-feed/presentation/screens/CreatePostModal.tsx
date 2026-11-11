@@ -21,7 +21,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ visible, onClo
         <View className="bg-cardWhite p-6 rounded-t-3xl border-t border-gray-100">
           <View className="w-12 h-1 bg-gray-300 rounded-full self-center mb-4" />
 
-          <Text className="text-xl font-bold text-neutralInk mb-1">Chia Sẻ Cột Mốc Học Tập ✨</Text>
+          <Text className="text-xl font-bold text-neutralInk mb-1">Chia Sẻ Cột Mốc Học Tập</Text>
           <Text className="text-xs text-neutralGray mb-4">Đăng bài viết truyền cảm hứng cho cộng đồng SmartEnglish</Text>
 
           <TextInput
