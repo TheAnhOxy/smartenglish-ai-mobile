@@ -5,6 +5,12 @@ import * as WebBrowser from 'expo-web-browser';
 
 WebBrowser.maybeCompleteAuthSession();
 import { useFonts } from 'expo-font';
+import { BricolageGrotesque_700Bold } from '@expo-google-fonts/bricolage-grotesque/700Bold';
+import { BricolageGrotesque_800ExtraBold } from '@expo-google-fonts/bricolage-grotesque/800ExtraBold';
+import { BeVietnamPro_400Regular } from '@expo-google-fonts/be-vietnam-pro/400Regular';
+import { BeVietnamPro_500Medium } from '@expo-google-fonts/be-vietnam-pro/500Medium';
+import { BeVietnamPro_600SemiBold } from '@expo-google-fonts/be-vietnam-pro/600SemiBold';
+import { BeVietnamPro_700Bold } from '@expo-google-fonts/be-vietnam-pro/700Bold';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -57,7 +63,7 @@ if (__DEV__ && !(globalThis as Record<string, unknown>)[warnPatchFlag]) {
 export { ErrorBoundary } from 'expo-router';
 
 export const unstable_settings = {
-  initialRouteName: '(auth)',
+  anchor: '(auth)',
 };
 
 SplashScreen.preventAutoHideAsync();
@@ -74,21 +80,28 @@ const queryClient = new QueryClient({
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    BricolageGrotesque_700Bold,
+    BricolageGrotesque_800ExtraBold,
+    BeVietnamPro_400Regular,
+    BeVietnamPro_500Medium,
+    BeVietnamPro_600SemiBold,
+    BeVietnamPro_700Bold,
   });
 
   useEffect(() => {
     if (error) {
-      console.warn('[RootLayout] Lỗi nạp font SpaceMono:', error);
+      console.warn('[RootLayout] Lỗi nạp font:', error);
     }
   }, [error]);
 
   useEffect(() => {
-    if (loaded) {
+    if (loaded || error) {
       SplashScreen.hideAsync();
     }
-  }, [loaded]);
+  }, [loaded, error]);
 
-  if (!loaded) {
+  // Font lỗi vẫn cho vào app (dùng font hệ thống), không kẹt ở splash
+  if (!loaded && !error) {
     return null;
   }
 
