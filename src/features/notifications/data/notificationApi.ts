@@ -54,6 +54,14 @@ export const fetchLatestUnreadNotificationsApi = async (size = 10): Promise<Noti
   return items.map((n: any) => mapNotification(n, uid));
 };
 
+/** GET /api/v1/notifications/unread-count — số thông báo chưa đọc (chấm đỏ trên chuông). */
+export const fetchUnreadNotificationCountApi = async (): Promise<number> => {
+  const response = await apiClient.get<any>('/api/v1/notifications/unread-count');
+  const data = response.data?.data ?? response.data;
+  const count = typeof data === 'number' ? data : Number(data?.count ?? data?.unreadCount ?? 0);
+  return Number.isFinite(count) ? count : 0;
+};
+
 /**
  * PATCH /api/v1/notifications/{id}/read
  * Đánh dấu thông báo là đã đọc (sử dụng PATCH theo đúng chuẩn REST của backend)

@@ -5,7 +5,7 @@ import {
   fetchClassDetailApi,
   fetchClassMembersApi,
   fetchStudentAssignmentsApi,
-  fetchClassCourseLessonsApi,
+  fetchClassCourseCurriculumApi,
   submitAssignmentApi,
   SubmitAssignmentPayload,
 } from '../data/classApi';
@@ -45,7 +45,7 @@ export const useStudentAssignments = (classId: string | number) => {
 export const useCourseCurriculum = (courseId?: number) => {
   return useQuery({
     queryKey: ['course-curriculum', courseId],
-    queryFn: () => fetchClassCourseLessonsApi(courseId),
+    queryFn: () => fetchClassCourseCurriculumApi(courseId),
     enabled: !!courseId,
   });
 };

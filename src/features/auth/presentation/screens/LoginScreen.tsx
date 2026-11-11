@@ -91,6 +91,7 @@ export const LoginScreen = () => {
   return (
     <AuthLayout
       title="Đăng nhập"
+      onBack={() => router.replace('/(auth)/welcome')}
       footer={<AuthFooterLink text="Chưa có tài khoản?" link="Đăng ký" onPress={() => router.push('/(auth)/register')} />}
     >
       <AuthErrorBanner message={errorMessage}>

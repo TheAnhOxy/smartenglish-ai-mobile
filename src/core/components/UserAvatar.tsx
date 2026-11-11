@@ -1,5 +1,5 @@
-import React from 'react';
-import { Image, View, type ImageStyle, type StyleProp } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Image, Platform, StyleSheet, View, type ImageStyle, type StyleProp } from 'react-native';
 import { User } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
 
@@ -16,14 +16,31 @@ interface UserAvatarProps {
 }
 
 /** Avatar người dùng: ảnh do người dùng tải lên, nếu không có thì icon người dùng mặc định. */
-export const UserAvatar: React.FC<UserAvatarProps> = ({ uri, size = 40, style }) => {
+export const UserAvatar: React.FC<UserAvatarProps> = ({ uri, size: sizeProp = 40, style }) => {
+  // style có width thì dùng kích thước đó, để biểu tượng mặc định không tràn ra ngoài khung
+  const styleWidth = (StyleSheet.flatten(style) as ImageStyle | undefined)?.width;
+  const size = typeof styleWidth === 'number' ? styleWidth : sizeProp;
   const shape = { width: size, height: size, borderRadius: size / 2 };
-  if (isRealAvatarUrl(uri)) {
-    return <Image source={{ uri }} style={[shape, style]} />;
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [uri]);
+
+  if (isRealAvatarUrl(uri) && !failed) {
+    if (Platform.OS === 'web') {
+      // Ảnh Google (lh3.googleusercontent.com) bị từ chối khi trình duyệt gửi kèm Referer → tắt referrer
+      return React.createElement('img', {
+        src: uri,
+        alt: '',
+        referrerPolicy: 'no-referrer',
+        onError: () => setFailed(true),
+        // style có thể là mảng → phải flatten, rải mảng vào style của thẻ DOM sẽ làm trình duyệt báo lỗi
+        style: { ...shape, objectFit: 'cover', display: 'block', flexShrink: 0, ...(StyleSheet.flatten(style) as object) },
+      });
+    }
+    return <Image source={{ uri }} style={[shape, style]} onError={() => setFailed(true)} />;
   }
   return (
     <View
-      style={[shape, { backgroundColor: '#E0F2FE', alignItems: 'center', justifyContent: 'center' }, style as object]}
+      style={[shape, { backgroundColor: '#E0F2FE', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }, style as object]}
       accessibilityLabel="Ảnh đại diện mặc định"
     >
       <User size={Math.round(size * 0.5)} color={AppColors.primary} />

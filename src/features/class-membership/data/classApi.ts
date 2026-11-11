@@ -359,7 +359,14 @@ interface CurriculumLessonRaw {
 
 interface CurriculumCourseRaw {
   id: number;
+  thumbnailUrl?: string | null;
   lessons?: CurriculumLessonRaw[];
+}
+
+export interface ClassCourseCurriculum {
+  /** Ảnh bìa khóa học do giáo viên tải lên (có thể không có). */
+  thumbnailUrl: string | null;
+  lessons: CourseLessonDTO[];
 }
 
 /**
@@ -367,13 +374,13 @@ interface CurriculumCourseRaw {
  * Lấy bài học của khóa học gắn với lớp từ cây lộ trình công khai.
  * (Trước đây gọi /content/admin/lessons — gateway chặn tài khoản học viên nên tab giáo trình luôn rỗng.)
  */
-export const fetchClassCourseLessonsApi = async (courseId?: number): Promise<CourseLessonDTO[]> => {
-  if (!courseId) return [];
+export const fetchClassCourseCurriculumApi = async (courseId?: number): Promise<ClassCourseCurriculum> => {
+  if (!courseId) return { thumbnailUrl: null, lessons: [] };
 
   try {
     const response = await apiClient.get<{ data?: CurriculumCourseRaw[] }>('/api/v1/content/courses/tree');
     const course = (response.data?.data ?? []).find((c) => Number(c.id) === Number(courseId));
-    return (course?.lessons ?? []).map((lesson) => ({
+    const lessons = (course?.lessons ?? []).map((lesson) => ({
       id: lesson.id,
       courseId: lesson.courseId ?? courseId,
       titleVi: lesson.titleVi || 'Bài học',
@@ -384,8 +391,9 @@ export const fetchClassCourseLessonsApi = async (courseId?: number): Promise<Cou
       isFreePreview: Boolean(lesson.isFreePreview),
       isPublished: true,
     }));
+    return { thumbnailUrl: course?.thumbnailUrl || null, lessons };
   } catch (error) {
-    console.warn(`[ClassAPI] fetchClassCourseLessonsApi error for courseId ${courseId}:`, error);
-    return [];
+    console.warn(`[ClassAPI] fetchClassCourseCurriculumApi error for courseId ${courseId}:`, error);
+    return { thumbnailUrl: null, lessons: [] };
   }
 };

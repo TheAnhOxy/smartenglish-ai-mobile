@@ -1,29 +1,47 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Pressable, Modal, FlatList, ActivityIndicator } from 'react-native';
-import { RotateCcw, AlertCircle, Volume2, Sparkles, BookOpen } from 'lucide-react-native';
+import { RotateCcw, AlertCircle, Volume2, Search, X } from 'lucide-react-native';
 import { searchWordsApi, lookupWordApi, WordDetail } from '../../data/vocabularyApi';
 import { speakText } from '@/src/core/services/speechService';
 
 interface QuickWordLookupModalProps {
   visible: boolean;
   onClose: () => void;
+  /** Từ điền sẵn khi mở (vd: từ người dùng chạm trong bài đọc). */
+  initialQuery?: string;
 }
 
-export const QuickWordLookupModal: React.FC<QuickWordLookupModalProps> = ({ visible, onClose }) => {
+export const QuickWordLookupModal: React.FC<QuickWordLookupModalProps> = ({ visible, onClose, initialQuery }) => {
   const [query, setQuery] = useState('');
+
+  useEffect(() => {
+    if (visible) {
+      setQuery(initialQuery ?? '');
+    } else {
+      // Đóng bảng thì xoá kết quả cũ để lần mở sau không hiện lại
+      setWords([]);
+      setError(null);
+    }
+  }, [visible, initialQuery]);
   const [words, setWords] = useState<WordDetail[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [savedWordIds, setSavedWordIds] = useState<string[]>([]);
   const [playingWord, setPlayingWord] = useState<string | null>(null);
 
   const handleSearch = async () => {
     if (!visible) return;
     const cleanQuery = query.trim();
+    // Ô tìm kiếm trống: chỉ hiện gợi ý, không gọi API liệt kê từ bất kỳ
+    if (!cleanQuery) {
+      setWords([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const res = await searchWordsApi({ search: cleanQuery || undefined, page: 1, size: 20 });
+      const res = await searchWordsApi({ search: cleanQuery, page: 1, size: 20 });
       if (res.items && res.items.length > 0) {
         setWords(res.items);
       } else if (cleanQuery.length >= 2) {
@@ -67,14 +85,6 @@ export const QuickWordLookupModal: React.FC<QuickWordLookupModalProps> = ({ visi
     };
   }, [query, visible]);
 
-  const toggleSaveWord = (wordId: string) => {
-    if (savedWordIds.includes(wordId)) {
-      setSavedWordIds(savedWordIds.filter((id) => id !== wordId));
-    } else {
-      setSavedWordIds([...savedWordIds, wordId]);
-    }
-  };
-
   const handlePlayAudio = (word: string) => {
     setPlayingWord(word);
     speakText(word, {
@@ -91,32 +101,29 @@ export const QuickWordLookupModal: React.FC<QuickWordLookupModalProps> = ({ visi
           <View className="w-12 h-1 bg-gray-300 rounded-full self-center mb-4" />
 
           <View className="flex-row justify-between items-center mb-3">
-            <View className="flex-row items-center gap-2">
-              <BookOpen size={20} color="#0EA5E9" />
-              <Text className="text-xl font-bold text-neutralInk">Tra Từ Điển Thông Minh</Text>
-            </View>
-            <Pressable onPress={onClose} className="p-1">
-              <Text className="text-lg font-bold text-neutralGray">✕</Text>
+            <Text className="text-xl font-bold text-neutralInk">Tra từ vựng</Text>
+            <Pressable onPress={onClose} className="p-1" hitSlop={8} accessibilityLabel="Đóng">
+              <X size={22} color="#64748B" />
             </Pressable>
           </View>
 
-          <Text className="text-[11px] text-neutralGray mb-3 flex-row items-center">
-            Hệ thống tra cứu CSDL nội bộ kết hợp từ điển trực tuyến quốc tế (Free Dictionary, Oxford)
-          </Text>
-
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Nhập từ hoặc cụm từ cần tra (vd: Negotiation, look after)..."
-            className="bg-surface px-4 py-3 rounded-xl border border-gray-200 text-neutralInk text-sm mb-3"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+          <View className="flex-row items-center bg-surface px-4 rounded-xl border border-gray-200 mb-3 gap-2">
+            <Search size={18} color="#94A3B8" />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Nhập từ hoặc cụm từ, vd: negotiation"
+              placeholderTextColor="#94A3B8"
+              className="flex-1 py-3 text-neutralInk text-sm"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoFocus
+            />
+          </View>
 
           {loading && (
             <View className="my-6 items-center">
               <ActivityIndicator color="#0EA5E9" size="large" />
-              <Text className="text-xs text-neutralGray mt-2">Đang tra cứu từ điển CSDL & Online...</Text>
             </View>
           )}
 
@@ -144,13 +151,12 @@ export const QuickWordLookupModal: React.FC<QuickWordLookupModalProps> = ({ visi
                 <View className="items-center justify-center mt-12 px-4">
                   <Text className="text-sm text-neutralGray text-center">
                     {query.trim()
-                      ? `Chưa tìm thấy từ phù hợp cho "${query.trim()}". Hãy nhập từ tiếng Anh chuẩn xác để kích hoạt từ điển online.`
-                      : 'Nhập từ vựng tiếng Anh bất kỳ để tra cứu nghĩa, phiên âm và phát âm.'}
+                      ? `Không tìm thấy "${query.trim()}"`
+                      : 'Nhập từ tiếng Anh để xem nghĩa, phiên âm và phát âm'}
                   </Text>
                 </View>
               }
               renderItem={({ item }) => {
-                const isSaved = savedWordIds.includes(item.id);
                 const isSpeaking = playingWord === item.word;
                 const firstExample = item.examples && item.examples.length > 0 ? item.examples[0] : null;
 
@@ -178,17 +184,6 @@ export const QuickWordLookupModal: React.FC<QuickWordLookupModalProps> = ({ visi
                           </View>
                         </View>
                       </View>
-
-                      <Pressable
-                        onPress={() => toggleSaveWord(item.id)}
-                        className={`px-3 py-1.5 rounded-full border ${
-                          isSaved ? 'bg-success/10 border-success' : 'bg-primary/10 border-primary'
-                        }`}
-                      >
-                        <Text className={`text-xs font-bold ${isSaved ? 'text-success' : 'text-primary'}`}>
-                          {isSaved ? '✓ Đã Lưu' : '+ Lưu Thẻ'}
-                        </Text>
-                      </Pressable>
                     </View>
 
                     {item.definitionVi ? (

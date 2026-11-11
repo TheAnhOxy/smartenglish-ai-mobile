@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-nati
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { usePassageQuery } from '../../application/useReadingListening';
 import { QuickWordLookupModal } from '@/src/features/flashcard-srs/presentation/screens/QuickWordLookupModal';
+import { TranslatableText, TranslationPanel } from '@/src/core/components/TranslatableText';
 import { BookOpen } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
 
@@ -13,6 +14,14 @@ export const ReadingPassageScreen = () => {
   const { data: passage, isLoading, isError, error, refetch } = usePassageQuery(validId);
   const [showTranslate, setShowTranslate] = useState(false);
   const [showDictLookup, setShowDictLookup] = useState(false);
+  const [lookupWord, setLookupWord] = useState('');
+  const [selectedText, setSelectedText] = useState('');
+  const [clearKey, setClearKey] = useState(0);
+
+  const openLookup = (word = '') => {
+    setLookupWord(word);
+    setShowDictLookup(true);
+  };
 
   if (isLoading) {
     return (
@@ -79,9 +88,15 @@ export const ReadingPassageScreen = () => {
 
         {/* Dual Split Reader */}
         <ScrollView className="flex-1 bg-cardWhite p-5 rounded-2xl border border-gray-100 mb-4 shadow-sm" showsVerticalScrollIndicator={false}>
-          <Text className="text-base text-neutralInk leading-7 mb-4 font-medium">
-            {passage.content_en}
-          </Text>
+          {/* Chạm từ (hoặc chạm 2 từ để chọn cụm) rồi bấm Dịch; trên web có thể bôi đen */}
+          <View style={{ marginBottom: 16 }}>
+            <TranslatableText
+              text={passage.content_en || ''}
+              onSelectText={setSelectedText}
+              clearKey={clearKey}
+              textStyle={{ fontSize: 16, lineHeight: 28, fontWeight: '500' }}
+            />
+          </View>
 
           {showTranslate && (
             <View className="bg-surface p-4 rounded-xl border border-gray-200 border-dashed">
@@ -92,15 +107,23 @@ export const ReadingPassageScreen = () => {
         </ScrollView>
       </View>
 
+      <TranslationPanel
+        text={selectedText}
+        onClose={() => {
+          setSelectedText('');
+          setClearKey((k) => k + 1);
+        }}
+      />
+
       {/* Dictionary Tap-to-Translate Button */}
       <Pressable
-        onPress={() => setShowDictLookup(true)}
+        onPress={() => openLookup()}
         className="bg-secondary py-3.5 rounded-xl items-center shadow-md active:bg-secondary/90"
       >
         <Text className="text-white font-bold text-base">Tra Từ Trong Bài</Text>
       </Pressable>
 
-      <QuickWordLookupModal visible={showDictLookup} onClose={() => setShowDictLookup(false)} />
+      <QuickWordLookupModal visible={showDictLookup} initialQuery={lookupWord} onClose={() => setShowDictLookup(false)} />
     </View>
   );
 };

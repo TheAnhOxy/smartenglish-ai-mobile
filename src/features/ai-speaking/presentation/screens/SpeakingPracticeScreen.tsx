@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Mic, Volume2, Video } from 'lucide-react-native';
+import { Mic, Volume2, Video } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, withRepeat, withTiming, useSharedValue } from 'react-native-reanimated';
+import { BackButton } from '@/src/core/components/BackButton';
 
 export const SpeakingPracticeScreen = () => {
   const router = useRouter();
@@ -31,9 +32,7 @@ export const SpeakingPracticeScreen = () => {
     <View className="flex-1 bg-[#F8FAF9] pt-12 px-6 justify-between pb-10">
       {/* Top Header Bar */}
       <View className="flex-row justify-between items-center">
-        <Pressable onPress={() => router.back()} className="p-2">
-          <ArrowLeft color="#9A2C00" size={22} />
-        </Pressable>
+        <BackButton onPress={() => router.back()} />
 
         <Text className="text-xl font-extrabold text-[#9A2C00] tracking-tight">SmartEnglish AI</Text>
 
@@ -54,13 +53,13 @@ export const SpeakingPracticeScreen = () => {
 
         {/* Center Pulsing Orange Equalizer Waveform */}
         <View className="h-32 flex-row justify-center items-center gap-1.5 my-6">
-          <Animated.View style={animatedWaveStyle} className="w-2.5 h-12 bg-[#0EA5E9] rounded-full" />
-          <Animated.View style={animatedWaveStyle} className="w-2.5 h-20 bg-[#0EA5E9] rounded-full" />
-          <Animated.View style={animatedWaveStyle} className="w-2.5 h-16 bg-[#0EA5E9] rounded-full" />
-          <Animated.View style={animatedWaveStyle} className="w-2.5 h-24 bg-[#0EA5E9] rounded-full" />
-          <Animated.View style={animatedWaveStyle} className="w-2.5 h-14 bg-[#0EA5E9] rounded-full" />
-          <Animated.View style={animatedWaveStyle} className="w-2.5 h-22 bg-[#0EA5E9] rounded-full" />
-          <Animated.View style={animatedWaveStyle} className="w-2.5 h-10 bg-[#0EA5E9] rounded-full" />
+          <Animated.View style={[animatedWaveStyle, { width: 10, height: 48, backgroundColor: '#0EA5E9', borderRadius: 999 }]} />
+          <Animated.View style={[animatedWaveStyle, { width: 10, height: 80, backgroundColor: '#0EA5E9', borderRadius: 999 }]} />
+          <Animated.View style={[animatedWaveStyle, { width: 10, height: 64, backgroundColor: '#0EA5E9', borderRadius: 999 }]} />
+          <Animated.View style={[animatedWaveStyle, { width: 10, height: 96, backgroundColor: '#0EA5E9', borderRadius: 999 }]} />
+          <Animated.View style={[animatedWaveStyle, { width: 10, height: 56, backgroundColor: '#0EA5E9', borderRadius: 999 }]} />
+          <Animated.View style={[animatedWaveStyle, { width: 10, height: 88, backgroundColor: '#0EA5E9', borderRadius: 999 }]} />
+          <Animated.View style={[animatedWaveStyle, { width: 10, height: 40, backgroundColor: '#0EA5E9', borderRadius: 999 }]} />
         </View>
 
         {/* Pronunciation Accuracy Box matching Screenshot 2 */}

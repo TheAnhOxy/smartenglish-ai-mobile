@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useAuthStore } from '@/src/core/flows/authStore';
 import { fetchUserStatsApi, fetchDailyPlanApi, fetchLearningPathApi, fetchDailyQuestsListApi } from '../data/dashboardApi';
 
 export const useUserStatsQuery = (userId: string) => {
@@ -24,8 +25,11 @@ export const useLearningPathQuery = () => {
 };
 
 export const useDailyQuestsQuery = () => {
+  // Gắn id người dùng vào khoá cache: đổi tài khoản không được thấy tiến độ của tài khoản trước
+  const userId = useAuthStore((s) => s.currentUser?.id);
   return useQuery({
-    queryKey: ['daily-quests'],
-    queryFn: () => fetchDailyQuestsListApi()
+    queryKey: ['daily-quests', userId],
+    queryFn: () => fetchDailyQuestsListApi(),
+    enabled: !!userId,
   });
 };

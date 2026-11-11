@@ -1,45 +1,173 @@
-import React from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { AlertCircle, Coins, ShieldCheck, ShoppingBag } from 'lucide-react-native';
 import { colors } from '@/src/theme';
-import { Snowflake, Zap, Gem } from 'lucide-react-native';
-import { AppColors } from '@/src/core/theme/colors';
+import { withLoginRequired } from '@/src/core/components/GuestLoginPrompt';
+import { buyShopItemApi, fetchGamificationDashboard, fetchShopItemsApi, ShopItem } from '../../data/gamificationApi';
+import { BackButton } from '@/src/core/components/BackButton';
 
-const SHOP_ITEMS = [
-  { id: 'item-1', name: 'Đông Băng Streak (Streak Freeze)', desc: 'Bảo vệ chuỗi Streak trong 1 ngày bỏ lỡ học', price: 200, icon: Snowflake },
-  { id: 'item-2', name: 'Nhân Đôi XP (2x XP Boost)', desc: 'Nhân đôi XP tích lũy trong 15 phút ôn thẻ', price: 300, icon: Zap },
-  { id: 'item-3', name: 'Khung Avatar Kim Cương', desc: 'Trang trí hồ sơ cá nhân độc quyền', price: 500, icon: Gem }
-];
+const notify = (title: string, message: string) => {
+  if (Platform.OS === 'web') window.alert(`${title}\n${message}`);
+  else Alert.alert(title, message);
+};
 
-export const ShopScreen = () => {
+/** Cửa hàng đổi Coin lấy vật phẩm — danh sách, giá và số dư đều lấy từ Learning Service. */
+const ShopContent = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+  const [buyingId, setBuyingId] = useState<string | null>(null);
+
+  const itemsQuery = useQuery({ queryKey: ['shop-items'], queryFn: fetchShopItemsApi });
+  const statsQuery = useQuery({ queryKey: ['gamification-dashboard'], queryFn: () => fetchGamificationDashboard() });
+
+  const coins = statsQuery.data?.coins ?? 0;
+  const freezeOwned = statsQuery.data?.streakFreezeCount ?? 0;
+
+  const handleBuy = async (item: ShopItem) => {
+    if (buyingId) return;
+    if (coins < item.costCoins) {
+      notify('Chưa đủ Coin', `Cần ${item.costCoins} Coin, bạn đang có ${coins} Coin. Hoàn thành bài học để nhận thêm Coin.`);
+      return;
+    }
+    setBuyingId(item.id);
+    try {
+      const updated = await buyShopItemApi(item.id, 1);
+      if (updated) queryClient.setQueryData(['gamification-dashboard'], updated);
+      await queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+      notify('Đã mua', `Bạn đã nhận 1 "${item.name}".`);
+    } catch (err: any) {
+      notify('Không mua được', err?.response?.data?.message || 'Vui lòng thử lại sau.');
+    } finally {
+      setBuyingId(null);
+    }
+  };
+
+  const loading = itemsQuery.isLoading || statsQuery.isLoading;
+  const failed = itemsQuery.isError;
+  const items = itemsQuery.data ?? [];
 
   return (
-    <ScrollView className="flex-1 bg-surface pt-14 px-6 pb-10" showsVerticalScrollIndicator={false}>
-      <Pressable onPress={() => router.back()} className="mb-4">
-        <Text className="text-primary font-bold text-sm">← Bảng Xếp Hạng</Text>
-      </Pressable>
-
-      <Text className="text-2xl font-bold text-neutralInk mb-1">Cửa Hàng Vật Phẩm</Text>
-      <Text className="text-xs text-neutralGray mb-6">Đổi Coin lấy vật phẩm hỗ trợ học tập & bảo vệ Streak</Text>
-
-      <View className="gap-4">
-        {SHOP_ITEMS.map((item) => (
-          <View key={item.id} className="bg-cardWhite p-5 rounded-2xl border border-gray-100 flex-row items-center gap-4 shadow-sm">
-            <item.icon size={26} color={AppColors.primary} />
-            <View className="flex-1">
-              <Text className="text-base font-bold text-neutralInk mb-0.5">{item.name}</Text>
-              <Text className="text-xs text-neutralGray mb-2">{item.desc}</Text>
-              <Pressable
-                onPress={() => alert(`Đã mua ${item.name} thành công!`)}
-                style={{ backgroundColor: colors.coinSoft, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: colors.coinBorder, alignSelf: 'flex-start' }}
-              >
-                <Text style={{ fontSize: 12, fontWeight: '700', color: colors.coinDeep }}>Mua ({item.price})</Text>
-              </Pressable>
-            </View>
-          </View>
-        ))}
+    <View style={[s.root, { paddingTop: insets.top + 8 }]}>
+      <View style={s.header}>
+        <BackButton onPress={() => router.back()} />
+        <Text style={s.title}>Cửa hàng</Text>
+        <View style={s.iconBtn} />
       </View>
-    </ScrollView>
+
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 24, gap: 16 }}>
+        <View style={s.balanceCard}>
+          <View style={s.balanceItem}>
+            <Coins size={18} color={colors.coin} />
+            <Text style={s.balanceValue}>{coins.toLocaleString('vi-VN')}</Text>
+            <Text style={s.balanceLabel}>Coin hiện có</Text>
+          </View>
+          <View style={s.divider} />
+          <View style={s.balanceItem}>
+            <ShieldCheck size={18} color={colors.primary} />
+            <Text style={s.balanceValue}>{freezeOwned}</Text>
+            <Text style={s.balanceLabel}>Bảo vệ chuỗi đang có</Text>
+          </View>
+        </View>
+
+        {loading ? (
+          <View style={s.state}>
+            <ActivityIndicator size="small" color={colors.primary} />
+          </View>
+        ) : failed ? (
+          <View style={s.state}>
+            <AlertCircle size={24} color={colors.danger} />
+            <Text style={s.stateText}>Không tải được cửa hàng</Text>
+            <Pressable onPress={() => itemsQuery.refetch()} style={s.retryBtn}>
+              <Text style={s.retryText}>Thử lại</Text>
+            </Pressable>
+          </View>
+        ) : items.length === 0 ? (
+          <View style={s.state}>
+            <ShoppingBag size={24} color={colors.textFaint} />
+            <Text style={s.stateText}>Cửa hàng chưa có vật phẩm</Text>
+          </View>
+        ) : (
+          items.map((item) => {
+            const buying = buyingId === item.id;
+            return (
+              <View key={item.id} style={s.itemCard}>
+                <View style={s.itemIcon}>
+                  <ShieldCheck size={22} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Text style={s.itemName}>{item.name}</Text>
+                  <Text style={s.itemDesc}>{item.descriptionVi}</Text>
+                  <Pressable
+                    onPress={() => handleBuy(item)}
+                    disabled={buying}
+                    style={[s.buyBtn, buying && { opacity: 0.6 }]}
+                    accessibilityLabel={`Mua ${item.name} với giá ${item.costCoins} Coin`}
+                  >
+                    {buying ? <ActivityIndicator size="small" color={colors.coinDeep} /> : <Coins size={14} color={colors.coinDeep} />}
+                    <Text style={s.buyText}>{item.costCoins.toLocaleString('vi-VN')} Coin</Text>
+                  </Pressable>
+                </View>
+              </View>
+            );
+          })
+        )}
+      </ScrollView>
+    </View>
   );
 };
+
+export const ShopScreen = withLoginRequired(ShopContent);
+
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.bg },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, marginBottom: 12 },
+  iconBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 16, fontWeight: '700', color: colors.text },
+  balanceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 14,
+  },
+  balanceItem: { flex: 1, alignItems: 'center', gap: 4 },
+  divider: { width: 1, height: 36, backgroundColor: colors.border },
+  balanceValue: { fontSize: 16, fontWeight: '800', color: colors.text },
+  balanceLabel: { fontSize: 12, color: colors.textSoft },
+  state: { paddingVertical: 32, alignItems: 'center', gap: 8 },
+  stateText: { fontSize: 13, color: colors.textSoft },
+  retryBtn: { backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 },
+  retryText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  itemCard: {
+    flexDirection: 'row',
+    gap: 14,
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 16,
+  },
+  itemIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  itemName: { fontSize: 15, fontWeight: '700', color: colors.text },
+  itemDesc: { fontSize: 13, color: colors.textSoft, lineHeight: 18 },
+  buyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    backgroundColor: colors.coinSoft,
+    borderWidth: 1,
+    borderColor: colors.coinBorder,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  buyText: { fontSize: 12, fontWeight: '700', color: colors.coinDeep },
+});

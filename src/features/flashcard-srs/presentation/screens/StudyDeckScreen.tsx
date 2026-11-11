@@ -39,6 +39,7 @@ import { speakText, stopSpeech } from '@/src/core/services/speechService';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { exploreWordsApi } from '../../data/vocabularyApi';
 import { fetchDeckByIdApi, submitSrsReviewApi } from '../../data/deckApi';
+import { BackButton } from '@/src/core/components/BackButton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -456,6 +457,7 @@ export const StudyDeckScreen = () => {
         <Tap onPress={() => router.back()} style={styles.backBtnWrap} accessibilityLabel="Quay lại">
           <ChevronLeft color={ds.ink} size={24} />
         </Tap>
+        <BackButton onPress={() => router.back()} />
 
         <View style={styles.headerTitleWrap}>
           <Text style={styles.headerTitle} numberOfLines={1}>{topicTitle}</Text>

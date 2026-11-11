@@ -1,7 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { subscribeTopic } from '@/src/core/realtime/stompClient';
+import { fetchUserConversationsApi } from '@/src/features/social-feed/data/socialApi';
+import { fetchUnreadNotificationCountApi } from '@/src/features/notifications/data/notificationApi';
 import {
   Bell,
   BookOpen,
@@ -12,8 +19,12 @@ import {
   Layers,
   LogIn,
   MessageSquare,
+  PenLine,
   Play,
   ScanText,
+  School,
+  Search,
+  Users,
   Zap,
 } from '@/src/components/ds/icons';
 import { Reveal, Tap, dsText } from '@/src/components/ds';
@@ -26,6 +37,7 @@ import { useMyDecksQuery } from '@/src/features/flashcard-srs/application/useFla
 import { useUserStatsQuery } from '../../application/useDashboard';
 import { DailyQuestList } from '../components/DailyQuestList';
 import { WordOfDayCard } from '../components/WordOfDayCard';
+import { QuickWordLookupModal } from '@/src/features/flashcard-srs/presentation/screens/QuickWordLookupModal';
 
 type IconType = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 
@@ -46,8 +58,44 @@ export const HomeScreen = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { currentUser, userStats, setUserStats } = useAuthStore();
-  const { hasPermission, syncRolePermissions, guestMode } = useRoleGateStore();
+  const { hasPermission, syncRolePermissions, guestMode, exitGuestMode } = useRoleGateStore();
   const isLoggedIn = !!currentUser && !guestMode;
+  const [lookupOpen, setLookupOpen] = useState(false);
+  const [isFocused, setIsFocused] = useState(true);
+  useFocusEffect(
+    React.useCallback(() => {
+      setIsFocused(true);
+      return () => setIsFocused(false);
+    }, [])
+  );
+
+  // Có tin nhắn mới qua WebSocket → cập nhật chấm đỏ ngay, không chờ lượt hỏi kế tiếp
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!isLoggedIn || !currentUser?.id) return undefined;
+    return subscribeTopic(`/topic/user/${currentUser.id}`, () => {
+      queryClient.invalidateQueries({ queryKey: ['unread-messages'] });
+    });
+  }, [isLoggedIn, currentUser?.id, queryClient]);
+
+  // Tổng tin nhắn chưa đọc → chấm đỏ trên lối tắt Cộng đồng
+  const { data: unreadMessages = 0 } = useQuery({
+    queryKey: ['unread-messages', currentUser?.id],
+    queryFn: async () => {
+      const conversations = await fetchUserConversationsApi();
+      return conversations.reduce((sum, c) => sum + (Number(c.unreadCount) || 0), 0);
+    },
+    enabled: isLoggedIn && isFocused,
+    refetchInterval: isFocused ? 15000 : false,
+  });
+
+  // Khoá bắt đầu bằng 'notifications' → tự làm mới khi có thông báo mới hoặc khi đánh dấu đã đọc
+  const { data: unreadNotifications = 0 } = useQuery({
+    queryKey: ['notifications', 'unread-count', currentUser?.id],
+    queryFn: fetchUnreadNotificationCountApi,
+    enabled: isLoggedIn && isFocused,
+    refetchInterval: isFocused ? 15000 : false,
+  });
 
   useEffect(() => {
     syncRolePermissions();
@@ -105,7 +153,17 @@ export const HomeScreen = () => {
     },
   ].filter((a) => a.visible);
 
+  const connectActions: QuickAction[] = [
+    { key: 'classes', label: 'Lớp học', icon: School, route: '/(student)/classes', visible: isLoggedIn && hasPermission('join_class_submit') },
+    { key: 'community', label: 'Cộng đồng', icon: Users, route: '/(student)/feed', visible: isLoggedIn && hasPermission('use_community') },
+  ].filter((a) => a.visible);
+
   const go = (route: QuickAction['route']) => router.push(route as never);
+  // Phải thoát chế độ khách trước, nếu không layout gốc sẽ đẩy khách từ màn đăng nhập về lại trang chủ
+  const goLogin = () => {
+    exitGuestMode();
+    router.replace('/(auth)/login');
+  };
 
   return (
     <ScrollView
@@ -157,6 +215,51 @@ export const HomeScreen = () => {
               value={(stats?.coins ?? 0).toLocaleString('vi-VN')}
               label="xu"
             />
+      <View style={s.header}>
+        <Pressable onPress={() => (isLoggedIn ? go('/(student)/profile') : goLogin())} style={s.headerLeft}>
+          <UserAvatar uri={currentUser?.avatar_url} size={44} />
+          <View style={{ flex: 1 }}>
+            <Text style={s.greeting}>{greetingOf(new Date().getHours())}</Text>
+            <Text style={s.name} numberOfLines={1}>
+              {isLoggedIn ? currentUser?.display_name || 'Học viên' : 'Khách'}
+            </Text>
+          </View>
+        </Pressable>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Pressable onPress={() => setLookupOpen(true)} style={s.bellBtn} accessibilityLabel="Tra từ vựng">
+            <Search size={20} color={colors.text} />
+          </Pressable>
+          {isLoggedIn ? (
+            <Pressable onPress={() => go('/(student)/notifications')} style={s.bellBtn} accessibilityLabel="Thông báo">
+              <Bell size={20} color={colors.text} />
+              {unreadNotifications > 0 ? (
+                <View style={s.unreadBadge} accessibilityLabel={`${unreadNotifications} thông báo chưa đọc`}>
+                  <Text style={s.unreadText}>{unreadNotifications > 99 ? '99+' : unreadNotifications}</Text>
+                </View>
+              ) : null}
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+      <QuickWordLookupModal visible={lookupOpen} onClose={() => setLookupOpen(false)} />
+
+      {/* Chỉ số học tập */}
+      {isLoggedIn ? (
+        <View style={s.statsCard}>
+          <StatTile icon={Flame} color={colors.streak} value={`${stats?.streak_current ?? 0}`} label="Ngày streak" />
+          <View style={s.statDivider} />
+          <StatTile icon={Zap} color={colors.xpDeep} value={(stats?.xp_total ?? 0).toLocaleString('vi-VN')} label="Tổng XP" />
+          <View style={s.statDivider} />
+          <StatTile icon={Coins} color={colors.coin} value={(stats?.coins ?? 0).toLocaleString('vi-VN')} label="Xu" onPress={() => go('/(student)/shop')} />
+        </View>
+      ) : (
+        <Pressable onPress={goLogin} style={s.loginCard}>
+          <View style={s.loginIcon}>
+            <LogIn size={20} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.loginTitle}>Đăng nhập để lưu tiến độ</Text>
+            <Text style={s.loginSub}>Streak, XP và nhiệm vụ hằng ngày chỉ có khi đăng nhập</Text>
           </View>
         ) : (
           <Tap onPress={() => go('/(auth)/login')} style={s.loginCard} scaleTo={0.98}>
@@ -228,6 +331,31 @@ export const HomeScreen = () => {
         </Reveal>
       ) : null}
 
+      {/* Lớp học & Cộng đồng */}
+      {connectActions.length > 0 ? (
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Lớp học & Cộng đồng</Text>
+          <View style={s.grid}>
+            {connectActions.map((a) => {
+              const Icon = a.icon;
+              return (
+                <Pressable key={a.key} onPress={() => go(a.route)} style={[s.pathRow, { flex: 1 }]}>
+                  <View style={s.actionIcon}>
+                    <Icon size={20} color={colors.primary} strokeWidth={2} />
+                  </View>
+                  <Text style={[s.pathTitle, { flex: 1 }]} numberOfLines={1}>{a.label}</Text>
+                  {a.key === 'community' && unreadMessages > 0 ? (
+                    <View style={s.unreadBadge} accessibilityLabel={`${unreadMessages} tin nhắn chưa đọc`}>
+                      <Text style={s.unreadText}>{unreadMessages > 99 ? '99+' : unreadMessages}</Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
+
       {/* Nhiệm vụ hằng ngày */}
       {isLoggedIn ? (
         <Reveal delay={240} style={s.section}>
@@ -245,6 +373,20 @@ export const HomeScreen = () => {
       <Reveal delay={300} style={s.section}>
         <WordOfDayCard />
       </Reveal>
+
+      {/* Luyện viết với AI */}
+      {isLoggedIn ? (
+        <Pressable onPress={() => go('/(student)/practice/writing')} style={s.pathRow}>
+          <View style={s.actionIcon}>
+            <PenLine size={20} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.pathTitle}>Luyện viết với AI</Text>
+            <Text style={s.pathSub}>Chấm lỗi, chấm điểm và viết lại bài của bạn</Text>
+          </View>
+          <ChevronRight size={18} color={colors.textSoft} />
+        </Pressable>
+      ) : null}
 
       {/* Lộ trình */}
       <Reveal delay={340}>
@@ -302,6 +444,12 @@ const StatChip: React.FC<{ icon: React.ReactNode; tone: string; value: string; l
       </Text>
     </View>
   </View>
+const StatTile: React.FC<{ icon: IconType; color: string; value: string; label: string; onPress?: () => void }> = ({ icon: Icon, color, value, label, onPress }) => (
+  <Pressable style={s.statTile} onPress={onPress} disabled={!onPress} accessibilityLabel={onPress ? `${label} - mở cửa hàng` : undefined}>
+    <Icon size={18} color={color} />
+    <Text style={s.statValue}>{value}</Text>
+    <Text style={s.statLabel}>{label}</Text>
+  </Pressable>
 );
 
 const s = StyleSheet.create({
@@ -406,4 +554,21 @@ const s = StyleSheet.create({
     borderBottomWidth: 4,
     padding: 14,
   },
+  unreadBadge: {
+    position: 'absolute',
+    top: -7,
+    right: -7,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
+    backgroundColor: colors.danger,
+    borderWidth: 2,
+    borderColor: colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unreadText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+  pathTitle: { fontSize: 14, fontWeight: '700', color: colors.text },
+  pathSub: { fontSize: 12, color: colors.textSoft, marginTop: 2 },
 });

@@ -419,7 +419,11 @@ export const createDirectConversationApi = async (params: {
     const query = new URLSearchParams({
       friendId: String(params.friendId),
       friendName: params.friendName,
-      friendAvatar: params.friendAvatar || '',
+      // Avatar dạng base64 làm URL quá dài và request bị chặn → chỉ gửi link ảnh ngắn
+      friendAvatar:
+        params.friendAvatar && /^https?:\/\//.test(params.friendAvatar) && params.friendAvatar.length <= 500
+          ? params.friendAvatar
+          : '',
     }).toString();
 
     const res = await apiClient.post<any>(`/api/v1/social/conversations/direct?${query}`);

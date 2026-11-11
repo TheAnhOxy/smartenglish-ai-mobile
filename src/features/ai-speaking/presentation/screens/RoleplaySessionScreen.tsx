@@ -14,7 +14,6 @@ import {
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import {
   Mic,
-  ArrowLeft,
   Lightbulb,
   X,
   Volume2,
@@ -41,6 +40,8 @@ import {
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { speakText, stopSpeech } from '@/src/core/services/speechService';
 import { UserAvatar } from '@/src/core/components/UserAvatar';
+import { BackButton } from '@/src/core/components/BackButton';
+import { hasActivePremium } from '@/src/core/utils/plan';
 
 interface ChatTurn {
   role: 'ai' | 'user';
@@ -51,7 +52,7 @@ export const RoleplaySessionScreen = () => {
   const { scenarioId } = useLocalSearchParams<{ scenarioId: string }>();
   const router = useRouter();
   const { currentUser } = useAuthStore();
-  const isPremium = currentUser?.plan !== 'free';
+  const isPremium = hasActivePremium(currentUser);
 
   const { getQuota, consumeTurn, canChat } = useSpeakingQuotaStore();
   const quota = getQuota(isPremium);
@@ -127,6 +128,84 @@ export const RoleplaySessionScreen = () => {
     }, 120);
     return () => clearTimeout(timer);
   }, [turns, isProcessing]);
+
+  // ── TÍNH TOÁN ĐÁNH GIÁ THỰC TẾ 100% TỪ LƯỢT THOẠI CỦA HỌC VIÊN ──
+  // Hook phải nằm trước lệnh return sớm (!scenario), nếu không React báo "Rendered more hooks"
+  const sessionEvaluation = useMemo(() => {
+    if (!scenario) {
+      return { turnsCount: 0, fluency: 0, level: 'A1', feedback: '' };
+    }
+    const userTurns = turns.filter((t) => t.role === 'user');
+    const userTurnsCount = userTurns.length;
+
+    if (userTurnsCount === 0) {
+      return {
+        turnsCount: 0,
+        fluency: 0,
+        level: 'A1',
+        feedback: `Bạn chưa gửi lượt thoại nào. Hãy nhấn vào Micro hoặc nhập câu trả lời để đàm thoại cùng ${scenario.partner_name || scenario.ai_persona} nhé!`,
+      };
+    }
+
+    // 1. Phân tích số từ thực tế của các câu nói
+    const wordsPerTurn = userTurns.map((t) =>
+      t.text.trim().split(/\s+/).filter(Boolean).length
+    );
+    const totalWords = wordsPerTurn.reduce((sum, count) => sum + count, 0);
+    const avgWords = totalWords / userTurnsCount;
+
+    // 2. Tính điểm độ trôi chảy thực tế (Fluency Score)
+    let baseFluency = 30;
+    if (avgWords < 3) {
+      baseFluency = 35 + Math.round(avgWords * 5); // 35 - 50%
+    } else if (avgWords < 7) {
+      baseFluency = 50 + Math.round((avgWords - 3) * 6); // 50 - 74%
+    } else if (avgWords < 12) {
+      baseFluency = 75 + Math.round((avgWords - 7) * 3); // 75 - 90%
+    } else {
+      baseFluency = 90 + Math.min(6, Math.round(avgWords - 12)); // 90 - 96%
+    }
+
+    // Nhân hệ số tích cực theo số lượt tương tác
+    const turnFactor = Math.min(1.0, 0.65 + userTurnsCount * 0.1);
+    const calculatedFluency = Math.min(98, Math.max(15, Math.round(baseFluency * turnFactor)));
+
+    // 3. Đánh giá trình độ CEFR thực tế
+    let calculatedLevel = 'A1';
+    if (avgWords >= 10 && userTurnsCount >= 3) {
+      calculatedLevel = 'B2';
+    } else if (avgWords >= 6 && userTurnsCount >= 2) {
+      calculatedLevel = 'B1';
+    } else if (avgWords >= 3) {
+      calculatedLevel = 'A2';
+    } else {
+      calculatedLevel = 'A1';
+    }
+
+    // 4. Nhận xét của AI bám sát theo đúng tình huống kịch bản và câu nói của học viên
+    const partnerName = scenario.partner_name || scenario.ai_persona || 'đối tác AI';
+    const scenarioTitle = scenario.title || 'tình huống thực tế';
+
+    let dynamicFeedback = '';
+    if (userTurnsCount === 1) {
+      if (avgWords < 4) {
+        dynamicFeedback = `Bạn vừa trao đổi 1 câu ngắn (${totalWords} từ) với ${partnerName}. Để nâng cao độ trôi chảy trong tình huống '${scenarioTitle}', hãy thử ghép thành câu hoàn chỉnh hơn nhé!`;
+      } else {
+        dynamicFeedback = `Khởi đầu tốt với ${totalWords} từ trong lượt trao đổi đầu tiên. Hãy duy trì trò chuyện thêm nhiều lượt với ${partnerName} để AI đánh giá phản xạ ngữ pháp chuyên sâu hơn.`;
+      }
+    } else if (avgWords < 4) {
+      dynamicFeedback = `Bạn đã hoàn thành ${userTurnsCount} lượt thoại cùng ${partnerName} trong bối cảnh '${scenarioTitle}'. Các câu trả lời còn hơi ngắn, hãy bổ sung thêm liên từ (because, and, so) để câu nói mượt mà hơn.`;
+    } else {
+      dynamicFeedback = `Phản xạ tương đối tự nhiên trong tình huống '${scenarioTitle}'! Bạn đã duy trì được ${userTurnsCount} lượt đàm thoại với ${partnerName} (trung bình ${Math.round(avgWords)} từ/lượt). Tiếp tục phát huy ngữ điệu và vốn từ này nhé!`;
+    }
+
+    return {
+      turnsCount: userTurnsCount,
+      fluency: calculatedFluency,
+      level: calculatedLevel,
+      feedback: dynamicFeedback,
+    };
+  }, [turns, scenario]);
 
   if (!scenario) {
     return (
@@ -309,86 +388,12 @@ export const RoleplaySessionScreen = () => {
 
   const partnerAvatar = scenario.partner_avatar_url || scenario.image_url || null;
 
-  // ── TÍNH TOÁN ĐÁNH GIÁ THỰC TẾ 100% TỪ LƯỢT THOẠI CỦA HỌC VIÊN ──
-  const sessionEvaluation = useMemo(() => {
-    const userTurns = turns.filter((t) => t.role === 'user');
-    const userTurnsCount = userTurns.length;
-
-    if (userTurnsCount === 0) {
-      return {
-        turnsCount: 0,
-        fluency: 0,
-        level: 'A1',
-        feedback: `Bạn chưa gửi lượt thoại nào. Hãy nhấn vào Micro hoặc nhập câu trả lời để đàm thoại cùng ${scenario.partner_name || scenario.ai_persona} nhé!`,
-      };
-    }
-
-    // 1. Phân tích số từ thực tế của các câu nói
-    const wordsPerTurn = userTurns.map((t) =>
-      t.text.trim().split(/\s+/).filter(Boolean).length
-    );
-    const totalWords = wordsPerTurn.reduce((sum, count) => sum + count, 0);
-    const avgWords = totalWords / userTurnsCount;
-
-    // 2. Tính điểm độ trôi chảy thực tế (Fluency Score)
-    let baseFluency = 30;
-    if (avgWords < 3) {
-      baseFluency = 35 + Math.round(avgWords * 5); // 35 - 50%
-    } else if (avgWords < 7) {
-      baseFluency = 50 + Math.round((avgWords - 3) * 6); // 50 - 74%
-    } else if (avgWords < 12) {
-      baseFluency = 75 + Math.round((avgWords - 7) * 3); // 75 - 90%
-    } else {
-      baseFluency = 90 + Math.min(6, Math.round(avgWords - 12)); // 90 - 96%
-    }
-
-    // Nhân hệ số tích cực theo số lượt tương tác
-    const turnFactor = Math.min(1.0, 0.65 + userTurnsCount * 0.1);
-    const calculatedFluency = Math.min(98, Math.max(15, Math.round(baseFluency * turnFactor)));
-
-    // 3. Đánh giá trình độ CEFR thực tế
-    let calculatedLevel = 'A1';
-    if (avgWords >= 10 && userTurnsCount >= 3) {
-      calculatedLevel = 'B2';
-    } else if (avgWords >= 6 && userTurnsCount >= 2) {
-      calculatedLevel = 'B1';
-    } else if (avgWords >= 3) {
-      calculatedLevel = 'A2';
-    } else {
-      calculatedLevel = 'A1';
-    }
-
-    // 4. Nhận xét của AI bám sát theo đúng tình huống kịch bản và câu nói của học viên
-    const partnerName = scenario.partner_name || scenario.ai_persona || 'đối tác AI';
-    const scenarioTitle = scenario.title || 'tình huống thực tế';
-
-    let dynamicFeedback = '';
-    if (userTurnsCount === 1) {
-      if (avgWords < 4) {
-        dynamicFeedback = `Bạn vừa trao đổi 1 câu ngắn (${totalWords} từ) với ${partnerName}. Để nâng cao độ trôi chảy trong tình huống '${scenarioTitle}', hãy thử ghép thành câu hoàn chỉnh hơn nhé!`;
-      } else {
-        dynamicFeedback = `Khởi đầu tốt với ${totalWords} từ trong lượt trao đổi đầu tiên. Hãy duy trì trò chuyện thêm nhiều lượt với ${partnerName} để AI đánh giá phản xạ ngữ pháp chuyên sâu hơn.`;
-      }
-    } else if (avgWords < 4) {
-      dynamicFeedback = `Bạn đã hoàn thành ${userTurnsCount} lượt thoại cùng ${partnerName} trong bối cảnh '${scenarioTitle}'. Các câu trả lời còn hơi ngắn, hãy bổ sung thêm liên từ (because, and, so) để câu nói mượt mà hơn.`;
-    } else {
-      dynamicFeedback = `Phản xạ tương đối tự nhiên trong tình huống '${scenarioTitle}'! Bạn đã duy trì được ${userTurnsCount} lượt đàm thoại với ${partnerName} (trung bình ${Math.round(avgWords)} từ/lượt). Tiếp tục phát huy ngữ điệu và vốn từ này nhé!`;
-    }
-
-    return {
-      turnsCount: userTurnsCount,
-      fluency: calculatedFluency,
-      level: calculatedLevel,
-      feedback: dynamicFeedback,
-    };
-  }, [turns, scenario]);
 
   return (
     <View style={s.root}>
       {/* ── TOP BAR (Sạch sẽ, thân thiện, không icon robot) ────────────────── */}
       <View style={s.topBar}>
-        <Pressable
-          onPress={() => {
+        <BackButton onPress={() => {
             stopSpeech();
             Speech.stop();
             if (recognitionRef.current) {
@@ -402,17 +407,12 @@ export const RoleplaySessionScreen = () => {
               return;
             }
             setShowSummaryModal(true);
-          }}
-          style={({ pressed }) => [s.exitBtn, pressed && { opacity: 0.7 }]}
-          accessibilityLabel="Rời phòng"
-        >
-          <ArrowLeft color="#EF4444" size={20} strokeWidth={2.4} />
-        </Pressable>
+          }} />
 
         {/* AI Partner Profile ở giữa */}
         <View style={s.partnerCenter}>
           <View style={s.avatarWrap}>
-            <UserAvatar uri={partnerAvatar} size={64} style={s.avatarImg} />
+            <UserAvatar uri={partnerAvatar} size={38} style={s.avatarImg} />
             <View style={s.onlineDot} />
           </View>
           <View style={{ alignItems: 'center' }}>
@@ -723,7 +723,7 @@ export const RoleplaySessionScreen = () => {
               onPress={() => {
                 useAuthStore.getState().updateCurrentUser({ plan: 'premium_yearly' });
                 setShowQuotaModal(false);
-                alert('🎉 Bạn đã nâng cấp Premium thành công! Bây giờ bạn có thể tiếp tục luyện nói không giới hạn.');
+                alert('Nâng cấp Premium thành công. Bạn có thể tiếp tục luyện nói không giới hạn.');
               }}
               style={s.btnUpgrade}
             >

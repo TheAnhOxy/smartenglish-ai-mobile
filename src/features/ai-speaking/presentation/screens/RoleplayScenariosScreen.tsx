@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Bot, ChevronRight, ChevronLeft, Lock, MessageSquare, Flame, Sparkles, Crown } from 'lucide-react-native';
+import { Bot, ChevronRight, Lock, MessageSquare, Flame, Sparkles, Crown } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
   fetchRoleplayScenariosApi,
@@ -12,11 +12,13 @@ import {
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { colors } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
+import { BackButton } from '@/src/core/components/BackButton';
+import { hasActivePremium } from '@/src/core/utils/plan';
 
 export const RoleplayScenariosScreen = () => {
   const router = useRouter();
   const { currentUser } = useAuthStore();
-  const isPremium = currentUser?.plan !== 'free';
+  const isPremium = hasActivePremium(currentUser);
 
   const { getQuota } = useSpeakingQuotaStore();
   const quota = getQuota(isPremium);
@@ -98,9 +100,7 @@ export const RoleplayScenariosScreen = () => {
     <View style={s.root}>
       {/* Header */}
       <View style={s.header}>
-        <Pressable onPress={() => router.back()} style={s.backBtn}>
-          <ChevronLeft color={colors.primary} size={22} />
-        </Pressable>
+        <BackButton onPress={() => router.back()} />
         <View style={s.headerCenter}>
           <Text style={s.headerTitle}>AI Roleplay Companion</Text>
           <Text style={s.headerSub}>Chọn kịch bản hội thoại để luyện nói với AI</Text>

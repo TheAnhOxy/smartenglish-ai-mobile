@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, Switch, Image, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
-  ArrowLeft,
+  MonitorSmartphone,
   Search,
   ChevronRight,
   GraduationCap,
@@ -21,6 +21,7 @@ import { useAuthStore } from '@/src/core/flows/authStore';
 import { palette } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
 import { UserAvatar } from '@/src/core/components/UserAvatar';
+import { BackButton } from '@/src/core/components/BackButton';
 
 export const SettingsScreen = () => {
   const router = useRouter();
@@ -44,30 +45,22 @@ export const SettingsScreen = () => {
     <View style={styles.root}>
       {/* Header */}
       <View style={styles.headerBar}>
-        <Pressable
-          onPress={() => {
+        <BackButton onPress={() => {
             if (router.canGoBack()) {
               router.back();
             } else {
               router.navigate('/(student)/profile' as any);
             }
-          }}
-          style={styles.iconBtn}
-        >
-          <ArrowLeft color={palette.text} size={20} />
-        </Pressable>
+          }} />
 
         <Text style={styles.headerTitle}>Cài đặt hệ thống</Text>
-
-        <Pressable style={styles.iconBtn}>
-          <Search color={palette.text} size={20} />
-        </Pressable>
+        <View style={styles.iconBtn} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollBody}>
         {/* Account Card */}
         <Animated.View entering={FadeInDown.duration(300)}>
-          <Pressable style={styles.accountCard}>
+          <Pressable style={styles.accountCard} onPress={() => router.push('/(student)/profile/edit' as any)}>
             <UserAvatar uri={currentUser?.avatar_url} size={48} style={styles.avatar} />
             <View style={styles.accountInfo}>
               <View style={styles.nameRow}>
@@ -110,10 +103,9 @@ export const SettingsScreen = () => {
 
             <View style={[styles.rowItem, styles.rowBorder]}>
               <Text style={styles.rowLabel}>Giọng đọc (TTS)</Text>
-              <Pressable style={styles.valueBtn}>
+              <View style={styles.valueBtn}>
                 <Text style={styles.valueText}>{ttsVoice}</Text>
-                <ChevronRight color={palette.primary} size={16} />
-              </Pressable>
+              </View>
             </View>
           </View>
         </Animated.View>
@@ -177,6 +169,16 @@ export const SettingsScreen = () => {
             })}
           </View>
         </Animated.View>
+
+        {/* Bảo mật: thiết bị đăng nhập (UC-04) */}
+        <Text style={styles.sectionTitle}>BẢO MẬT</Text>
+        <Pressable
+          onPress={() => router.push('/(student)/profile/sessions' as never)}
+          style={[styles.logoutBtn, { borderColor: palette.border, backgroundColor: '#FFFFFF', marginTop: 0, marginBottom: 16 }]}
+        >
+          <MonitorSmartphone color={palette.primary} size={18} />
+          <Text style={[styles.logoutBtnText, { color: palette.text }]}>Thiết bị đăng nhập</Text>
+        </Pressable>
 
         {/* Logout Button */}
         <Pressable onPress={handleLogout} style={styles.logoutBtn}>

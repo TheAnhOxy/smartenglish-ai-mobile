@@ -49,6 +49,7 @@ import { SepayVietQrPaymentModal } from '../components/SepayVietQrPaymentModal';
 import { CancelPlanSheet } from '../components/CancelPlanSheet';
 import { isLowerThanCurrent } from '../../application/planRank';
 import { AppColors } from '@/src/core/theme/colors';
+import { hasActivePremium } from '@/src/core/utils/plan';
 
 export const PaywallScreen = () => {
   const router = useRouter();
@@ -157,7 +158,7 @@ export const PaywallScreen = () => {
     };
 
   const isCurrentPremium =
-    currentUser?.plan?.includes('premium') || currentUser?.plan === 'lifetime';
+    hasActivePremium(currentUser);
 
   const formatPriceVnd = (amount: number) => {
     return amount.toLocaleString('vi-VN') + ' đ';

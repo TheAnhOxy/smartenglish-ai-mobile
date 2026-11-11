@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAudioTrackQuery } from '../../application/useReadingListening';
 import { Headphones } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
+import { TranslatableText, TranslationPanel } from '@/src/core/components/TranslatableText';
 
 export const ListeningPlayerScreen = () => {
   const { audioId } = useLocalSearchParams<{ audioId?: string }>();
@@ -15,6 +16,8 @@ export const ListeningPlayerScreen = () => {
   const [speed, setSpeed] = useState<'0.75x' | '1.0x' | '1.25x' | '1.5x'>('1.0x');
   const [showSub, setShowSub] = useState(true);
   const [abLoop, setAbLoop] = useState(false);
+  const [selectedText, setSelectedText] = useState('');
+  const [clearKey, setClearKey] = useState(0);
 
   if (isLoading) {
     return (
@@ -71,10 +74,14 @@ export const ListeningPlayerScreen = () => {
         {/* Subtitles Display Box */}
         <View className="bg-darkCard p-6 rounded-3xl border border-gray-800 mb-6 min-h-[160px] justify-center items-center">
           {showSub ? (
-            <View className="items-center gap-2">
-              <Text className="text-base font-bold text-white text-center leading-6">
-                "{currentSubEn}"
-              </Text>
+            <View className="items-center gap-2 w-full">
+              <TranslatableText
+                text={currentSubEn}
+                onSelectText={setSelectedText}
+                clearKey={clearKey}
+                dark
+                textStyle={{ fontSize: 16, fontWeight: '700', lineHeight: 24, textAlign: 'center' }}
+              />
               {currentSubVi ? (
                 <Text className="text-xs text-secondary text-center">
                   "{currentSubVi}"
@@ -85,6 +92,15 @@ export const ListeningPlayerScreen = () => {
             <Text className="text-xs text-gray-500 italic">Phụ đề đã bị ẩn (Tập trung luyện nghe phản xạ)</Text>
           )}
         </View>
+
+        <TranslationPanel
+          text={selectedText}
+          dark
+          onClose={() => {
+            setSelectedText('');
+            setClearKey((k) => k + 1);
+          }}
+        />
 
         {/* Playback Controls & Speed Selector */}
         <View className="bg-darkCard p-5 rounded-2xl border border-gray-800 gap-4 mb-6">

@@ -12,7 +12,6 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AssignmentSubmitBanner } from '@/src/features/class-membership/presentation/components/AssignmentSubmitBanner';
 import {
-  ArrowLeft,
   BookOpen,
   Sparkles,
   Volume2,
@@ -33,6 +32,7 @@ import {
   LessonDetailData
 } from '@/src/features/learning-path/data/knowledgeGapApi';
 import { palette } from '@/src/theme';
+import { BackButton } from '@/src/core/components/BackButton';
 
 const flattenDialogues = (dialogues: any[]): Array<{ speaker: string; textEn: string; textVi: string }> => {
   if (!Array.isArray(dialogues)) return [];
@@ -149,9 +149,7 @@ export const LessonDetailScreen = () => {
     <View style={s.container}>
       {/* Top App Bar */}
       <View style={s.headerBar}>
-        <Pressable onPress={() => router.back()} style={s.headerIconBtn} hitSlop={12}>
-          <ArrowLeft size={22} color="#0F172A" />
-        </Pressable>
+        <BackButton onPress={() => router.back()} />
         <View style={s.headerTitleWrap}>
           <Text style={s.headerChapter} numberOfLines={1}>{lesson.chapterTitleVi || 'Lộ trình bài học'}</Text>
           <Text style={s.headerTitle} numberOfLines={1}>{lesson.titleVi}</Text>

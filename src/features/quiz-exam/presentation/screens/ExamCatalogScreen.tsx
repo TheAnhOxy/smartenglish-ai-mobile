@@ -15,7 +15,6 @@ import {
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
   Search,
-  Mic,
   Clock,
   ListChecks,
   Target,
@@ -31,9 +30,10 @@ import {
   CheckCircle2,
   RotateCcw,
   PlayCircle,
-  ChevronDown,
   History,
   Zap,
+  Shuffle,
+  ChevronRight,
 } from 'lucide-react-native';
 import { usePublishedExamsInfiniteQuery } from '../../application/useExamCatalog';
 import { useUserExamHistoryQuery } from '../../application/useExamAttempt';
@@ -76,7 +76,7 @@ export function ExamCatalogScreen() {
   const [selectedCategoryKey, setSelectedCategoryKey] = useState<string>('ALL');
   const [selectedLevel, setSelectedLevel] = useState<string>('ALL');
   const [searchText, setSearchText] = useState<string>('');
-  const [openFilter, setOpenFilter] = useState<'CATEGORY' | 'LEVEL' | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // XP Toast notification
   const [xpToast, setXpToast] = useState<number | null>(null);
@@ -99,7 +99,7 @@ export function ExamCatalogScreen() {
   }, [params.xpAwarded]);
 
   const activeCategory = CATEGORY_TABS.find((t) => t.key === selectedCategoryKey)?.cat;
-  const selectedCategoryLabel = CATEGORY_TABS.find((t) => t.key === selectedCategoryKey)?.label || 'Tất cả';
+  const activeFilterCount = (selectedCategoryKey !== 'ALL' ? 1 : 0) + (selectedLevel !== 'ALL' ? 1 : 0);
 
   const query = usePublishedExamsInfiniteQuery({
     search: searchText.trim() || undefined,
@@ -205,7 +205,7 @@ export function ExamCatalogScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Search Bar with Mic */}
+        {/* Thanh tìm kiếm + nút bộ lọc */}
         <View style={styles.searchBar}>
           <Search size={18} color="#94A3B8" />
           <TextInput
@@ -215,71 +215,81 @@ export function ExamCatalogScreen() {
             value={searchText}
             onChangeText={setSearchText}
           />
-          <Pressable style={styles.micBtn}>
-            <Mic size={18} color="#64748B" />
+          <Pressable
+            onPress={() => setFiltersOpen((v) => !v)}
+            style={[styles.filterIconBtn, filtersOpen && styles.filterIconBtnActive]}
+            accessibilityLabel="Bộ lọc"
+            hitSlop={6}
+          >
+            <SlidersHorizontal size={18} color={filtersOpen ? '#FFFFFF' : '#475569'} />
+            {activeFilterCount > 0 && !filtersOpen ? <View style={styles.filterDot} /> : null}
           </Pressable>
         </View>
 
-        {/* Compact filters: two dropdowns share one right-aligned row. */}
-        <View style={styles.compactFiltersRow}>
-          <View style={styles.filterDropdownWrap}>
-            <Pressable
-              onPress={() => setOpenFilter((value) => value === 'CATEGORY' ? null : 'CATEGORY')}
-              style={[styles.filterDropdownButton, selectedCategoryKey !== 'ALL' && styles.filterDropdownButtonActive]}
-            >
-              <Text numberOfLines={1} style={styles.filterDropdownButtonText}>{selectedCategoryLabel}</Text>
-              <ChevronDown size={15} color="#475569" />
-            </Pressable>
-            {openFilter === 'CATEGORY' ? (
-              <View style={[styles.filterDropdownMenu, styles.categoryDropdownMenu]}>
-                {CATEGORY_TABS.map((item) => (
+        {filtersOpen ? (
+          <View style={styles.filterPanel}>
+            <Text style={styles.filterGroupLabel}>Loại đề</Text>
+            <View style={styles.chipRow}>
+              {CATEGORY_TABS.map((item) => {
+                const active = selectedCategoryKey === item.key;
+                return (
                   <Pressable
                     key={item.key}
-                    onPress={() => {
-                      setSelectedCategoryKey(item.key);
-                      setOpenFilter(null);
-                    }}
-                    style={styles.filterDropdownOption}
+                    onPress={() => setSelectedCategoryKey(item.key)}
+                    style={[styles.filterChip, active && styles.filterChipActive]}
                   >
-                    <Text style={[styles.filterDropdownOptionText, selectedCategoryKey === item.key && styles.filterDropdownOptionTextActive]}>
-                      {item.label}
-                    </Text>
-                    {selectedCategoryKey === item.key ? <CheckCircle2 size={15} color="#0F2C59" /> : null}
+                    <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{item.label}</Text>
                   </Pressable>
-                ))}
-              </View>
-            ) : null}
-          </View>
-
-          <View style={styles.filterDropdownWrap}>
-            <Pressable
-              onPress={() => setOpenFilter((value) => value === 'LEVEL' ? null : 'LEVEL')}
-              style={[styles.filterDropdownButton, selectedLevel !== 'ALL' && styles.filterDropdownButtonActive]}
-            >
-              <Text style={styles.filterDropdownButtonText}>{selectedLevel === 'ALL' ? 'Mọi cấp độ' : selectedLevel}</Text>
-              <ChevronDown size={15} color="#475569" />
-            </Pressable>
-            {openFilter === 'LEVEL' ? (
-              <View style={[styles.filterDropdownMenu, styles.levelDropdownMenu]}>
-                {CEFR_LEVELS.map((level) => (
+                );
+              })}
+            </View>
+            <Text style={[styles.filterGroupLabel, { marginTop: 12 }]}>Cấp độ</Text>
+            <View style={styles.chipRow}>
+              {CEFR_LEVELS.map((level) => {
+                const active = selectedLevel === level;
+                return (
                   <Pressable
                     key={level}
-                    onPress={() => {
-                      setSelectedLevel(level);
-                      setOpenFilter(null);
-                    }}
-                    style={styles.filterDropdownOption}
+                    onPress={() => setSelectedLevel(level)}
+                    style={[styles.filterChip, active && styles.filterChipActive]}
                   >
-                    <Text style={[styles.filterDropdownOptionText, selectedLevel === level && styles.filterDropdownOptionTextActive]}>
-                      {level === 'ALL' ? 'Mọi cấp độ' : level}
+                    <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                      {level === 'ALL' ? 'Tất cả' : level}
                     </Text>
-                    {selectedLevel === level ? <CheckCircle2 size={15} color="#0F2C59" /> : null}
                   </Pressable>
-                ))}
-              </View>
+                );
+              })}
+            </View>
+            {activeFilterCount > 0 ? (
+              <Pressable
+                onPress={() => {
+                  setSelectedCategoryKey('ALL');
+                  setSelectedLevel('ALL');
+                }}
+                style={styles.clearFilterBtn}
+                hitSlop={6}
+              >
+                <Text style={styles.clearFilterText}>Xoá bộ lọc</Text>
+              </Pressable>
             ) : null}
           </View>
-        </View>
+        ) : null}
+
+        {/* Lối vào Quiz nhanh: câu hỏi sinh từ kho từ vựng thật */}
+        <Pressable
+          onPress={() => router.push('/(student)/practice/quiz' as never)}
+          style={styles.quickQuizCard}
+          accessibilityLabel="Mở Quiz nhanh"
+        >
+          <View style={styles.quickQuizIcon}>
+            <Shuffle size={20} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.quickQuizTitle}>Quiz nhanh từ vựng</Text>
+            <Text style={styles.quickQuizSub}>5–15 câu ngẫu nhiên theo chủ đề và trình độ</Text>
+          </View>
+          <ChevronRight size={18} color={colors.textSoft} />
+        </Pressable>
 
         {/* Loading Spinner when fetching */}
         {query.isLoading && (
@@ -462,6 +472,20 @@ export function ExamCatalogScreen() {
 }
 
 const styles = StyleSheet.create({
+  quickQuizCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+    marginBottom: 12,
+  },
+  quickQuizIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  quickQuizTitle: { fontSize: 14, fontWeight: '700', color: colors.text },
+  quickQuizSub: { fontSize: 12, color: colors.textSoft, marginTop: 2 },
   container: {
     flex: 1,
     backgroundColor: '#F8FAFC',
@@ -529,64 +553,49 @@ const styles = StyleSheet.create({
   micBtn: {
     padding: 6,
   },
-  compactFiltersRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 8,
-    marginBottom: 14,
-    zIndex: 20,
-  },
-  filterDropdownWrap: { position: 'relative' },
-  filterDropdownButton: {
-    minWidth: 112,
-    maxWidth: 180,
-    height: 38,
-    paddingHorizontal: 12,
+  filterIconBtn: {
+    width: 36,
+    height: 36,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
   },
-  filterDropdownButtonActive: { backgroundColor: '#EFF6FF', borderColor: '#93C5FD' },
-  filterDropdownButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#475569',
-    flexShrink: 1,
-  },
-  filterDropdownMenu: {
+  filterIconBtnActive: { backgroundColor: '#0F2C59' },
+  filterDot: {
     position: 'absolute',
-    top: 42,
-    right: 0,
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
+    borderWidth: 1.5,
+    borderColor: '#F1F5F9',
+  },
+  filterPanel: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 6,
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 8,
-    zIndex: 30,
+    padding: 14,
+    marginBottom: 14,
   },
-  categoryDropdownMenu: { width: 220 },
-  levelDropdownMenu: { width: 150 },
-  filterDropdownOption: {
-    minHeight: 38,
-    paddingHorizontal: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: 9,
+  filterGroupLabel: { fontSize: 12, fontWeight: '700', color: '#64748B', marginBottom: 8 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
   },
-  filterDropdownOptionText: { fontSize: 12.5, fontWeight: '600', color: '#475569' },
-  filterDropdownOptionTextActive: { color: '#0F2C59', fontWeight: '800' },
+  filterChipActive: { backgroundColor: '#0F2C59', borderColor: '#0F2C59' },
+  filterChipText: { fontSize: 12, fontWeight: '600', color: '#475569' },
+  filterChipTextActive: { color: '#FFFFFF' },
+  clearFilterBtn: { alignSelf: 'flex-end', marginTop: 12 },
+  clearFilterText: { fontSize: 12, fontWeight: '700', color: colors.primary },
   loadingBox: {
     flexDirection: 'row',
     alignItems: 'center',

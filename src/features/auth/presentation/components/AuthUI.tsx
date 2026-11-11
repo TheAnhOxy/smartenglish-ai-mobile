@@ -12,9 +12,10 @@ import {
   type TextInputInstance,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, Eye, EyeOff, type LucideIcon } from 'lucide-react-native';
+import { Eye, EyeOff, type LucideIcon } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
 import { LoxeraFoxMascot } from '@/src/core/components/LoxeraFoxMascot';
+import { BackButton } from '@/src/core/components/BackButton';
 
 /* Bộ khung dùng chung cho đăng nhập / đăng ký / xác thực: cùng lề, cùng cỡ chữ, cùng kiểu nút & loading. */
 
@@ -39,9 +40,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ title, onBack, showMasco
         showsVerticalScrollIndicator={false}
       >
         {onBack ? (
-          <Pressable onPress={onBack} hitSlop={10} accessibilityLabel="Quay lại" className="w-10 h-10 -ml-2 items-center justify-center">
-            <ArrowLeft size={20} color={AppColors.neutralInk} />
-          </Pressable>
+          <BackButton onPress={onBack} />
         ) : null}
 
         {showMascot ? (

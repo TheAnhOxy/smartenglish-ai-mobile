@@ -12,7 +12,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Trophy,
-  ArrowLeft,
   Share2,
   CheckCircle2,
   XCircle,
@@ -34,6 +33,7 @@ import { colors } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
 import { ds, dsFont } from '@/src/theme/ds';
 import { ResultCelebrationHero } from '../components/ResultCelebrationHero';
+import { BackButton } from '@/src/core/components/BackButton';
 
 export function ExamResultScreen() {
   const router = useRouter();
@@ -176,6 +176,11 @@ export function ExamResultScreen() {
         <Pressable hitSlop={10} style={styles.headerBtn}>
           <Share2 color={ds.muted} size={20} />
         </Pressable>
+        <BackButton onPress={handleBackToCatalog} />
+
+        <Text style={styles.headerTitle}>Kết quả bài kiểm tra</Text>
+
+        <View style={styles.headerBtn} />
       </View>
 
       <ScrollView

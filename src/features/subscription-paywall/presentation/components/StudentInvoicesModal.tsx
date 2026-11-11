@@ -27,6 +27,7 @@ import {
 } from '../../utils/currencyWords';
 import { SepayInvoicePaper, SepayInvoiceOrder } from './SepayInvoicePaper';
 import { RefundRequestModal } from './RefundRequestModal';
+import { hasActivePremium } from '@/src/core/utils/plan';
 
 export interface OrderItem extends SepayInvoiceOrder {
   expiresAt?: string;
@@ -305,7 +306,7 @@ export const StudentInvoicesModal: React.FC<StudentInvoicesModalProps> = ({
                         ord.refundStatus === 'APPROVED' ||
                         ord.refundStatus === 'PENDING_REVIEW';
                       const isUserActive =
-                        currentUser?.plan?.includes('premium') || currentUser?.plan === 'lifetime';
+                        hasActivePremium(currentUser);
 
                       return (
                         <Pressable

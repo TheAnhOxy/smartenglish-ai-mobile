@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { publishStomp, subscribeTopic, useStompConnected } from '@/src/core/realtime/stompClient';
 import {
   Modal,
   View,
@@ -203,37 +204,89 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
       }
       loadInitialMessages();
 
-      const msgTimer = setInterval(() => {
-        syncLatestMessages();
-      }, 2500);
-
-      const typingTimer = setInterval(async () => {
-        const typers = await fetchTypingApi(convId);
-        setActiveTypingUsers(typers.filter((t) => Number(t.userId) !== currentUserId));
-      }, 2000);
-
       return () => {
-        clearInterval(msgTimer);
-        clearInterval(typingTimer);
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-        sendTypingApi(convId, currentUserId, currentUserName, false).catch(() => {});
+        sendTyping(false);
       };
     } else {
       setReplyingTo(null);
       setSelectedMsgForAction(null);
       setActiveTypingUsers([]);
     }
-  }, [visible, convId, loadInitialMessages, syncLatestMessages, currentUserId, currentUserName]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, convId, loadInitialMessages]);
+
+  // ─── Realtime qua WebSocket (STOMP) như Web Portal; REST chỉ là dự phòng khi mất kết nối ───
+  const stompConnected = useStompConnected();
+  const typingSeenRef = useRef<Map<number, { userName: string; at: number }>>(new Map());
+
+  useEffect(() => {
+    if (!visible || !convId) return undefined;
+    typingSeenRef.current.clear();
+
+    const refreshTyping = () => {
+      const now = Date.now();
+      typingSeenRef.current.forEach((v, k) => {
+        if (now - v.at > 6000) typingSeenRef.current.delete(k);
+      });
+      setActiveTypingUsers(
+        Array.from(typingSeenRef.current.entries()).map(([userId, v]) => ({ userId, userName: v.userName })),
+      );
+    };
+
+    // Có tin mới / thu hồi / ghim / đã đọc → tải ngay bản mới nhất
+    const offMessages = subscribeTopic(`/topic/conversation/${convId}`, () => {
+      syncLatestMessages();
+    });
+    const offTyping = subscribeTopic(`/topic/conversation/${convId}/typing`, (event) => {
+      const e = event as { userId?: number | string; userName?: string; isTyping?: boolean };
+      const uid = Number(e?.userId);
+      if (!uid || uid === Number(currentUserId)) return;
+      if (e.isTyping) typingSeenRef.current.set(uid, { userName: e.userName || 'Ai đó', at: Date.now() });
+      else typingSeenRef.current.delete(uid);
+      refreshTyping();
+    });
+    const expireTimer = setInterval(refreshTyping, 2000);
+
+    // Dự phòng: chưa có WebSocket → hỏi REST dày như trước; đã có → chỉ đối soát thưa
+    const msgTimer = setInterval(syncLatestMessages, stompConnected ? 15000 : 2500);
+    const typingTimer = stompConnected
+      ? null
+      : setInterval(async () => {
+          const typers = await fetchTypingApi(convId);
+          setActiveTypingUsers(typers.filter((t) => Number(t.userId) !== Number(currentUserId)));
+        }, 1500);
+
+    return () => {
+      offMessages();
+      offTyping();
+      clearInterval(expireTimer);
+      clearInterval(msgTimer);
+      if (typingTimer) clearInterval(typingTimer);
+    };
+  }, [visible, convId, stompConnected, syncLatestMessages, currentUserId]);
+
+  // Gửi trạng thái đang nhập qua WebSocket; chưa kết nối thì gửi bằng REST
+  const sendTyping = (isTyping: boolean) => {
+    if (!convId) return;
+    const sent = publishStomp('/app/chat.typing', {
+      conversationId: convId,
+      userId: currentUserId,
+      userName: currentUserName,
+      isTyping,
+    });
+    if (!sent) sendTypingApi(convId, currentUserId, currentUserName, isTyping).catch(() => {});
+  };
 
   // ─── 4. Handle Typing in TextInput ───
   const handleInputChange = (text: string) => {
     setInputText(text);
     if (!convId) return;
 
-    sendTypingApi(convId, currentUserId, currentUserName, true).catch(() => {});
+    sendTyping(true);
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
-      sendTypingApi(convId, currentUserId, currentUserName, false).catch(() => {});
+      sendTyping(false);
     }, 2500);
   };
 
@@ -685,7 +738,7 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
         ) : messages.length === 0 ? (
           <View style={styles.emptyMessagesWrap}>
             <Text style={styles.emptyMessagesText}>
-              Chưa có tin nhắn nào. Hãy gửi lời chào đầu tiên! 👋
+              Chưa có tin nhắn nào. Hãy gửi lời chào đầu tiên!
             </Text>
           </View>
         ) : (
@@ -1005,6 +1058,22 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
           />
         )}
 
+        {/* Đang soạn tin: đặt ngoài danh sách để luôn hiện (kể cả khi chưa có tin nhắn) */}
+        {activeTypingUsers.length > 0 ? (
+          <View style={styles.typingIndicatorRow}>
+            <View style={styles.typingBubble}>
+              <View style={styles.typingDotWrap}>
+                <View style={styles.typingDot} />
+                <View style={styles.typingDot} />
+                <View style={styles.typingDot} />
+              </View>
+              <Text style={styles.typingText}>
+                {activeTypingUsers[0].userName || 'Ai đó'} đang soạn tin nhắn...
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         {/* Reply Preview Bar above Input */}
         {replyingTo && (
           <View style={styles.replyingBar}>
@@ -1013,9 +1082,9 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
               <Text style={styles.replyingToTitle}>Đang trả lời {replyingTo.senderName}</Text>
               <Text style={styles.replyingToExcerpt} numberOfLines={1}>
                 {replyingTo.type === 'IMAGE'
-                  ? '📷 [Hình ảnh]'
+                  ? '[Hình ảnh]'
                   : replyingTo.type === 'FILE'
-                  ? '📄 [Tệp đính kèm]'
+                  ? '[Tệp đính kèm]'
                   : replyingTo.content}
               </Text>
             </View>
@@ -1255,8 +1324,11 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   emptyMessagesWrap: {
+    flex: 1,
     paddingVertical: 40,
+    paddingHorizontal: 24,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyMessagesText: {
     fontSize: 13,
@@ -1544,7 +1616,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 4,
     marginBottom: 8,
-    marginLeft: 4,
+    marginLeft: 16,
   },
   typingBubble: {
     flexDirection: 'row',

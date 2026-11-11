@@ -4,6 +4,9 @@ import { useRouter } from 'expo-router';
 import { AlertCircle, BookOpen, CheckCircle2, HelpCircle, Layers, Target, Zap } from '@/src/components/ds/icons';
 import { ds, dsFont, dsRadius, dsSize } from '@/src/theme/ds';
 import { ProgressBar, feedback } from '@/src/components/ds';
+import { useQueryClient } from '@tanstack/react-query';
+import { AlertCircle, BookOpen, CheckCircle2, HelpCircle, Layers, Target, Zap } from 'lucide-react-native';
+import { colors } from '@/src/theme';
 import { claimDailyQuestRewardApi, DailyQuestIconKey, DailyQuestItem } from '../../data/dashboardApi';
 import { useDailyQuestsQuery } from '../../application/useDashboard';
 
@@ -25,6 +28,8 @@ export const DailyQuestList: React.FC<DailyQuestListProps> = ({ limit }) => {
   const router = useRouter();
   const { data, isLoading, isError, refetch } = useDailyQuestsQuery();
   const [claiming, setClaiming] = useState(false);
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   if (isLoading) {
     return (
@@ -61,12 +66,16 @@ export const DailyQuestList: React.FC<DailyQuestListProps> = ({ limit }) => {
 
   const handleClaim = async () => {
     setClaiming(true);
+    setClaimError(null);
     try {
       await claimDailyQuestRewardApi(data.questId);
       feedback.success();
       await refetch();
     } catch (e) {
       console.warn('[DailyQuestList] claim failed:', e);
+      await Promise.all([refetch(), queryClient.invalidateQueries({ queryKey: ['user-stats'] })]);
+    } catch (e: any) {
+      setClaimError(e?.response?.data?.message || e?.message || 'Không nhận được thưởng, vui lòng thử lại');
     } finally {
       setClaiming(false);
     }
@@ -114,6 +123,7 @@ export const DailyQuestList: React.FC<DailyQuestListProps> = ({ limit }) => {
       ) : data.isClaimed ? (
         <Text style={st.claimedText}>Đã nhận thưởng hôm nay</Text>
       ) : null}
+      {claimError ? <Text style={st.claimError}>{claimError}</Text> : null}
     </View>
   );
 };
@@ -161,6 +171,7 @@ const st = StyleSheet.create({
     paddingVertical: 13,
     marginTop: 4,
   },
-  claimText: { color: ds.ink, fontFamily: dsFont.bold, fontSize: dsSize.base },
-  claimedText: { textAlign: 'center', fontFamily: dsFont.semibold, fontSize: dsSize.xs, color: ds.green, marginTop: 4 },
+  claimText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  claimError: { textAlign: 'center', fontSize: 12, color: colors.danger, marginTop: 6 },
+  claimedText: { textAlign: 'center', fontSize: 12, color: colors.success, fontWeight: '600', marginTop: 4 },
 });

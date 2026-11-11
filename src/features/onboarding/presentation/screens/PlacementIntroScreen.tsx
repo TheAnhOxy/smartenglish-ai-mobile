@@ -2,9 +2,10 @@ import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, BarChart2, ClipboardCheck, Clock, Lock } from 'lucide-react-native';
+import { BarChart2, ClipboardCheck, Clock, Lock } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
 import { AuthButton } from '@/src/features/auth/presentation/components/AuthUI';
+import { BackButton } from '@/src/core/components/BackButton';
 
 const INFO = [
   { Icon: Clock, text: 'Khoảng 3 phút' },
@@ -21,9 +22,7 @@ export const PlacementIntroScreen = () => {
       className="flex-1 bg-surface dark:bg-darkBg px-6"
       style={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }}
     >
-      <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Quay lại" className="w-10 h-10 -ml-2 items-center justify-center">
-        <ArrowLeft size={20} color={AppColors.neutralInk} />
-      </Pressable>
+      <BackButton onPress={() => router.back()} />
 
       <View className="flex-1 items-center justify-center">
         <View className="w-20 h-20 rounded-full bg-primary/10 items-center justify-center mb-5">

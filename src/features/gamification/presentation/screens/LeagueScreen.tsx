@@ -2,12 +2,13 @@ import React, { useCallback } from 'react';
 import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AlertCircle, ArrowLeft, ShoppingBag, Trophy } from 'lucide-react-native';
+import { AlertCircle, ShoppingBag, Trophy } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { UserAvatar } from '@/src/core/components/UserAvatar';
 import { useLeagueLeaderboardQuery } from '../../application/useGamification';
 import type { LeaderboardMember } from '../../data/leagueApi';
+import { BackButton } from '@/src/core/components/BackButton';
 
 const PODIUM_ORDER = [1, 0, 2]; // hạng 2 - hạng 1 - hạng 3
 
@@ -64,9 +65,7 @@ export const LeagueScreen = () => {
   return (
     <View className="flex-1 bg-surface dark:bg-darkBg px-5" style={{ paddingTop: insets.top + 8 }}>
       <View className="flex-row items-center justify-between mb-4">
-        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Quay lại" className="w-10 h-10 -ml-2 items-center justify-center">
-          <ArrowLeft size={20} color={AppColors.neutralInk} />
-        </Pressable>
+        <BackButton onPress={() => router.back()} />
         <Text className="text-base font-bold text-neutralInk dark:text-white">Bảng xếp hạng tuần</Text>
         <Pressable
           onPress={() => router.push('/(student)/shop')}
