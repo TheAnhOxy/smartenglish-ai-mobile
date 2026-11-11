@@ -1,47 +1,60 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ArrowLeft } from 'lucide-react-native';
+import { colors } from '@/src/theme';
+import { useWritingSession } from '../../application/useAiWriting';
+import { BackButton } from '@/src/core/components/BackButton';
 
+/** Đối chiếu bài gốc với bản AI viết lại. */
 export const WritingCompareScreen = () => {
   const router = useRouter();
-  const { original, rewritten } = useLocalSearchParams<{ original: string; rewritten: string }>();
+  const insets = useSafeAreaInsets();
+  const { text, result, setText, setResult } = useWritingSession();
+
+  const finish = () => {
+    setText('');
+    setResult(null);
+    router.replace('/(student)/home' as never);
+  };
 
   return (
-    <View className="flex-1 bg-surface pt-14 px-6 justify-between pb-6">
-      <View className="flex-1">
-        <Pressable onPress={() => router.back()} className="mb-4">
-          <Text className="text-primary font-bold text-sm">← Phân Tích Chi Tiết</Text>
-        </Pressable>
-
-        <Text className="text-2xl font-bold text-neutralInk mb-1">So Sánh Bản Viết AI</Text>
-        <Text className="text-xs text-neutralGray mb-6">Đối chiếu bài viết gốc và phiên bản AI tối ưu từ vựng</Text>
-
-        {/* Dual-Column Split Comparison */}
-        <View className="flex-1 flex-row gap-3">
-          {/* Column 1: Original */}
-          <View className="flex-1 bg-cardWhite p-4 rounded-2xl border border-gray-200">
-            <Text className="text-xs font-bold text-error uppercase mb-2">Bài Gốc Của Bạn</Text>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text className="text-xs text-neutralInk leading-5">{original}</Text>
-            </ScrollView>
-          </View>
-
-          {/* Column 2: Rewritten AI */}
-          <View className="flex-1 bg-secondary/5 p-4 rounded-2xl border border-secondary/20">
-            <Text className="text-xs font-bold text-secondary uppercase mb-2">Bản AI Tối Ưu</Text>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text className="text-xs text-neutralInk leading-5 font-medium">{rewritten}</Text>
-            </ScrollView>
-          </View>
-        </View>
+    <View style={[s.root, { paddingTop: insets.top + 8 }]}>
+      <View style={s.header}>
+        <BackButton onPress={() => router.back()} />
+        <Text style={s.title}>So sánh bản viết</Text>
+        <View style={s.iconBtn} />
       </View>
-
-      <Pressable
-        onPress={() => router.push('/(student)/practice' as any)}
-        className="bg-primary py-3.5 rounded-xl items-center shadow-md active:bg-primaryDark mt-4"
-      >
-        <Text className="text-white font-bold text-base">Hoàn Thành & Trở Về</Text>
-      </Pressable>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 100, gap: 14 }}>
+        <View style={s.card}>
+          <Text style={s.label}>Bài gốc của bạn</Text>
+          <Text style={s.body}>{text}</Text>
+        </View>
+        <View style={[s.card, s.cardAi]}>
+          <Text style={[s.label, { color: colors.primary }]}>Bản AI viết lại</Text>
+          <Text style={s.body}>{result?.rewritten_text ?? 'Chưa có bản viết lại.'}</Text>
+        </View>
+      </ScrollView>
+      <View style={[s.footer, { paddingBottom: insets.bottom + 12 }]}>
+        <Pressable onPress={finish} style={s.primaryBtn}>
+          <Text style={s.primaryText}>Hoàn thành</Text>
+        </Pressable>
+      </View>
     </View>
   );
 };
+
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.bg },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, marginBottom: 8 },
+  iconBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 16, fontWeight: '700', color: colors.text },
+  card: { backgroundColor: colors.surface, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 14, gap: 8 },
+  cardAi: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  label: { fontSize: 12, fontWeight: '700', color: colors.textSoft, textTransform: 'uppercase' },
+  body: { fontSize: 15, lineHeight: 23, color: colors.text },
+  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 20, paddingTop: 12, backgroundColor: colors.bg },
+  primaryBtn: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14 },
+  primaryText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+});
