@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { subscribeTopic, useStompConnected } from '@/src/core/realtime/stompClient';
 import {
   View,
   Text,
@@ -308,15 +309,23 @@ export const SocialFeedScreen = () => {
     }, [])
   );
 
-  // Realtime Polling for Conversations List & Friend Requests
+  // Realtime qua WebSocket: tin nhắn mới, lời mời kết bạn → tải lại ngay; REST chỉ đối soát
+  const stompConnected = useStompConnected();
   useEffect(() => {
-    if (!isFocused) return undefined;
+    if (!isFocused || !currentUserId) return undefined;
+    const off = subscribeTopic(`/topic/user/${currentUserId}`, () => {
+      loadConversations();
+      loadRequests();
+    });
     const timer = setInterval(() => {
       loadConversations();
       loadRequests();
-    }, 3000);
-    return () => clearInterval(timer);
-  }, [loadConversations, loadRequests, isFocused]);
+    }, stompConnected ? 30000 : 3000);
+    return () => {
+      off();
+      clearInterval(timer);
+    };
+  }, [loadConversations, loadRequests, isFocused, currentUserId, stompConnected]);
 
   // ─── Realtime Presence: Heartbeat & Online Users Sync ───
   useEffect(() => {
