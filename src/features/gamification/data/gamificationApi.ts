@@ -52,7 +52,6 @@ export interface ShopItem {
   costGems: number;
   costCoins: number;
   iconUrl?: string;
-  emojiIcon?: string;
 }
 
 /**
@@ -149,41 +148,26 @@ export const claimDailyQuestRewardApi = async (questId: string, userId?: string)
  * GET /api/v1/learning/gamification/shop/items
  */
 export const fetchShopItemsApi = async (): Promise<ShopItem[]> => {
-  try {
-    const response = await apiClient.get<any>('/api/v1/learning/gamification/shop/items');
-    const data = response.data?.data || response.data;
-    if (Array.isArray(data)) {
-      return data.map((item: any) => ({
-        id: String(item.id || ''),
-        itemType: item.itemType || item.type || '',
-        name: item.name || item.nameVi || '',
-        descriptionVi: item.descriptionVi || item.description || '',
-        costGems: item.costGems || 0,
-        costCoins: item.costCoins || 0,
-        iconUrl: item.iconUrl || undefined,
-        emojiIcon: item.emojiIcon || undefined
-      }));
-    }
-  } catch (err) {
-    console.warn('[Gamification] fetchShopItemsApi error:', err);
-  }
-  return [];
+  const response = await apiClient.get<any>('/api/v1/learning/gamification/shop/items');
+  const data = response.data?.data ?? response.data;
+  if (!Array.isArray(data)) return [];
+  return data.map((item: any) => ({
+    id: String(item.itemId ?? item.id ?? ''),
+    itemType: item.itemType ?? '',
+    name: item.nameVi ?? item.name ?? '',
+    descriptionVi: item.descriptionVi ?? '',
+    costGems: Number(item.priceGems ?? 0),
+    costCoins: Number(item.priceCoins ?? 0),
+    iconUrl: item.iconUrl || undefined,
+  }));
 };
 
 /**
- * POST /api/v1/learning/gamification/shop/buy
+ * POST /api/v1/learning/gamification/shop/buy — trả về bảng chỉ số mới (coin, số vật phẩm)
  */
-export const buyShopItemApi = async (itemId: string | number, userId?: string): Promise<GamificationDashboard | null> => {
-  const uid = userId || getCurrentUserId();
-  try {
-    const response = await apiClient.post<any>('/api/v1/learning/gamification/shop/buy', {
-      shopItemId: Number(itemId)
-    });
-    return response.data?.data || response.data || null;
-  } catch (err: any) {
-    console.warn('[Gamification] buyShopItemApi error:', err?.response?.data || err.message);
-    throw err;
-  }
+export const buyShopItemApi = async (itemId: string, quantity: number = 1): Promise<GamificationDashboard | null> => {
+  const response = await apiClient.post<any>('/api/v1/learning/gamification/shop/buy', { itemId, quantity });
+  return response.data?.data ?? response.data ?? null;
 };
 
 /**
