@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AlertCircle, ArrowLeft } from 'lucide-react-native';
+import { AlertCircle } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
 import { useClassDetail } from '../../application/useClassMembership';
 import { ClassCurriculumTab } from '../components/ClassCurriculumTab';
 import { ClassMembersTab } from '../components/ClassMembersTab';
 import { StudentAssignmentsScreen } from './StudentAssignmentsScreen';
 import { StudentGradesTab } from './StudentGradesTab';
+import { BackButton } from '@/src/core/components/BackButton';
 
 type DetailTab = 'curriculum' | 'assignments' | 'grades' | 'members';
 
@@ -64,9 +65,7 @@ export const StudentClassDetailScreen = () => {
         style={{ paddingTop: insets.top + 8 }}
       >
         <View className="flex-row items-center mb-2">
-          <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Quay lại" className="w-10 h-10 items-center justify-center -ml-2">
-            <ArrowLeft size={20} color={AppColors.neutralInk} />
-          </Pressable>
+          <BackButton onPress={() => router.back()} />
           <Text className="flex-1 text-base font-bold text-neutralInk dark:text-white" numberOfLines={1}>
             {currentClass.name}
           </Text>

@@ -2,13 +2,15 @@ import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AlertCircle, ArrowLeft, Crown, GraduationCap, Plus } from 'lucide-react-native';
+import { AlertCircle, Crown, GraduationCap, Plus } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { useStudentClasses } from '../../application/useClassMembership';
 import type { StudentClassDTO } from '../../data/classApi';
 import { ClassCard } from '../components/ClassCard';
 import { JoinClassModal } from './JoinClassModal';
+import { BackButton } from '@/src/core/components/BackButton';
+import { hasActivePremium } from '@/src/core/utils/plan';
 
 const FREE_MAX_CLASSES = 3;
 
@@ -19,7 +21,7 @@ export const StudentClassesScreen = () => {
   const { data: classes = [], isLoading, isError, error, refetch, isRefetching } = useStudentClasses();
   const [showJoinModal, setShowJoinModal] = useState(false);
 
-  const isPremium = !!currentUser?.plan && currentUser.plan !== 'free';
+  const isPremium = hasActivePremium(currentUser);
   const classCount = classes.length;
   const isLimitReached = !isPremium && classCount >= FREE_MAX_CLASSES;
 
@@ -85,9 +87,7 @@ export const StudentClassesScreen = () => {
         className="bg-white dark:bg-darkCard border-b border-gray-100 dark:border-gray-800 pb-3 px-4 flex-row justify-between items-center"
         style={{ paddingTop: insets.top + 8 }}
       >
-        <Pressable onPress={goBack} hitSlop={10} accessibilityLabel="Quay lại" className="w-10 h-10 items-center justify-center">
-          <ArrowLeft size={20} color={AppColors.neutralInk} />
-        </Pressable>
+        <BackButton onPress={goBack} />
         <Text className="text-base font-bold text-neutralInk dark:text-white">Lớp học của tôi</Text>
         <Pressable
           onPress={() => setShowJoinModal(true)}
