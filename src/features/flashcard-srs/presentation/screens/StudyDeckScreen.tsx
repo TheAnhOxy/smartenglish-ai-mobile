@@ -485,7 +485,7 @@ export const StudyDeckScreen = () => {
       {/* Hint Banner */}
       <View style={styles.hintBanner}>
         <Text style={styles.hintText}>
-          👈 Vuốt trái: <Text style={{ color: palette.danger, fontWeight: '700' }}>Chưa thuộc</Text> | Vuốt phải: <Text style={{ color: palette.success, fontWeight: '700' }}>Thuộc</Text> 👉
+          Vuốt trái: <Text style={{ color: palette.danger, fontWeight: '700' }}>Chưa thuộc</Text> | Vuốt phải: <Text style={{ color: palette.success, fontWeight: '700' }}>Thuộc</Text>
         </Text>
       </View>
 
@@ -567,7 +567,7 @@ export const StudyDeckScreen = () => {
 
                   {!!currentCard.collocation && (
                     <View style={styles.collocationBox}>
-                      <Text style={styles.collocationText}>💡 Cụm từ: {currentCard.collocation}</Text>
+                      <Text style={styles.collocationText}>Cụm từ: {currentCard.collocation}</Text>
                     </View>
                   )}
                 </View>

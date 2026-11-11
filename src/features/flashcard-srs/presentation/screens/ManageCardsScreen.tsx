@@ -83,7 +83,7 @@ export const ManageCardsScreen = () => {
       </View>
 
       {loading && (
-        <ActivityIndicator color="#FF6B35" size="large" className="my-6" />
+        <ActivityIndicator color="#0EA5E9" size="large" className="my-6" />
       )}
 
       {!loading && error && (
@@ -119,7 +119,7 @@ export const ManageCardsScreen = () => {
                     className="p-1 rounded-full bg-primary/10 active:opacity-70"
                     accessibilityLabel="Phát âm"
                   >
-                    <Volume2 size={14} color="#FF6B35" />
+                    <Volume2 size={14} color="#0EA5E9" />
                   </Pressable>
                 </View>
                 {item.ipaUs ? <Text className="text-xs text-secondary">{item.ipaUs}</Text> : null}

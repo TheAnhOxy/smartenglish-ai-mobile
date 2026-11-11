@@ -46,10 +46,11 @@ export const useSystemDecksQuery = () => {
 /**
  * Query hook: Lấy danh sách bộ thẻ cá nhân của người dùng
  */
-export const useMyDecksQuery = () => {
+export const useMyDecksQuery = (enabled: boolean = true) => {
   return useQuery({
     queryKey: decksKeys.myDecks(),
     queryFn: () => fetchMyDecksApi(),
+    enabled,
     staleTime: 2 * 60 * 1000,
   });
 };

@@ -32,6 +32,7 @@ import {
   AlertCircle,
 } from 'lucide-react-native';
 import { useAuthStore } from '@/src/core/flows/authStore';
+import { GuestLoginPrompt } from '@/src/core/components/GuestLoginPrompt';
 import {
   fetchSystemDecksApi,
   fetchMyDecksApi,
@@ -42,6 +43,7 @@ import { getTopicsApi } from '../../data/vocabularyApi';
 import { colors, palette, font } from '@/src/theme';
 import { usePressSpring } from '@/src/hooks/usePressSpring';
 import { TabLoadingState } from '@/src/components/ui/TabLoadingState';
+import { UserAvatar } from '@/src/core/components/UserAvatar';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - 48 - 14) / 2;
@@ -239,11 +241,18 @@ export const DecksScreen = () => {
     setLoading(true);
     setError(null);
     try {
-      const [sys, mine, contentTopics] = await Promise.all([
+      // Khách vãng lai: chỉ tải bộ thẻ hệ thống (công khai); "Của tôi" cần đăng nhập
+      const [sysRes, mineRes, topicsRes] = await Promise.allSettled([
         fetchSystemDecksApi(),
-        fetchMyDecksApi(),
+        currentUser ? fetchMyDecksApi() : Promise.resolve([] as DeckItemDTO[]),
         getTopicsApi(),
       ]);
+      if (sysRes.status === 'rejected' && topicsRes.status === 'rejected') {
+        throw topicsRes.reason;
+      }
+      const sys = sysRes.status === 'fulfilled' ? sysRes.value : [];
+      const mine = mineRes.status === 'fulfilled' ? mineRes.value : [];
+      const contentTopics = topicsRes.status === 'fulfilled' ? topicsRes.value : [];
 
       if (contentTopics && contentTopics.length > 0) {
         const mappedSystemTopics: DeckItemDTO[] = contentTopics.map((t) => ({
@@ -274,7 +283,7 @@ export const DecksScreen = () => {
     loadData();
   }, []);
 
-  const isUserPremium = currentUser?.plan !== 'free';
+  const isUserPremium = !!currentUser && currentUser.plan !== 'free';
 
   const handleCreateDeck = async () => {
     if (!newDeckName.trim()) return;
@@ -338,14 +347,7 @@ export const DecksScreen = () => {
     >
       {/* Top Header Bar */}
       <View style={styles.headerRow}>
-        <Image
-          source={{
-            uri:
-              currentUser?.avatar_url ||
-              'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200',
-          }}
-          style={styles.avatar}
-        />
+        <UserAvatar uri={currentUser?.avatar_url} size={40} style={styles.avatar} />
 
         <View style={styles.headerCenter}>
           <Text style={styles.headerBrand}>SMARTENGLISH AI</Text>
@@ -403,8 +405,11 @@ export const DecksScreen = () => {
         />
       )}
 
+      {/* Khách vãng lai mở tab "Của tôi" → mời đăng nhập */}
+      {activeTab === 'MY_DECKS' && !currentUser && <GuestLoginPrompt title="Đăng nhập để tạo và lưu bộ thẻ của riêng bạn" />}
+
       {/* Error state */}
-      {!loading && error && (
+      {!loading && error && (activeTab === 'SYSTEM' || !!currentUser) && (
         <View style={styles.errorContainer}>
           <AlertCircle size={38} color="#EF4444" />
           <Text style={styles.errorTitle}>Lỗi kết nối máy chủ</Text>
@@ -425,7 +430,7 @@ export const DecksScreen = () => {
         </View>
       )}
 
-      {!loading && !error && currentList.length === 0 && activeTab === 'MY_DECKS' && (
+      {!loading && !error && !!currentUser && currentList.length === 0 && activeTab === 'MY_DECKS' && (
         <View style={styles.emptyContainer}>
           <BookOpen size={40} color="#94A3B8" />
           <Text style={styles.emptyTitle}>Chưa có bộ thẻ</Text>
@@ -434,7 +439,7 @@ export const DecksScreen = () => {
       )}
 
       {/* Decks 2x2 Grid */}
-      {!loading && !error && (
+      {!loading && !error && (activeTab === 'SYSTEM' || !!currentUser) && (
         <View style={styles.gridContainer}>
           {currentList.map((deck, idx) => (
             <FlashcardDeckCard
