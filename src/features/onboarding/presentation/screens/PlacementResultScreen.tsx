@@ -1,257 +1,92 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useOnboardingStore } from '../../application/useOnboardingStore';
+import { ClipboardCheck } from 'lucide-react-native';
+import { AppColors } from '@/src/core/theme/colors';
 import { useAuthStore } from '@/src/core/flows/authStore';
-import { colors } from '@/src/theme/colors';
-import { ArrowRight, Sparkles } from 'lucide-react-native';
+import { AuthButton } from '@/src/features/auth/presentation/components/AuthUI';
+import { useOnboardingStore } from '../../application/useOnboardingStore';
 
 const SKILLS = [
-  { key: 'vocabulary', label: 'Từ Vựng (Vocabulary)', defaultVal: 80, color: colors.secondary },
-  { key: 'grammar', label: 'Ngữ Pháp (Grammar)', defaultVal: 70, color: colors.primary },
-  { key: 'reading', label: 'Đọc Hiểu (Reading)', defaultVal: 85, color: colors.success },
-  { key: 'listening', label: 'Nghe Hiểu (Listening)', defaultVal: 75, color: colors.warning },
+  { key: 'vocabulary', label: 'Từ vựng' },
+  { key: 'grammar', label: 'Ngữ pháp' },
+  { key: 'reading', label: 'Đọc hiểu' },
+  { key: 'listening', label: 'Nghe hiểu' },
 ] as const;
 
 export const PlacementResultScreen = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { result } = useOnboardingStore();
-  const { currentUser } = useAuthStore();
+  const { currentUser, updateCurrentUser } = useAuthStore();
 
-  const cefr = result?.cefr_level || 'B1';
-  const scorePct = result?.score_pct != null ? result.score_pct : 80;
-
-  const handleFinishOnboarding = () => {
+  const finish = () => {
     if (currentUser) {
-      currentUser.onboarding_completed = true;
-      router.replace('/(student)/home' as any);
+      updateCurrentUser({ onboarding_completed: true });
+      router.replace('/(student)/home');
     } else {
-      router.replace('/(auth)/register' as any);
+      router.replace('/(auth)/register');
     }
   };
 
-  const safeTop = (insets.top || 16) + 12;
-  const safeBottom = Math.max(insets.bottom, 24) + 16;
+  // Không có kết quả thật (mở thẳng màn này / test lỗi) → không hiển thị số liệu giả
+  if (!result) {
+    return (
+      <View className="flex-1 bg-surface dark:bg-darkBg items-center justify-center px-8" style={{ paddingTop: insets.top }}>
+        <ClipboardCheck size={28} color={AppColors.neutralGray} />
+        <Text className="text-sm text-neutralGray text-center my-4">Chưa có kết quả bài kiểm tra</Text>
+        <View className="w-full">
+          <AuthButton label="Làm bài kiểm tra" onPress={() => router.replace('/(auth)/placement-intro')} />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <ScrollView
-      style={s.container}
-      contentContainerStyle={[s.contentContainer, { paddingTop: safeTop, paddingBottom: safeBottom }]}
+      className="flex-1 bg-surface dark:bg-darkBg"
+      contentContainerStyle={{ paddingTop: insets.top + 32, paddingBottom: insets.bottom + 24, paddingHorizontal: 24 }}
       showsVerticalScrollIndicator={false}
     >
-      {/* Header Result */}
-      <View style={s.headerSection}>
-        <Text style={s.overlineLabel}>Kết Quả Chẩn Đoán Trình Độ</Text>
-
-        {/* CEFR Badge */}
-        <View style={s.cefrBadge}>
-          <Text style={s.cefrText}>{cefr}</Text>
+      <View className="items-center mb-6">
+        <View className="w-24 h-24 rounded-full bg-primary/10 items-center justify-center mb-3">
+          <Text className="text-3xl font-bold text-primary">{result.cefr_level}</Text>
         </View>
-
-        <Text style={s.cefrTitle}>Trình Độ Khung CEFR: {cefr}</Text>
-        <Text style={s.accuracyText}>Độ chính xác bài test: {scorePct}%</Text>
+        <Text className="text-xl font-bold text-neutralInk dark:text-white">Trình độ {result.cefr_level}</Text>
+        <Text className="text-sm text-neutralGray mt-1">Đúng {result.score_pct}%</Text>
       </View>
 
-      {/* Skills Breakdown Card */}
-      <View style={s.breakdownCard}>
-        <Text style={s.cardTitle}>Chi Tiết Năng Lực 4 Kỹ Năng</Text>
-
-        <View style={s.skillsList}>
-          {SKILLS.map((skill, i) => {
-            const pct = (result?.skills as any)?.[skill.key] ?? skill.defaultVal;
+      {result.skills ? (
+        <View className="bg-white dark:bg-darkCard rounded-2xl border border-gray-100 dark:border-gray-800 p-4 mb-4">
+          {SKILLS.map(({ key, label }) => {
+            const pct = result.skills[key];
+            if (pct == null) return null;
             return (
-              <View key={skill.key} style={[s.skillRow, i < SKILLS.length - 1 && s.skillRowBorder]}>
-                <View style={s.skillLabelRow}>
-                  <Text style={s.skillLabel}>{skill.label}</Text>
-                  <Text style={[s.skillPct, { color: skill.color }]}>{pct}%</Text>
+              <View key={key} className="mb-3 last:mb-0">
+                <View className="flex-row justify-between mb-1">
+                  <Text className="text-sm text-neutralInk dark:text-white">{label}</Text>
+                  <Text className="text-sm font-bold text-primary">{pct}%</Text>
                 </View>
-                <View style={s.progressTrack}>
-                  <View style={[s.progressFill, { width: `${pct}%`, backgroundColor: skill.color }]} />
+                <View className="h-2 rounded-full bg-surface dark:bg-darkBg overflow-hidden">
+                  <View className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, Math.max(0, pct))}%` }} />
                 </View>
               </View>
             );
           })}
         </View>
-      </View>
+      ) : null}
 
-      {/* Recommendation Card */}
-      {(result?.recommendedGoal || result?.feedbackVi) && (
-        <View style={s.recommendationCard}>
-          {result?.recommendedGoal && (
-            <View style={s.goalBadgeRow}>
-              <Sparkles color={colors.primary} size={16} strokeWidth={2.5} />
-              <Text style={s.goalBadgeText}>Lộ trình khuyến nghị: {result.recommendedGoal}</Text>
-            </View>
-          )}
-          {result?.feedbackVi && (
-            <Text style={s.feedbackText}>{result.feedbackVi}</Text>
-          )}
+      {result.recommendedGoal || result.feedbackVi ? (
+        <View className="bg-white dark:bg-darkCard rounded-2xl border border-gray-100 dark:border-gray-800 p-4 mb-6">
+          {result.recommendedGoal ? (
+            <Text className="text-sm font-bold text-neutralInk dark:text-white mb-1">Lộ trình gợi ý: {result.recommendedGoal}</Text>
+          ) : null}
+          {result.feedbackVi ? <Text className="text-sm text-neutralGray leading-5">{result.feedbackVi}</Text> : null}
         </View>
-      )}
+      ) : null}
 
-      {/* Action CTA */}
-      <TouchableOpacity
-        onPress={handleFinishOnboarding}
-        activeOpacity={0.85}
-        style={s.ctaBtn}
-      >
-        <Text style={s.ctaBtnText}>Khám Phá Lộ Trình Học Ngay</Text>
-        <ArrowRight color="#FFFFFF" size={18} strokeWidth={2.5} />
-      </TouchableOpacity>
+      <AuthButton label={currentUser ? 'Bắt đầu học' : 'Tạo tài khoản để lưu kết quả'} onPress={finish} />
     </ScrollView>
   );
 };
-
-const s = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
-  contentContainer: {
-    paddingHorizontal: 24,
-  },
-  headerSection: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  overlineLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.secondary,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 16,
-  },
-  cefrBadge: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 14,
-    elevation: 6,
-  },
-  cefrText: {
-    fontSize: 34,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: -1,
-  },
-  cefrTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  accuracyText: {
-    fontSize: 13,
-    color: colors.textSoft,
-  },
-  breakdownCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 18,
-    marginBottom: 16,
-    shadowColor: colors.text,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 1,
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 16,
-  },
-  skillsList: {
-    gap: 0,
-  },
-  skillRow: {
-    paddingVertical: 12,
-  },
-  skillRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  skillLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  skillLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  skillPct: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  progressTrack: {
-    height: 8,
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  recommendationCard: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    padding: 16,
-    marginBottom: 24,
-  },
-  goalBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-  },
-  goalBadgeText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  feedbackText: {
-    fontSize: 13,
-    color: colors.text,
-    lineHeight: 19,
-  },
-  ctaBtn: {
-    backgroundColor: colors.primary,
-    borderWidth: 1.5,
-    borderColor: colors.primaryDeep,
-    paddingVertical: 16,
-    borderRadius: 18,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  ctaBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 16,
-    letterSpacing: 0.2,
-  },
-});

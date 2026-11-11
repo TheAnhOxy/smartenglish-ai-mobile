@@ -29,22 +29,90 @@ export interface ClassMemberDTO {
   joinedAt: string;
 }
 
+export type AssignmentStatus = 'Chưa làm' | 'Đã nộp' | 'Đạt' | 'Chưa đạt';
+
 export interface ClassAssignmentDTO {
   id: string | number;
   classId: string | number;
   title: string;
   instructions?: string;
-  assignmentType: 'quiz' | 'vocab_deck' | 'writing' | 'roleplay' | 'reading' | 'exam';
+  assignmentType: 'quiz' | 'vocab_deck' | 'writing' | 'essay' | 'roleplay' | 'reading' | 'exam' | 'homework' | 'listening' | 'speaking' | 'grammar' | 'document' | string;
   referenceId?: string | number;
-  dueDate: string;
-  passingScore?: number;
+  referenceTitle?: string;
+  attachmentUrl?: string;
+  attachmentName?: string;
+  dueDate?: string | null;
+  passingScore: number;
   isGraded?: boolean;
-  status?: 'Chưa làm' | 'Đang làm' | 'Đã nộp' | 'Đạt' | 'Chưa đạt';
-  submittedCount?: number;
-  score?: number | string;
-  grade?: number | string;
-  feedback?: string;
+  status: AssignmentStatus;
+  submittedAt?: string | null;
+  submissionText?: string | null;
+  score?: number | null;
+  feedback?: string | null;
 }
+
+interface MySubmissionRaw {
+  status?: 'NOT_SUBMITTED' | 'SUBMITTED' | 'GRADED' | 'LATE';
+  score?: number | string | null;
+  feedbackText?: string | null;
+  submissionText?: string | null;
+  submittedAt?: string | null;
+}
+
+interface AssignmentRaw {
+  id: string | number;
+  classId?: string | number;
+  title: string;
+  instructions?: string;
+  assignmentType?: string;
+  referenceId?: string | number;
+  referenceTitle?: string;
+  attachmentUrl?: string;
+  attachmentName?: string;
+  dueDate?: string | null;
+  passingScore?: number | string | null;
+  isGraded?: boolean;
+  mySubmission?: MySubmissionRaw | null;
+}
+
+const resolveStatus = (sub: MySubmissionRaw | null | undefined, passingScore: number): AssignmentStatus => {
+  if (!sub || !sub.status || sub.status === 'NOT_SUBMITTED') return 'Chưa làm';
+  if (sub.status === 'GRADED' && sub.score != null) {
+    return Number(sub.score) >= passingScore ? 'Đạt' : 'Chưa đạt';
+  }
+  return 'Đã nộp';
+};
+
+const mapAssignment = (a: AssignmentRaw, classId: string | number): ClassAssignmentDTO => {
+  const passingScore = a.passingScore != null ? Number(a.passingScore) : 5;
+  const sub = a.mySubmission;
+  const isGradedSub = sub?.status === 'GRADED';
+  return {
+    id: a.id,
+    classId: a.classId ?? classId,
+    title: a.title,
+    instructions: a.instructions,
+    assignmentType: String(a.assignmentType || 'homework').toLowerCase(),
+    referenceId: a.referenceId,
+    referenceTitle: a.referenceTitle,
+    attachmentUrl: a.attachmentUrl,
+    attachmentName: a.attachmentName,
+    dueDate: a.dueDate ?? null,
+    passingScore,
+    isGraded: a.isGraded !== false,
+    status: resolveStatus(sub, passingScore),
+    submittedAt: sub?.submittedAt ?? null,
+    submissionText: sub?.submissionText ?? null,
+    // Chỉ hiển thị điểm khi giáo viên đã chấm
+    score: isGradedSub && sub?.score != null ? Number(sub.score) : null,
+    feedback: isGradedSub ? sub?.feedbackText ?? null : null,
+  };
+};
+
+const extractErrorMessage = (error: unknown, fallback: string): string => {
+  const e = error as { response?: { data?: { message?: string } }; message?: string };
+  return e?.response?.data?.message || e?.message || fallback;
+};
 
 export interface CourseLessonDTO {
   id: number;
@@ -75,10 +143,10 @@ export const fetchStudentClassesApi = async (_userId?: string): Promise<StudentC
         teacherId: item.teacherId,
         teacherName: item.teacherName || 'Giáo viên',
         courseId: item.courseId,
-        courseTitle: item.courseTitle || 'Chưa gắn giáo trình',
+        courseTitle: item.courseTitle,
         joinCode: item.joinCode || item.join_code,
-        maxStudents: item.maxStudents || item.max_students || 30,
-        cefrTarget: item.cefrTarget || item.cefr_target || 'B1',
+        maxStudents: item.maxStudents ?? item.max_students,
+        cefrTarget: item.cefrTarget ?? item.cefr_target,
         status: item.status || 'ACTIVE',
         startDate: item.startDate,
         endDate: item.endDate,
@@ -154,7 +222,7 @@ export const fetchClassDetailApi = async (classId: string | number): Promise<Stu
         teacherId: data.teacherId,
         teacherName: data.teacherName || 'Giáo viên',
         courseId: data.courseId,
-        courseTitle: data.courseTitle || 'Giáo trình cốt lõi',
+        courseTitle: data.courseTitle,
         joinCode: data.joinCode,
         maxStudents: data.maxStudents,
         cefrTarget: data.cefrTarget,
@@ -205,55 +273,117 @@ export const fetchClassMembersApi = async (classId: string | number): Promise<Cl
  */
 export const fetchStudentAssignmentsApi = async (classId: string | number): Promise<ClassAssignmentDTO[]> => {
   try {
-    const response = await apiClient.get<any>(`/api/v1/teacher/classes/${classId}/assignments`);
-    const data = response.data?.data || response.data;
-    if (Array.isArray(data)) {
-      return data.map((a: any) => ({
-        id: a.id,
-        classId: a.classId || classId,
-        title: a.title,
-        instructions: a.instructions,
-        assignmentType: a.assignmentType || 'quiz',
-        referenceId: a.referenceId,
-        dueDate: a.dueDate || new Date(Date.now() + 86400000 * 3).toISOString(),
-        passingScore: a.passingScore || 70,
-        isGraded: a.isGraded !== false,
-        status: a.status || 'Chưa làm',
-        submittedCount: a.submittedCount || 0,
-      }));
-    }
-    return [];
-  } catch (error: any) {
+    const response = await apiClient.get<{ data?: AssignmentRaw[] } | AssignmentRaw[]>(
+      `/api/v1/teacher/classes/${classId}/assignments`
+    );
+    const body = response.data;
+    const data = Array.isArray(body) ? body : body?.data;
+    return Array.isArray(data) ? data.map((a) => mapAssignment(a, classId)) : [];
+  } catch (error: unknown) {
     console.warn(`[ClassAPI] fetchStudentAssignmentsApi error for class ${classId}:`, error);
-    throw error;
+    throw new Error(extractErrorMessage(error, 'Không thể tải danh sách bài tập'));
+  }
+};
+
+export interface SubmitAssignmentPayload {
+  submissionText?: string;
+  referenceResultId?: number;
+  score?: number;
+  attachmentUrl?: string;
+  attachmentName?: string;
+}
+
+export interface PickedFile {
+  uri: string;
+  name: string;
+  mimeType?: string | null;
+  /** Bản web: DocumentPicker trả về File thật, gửi thẳng thay cho uri */
+  webFile?: Blob;
+}
+
+/**
+ * POST /api/v1/content/upload/file?folder=assignments/submissions
+ * Tải file bài làm của học viên (ảnh chụp, PDF, Word...) lên kho lưu trữ, trả về URL công khai.
+ */
+export const uploadSubmissionFileApi = async (file: PickedFile): Promise<string> => {
+  const formData = new FormData();
+  if (file.webFile) {
+    formData.append('file', file.webFile, file.name);
+  } else {
+    formData.append('file', {
+      uri: file.uri,
+      name: file.name,
+      type: file.mimeType || 'application/octet-stream',
+    } as unknown as Blob);
+  }
+
+  try {
+    const response = await apiClient.post<{ data?: { url?: string } }>(
+      '/api/v1/content/upload/file?folder=assignments/submissions',
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+    const url = response.data?.data?.url;
+    if (!url) throw new Error('Không nhận được đường dẫn file');
+    return url;
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Không thể tải file bài làm lên'));
   }
 };
 
 /**
- * GET /api/v1/content/admin/lessons?courseId={courseId}
- * Lấy danh sách bài học thuộc khóa học đính kèm của lớp
+ * POST /api/v1/teacher/classes/assignments/{assignmentId}/submit
+ * Học viên nộp bài (studentId lấy từ JWT). Giáo viên sẽ chấm điểm sau.
+ */
+export const submitAssignmentApi = async (
+  assignmentId: string | number,
+  payload: SubmitAssignmentPayload
+): Promise<void> => {
+  try {
+    await apiClient.post(`/api/v1/teacher/classes/assignments/${assignmentId}/submit`, payload);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Không thể nộp bài, vui lòng thử lại'));
+  }
+};
+
+interface CurriculumLessonRaw {
+  id: number;
+  courseId?: number;
+  titleVi?: string;
+  titleEn?: string;
+  lessonType?: string;
+  position?: number;
+  estimatedMin?: number;
+  isFreePreview?: boolean;
+}
+
+interface CurriculumCourseRaw {
+  id: number;
+  lessons?: CurriculumLessonRaw[];
+}
+
+/**
+ * GET /api/v1/content/courses/tree
+ * Lấy bài học của khóa học gắn với lớp từ cây lộ trình công khai.
+ * (Trước đây gọi /content/admin/lessons — gateway chặn tài khoản học viên nên tab giáo trình luôn rỗng.)
  */
 export const fetchClassCourseLessonsApi = async (courseId?: number): Promise<CourseLessonDTO[]> => {
   if (!courseId) return [];
 
   try {
-    const response = await apiClient.get<any>(`/api/v1/content/admin/lessons?courseId=${courseId}`);
-    const data = response.data?.data || response.data;
-    if (Array.isArray(data)) {
-      return data.map((lesson: any) => ({
-        id: lesson.id,
-        courseId: lesson.courseId || courseId,
-        titleVi: lesson.titleVi || lesson.title || 'Bài học',
-        titleEn: lesson.titleEn,
-        descriptionVi: lesson.descriptionVi,
-        lessonType: lesson.lessonType || 'VOCABULARY',
-        orderNumber: lesson.orderNumber || 1,
-        estimatedMinutes: lesson.estimatedMinutes || 15,
-        isFreePreview: Boolean(lesson.isFreePreview),
-        isPublished: lesson.isPublished !== false,
-      }));
-    }
-    return [];
+    const response = await apiClient.get<{ data?: CurriculumCourseRaw[] }>('/api/v1/content/courses/tree');
+    const course = (response.data?.data ?? []).find((c) => Number(c.id) === Number(courseId));
+    return (course?.lessons ?? []).map((lesson) => ({
+      id: lesson.id,
+      courseId: lesson.courseId ?? courseId,
+      titleVi: lesson.titleVi || 'Bài học',
+      titleEn: lesson.titleEn,
+      lessonType: lesson.lessonType || 'VOCABULARY',
+      orderNumber: lesson.position ?? 1,
+      estimatedMinutes: lesson.estimatedMin ?? 15,
+      isFreePreview: Boolean(lesson.isFreePreview),
+      isPublished: true,
+    }));
   } catch (error) {
     console.warn(`[ClassAPI] fetchClassCourseLessonsApi error for courseId ${courseId}:`, error);
     return [];

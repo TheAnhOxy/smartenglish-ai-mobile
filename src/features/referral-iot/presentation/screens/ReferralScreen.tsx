@@ -13,11 +13,11 @@ export const ReferralScreen = () => {
         <Text className="text-primary font-bold text-sm">← Hồ Sơ Cá Nhân</Text>
       </Pressable>
 
-      <Text className="text-2xl font-bold text-neutralInk mb-1">Mời Bạn Bè Nhận Premium 🎁</Text>
+      <Text className="text-2xl font-bold text-neutralInk mb-1">Mời Bạn Bè Nhận Premium</Text>
       <Text className="text-xs text-neutralGray mb-6">Mỗi bạn bè đăng ký qua mã của bạn, cả 2 nhận 7 ngày Premium miễn phí</Text>
 
       {isLoading ? (
-        <ActivityIndicator color="#FF6B35" size="large" />
+        <ActivityIndicator color="#0EA5E9" size="large" />
       ) : (
         <View className="gap-6">
           {/* Referral Code Box */}
@@ -32,7 +32,7 @@ export const ReferralScreen = () => {
               onPress={() => alert('Đã sao chép mã giới thiệu vào bộ nhớ tạm!')}
               className="bg-primary px-6 py-2.5 rounded-xl shadow-sm active:bg-primaryDark"
             >
-              <Text className="text-white font-bold text-xs">📋 Sao Chép Mã</Text>
+              <Text className="text-white font-bold text-xs">Sao Chép Mã</Text>
             </Pressable>
           </View>
 

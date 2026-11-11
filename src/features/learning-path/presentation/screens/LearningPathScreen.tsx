@@ -158,7 +158,9 @@ const DynamicPathBackground = () => {
   }));
 
   return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+    // overflow hidden: quả cầu trang trí (top 780) không được tràn ra ngoài, nếu không khung tab chung bị cuộn
+    // khi focus ô nhập ở màn khác (vd. Hội thoại AI bị đẩy lên 74px)
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
       <Animated.View
         style={[
           s.ambientOrb,
@@ -694,7 +696,7 @@ export const LearningPathScreen = () => {
                 </View>
                 <View style={s.chestInfo}>
                   <Text style={s.chestTitle}>
-                    {isChapterAllDone ? '🎉 Đã Hoàn Thành Chương!' : 'Rương Thưởng Cuối Chương'}
+                    {isChapterAllDone ? 'Đã Hoàn Thành Chương!' : 'Rương Thưởng Cuối Chương'}
                   </Text>
                   <Text style={s.chestSub}>
                     {isChapterAllDone

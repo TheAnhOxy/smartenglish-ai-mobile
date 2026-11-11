@@ -5,7 +5,9 @@ import { NotificationItem } from '@/src/core/types/schema';
 export const useNotificationsQuery = () => {
   return useQuery({
     queryKey: ['notifications'],
-    queryFn: () => fetchNotificationsApi()
+    queryFn: () => fetchNotificationsApi(),
+    // Ghi đè staleTime 5 phút mặc định: mở màn thông báo luôn lấy dữ liệu mới nhất
+    staleTime: 0,
   });
 };
 

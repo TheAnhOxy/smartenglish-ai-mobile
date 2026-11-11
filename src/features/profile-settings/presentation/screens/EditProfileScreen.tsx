@@ -45,7 +45,7 @@ export const EditProfileScreen = () => {
   const [phone, setPhone] = useState(currentUser?.phone || '');
   const [bio, setBio] = useState(currentUser?.bio || '');
   const [avatarUrl, setAvatarUrl] = useState(
-    currentUser?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300'
+    currentUser?.avatar_url || ''
   );
   const [countryCode, setCountryCode] = useState(currentUser?.country_code || 'VN');
   const [cefrLevel, setCefrLevel] = useState(currentUser?.cefr_level || 'B1');

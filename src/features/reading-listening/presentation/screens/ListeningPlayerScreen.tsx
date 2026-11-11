@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAudioTrackQuery } from '../../application/useReadingListening';
+import { Headphones } from 'lucide-react-native';
+import { AppColors } from '@/src/core/theme/colors';
 
 export const ListeningPlayerScreen = () => {
   const { audioId } = useLocalSearchParams<{ audioId?: string }>();
@@ -17,7 +19,7 @@ export const ListeningPlayerScreen = () => {
   if (isLoading) {
     return (
       <View className="flex-1 bg-darkBg justify-center items-center">
-        <ActivityIndicator color="#FF6B35" size="large" />
+        <ActivityIndicator color="#0EA5E9" size="large" />
         <Text className="text-xs text-gray-400 mt-2 font-medium">Đang tải bài nghe...</Text>
       </View>
     );
@@ -27,7 +29,7 @@ export const ListeningPlayerScreen = () => {
     return (
       <View className="flex-1 bg-darkBg justify-center items-center px-6">
         <View className="bg-darkCard p-6 rounded-2xl border border-gray-800 items-center shadow-lg w-full max-w-sm">
-          <Text className="text-4xl mb-3">🎧</Text>
+          <View className="mb-3"><Headphones size={36} color={AppColors.neutralGray} /></View>
           <Text className="text-base font-bold text-white mb-1 text-center">Không Thể Tải Bài Nghe</Text>
           <Text className="text-xs text-gray-400 text-center mb-5 leading-5">
             {error instanceof Error ? error.message : 'Bài nghe không tồn tại hoặc đã có lỗi xảy ra khi tải âm thanh.'}
@@ -112,7 +114,7 @@ export const ListeningPlayerScreen = () => {
               }`}
             >
               <Text className={`text-xs font-bold ${abLoop ? 'text-white' : 'text-gray-300'}`}>
-                {abLoop ? '🔁 A-B Loop Bật' : '🔁 Loop Tắt'}
+                {abLoop ? 'A-B Loop Bật' : 'Loop Tắt'}
               </Text>
             </Pressable>
           </View>
@@ -132,7 +134,7 @@ export const ListeningPlayerScreen = () => {
           className="bg-gray-800 py-3 rounded-xl items-center border border-gray-700"
         >
           <Text className="text-xs font-bold text-gray-300">
-            {showSub ? '🙈 Ẩn Phụ Đề Song Ngữ' : '👁️ Bật Phụ Đề Song Ngữ'}
+            {showSub ? 'Ẩn Phụ Đề Song Ngữ' : 'Bật Phụ Đề Song Ngữ'}
           </Text>
         </Pressable>
       </ScrollView>

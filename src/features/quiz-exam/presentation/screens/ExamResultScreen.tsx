@@ -28,6 +28,7 @@ import {
   Award,
 } from 'lucide-react-native';
 import { useExamResultQuery } from '../../application/useExamAttempt';
+import { AssignmentSubmitBanner } from '@/src/features/class-membership/presentation/components/AssignmentSubmitBanner';
 
 import { colors } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
@@ -179,6 +180,12 @@ export function ExamResultScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
       >
+        <AssignmentSubmitBanner
+          referenceId={result.examId}
+          score={result.scorePercentage != null ? result.scorePercentage / 10 : null}
+          referenceResultId={result.attemptId}
+        />
+
         {/* ─── 1. HERO SCORE CARD ─── */}
         <View style={styles.heroCard}>
           <View style={styles.trophyIconWrap}>

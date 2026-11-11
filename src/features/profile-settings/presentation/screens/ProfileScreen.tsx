@@ -30,9 +30,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/src/core/flows/authStore';
+import { useRoleGateStore } from '@/src/core/flows/roleGateStore';
 import { getProfileApi } from '@/src/features/profile-settings/data/profileApi';
 import { colors } from '@/src/theme/colors';
 import { StudentInvoicesModal } from '@/src/features/subscription-paywall/presentation/components/StudentInvoicesModal';
+import { UserAvatar } from '@/src/core/components/UserAvatar';
 
 const BADGES = [
   { icon: Flame, label: 'Người lửa', color: colors.streak, bg: colors.streakSoft },
@@ -45,7 +47,11 @@ export const ProfileScreen = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { currentUser, logout, userStats, updateCurrentUser } = useAuthStore();
+  const { hasPermission, syncRolePermissions } = useRoleGateStore();
   const [isInvoicesModalOpen, setIsInvoicesModalOpen] = useState(false);
+
+  const canUseCommunity = hasPermission('use_community');
+  const canJoinClass = hasPermission('join_class_submit');
 
   const progressWidth = useSharedValue(0);
   useEffect(() => {
@@ -58,6 +64,7 @@ export const ProfileScreen = () => {
       const fetchLatestProfile = async () => {
         try {
           const userId = currentUser?.id ? String(currentUser.id) : undefined;
+          syncRolePermissions();
           if (!userId) return;
 
           const fresh = await getProfileApi(userId);
@@ -108,10 +115,7 @@ export const ProfileScreen = () => {
               className="flex-row items-center gap-4 flex-1 mr-2"
             >
               <View className="relative">
-                <Image
-                  source={{ uri: currentUser?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300' }}
-                  className="w-16 h-16 rounded-full border-2 border-white/40"
-                />
+                <UserAvatar uri={currentUser?.avatar_url} size={64} style={{ borderWidth: 2, borderColor: 'rgba(255,255,255,0.4)' }} />
                 <View className="w-5 h-5 rounded-full bg-[#00BCD4] justify-center items-center absolute bottom-0 right-0 border-2 border-[#0D3B73]">
                   <CheckCircle2 color="#FFFFFF" size={12} strokeWidth={3} />
                 </View>
@@ -234,26 +238,30 @@ export const ProfileScreen = () => {
                 <ChevronRight color="#94A3B8" size={18} />
               </Pressable>
 
-              <Pressable onPress={() => router.push('/(student)/feed' as any)} className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50">
-                <View className="flex-row items-center gap-3">
-                  <Globe color="#0EA5E9" size={20} />
-                  <Text className="text-sm font-bold text-neutralInk">Cộng đồng học viên</Text>
-                </View>
-                <View className="flex-row items-center gap-1.5">
-                  <View className="bg-[#E0F2FE] px-2 py-0.5 rounded-full">
-                    <Text className="text-[10px] font-bold text-[#0EA5E9]">Mới</Text>
+              {canUseCommunity && (
+                <Pressable onPress={() => router.push('/(student)/feed' as any)} className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50">
+                  <View className="flex-row items-center gap-3">
+                    <Globe color="#0EA5E9" size={20} />
+                    <Text className="text-sm font-bold text-neutralInk">Cộng đồng học viên</Text>
+                  </View>
+                  <View className="flex-row items-center gap-1.5">
+                    <View className="bg-[#E0F2FE] px-2 py-0.5 rounded-full">
+                      <Text className="text-[10px] font-bold text-[#0EA5E9]">Mới</Text>
+                    </View>
+                    <ChevronRight color="#94A3B8" size={18} />
+                  </View>
+                </Pressable>
+              )}
+
+              {canJoinClass && (
+                <Pressable onPress={() => router.push('/(student)/classes' as any)} className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50">
+                  <View className="flex-row items-center gap-3">
+                    <GraduationCap color="#475569" size={20} />
+                    <Text className="text-sm font-semibold text-neutralInk">Lớp học của tôi</Text>
                   </View>
                   <ChevronRight color="#94A3B8" size={18} />
-                </View>
-              </Pressable>
-
-              <Pressable onPress={() => router.push('/(student)/classes' as any)} className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50">
-                <View className="flex-row items-center gap-3">
-                  <GraduationCap color="#475569" size={20} />
-                  <Text className="text-sm font-semibold text-neutralInk">Lớp học của tôi</Text>
-                </View>
-                <ChevronRight color="#94A3B8" size={18} />
-              </Pressable>
+                </Pressable>
+              )}
 
               <Pressable onPress={() => setIsInvoicesModalOpen(true)} className="p-4 flex-row justify-between items-center border-b border-gray-100 active:bg-gray-50">
                 <View className="flex-row items-center gap-3">

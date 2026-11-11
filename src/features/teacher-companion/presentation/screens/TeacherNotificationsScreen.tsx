@@ -3,6 +3,8 @@ import { View, Text, FlatList, Pressable, ActivityIndicator } from 'react-native
 import { useNotificationsQuery, useMarkNotificationReadMutation } from '@/src/features/notifications/application/useNotifications';
 import { NotificationItem } from '@/src/core/types/schema';
 import { StudentInvoicesModal } from '@/src/features/subscription-paywall/presentation/components/StudentInvoicesModal';
+import { Inbox } from 'lucide-react-native';
+import { AppColors } from '@/src/core/theme/colors';
 
 export const TeacherNotificationsScreen = () => {
   const { data: notifications, isLoading, refetch } = useNotificationsQuery();
@@ -25,7 +27,7 @@ export const TeacherNotificationsScreen = () => {
   return (
     <View className="flex-1 bg-surface px-6 pt-14">
       <View className="flex-row items-center justify-between mb-1">
-        <Text className="text-2xl font-bold text-secondary">Thông Báo Giáo Viên 🔔</Text>
+        <Text className="text-2xl font-bold text-secondary">Thông Báo Giáo Viên</Text>
         <Pressable
           onPress={() => refetch()}
           className="px-2.5 py-1 bg-secondary/10 rounded-full"
@@ -49,7 +51,7 @@ export const TeacherNotificationsScreen = () => {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View className="py-20 items-center justify-center">
-              <Text className="text-4xl mb-3">📭</Text>
+              <View className="mb-3"><Inbox size={36} color={AppColors.neutralGray} /></View>
               <Text className="text-sm font-semibold text-neutralInk">Không có thông báo nào</Text>
               <Text className="text-xs text-neutralGray mt-1 text-center">
                 Bạn đã đọc hết mọi thông báo hoặc chưa có thông báo mới.
@@ -97,7 +99,7 @@ export const TeacherNotificationsScreen = () => {
                     onPress={() => handleOpenInvoiceFromNotif(item)}
                     className="mb-2.5 self-start bg-emerald-600 active:bg-emerald-700 px-3 py-1.5 rounded-lg flex-row items-center gap-1.5 shadow-2xs"
                   >
-                    <Text className="text-xs font-bold text-white">🧾 Xem hóa đơn điện tử</Text>
+                    <Text className="text-xs font-bold text-white">Xem hóa đơn điện tử</Text>
                   </Pressable>
                 )}
 

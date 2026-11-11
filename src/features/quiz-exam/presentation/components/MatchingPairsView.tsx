@@ -115,7 +115,7 @@ export function MatchingPairsView({
       <View style={styles.topBadgesRow}>
         <View style={styles.categoryBadge}>
           <Text style={styles.categoryBadgeText}>
-            🔗 {question.categoryTag || 'Ghép nối • Từ vựng'}
+            {question.categoryTag || 'Ghép nối • Từ vựng'}
           </Text>
         </View>
 

@@ -1345,7 +1345,7 @@ export function FullExamScreen() {
           </Pressable>
 
           <View style={styles.tapNotice}>
-            <Text style={styles.tapNoticeText}>👆 Chạm để chọn câu trả lời</Text>
+            <Text style={styles.tapNoticeText}>Chạm để chọn câu trả lời</Text>
           </View>
         </View>
       </ScrollView>

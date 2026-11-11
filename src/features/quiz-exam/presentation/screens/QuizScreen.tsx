@@ -17,7 +17,7 @@ export const QuizScreen = () => {
   if (isLoading || !quiz) {
     return (
       <View className="flex-1 bg-surface justify-center items-center">
-        <ActivityIndicator color="#FF6B35" size="large" />
+        <ActivityIndicator color="#0EA5E9" size="large" />
       </View>
     );
   }

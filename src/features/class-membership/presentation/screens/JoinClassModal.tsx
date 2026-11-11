@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Pressable, Modal, ActivityIndicator } from 'react-native';
 import { useJoinClass } from '../../application/useClassMembership';
 import { useRouter } from 'expo-router';
-import { Crown } from 'lucide-react-native';
+import { Crown, Lock } from 'lucide-react-native';
+import { AppColors } from '@/src/core/theme/colors';
 
 interface JoinClassModalProps {
   visible: boolean;
@@ -57,8 +58,8 @@ export const JoinClassModal: React.FC<JoinClassModalProps> = ({
           {/* If student reached Free limit before even entering code */}
           {isLimitReached ? (
             <View className="items-center py-2">
-              <View className="w-14 h-14 rounded-2xl bg-amber-100 items-center justify-center mb-3">
-                <Text className="text-2xl">🔒</Text>
+              <View className="w-14 h-14 rounded-2xl bg-primary/10 items-center justify-center mb-3">
+                <Lock size={24} color={AppColors.primary} />
               </View>
               <Text className="text-lg font-bold text-gray-900 mb-1 text-center">
                 Đã Đạt Giới Hạn Gói Miễn Phí

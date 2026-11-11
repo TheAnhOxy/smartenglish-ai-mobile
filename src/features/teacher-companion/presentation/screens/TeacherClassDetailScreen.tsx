@@ -88,7 +88,7 @@ export const TeacherClassDetailScreen = () => {
                 <View className="flex-1 items-end">
                   {st.is_at_risk ? (
                     <View className="bg-error/10 px-2 py-0.5 rounded-full border border-error/20">
-                      <Text className="text-[10px] font-bold text-error">⚠️ {st.last_login_days_ago} ngày vắng</Text>
+                      <Text className="text-[10px] font-bold text-error">{st.last_login_days_ago} ngày vắng</Text>
                     </View>
                   ) : (
                     <Text className="text-[10px] text-success font-medium">Bình thường</Text>

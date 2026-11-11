@@ -3,6 +3,8 @@ import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-nati
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { usePassageQuery } from '../../application/useReadingListening';
 import { QuickWordLookupModal } from '@/src/features/flashcard-srs/presentation/screens/QuickWordLookupModal';
+import { BookOpen } from 'lucide-react-native';
+import { AppColors } from '@/src/core/theme/colors';
 
 export const ReadingPassageScreen = () => {
   const { passageId } = useLocalSearchParams<{ passageId?: string }>();
@@ -15,7 +17,7 @@ export const ReadingPassageScreen = () => {
   if (isLoading) {
     return (
       <View className="flex-1 bg-surface justify-center items-center">
-        <ActivityIndicator color="#FF6B35" size="large" />
+        <ActivityIndicator color="#0EA5E9" size="large" />
         <Text className="text-xs text-gray-500 mt-2 font-medium">Đang tải bài đọc...</Text>
       </View>
     );
@@ -25,7 +27,7 @@ export const ReadingPassageScreen = () => {
     return (
       <View className="flex-1 bg-surface justify-center items-center px-6">
         <View className="bg-white p-6 rounded-2xl border border-red-100 items-center shadow-sm w-full max-w-sm">
-          <Text className="text-4xl mb-3">📖</Text>
+          <View className="mb-3"><BookOpen size={36} color={AppColors.neutralGray} /></View>
           <Text className="text-base font-bold text-gray-900 mb-1 text-center">Không Thể Tải Bài Đọc</Text>
           <Text className="text-xs text-gray-500 text-center mb-5 leading-5">
             {error instanceof Error ? error.message : 'Bài đọc không tồn tại hoặc đã có lỗi xảy ra khi tải nội dung.'}
@@ -71,7 +73,7 @@ export const ReadingPassageScreen = () => {
           className="self-start bg-primary/10 border border-primary/30 px-3 py-1 rounded-full mb-4"
         >
           <Text className="text-xs font-bold text-primary">
-            {showTranslate ? '🙈 Ẩn Dịch Tiếng Việt' : '👁️ Hiện Dịch Tiếng Việt'}
+            {showTranslate ? 'Ẩn Dịch Tiếng Việt' : 'Hiện Dịch Tiếng Việt'}
           </Text>
         </Pressable>
 
@@ -95,7 +97,7 @@ export const ReadingPassageScreen = () => {
         onPress={() => setShowDictLookup(true)}
         className="bg-secondary py-3.5 rounded-xl items-center shadow-md active:bg-secondary/90"
       >
-        <Text className="text-white font-bold text-base">🔍 Tra Từ Trong Bài</Text>
+        <Text className="text-white font-bold text-base">Tra Từ Trong Bài</Text>
       </Pressable>
 
       <QuickWordLookupModal visible={showDictLookup} onClose={() => setShowDictLookup(false)} />

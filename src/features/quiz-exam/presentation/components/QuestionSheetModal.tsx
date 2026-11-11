@@ -8,15 +8,7 @@ import {
   ScrollView,
   Dimensions,
 } from 'react-native';
-import {
-  X,
-  ChevronDown,
-  ChevronUp,
-  Headphones,
-  FileText,
-  Play,
-  Bookmark,
-} from 'lucide-react-native';
+import { X, ChevronDown, ChevronUp, Headphones, FileText, Play, Bookmark, ClipboardList } from 'lucide-react-native';
 import { colors } from '@/src/theme/colors';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -250,7 +242,7 @@ export function QuestionSheetModal({
                 }}
                 style={({ pressed }) => [styles.submitBtn, pressed && styles.pressed]}
               >
-                <Text style={styles.submitBtnIcon}>📋</Text>
+                <ClipboardList size={16} color="#FFFFFF" />
                 <Text style={styles.submitBtnText}>Nộp bài</Text>
               </Pressable>
             </View>

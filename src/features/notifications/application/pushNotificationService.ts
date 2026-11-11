@@ -4,16 +4,39 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { registerPushTokenApi } from '../data/notificationApi';
 
-// Cấu hình hành vi hiển thị khi ứng dụng đang chạy ở tiền cảnh (Foreground)
+// Cấu hình hành vi hiển thị khi ứng dụng đang chạy ở tiền cảnh (Foreground).
+// Khi app đang mở, banner do cơ chế polling (useNotificationRealtimeSync) hiển thị cho MỌI thông báo,
+// nên remote push từ server bị ẩn banner để không hiện trùng 2 lần. Khi app ở nền, OS tự hiện remote push.
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: async (notification) => {
+    const isRemotePush = (notification.request.trigger as { type?: string } | null)?.type === 'push';
+    return {
+      shouldShowAlert: !isRemotePush,
+      shouldPlaySound: !isRemotePush,
+      shouldSetBadge: true,
+      shouldShowBanner: !isRemotePush,
+      shouldShowList: true,
+    };
+  },
 });
+
+/**
+ * Hiển thị banner thông báo cục bộ ngay trong app (dùng khi không có remote push).
+ */
+export async function presentLocalNotificationAsync(
+  title: string,
+  body: string,
+  data?: Record<string, unknown>
+): Promise<void> {
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: { title, body, data: data ?? {}, sound: 'default' },
+      trigger: Platform.OS === 'android' ? { channelId: 'smartenglish-default' } : null,
+    });
+  } catch (e) {
+    console.warn('[PushNotification] Không thể hiển thị thông báo cục bộ:', e);
+  }
+}
 
 /**
  * Đăng ký push notifications, cấu hình Android Notification Channels và đồng bộ token lên backend
