@@ -32,6 +32,8 @@ export default function StudentTabsLayout() {
 
   return (
     <Tabs
+      // Các màn chi tiết là tab ẩn: phải nhớ lịch sử để nút quay lại về đúng màn trước, không nhảy về tab đầu
+      backBehavior="history"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
@@ -58,6 +60,17 @@ export default function StudentTabsLayout() {
     >
       {/* 5 Main Bottom Tabs — AnimatedTabIcon với bounce spring */}
       <Tabs.Screen
+        name="home"
+        options={{
+          title: 'Khám phá',
+          tabBarIcon: ({ color, focused }) => (
+            <AnimatedTabIcon focused={focused}>
+              <Home color={color} size={24} strokeWidth={focused ? 2.5 : 1.8} />
+            </AnimatedTabIcon>
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="learn"
         options={{
           title: 'Lộ trình',
@@ -77,17 +90,6 @@ export default function StudentTabsLayout() {
           tabBarIcon: ({ color, focused }) => (
             <AnimatedTabIcon focused={focused}>
               <BarChart2 color={color} size={22} strokeWidth={focused ? 2.5 : 1.8} />
-            </AnimatedTabIcon>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="home"
-        options={{
-          title: 'Khám phá',
-          tabBarIcon: ({ color, focused }) => (
-            <AnimatedTabIcon focused={focused}>
-              <Home color={color} size={24} strokeWidth={focused ? 2.5 : 1.8} />
             </AnimatedTabIcon>
           ),
         }}
@@ -124,6 +126,7 @@ export default function StudentTabsLayout() {
       <Tabs.Screen name="profile/invoices" options={hideTabOptions} />
       <Tabs.Screen name="profile/premium" options={hideTabOptions} />
       <Tabs.Screen name="profile/settings" options={hideTabOptions} />
+      <Tabs.Screen name="profile/sessions" options={hideTabOptions} />
       <Tabs.Screen name="league" options={hideTabOptions} />
       <Tabs.Screen name="analytics" options={hideTabOptions} />
       <Tabs.Screen name="daily-challenge" options={hideTabOptions} />
