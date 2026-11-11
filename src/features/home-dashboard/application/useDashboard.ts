@@ -4,7 +4,8 @@ import { fetchUserStatsApi, fetchDailyPlanApi, fetchLearningPathApi, fetchDailyQ
 export const useUserStatsQuery = (userId: string) => {
   return useQuery({
     queryKey: ['user-stats', userId],
-    queryFn: () => fetchUserStatsApi(userId)
+    queryFn: () => fetchUserStatsApi(userId),
+    enabled: !!userId
   });
 };
 

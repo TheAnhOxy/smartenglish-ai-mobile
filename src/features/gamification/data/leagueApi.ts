@@ -17,7 +17,7 @@ export const fetchLeagueLeaderboardApi = async (userId?: string): Promise<Leader
       return data.rankList.map((m: any) => ({
         user_id: String(m.userId),
         display_name: m.displayName || m.username || 'Learner',
-        avatar_url: m.avatarUrl || 'https://i.pravatar.cc/100?img=33',
+        avatar_url: m.avatarUrl || '',
         weekly_xp: m.weeklyXp || 0,
         rank: m.rank || 1,
         tier: m.rank === 1 ? 'gold' : (m.rank === 2 ? 'silver' : (m.rank === 3 ? 'bronze' : 'normal'))

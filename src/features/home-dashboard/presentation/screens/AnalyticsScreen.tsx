@@ -11,33 +11,7 @@ import {
   Dimensions,
   Animated,
 } from 'react-native';
-import {
-  Flame,
-  Zap,
-  Clock,
-  BookOpen,
-  TrendingUp,
-  Trophy,
-  Medal,
-  ChevronUp,
-  ChevronDown,
-  Crown,
-  Sparkles,
-  Lightbulb,
-  Check,
-  ChevronRight,
-  ArrowRight,
-  Award,
-  Target,
-  FileText,
-  CheckCircle2,
-  AlertCircle,
-  BarChart3,
-  Compass,
-  Users,
-  Globe,
-  RotateCcw,
-} from 'lucide-react-native';
+import { Flame, Zap, Clock, BookOpen, TrendingUp, Trophy, Medal, ChevronUp, ChevronDown, Crown, Sparkles, Lightbulb, Check, ChevronRight, ArrowRight, Award, Target, FileText, CheckCircle2, AlertCircle, BarChart3, Compass, Users, Globe, RotateCcw } from 'lucide-react-native';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import Svg, { Polygon, Line, Circle, Path, Defs, LinearGradient, Stop } from 'react-native-svg';
@@ -45,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, palette } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
 import { useAuthStore } from '@/src/core/flows/authStore';
+import { UserAvatar } from '@/src/core/components/UserAvatar';
 import {
   fetchProgressStatsApi,
   fetchAiAssessmentApi,
@@ -454,8 +429,8 @@ export const AnalyticsScreen = () => {
                     </Text>
                     <Text style={s.streakSubTitle}>
                       {progressData.streakDays > 0
-                        ? 'Duy trì học mỗi ngày để giữ vững chuỗi phong độ 🔥'
-                        : 'Học bài mỗi ngày để thắp sáng chuỗi lửa đầu tiên! 🔥'}
+                        ? 'Duy trì học mỗi ngày để giữ vững chuỗi phong độ'
+                        : 'Học bài mỗi ngày để thắp sáng chuỗi lửa đầu tiên!'}
                     </Text>
                   </View>
                 </View>
@@ -493,7 +468,7 @@ export const AnalyticsScreen = () => {
                   <Award color="#FFE7DB" size={14} />
                   <Text style={s.streakNextGoalText}>
                     {progressData.streakDays > 0
-                      ? `Đã tích lũy ${progressData.streakDays} ngày học. Mục tiêu kế tiếp: ${progressData.streakDays + 3} ngày 🏅`
+                      ? `Đã tích lũy ${progressData.streakDays} ngày học. Mục tiêu kế tiếp: ${progressData.streakDays + 3} ngày`
                       : 'Hoàn thành 1 bài học hôm nay để kích hoạt chuỗi Streak!'}
                   </Text>
                 </View>
@@ -746,7 +721,7 @@ export const AnalyticsScreen = () => {
                     <Text style={s.pitfallDesc}>{w.description}</Text>
                     {w.correctiveRule ? (
                       <View style={s.pitfallExample}>
-                        <Text style={s.pitfallExampleText}>💡 Quy tắc: {w.correctiveRule}</Text>
+                        <Text style={s.pitfallExampleText}>Quy tắc: {w.correctiveRule}</Text>
                       </View>
                     ) : null}
                   </View>
@@ -756,7 +731,7 @@ export const AnalyticsScreen = () => {
                 {assessmentData.weakVocabulary && assessmentData.weakVocabulary.length > 0 && (
                   <View style={{ marginTop: 8 }}>
                     <Text style={[s.pitfallHeader, { color: '#DC2626' }]}>
-                      ⚠️ Từ vựng SRS có tỷ lệ quên cao:
+                      Từ vựng SRS có tỷ lệ quên cao:
                     </Text>
                     {assessmentData.weakVocabulary.slice(0, 4).map((wv, i) => (
                       <Text key={i} style={[s.pitfallDesc, { marginLeft: 8, marginTop: 2 }]}>
@@ -847,7 +822,7 @@ export const AnalyticsScreen = () => {
                 {/* Explanation */}
                 {showExplanation && (
                   <View style={s.remedialExplainBox}>
-                    <Text style={s.remedialExplainTitle}>💡 Lời giải chi tiết:</Text>
+                    <Text style={s.remedialExplainTitle}>Lời giải chi tiết:</Text>
                     <Text style={s.remedialExplainText}>{currentQuiz.explanation}</Text>
                     <Pressable onPress={handleNextQuiz} style={s.remedialNextBtn}>
                       <Text style={s.remedialNextBtnText}>
@@ -914,16 +889,9 @@ export const AnalyticsScreen = () => {
                   {top2 ? (
                     <View style={s.podiumCol}>
                       <View style={s.podiumMedalBadge}>
-                        <Text style={{ fontSize: 20 }}>🥈</Text>
+                        <Medal size={20} color="#94A3B8" />
                       </View>
-                      <Image
-                        source={{
-                          uri:
-                            top2.avatarUrl ||
-                            'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120',
-                        }}
-                        style={[s.podiumAvatar, { borderColor: '#94A3B8' }]}
-                      />
+                      <UserAvatar uri={top2.avatarUrl} size={44} style={[s.podiumAvatar, { borderColor: '#94A3B8' }]} />
                       <Text style={s.podiumName} numberOfLines={1}>
                         {top2.displayName || top2.username}
                       </Text>
@@ -943,14 +911,7 @@ export const AnalyticsScreen = () => {
                     <View style={s.podiumCrownBadge}>
                       <Crown color="#F59E0B" size={26} fill="#F59E0B" />
                     </View>
-                    <Image
-                      source={{
-                        uri:
-                          top1.avatarUrl ||
-                          'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120',
-                      }}
-                      style={[s.podiumAvatarLg, { borderColor: '#F59E0B' }]}
-                    />
+                    <UserAvatar uri={top1.avatarUrl} size={44} style={[s.podiumAvatarLg, { borderColor: '#F59E0B' }]} />
                     <Text
                       style={[s.podiumName, { color: palette.primary, fontWeight: '800' }]}
                       numberOfLines={1}
@@ -972,16 +933,9 @@ export const AnalyticsScreen = () => {
                   {top3 ? (
                     <View style={s.podiumCol}>
                       <View style={s.podiumMedalBadge}>
-                        <Text style={{ fontSize: 20 }}>🥉</Text>
+                        <Medal size={20} color="#B45309" />
                       </View>
-                      <Image
-                        source={{
-                          uri:
-                            top3.avatarUrl ||
-                            'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120',
-                        }}
-                        style={[s.podiumAvatar, { borderColor: '#F97316' }]}
-                      />
+                      <UserAvatar uri={top3.avatarUrl} size={44} style={[s.podiumAvatar, { borderColor: '#F97316' }]} />
                       <Text
                         style={[s.podiumName, { color: colors.secondary, fontWeight: '800' }]}
                         numberOfLines={1}
@@ -1040,14 +994,7 @@ export const AnalyticsScreen = () => {
                       </Text>
                     </View>
 
-                    <Image
-                      source={{
-                        uri:
-                          member.avatarUrl ||
-                          'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120',
-                      }}
-                      style={s.lbAvatar}
-                    />
+                    <UserAvatar uri={member.avatarUrl} size={44} style={s.lbAvatar} />
 
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
