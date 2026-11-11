@@ -26,6 +26,10 @@ import {
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { TabLoadingState } from '@/src/components/ui/TabLoadingState';
 import { useAuthStore } from '@/src/core/flows/authStore';
+import { AppColors } from '@/src/core/theme/colors';
+import { MessageCircle, SlidersHorizontal, X } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CategoryFilterMenu } from '../components/CategoryFilterMenu';
 import {
   fetchPronunciationLessonsApi,
   fetchRoleplayScenariosApi,
@@ -74,6 +78,8 @@ export const SpeakingHomeScreen = () => {
   // Tabs: 'roleplay' (Hội thoại AI) | 'pronunciation' (Luyện phát âm)
   const [activeTab, setActiveTab] = useState<'roleplay' | 'pronunciation'>('roleplay');
   const [selectedCategory, setSelectedCategory] = useState('Tất cả');
+  const [showFilter, setShowFilter] = useState(false);
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
 
   const [scenarios, setScenarios] = useState<RoleplayScenario[]>([]);
@@ -82,10 +88,11 @@ export const SpeakingHomeScreen = () => {
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchRoleplayScenariosApi(), fetchPronunciationLessonsApi()])
-      .then(([roleplayData, lessonsData]) => {
-        setScenarios(roleplayData);
-        setPronLessons(lessonsData);
+    // allSettled: một nguồn lỗi (vd. khách chưa đăng nhập bị 401) không làm hỏng cả màn hình
+    Promise.allSettled([fetchRoleplayScenariosApi(), fetchPronunciationLessonsApi()])
+      .then(([roleplayRes, lessonsRes]) => {
+        setScenarios(roleplayRes.status === 'fulfilled' ? roleplayRes.value : []);
+        setPronLessons(lessonsRes.status === 'fulfilled' ? lessonsRes.value : []);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -141,11 +148,29 @@ export const SpeakingHomeScreen = () => {
             style={s.searchInput}
           />
           {searchQuery.length > 0 && (
-            <Pressable onPress={() => setSearchQuery('')} style={s.clearBtn}>
-              <Text style={s.clearBtnText}>×</Text>
+            <Pressable onPress={() => setSearchQuery('')} style={s.clearBtn} hitSlop={8} accessibilityLabel="Xoá tìm kiếm">
+              <X color={ADMIN_THEME.textMuted} size={14} />
             </Pressable>
           )}
+          {/* Bộ lọc chủ đề gọn trong thanh tìm kiếm (thay cho hàng nút lọc) */}
+          <Pressable
+            onPress={() => setShowFilter(true)}
+            hitSlop={8}
+            accessibilityLabel="Lọc theo chủ đề"
+            style={{ padding: 6, marginLeft: 4, borderRadius: 10, backgroundColor: selectedCategory !== 'Tất cả' ? '#E0F2FE' : 'transparent' }}
+          >
+            <SlidersHorizontal color={selectedCategory !== 'Tất cả' ? AppColors.primary : ADMIN_THEME.textMuted} size={18} />
+          </Pressable>
         </View>
+
+        <CategoryFilterMenu
+          visible={showFilter}
+          categories={CATEGORIES}
+          selected={selectedCategory}
+          onSelect={setSelectedCategory}
+          onClose={() => setShowFilter(false)}
+          top={insets.top + 64}
+        />
 
         {/* ── Segmented Control / Tab Switcher (Gọn gàng, tinh tế) ── */}
         <View style={s.tabContainer}>
@@ -176,27 +201,6 @@ export const SpeakingHomeScreen = () => {
           </Pressable>
         </View>
 
-        {/* ── Category Chips Filter (Pill thanh thoát, chuẩn tông màu hệ thống) ── */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={s.categoryList}
-        >
-          {CATEGORIES.map((cat) => {
-            const isSelected = selectedCategory === cat;
-            return (
-              <Pressable
-                key={cat}
-                onPress={() => setSelectedCategory(cat)}
-                style={[s.catChip, isSelected && s.catChipActive]}
-              >
-                <Text style={[s.catChipText, isSelected && s.catChipTextActive]}>
-                  {cat}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
 
         {/* ── Loading State ────────────────────────────────────────────── */}
         {loading ? (
@@ -218,8 +222,6 @@ export const SpeakingHomeScreen = () => {
               filteredScenarios.map((sc, index) => {
                 const cefr = CEFR_BADGES[sc.cefr_level] || CEFR_BADGES.A1;
                 const isLocked = sc.is_premium && !isPremium;
-                const fallbackImg =
-                  'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=600&auto=format&fit=crop&q=80';
 
                 return (
                   <Animated.View
@@ -241,11 +243,13 @@ export const SpeakingHomeScreen = () => {
                     >
                       {/* Top: Cover Image Aspect Ratio 16/10 với Level Badge */}
                       <View style={s.cardImageContainer}>
-                        <Image
-                          source={{ uri: sc.image_url || fallbackImg }}
-                          style={s.cardCoverImage}
-                          resizeMode="cover"
-                        />
+                        {sc.image_url ? (
+                          <Image source={{ uri: sc.image_url }} style={s.cardCoverImage} resizeMode="cover" />
+                        ) : (
+                          <View style={[s.cardCoverImage, { backgroundColor: '#E0F2FE', alignItems: 'center', justifyContent: 'center' }]}>
+                            <MessageCircle size={32} color={AppColors.primary} />
+                          </View>
+                        )}
                         {/* Level Tag góc trên bên trái */}
                         <View
                           style={[

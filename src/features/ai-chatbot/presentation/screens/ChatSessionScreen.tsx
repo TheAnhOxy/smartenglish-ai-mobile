@@ -30,7 +30,7 @@ export const ChatSessionScreen = () => {
     {
       message_id: 'welcome',
       role: 'assistant',
-      content: 'Xin chào! Tôi là Loxera AI, trợ lý học tiếng Anh của bạn. Hãy hỏi tôi bất cứ điều gì về từ vựng, ngữ pháp, hoặc giao tiếp nhé! 👋',
+      content: 'Xin chào! Tôi là Loxera AI, trợ lý học tiếng Anh của bạn. Hãy hỏi tôi bất cứ điều gì về từ vựng, ngữ pháp, hoặc giao tiếp nhé!',
       sent_at: new Date().toISOString()
     }
   ]);
@@ -116,7 +116,7 @@ export const ChatSessionScreen = () => {
               {/* Inline Grammar & Refactor Suggestion Card */}
               {m.grammar_check && (
                 <View className="bg-secondary/10 p-3 rounded-xl border border-secondary/30 mt-2 self-start max-w-[85%]">
-                  <Text className="text-xs font-bold text-secondary mb-1">✨ Gợi Ý Diễn Đạt Tự Nhiên:</Text>
+                  <Text className="text-xs font-bold text-secondary mb-1">Gợi Ý Diễn Đạt Tự Nhiên:</Text>
                   <Text className="text-xs text-neutralInk mb-2">{m.grammar_check.rule_explanation_vi}</Text>
                   {m.grammar_check.natural_alternatives && (
                     <Pressable

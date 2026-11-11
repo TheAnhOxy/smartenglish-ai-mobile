@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, Volume2, Lock, Sparkles } from 'lucide-react-native';
+import { ArrowLeft, Volume2, Lock, Sparkles, Flame, Coins } from 'lucide-react-native';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { speakText } from '@/src/core/services/speechService';
+import { AppColors } from '@/src/core/theme/colors';
 
 export const ScanWordDetailScreen = () => {
   const router = useRouter();
@@ -74,17 +75,17 @@ export const ScanWordDetailScreen = () => {
         <View className="flex-row justify-between items-center mb-6">
           <Pressable onPress={handleBack} className="flex-row items-center gap-2">
             <ArrowLeft color="#1E293B" size={20} />
-            <Text className="text-xl font-bold text-[#FF6B35]">Chi Tiết Từ Vựng AI</Text>
+            <Text className="text-xl font-bold text-[#0EA5E9]">Chi Tiết Từ Vựng AI</Text>
           </Pressable>
 
           {/* Top Gamification Stats Badges */}
           <View className="flex-row items-center gap-2">
             <View className="flex-row items-center gap-1">
-              <Text className="text-xs">🔥</Text>
+              <Flame size={12} color={AppColors.warning} />
               <Text className="text-xs font-bold text-neutralInk">7</Text>
             </View>
             <View className="flex-row items-center gap-1">
-              <Text className="text-xs">💰</Text>
+              <Coins size={12} color={AppColors.warning} />
               <Text className="text-xs font-bold text-neutralInk">1200</Text>
             </View>
           </View>
@@ -98,7 +99,7 @@ export const ScanWordDetailScreen = () => {
             <Pressable
               onPress={handlePlayWord}
               className={`w-9 h-9 rounded-full justify-center items-center ${
-                isPlayingWord ? 'bg-[#FF6B35]' : 'bg-[#E0F2FE] active:bg-cyan-200'
+                isPlayingWord ? 'bg-[#0EA5E9]' : 'bg-[#E0F2FE] active:bg-cyan-200'
               }`}
             >
               <Volume2 color={isPlayingWord ? '#FFFFFF' : '#0284C7'} size={18} />
@@ -115,7 +116,7 @@ export const ScanWordDetailScreen = () => {
           <Pressable
             onPress={() => handleTabPress('beginner')}
             className={`flex-1 py-2.5 rounded-xl items-center ${
-              activeTab === 'beginner' ? 'bg-[#FF6B35] shadow-sm' : ''
+              activeTab === 'beginner' ? 'bg-[#0EA5E9] shadow-sm' : ''
             }`}
           >
             <Text className={`text-xs font-bold ${activeTab === 'beginner' ? 'text-white' : 'text-neutralGray'}`}>
@@ -126,7 +127,7 @@ export const ScanWordDetailScreen = () => {
           <Pressable
             onPress={() => handleTabPress('intermediate')}
             className={`flex-1 py-2.5 rounded-xl items-center flex-row justify-center gap-1 ${
-              activeTab === 'intermediate' ? 'bg-[#FF6B35] shadow-sm' : ''
+              activeTab === 'intermediate' ? 'bg-[#0EA5E9] shadow-sm' : ''
             }`}
           >
             <Text className={`text-xs font-bold ${activeTab === 'intermediate' ? 'text-white' : 'text-neutralGray'}`}>
@@ -138,7 +139,7 @@ export const ScanWordDetailScreen = () => {
           <Pressable
             onPress={() => handleTabPress('advanced')}
             className={`flex-1 py-2.5 rounded-xl items-center flex-row justify-center gap-1 ${
-              activeTab === 'advanced' ? 'bg-[#FF6B35] shadow-sm' : ''
+              activeTab === 'advanced' ? 'bg-[#0EA5E9] shadow-sm' : ''
             }`}
           >
             <Text className={`text-xs font-bold ${activeTab === 'advanced' ? 'text-white' : 'text-neutralGray'}`}>
@@ -160,7 +161,7 @@ export const ScanWordDetailScreen = () => {
         <View className="bg-white p-5 rounded-3xl border border-gray-100 mb-8 shadow-sm">
           <View className="flex-row justify-between items-center mb-3">
             <Text className="text-sm font-bold text-neutralInk">Câu Ví Dụ Ngữ Cảnh</Text>
-            <Sparkles color="#FF6B35" size={16} />
+            <Sparkles color="#0EA5E9" size={16} />
           </View>
 
           <View className="gap-3">
@@ -171,7 +172,7 @@ export const ScanWordDetailScreen = () => {
               <Pressable
                 onPress={() => handlePlaySentence(currentExample, 1)}
                 className={`w-8 h-8 rounded-full justify-center items-center ${
-                  playingSentenceIndex === 1 ? 'bg-[#FF6B35]' : 'bg-[#E0F2FE] active:bg-cyan-200'
+                  playingSentenceIndex === 1 ? 'bg-[#0EA5E9]' : 'bg-[#E0F2FE] active:bg-cyan-200'
                 }`}
               >
                 <Volume2 color={playingSentenceIndex === 1 ? '#FFFFFF' : '#0284C7'} size={16} />

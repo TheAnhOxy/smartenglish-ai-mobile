@@ -161,7 +161,7 @@ export const ScanResultScreen = () => {
   ];
 
   const objects = rawObjects.slice(0, 5);
-  const displayImageUri = imageUri || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=800';
+  const displayImageUri = imageUri || null;
 
   useEffect(() => {
     // Trigger staggered reveal
@@ -229,11 +229,11 @@ export const ScanResultScreen = () => {
       <View style={s.container}>
         {/* ─── Top View: Scanned Photo with Skia/SVG Corner Brackets ─── */}
         <View style={s.imageContainer}>
-          <RNImage
-            source={{ uri: displayImageUri }}
-            style={s.imageBackground}
-            resizeMode="cover"
-          />
+          {displayImageUri ? (
+            <RNImage source={{ uri: displayImageUri }} style={s.imageBackground} resizeMode="cover" />
+          ) : (
+            <View style={[s.imageBackground, { backgroundColor: '#1E293B' }]} />
+          )}
 
           {/* Top Bar Floating Controls */}
           <View style={[s.floatingHeader, { top: insets.top + 8 }]}>
@@ -504,7 +504,7 @@ export const ScanResultScreen = () => {
             onClose={() => setItemsToSave(null)}
             onSaved={(deckName) => {
               setItemsToSave(null);
-              setSavedConfirmToast(`Đã lưu từ vựng vào bộ thẻ "${deckName}"! ✨`);
+              setSavedConfirmToast(`Đã lưu từ vựng vào bộ thẻ "${deckName}"!`);
               setTimeout(() => setSavedConfirmToast(null), 3000);
             }}
           />

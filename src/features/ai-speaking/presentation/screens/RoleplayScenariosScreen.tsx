@@ -28,6 +28,7 @@ export const RoleplayScenariosScreen = () => {
   useEffect(() => {
     fetchRoleplayScenariosApi()
       .then(setScenarios)
+      .catch(() => setScenarios([]))
       .finally(() => setLoading(false));
   }, []);
 
@@ -146,7 +147,7 @@ export const RoleplayScenariosScreen = () => {
                 <Pressable
                   onPress={() => {
                     useAuthStore.getState().updateCurrentUser({ plan: 'premium_yearly' });
-                    alert('🎉 Nâng cấp SmartEnglish Premium thành công! Bạn có thể luyện nói không giới hạn.');
+                    alert('Nâng cấp SmartEnglish Premium thành công! Bạn có thể luyện nói không giới hạn.');
                   }}
                   style={s.quotaBannerUpgradeBtn}
                 >
@@ -266,7 +267,7 @@ const s = StyleSheet.create({
     lineHeight: 15,
   },
   quotaBannerUpgradeBtn: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#0EA5E9',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 100,

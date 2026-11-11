@@ -23,7 +23,7 @@ export const IpaAnalysisScreen = () => {
           <Text className="text-xs font-bold text-gray-400">Phân Tích Chuyên Sâu</Text>
         </View>
 
-        <Text className="text-2xl font-bold text-white mb-1">4 Chỉ Số Âm Tiết IPA ⚡</Text>
+        <Text className="text-2xl font-bold text-white mb-1">4 Chỉ Số Âm Tiết IPA</Text>
         <Text className="text-xs text-gray-400 mb-6">Phân tích phát âm chi tiết bằng thuật toán nhận diện sóng âm</Text>
 
         {/* 4 Metrics Grid */}
@@ -90,7 +90,7 @@ export const IpaAnalysisScreen = () => {
               className="bg-error px-3 py-2 rounded-xl flex-row items-center gap-1 active:bg-red-600"
             >
               <HelpCircle color="#FFFFFF" size={14} />
-              <Text className="text-xs font-bold text-white">Khẩu Hình 👄</Text>
+              <Text className="text-xs font-bold text-white">Khẩu Hình</Text>
             </Pressable>
           </View>
         </View>

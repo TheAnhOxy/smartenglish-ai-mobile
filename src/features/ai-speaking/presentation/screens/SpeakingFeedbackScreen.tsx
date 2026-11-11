@@ -10,19 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import {
-  X,
-  Play,
-  Square,
-  Mic,
-  RotateCcw,
-  ArrowRight,
-  Lightbulb,
-  Activity,
-  Zap,
-  Volume2,
-  AlertCircle,
-} from 'lucide-react-native';
+import { X, Play, Square, Mic, RotateCcw, ArrowRight, Lightbulb, Activity, Zap, Volume2, AlertCircle, Smile, Waves, Wind } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -43,6 +31,7 @@ import { Audio } from 'expo-av';
 import { CircularAccuracyRing } from '../components/CircularAccuracyRing';
 import { IpaSyllableBreakdownCard } from '../components/IpaSyllableBreakdownCard';
 import { SpeakingMetricsGrid } from '../components/SpeakingMetricsGrid';
+import { AppColors } from '@/src/core/theme/colors';
 import {
   extractAndEvaluateSyllables,
   evaluatePronunciationApi,
@@ -401,10 +390,10 @@ export const SpeakingFeedbackScreen = () => {
           <Text style={s.ipaText}>{targetIpa}</Text>
           <Text style={s.scoreTitleText}>
             {currentScore >= 80
-              ? '🎉 Xuất sắc! Phát âm chuẩn giọng bản xứ'
+              ? 'Xuất sắc! Phát âm chuẩn giọng bản xứ'
               : currentScore >= 60
-              ? '👍 Khá tốt! Cần chú ý thêm trọng âm & âm đuôi'
-              : '💪 Cần luyện tập thêm khẩu hình'}
+              ? 'Khá tốt! Cần chú ý thêm trọng âm & âm đuôi'
+              : 'Cần luyện tập thêm khẩu hình'}
           </Text>
         </View>
 
@@ -501,17 +490,17 @@ export const SpeakingFeedbackScreen = () => {
             <View style={s.diagramVisualCard}>
               <View style={s.anatomyGuideRow}>
                 <View style={s.anatomyPill}>
-                  <Text style={s.anatomyPillEmoji}>👄</Text>
+                  <Smile size={20} color={AppColors.primary} style={s.anatomyPillEmoji} />
                   <Text style={s.anatomyPillLabel}>Độ mở môi</Text>
                   <Text style={s.anatomyPillVal}>Hé mở tự nhiên</Text>
                 </View>
                 <View style={s.anatomyPill}>
-                  <Text style={s.anatomyPillEmoji}>👅</Text>
+                  <Waves size={20} color={AppColors.primary} style={s.anatomyPillEmoji} />
                   <Text style={s.anatomyPillLabel}>Vị trí lưỡi</Text>
                   <Text style={s.anatomyPillVal}>Đầu lưỡi thả lỏng</Text>
                 </View>
                 <View style={s.anatomyPill}>
-                  <Text style={s.anatomyPillEmoji}>💨</Text>
+                  <Wind size={20} color={AppColors.primary} style={s.anatomyPillEmoji} />
                   <Text style={s.anatomyPillLabel}>Luồng hơi</Text>
                   <Text style={s.anatomyPillVal}>Đều đặn, dứt khoát</Text>
                 </View>

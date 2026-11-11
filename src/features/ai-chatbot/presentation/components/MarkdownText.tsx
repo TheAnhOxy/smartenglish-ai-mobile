@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
-import { Volume2 } from 'lucide-react-native';
+import { CheckCircle2, Lightbulb, Volume2, XCircle } from 'lucide-react-native';
 import { speakText } from '@/src/core/services/speechService';
 
 interface MarkdownTextProps {
@@ -105,7 +105,7 @@ export const MarkdownText: React.FC<MarkdownTextProps> = ({
           const textWithoutIcon = trimmed.replace('❌', '').trim();
           return (
             <View key={idx} style={styles.incorrectBox}>
-              <Text style={styles.incorrectIcon}>❌</Text>
+              <XCircle size={16} color="#DC2626" style={styles.incorrectIcon} />
               <Text style={styles.incorrectText}>
                 {parseFormattedInline(textWithoutIcon, `inc-${idx}`)}
               </Text>
@@ -118,7 +118,7 @@ export const MarkdownText: React.FC<MarkdownTextProps> = ({
           const textWithoutIcon = trimmed.replace('✅', '').trim();
           return (
             <View key={idx} style={styles.correctBox}>
-              <Text style={styles.correctIcon}>✅</Text>
+              <CheckCircle2 size={16} color="#16A34A" style={styles.correctIcon} />
               <Text style={styles.correctText}>
                 {parseFormattedInline(textWithoutIcon, `cor-${idx}`)}
               </Text>
@@ -148,11 +148,10 @@ export const MarkdownText: React.FC<MarkdownTextProps> = ({
 
         // Quote / Why / Example Block
         if (trimmed.startsWith('💡') || trimmed.startsWith('📝') || trimmed.startsWith('✨')) {
-          const icon = trimmed.slice(0, 2);
           const rest = trimmed.slice(2).trim();
           return (
             <View key={idx} style={styles.featureBox}>
-              <Text style={styles.featureIcon}>{icon}</Text>
+              <Lightbulb size={16} color="#1F4E79" style={styles.featureIcon} />
               <Text style={[styles.bodyText, { color: textColor }]}>
                 {parseFormattedInline(rest, `f-${idx}`)}
               </Text>
@@ -249,7 +248,7 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   incorrectIcon: {
-    fontSize: 14,
+    marginTop: 2,
   },
   incorrectText: {
     fontSize: 13,
@@ -270,7 +269,7 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   correctIcon: {
-    fontSize: 14,
+    marginTop: 2,
   },
   correctText: {
     fontSize: 13,
@@ -296,7 +295,6 @@ const styles = StyleSheet.create({
     marginVertical: 3,
   },
   featureIcon: {
-    fontSize: 14,
-    marginTop: 1,
+    marginTop: 2,
   },
 });

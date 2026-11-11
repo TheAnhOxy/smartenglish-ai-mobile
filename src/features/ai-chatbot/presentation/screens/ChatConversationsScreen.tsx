@@ -27,6 +27,10 @@ import {
   RefreshCw,
   CheckCircle2,
   Sliders,
+  PenLine,
+  BookOpen,
+  Languages,
+  MessagesSquare,
 } from 'lucide-react-native';
 import * as Speech from 'expo-speech';
 import { speakText, stopSpeech } from '@/src/core/services/speechService';
@@ -67,22 +71,22 @@ const LEVELS: EnglishLevel[] = [
 
 const SUGGESTIONS = [
   {
-    icon: '✍️',
+    icon: PenLine,
     title: 'Sửa câu tiếng Anh',
     prompt: 'I have went to school yesterday. Is this correct?',
   },
   {
-    icon: '📚',
+    icon: BookOpen,
     title: 'Giải thích ngữ pháp',
     prompt: "What is the difference between 'make' and 'do'?",
   },
   {
-    icon: '🔤',
+    icon: Languages,
     title: 'Học từ vựng',
     prompt: "What does 'achieve' mean? Give me IPA, examples, and collocations.",
   },
   {
-    icon: '🗣️',
+    icon: MessagesSquare,
     title: 'Luyện hội thoại',
     prompt: 'Hi! Let us practice speaking English. Ask me a question about my day.',
   },
@@ -96,6 +100,7 @@ export const ChatConversationsScreen = () => {
   const [quotaError, setQuotaError] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
+  const isPremium = !!currentUser?.plan && currentUser.plan !== 'free';
   const dailyLimit = isPremium ? 999 : 15;
   const [usedMessages, setUsedMessages] = useState(0);
   const [inputText, setInputText] = useState('');
@@ -208,7 +213,7 @@ export const ChatConversationsScreen = () => {
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
-      content: audio ? '🎙️ Đang nhận dạng giọng nói…' : text,
+      content: audio ? 'Đang nhận dạng giọng nói…' : text,
       timestamp,
     };
 
@@ -231,7 +236,7 @@ export const ChatConversationsScreen = () => {
     setIsLoading(false);
     if (audio) {
       setMessages((prev) => prev.map((m) => m.id === userMsg.id
-        ? { ...m, content: response.transcript || '🎙️ Tin nhắn thoại' } : m));
+        ? { ...m, content: response.transcript || 'Tin nhắn thoại' } : m));
     }
     if (response.quota_used !== undefined && response.quota_limit !== undefined) {
       quotaVersion.current++;
@@ -320,7 +325,7 @@ export const ChatConversationsScreen = () => {
               {
                 id: `welcome-${Date.now()}`,
                 role: 'ai',
-                content: `👋 **Lịch sử đã được làm mới!**\nTrình độ hiện tại: **${selectedLevel}**. Tôi sẽ tự nhận diện nhu cầu của bạn.\n\nHãy gửi câu hỏi tiếng Anh của bạn hoặc chọn các gợi ý bên dưới!`,
+                content: `**Lịch sử đã được làm mới!**\nTrình độ hiện tại: **${selectedLevel}**. Tôi sẽ tự nhận diện nhu cầu của bạn.\n\nHãy gửi câu hỏi tiếng Anh của bạn hoặc chọn các gợi ý bên dưới!`,
                 timestamp: new Date().toLocaleTimeString('vi-VN', {
                   hour: '2-digit',
                   minute: '2-digit',
@@ -393,7 +398,8 @@ export const ChatConversationsScreen = () => {
                 stopSpeech();
                 Speech.stop();
                 setIsSpeaking(null);
-                router.back();
+                if (router.canGoBack()) router.back();
+                else router.replace('/(student)/home' as never);
               }}
               style={s.backBtn}
               hitSlop={8}
@@ -474,7 +480,7 @@ export const ChatConversationsScreen = () => {
             : `Quota hôm nay: còn ${Math.max(0, quota.quota_limit - quota.quota_used)}/${quota.quota_limit} tin nhắn Gemini AI`
             : quotaError ? 'Chưa tải được lượt chat · Sẽ kiểm tra khi gửi tin' : 'Đang kiểm tra lượt chat…'}
         </Text>
-        {quota?.quota_exceeded && <Text style={s.quotaText}>Xem gói nâng cấp →</Text>}
+        {!!quota?.quota_exceeded && <Text style={s.quotaText}>Xem gói nâng cấp →</Text>}
       </Pressable>
 
       {/* Messages Scroll Area */}
@@ -551,7 +557,7 @@ export const ChatConversationsScreen = () => {
               <View style={s.aiBubble}>
                 <MarkdownText content={msg.content} textColor="#1E293B" />
               </View>
-              {msg.isQuota && <Pressable onPress={() => router.push('/(student)/shop')}>
+              {!!msg.isQuota && <Pressable onPress={() => router.push('/(student)/shop')}>
                 <Text style={s.quotaText}>Xem gói nâng cấp →</Text>
               </Pressable>}
               <Text style={s.timestampText}>{msg.timestamp}{msg.responseMs ? ` · ${(msg.responseMs / 1000).toFixed(1)} giây` : ''}</Text>
@@ -565,7 +571,7 @@ export const ChatConversationsScreen = () => {
         {/* Suggestion Chips (Shown at start or when reset) */}
         {messages.length <= 2 && !isLoading && (
           <View style={s.suggestionsSection}>
-            <Text style={s.suggestionsHeader}>💡 Bạn có thể hỏi Loxera AI:</Text>
+            <Text style={s.suggestionsHeader}>Gợi ý câu hỏi</Text>
             <View style={s.suggestionsGrid}>
               {SUGGESTIONS.map((item, idx) => (
                 <Pressable
@@ -573,7 +579,9 @@ export const ChatConversationsScreen = () => {
                   onPress={() => handleSend(item.prompt)}
                   style={s.suggestionCard}
                 >
-                  <Text style={s.suggestionIcon}>{item.icon}</Text>
+                  <View style={s.suggestionIcon}>
+                    <item.icon size={18} color="#1F4E79" />
+                  </View>
                   <View style={{ flex: 1 }}>
                     <Text style={s.suggestionTitle}>{item.title}</Text>
                     <Text style={s.suggestionPrompt} numberOfLines={2}>
@@ -597,7 +605,7 @@ export const ChatConversationsScreen = () => {
           <Text style={s.voiceStatus}>{voice.recordAudio ? 'Chế độ: Ghi âm gửi AI' : 'Chế độ: Nhận giọng nói'}</Text>
         </Pressable>}
       </View>
-      {(voice.listening || voice.processing || voice.error) && <View style={s.voiceOptions}>
+      {(voice.listening || voice.processing || !!voice.error) && <View style={s.voiceOptions}>
         <Text accessibilityLiveRegion="polite" style={s.voiceStatus}>
           {voice.listening ? 'Đang nghe… Bấm micro để dừng (tối đa 20 giây).'
             : voice.processing ? 'Đang xử lý ghi âm…' : voice.error}
@@ -959,7 +967,7 @@ const s = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  suggestionIcon: { fontSize: 20 },
+  suggestionIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#E8F1F8', alignItems: 'center', justifyContent: 'center' },
   suggestionTitle: { fontSize: 13, fontWeight: '800', color: '#0F172A' },
   suggestionPrompt: { fontSize: 11, color: '#64748B', marginTop: 2 },
 

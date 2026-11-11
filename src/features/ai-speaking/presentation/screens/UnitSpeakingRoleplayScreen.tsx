@@ -40,6 +40,7 @@ import {
 } from 'expo-audio';
 import * as Speech from 'expo-speech';
 import { createManagedWebAudio, speakText, stopSpeech } from '@/src/core/services/speechService';
+import { UserAvatar } from '@/src/core/components/UserAvatar';
 import {
   useSpeakingQuotaStore,
   FREE_SPEAKING_DAILY_LIMIT,
@@ -266,13 +267,13 @@ export const UnitSpeakingRoleplayScreen = () => {
             </View>
           ) : (
             <Pressable onPress={() => setShowQuotaModal(true)} style={s.quotaBadge}>
-              <Flame color="#FF6B35" size={13} />
+              <Flame color="#0EA5E9" size={13} />
               <Text style={s.quotaText}>Còn {quota.remaining}/{FREE_SPEAKING_DAILY_LIMIT}</Text>
             </Pressable>
           )}
 
           <View style={s.streakBadge}>
-            <Zap color="#FF6B35" size={13} fill="#FF6B35" />
+            <Zap color="#0EA5E9" size={13} fill="#0EA5E9" />
             <Text style={s.streakText}>12D</Text>
           </View>
         </View>
@@ -281,21 +282,15 @@ export const UnitSpeakingRoleplayScreen = () => {
       <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
         {/* Scenario Sub-header */}
         <View style={s.scenarioSubHeader}>
-          <Text style={s.scenarioCategoryText}>🔴 {scenarioName || 'CAFE SCENARIO'}</Text>
+          <Text style={s.scenarioCategoryText}>{scenarioName || 'CAFE SCENARIO'}</Text>
           <Text style={s.scenarioTitle}>Unit 3: Ordering Food</Text>
         </View>
 
         {/* Hero Scenario Banner Image */}
         <View style={s.bannerBox}>
-          <Image
-            source={{ uri: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=800' }}
-            style={s.bannerImg}
-          />
+          <View style={[s.bannerImg, { backgroundColor: '#E0F2FE' }]} />
           <View style={s.avatarOverlayWrap}>
-            <Image
-              source={{ uri: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=300' }}
-              style={s.aiBaristaAvatar}
-            />
+            <UserAvatar uri={null} size={64} style={s.aiBaristaAvatar} />
           </View>
         </View>
 
@@ -340,7 +335,7 @@ export const UnitSpeakingRoleplayScreen = () => {
             >
               <Play color="#FFFFFF" size={14} fill="#FFFFFF" />
               <Text style={s.playUserVoiceText}>
-                {isPlayingUserVoice ? 'Đang phát giọng bạn...' : '🎧 Nghe lại giọng bạn vừa thu âm'}
+                {isPlayingUserVoice ? 'Đang phát giọng bạn...' : 'Nghe lại giọng bạn vừa thu âm'}
               </Text>
             </Pressable>
           )}
@@ -368,7 +363,7 @@ export const UnitSpeakingRoleplayScreen = () => {
         </Animated.View>
 
         <Text style={s.micHintText}>
-          {isRecording ? `ĐANG THU ÂM... 00:0${recordTime}s 🔴` : 'CHẠM NÚT MICRO ĐỂ NÓI TRỰC TIẾP'}
+          {isRecording ? `ĐANG THU ÂM... 00:0${recordTime}s` : 'CHẠM NÚT MICRO ĐỂ NÓI TRỰC TIẾP'}
         </Text>
         {!isPremium && (
           <Text style={s.dailyLimitSubHint}>
@@ -382,10 +377,10 @@ export const UnitSpeakingRoleplayScreen = () => {
         <View style={s.modalOverlay}>
           <View style={s.modalCard}>
             <View style={s.modalIconWrap}>
-              <Flame color="#FF6B35" size={32} />
+              <Flame color="#0EA5E9" size={32} />
             </View>
 
-            <Text style={s.modalTitle}>Hết Lượt Luyện Nói Hôm Nay! 🔥</Text>
+            <Text style={s.modalTitle}>Hết Lượt Luyện Nói Hôm Nay!</Text>
             <Text style={s.modalDesc}>
               Tài khoản Miễn phí được tối đa <Text style={s.boldHighlight}>20 lượt chat AI / ngày</Text> dùng chung cho <Text style={s.boldHighlight}>tất cả các bài luyện nói</Text>.
             </Text>
@@ -439,7 +434,7 @@ const s = StyleSheet.create({
   headerTitle: { fontSize: 16, fontWeight: '800', color: '#9A2C00', letterSpacing: -0.5 },
   headerRightRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   streakBadge: { backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100, borderWidth: 1, borderColor: '#FDE68A', flexDirection: 'row', alignItems: 'center', gap: 3 },
-  streakText: { fontSize: 11, fontWeight: '800', color: '#FF6B35' },
+  streakText: { fontSize: 11, fontWeight: '800', color: '#0EA5E9' },
   quotaBadge: { backgroundColor: '#FFEDD5', paddingHorizontal: 9, paddingVertical: 5, borderRadius: 100, borderWidth: 1, borderColor: '#FED7AA', flexDirection: 'row', alignItems: 'center', gap: 4 },
   quotaText: { fontSize: 10, fontWeight: '800', color: '#C2410C' },
   premiumBadge: { backgroundColor: '#F3E8FF', paddingHorizontal: 9, paddingVertical: 5, borderRadius: 100, borderWidth: 1, borderColor: '#E9D5FF', flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -458,7 +453,7 @@ const s = StyleSheet.create({
   aiSpeechText: { fontSize: 14, fontWeight: '600', color: '#1E293B', lineHeight: 20, flex: 1 },
   speakerMiniBtn: { padding: 4, marginLeft: 8 },
   userBubbleAlign: { alignSelf: 'flex-end', maxWidth: '90%', marginBottom: 12 },
-  userSpeechBox: { backgroundColor: '#FF6B35', padding: 14, borderRadius: 20, borderBottomRightRadius: 4 },
+  userSpeechBox: { backgroundColor: '#0EA5E9', padding: 14, borderRadius: 20, borderBottomRightRadius: 4 },
   userSpeechText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF', lineHeight: 20 },
   mispronouncedWord: { backgroundColor: 'rgba(255,255,255,0.3)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, fontWeight: '800' },
   ratingBarRow: { backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100, borderWidth: 1, borderColor: '#E2E8F0', marginTop: 8, alignSelf: 'flex-end', flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -473,7 +468,7 @@ const s = StyleSheet.create({
   feedbackText: { fontSize: 12, color: '#334155', fontWeight: '500', lineHeight: 18 },
   micSection: { alignItems: 'center', paddingTop: 8 },
   micBtn: { width: 72, height: 72, borderRadius: 36, justifyContent: 'center', alignItems: 'center', borderWidth: 4, borderColor: '#FFFFFF', marginBottom: 8 },
-  micBtnNormal: { backgroundColor: '#FF6B35', shadowColor: '#FF6B35', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 6 },
+  micBtnNormal: { backgroundColor: '#0EA5E9', shadowColor: '#0EA5E9', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 6 },
   micBtnRecording: { backgroundColor: '#EF4444', shadowColor: '#EF4444', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 14, elevation: 7 },
   micHintText: { fontSize: 11, fontWeight: '800', color: '#9A2C00', letterSpacing: 1.2 },
   dailyLimitSubHint: { fontSize: 11, fontWeight: '600', color: '#64748B', marginTop: 4 },
@@ -488,7 +483,7 @@ const s = StyleSheet.create({
   quotaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   quotaRowLabel: { fontSize: 12, color: '#64748B', fontWeight: '500' },
   quotaRowVal: { fontSize: 12, fontWeight: '700', color: '#1E293B' },
-  upgradeBtn: { width: '100%', backgroundColor: '#FF6B35', paddingVertical: 14, borderRadius: 16, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: 10 },
+  upgradeBtn: { width: '100%', backgroundColor: '#0EA5E9', paddingVertical: 14, borderRadius: 16, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: 10 },
   upgradeBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
   dismissBtn: { paddingVertical: 8 },
   dismissBtnText: { fontSize: 12, fontWeight: '600', color: '#94A3B8' },

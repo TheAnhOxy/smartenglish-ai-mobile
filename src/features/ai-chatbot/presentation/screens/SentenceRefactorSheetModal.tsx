@@ -18,7 +18,7 @@ export const SentenceRefactorSheetModal: React.FC<SentenceRefactorSheetModalProp
         <View className="bg-cardWhite p-6 rounded-t-3xl border-t border-gray-100">
           <View className="w-12 h-1 bg-gray-300 rounded-full self-center mb-4" />
 
-          <Text className="text-xl font-bold text-neutralInk mb-1">Các Cách Diễn Đạt Tự Nhiên Hơn ✨</Text>
+          <Text className="text-xl font-bold text-neutralInk mb-1">Các Cách Diễn Đạt Tự Nhiên Hơn</Text>
           <Text className="text-xs text-neutralGray mb-6">AI đề xuất mẫu câu giao tiếp bản xứ</Text>
 
           <View className="gap-3 mb-6">

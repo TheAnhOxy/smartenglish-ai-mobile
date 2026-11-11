@@ -79,7 +79,7 @@ export const IpaSyllableBreakdownCard: React.FC<IpaSyllableBreakdownCardProps> =
                 ]}
               >
                 {isErr ? (
-                  <Text style={styles.tagErrorText}>⚠️ {item.score}%</Text>
+                  <Text style={styles.tagErrorText}>{item.score}%</Text>
                 ) : (
                   <Text style={styles.tagCorrectText}>✓ {item.score}%</Text>
                 )}
@@ -104,7 +104,7 @@ export const IpaSyllableBreakdownCard: React.FC<IpaSyllableBreakdownCardProps> =
               'Hãy hạ hàm dưới và đặt lưỡi đúng vị trí để âm phát ra chuẩn xác hơn.'}
           </Text>
           <Pressable onPress={handleOpenGuide} style={styles.mouthBtn}>
-            <Text style={styles.mouthBtnText}>Xem hướng dẫn đặt răng - môi - lưỡi 👄</Text>
+            <Text style={styles.mouthBtnText}>Xem hướng dẫn đặt răng - môi - lưỡi</Text>
           </Pressable>
         </View>
       ) : (
