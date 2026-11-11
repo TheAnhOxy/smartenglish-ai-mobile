@@ -209,8 +209,8 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
 
       const typingTimer = setInterval(async () => {
         const typers = await fetchTypingApi(convId);
-        setActiveTypingUsers(typers.filter((t) => Number(t.userId) !== currentUserId));
-      }, 2000);
+        setActiveTypingUsers(typers.filter((t) => Number(t.userId) !== Number(currentUserId)));
+      }, 1500);
 
       return () => {
         clearInterval(msgTimer);
@@ -685,7 +685,7 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
         ) : messages.length === 0 ? (
           <View style={styles.emptyMessagesWrap}>
             <Text style={styles.emptyMessagesText}>
-              Chưa có tin nhắn nào. Hãy gửi lời chào đầu tiên! 👋
+              Chưa có tin nhắn nào. Hãy gửi lời chào đầu tiên!
             </Text>
           </View>
         ) : (
@@ -974,22 +974,6 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
             removeClippedSubviews={Platform.OS === 'android'}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.messageScrollContent}
-            ListHeaderComponent={
-              activeTypingUsers.length > 0 ? (
-                <View style={styles.typingIndicatorRow}>
-                  <View style={styles.typingBubble}>
-                    <View style={styles.typingDotWrap}>
-                      <View style={styles.typingDot} />
-                      <View style={styles.typingDot} />
-                      <View style={styles.typingDot} />
-                    </View>
-                    <Text style={styles.typingText}>
-                      {activeTypingUsers[0].userName || 'Ai đó'} đang soạn tin nhắn...
-                    </Text>
-                  </View>
-                </View>
-              ) : null
-            }
             ListFooterComponent={
               loadingOlder ? (
                 <View style={{ paddingVertical: 12, alignItems: 'center' }}>
@@ -1005,6 +989,22 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
           />
         )}
 
+        {/* Đang soạn tin: đặt ngoài danh sách để luôn hiện (kể cả khi chưa có tin nhắn) */}
+        {activeTypingUsers.length > 0 ? (
+          <View style={styles.typingIndicatorRow}>
+            <View style={styles.typingBubble}>
+              <View style={styles.typingDotWrap}>
+                <View style={styles.typingDot} />
+                <View style={styles.typingDot} />
+                <View style={styles.typingDot} />
+              </View>
+              <Text style={styles.typingText}>
+                {activeTypingUsers[0].userName || 'Ai đó'} đang soạn tin nhắn...
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         {/* Reply Preview Bar above Input */}
         {replyingTo && (
           <View style={styles.replyingBar}>
@@ -1013,9 +1013,9 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
               <Text style={styles.replyingToTitle}>Đang trả lời {replyingTo.senderName}</Text>
               <Text style={styles.replyingToExcerpt} numberOfLines={1}>
                 {replyingTo.type === 'IMAGE'
-                  ? '📷 [Hình ảnh]'
+                  ? '[Hình ảnh]'
                   : replyingTo.type === 'FILE'
-                  ? '📄 [Tệp đính kèm]'
+                  ? '[Tệp đính kèm]'
                   : replyingTo.content}
               </Text>
             </View>
@@ -1255,8 +1255,11 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   emptyMessagesWrap: {
+    flex: 1,
     paddingVertical: 40,
+    paddingHorizontal: 24,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyMessagesText: {
     fontSize: 13,
@@ -1544,7 +1547,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 4,
     marginBottom: 8,
-    marginLeft: 4,
+    marginLeft: 16,
   },
   typingBubble: {
     flexDirection: 'row',
