@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-nati
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { usePassageQuery } from '@/src/features/reading-listening/application/useReadingListening';
 import { QuickWordLookupModal } from '@/src/features/flashcard-srs/presentation/screens/QuickWordLookupModal';
+import { AssignmentSubmitBanner } from '@/src/features/class-membership/presentation/components/AssignmentSubmitBanner';
 
 export default function ReadingPassageScreen() {
   const { passageId } = useLocalSearchParams<{ passageId: string }>();
@@ -14,7 +15,7 @@ export default function ReadingPassageScreen() {
   if (isLoading || !passage) {
     return (
       <View className="flex-1 bg-surface justify-center items-center">
-        <ActivityIndicator color="#FF6B35" size="large" />
+        <ActivityIndicator color="#0EA5E9" size="large" />
       </View>
     );
   }
@@ -39,7 +40,7 @@ export default function ReadingPassageScreen() {
           className="self-start bg-primary/10 border border-primary/30 px-3 py-1 rounded-full mb-4"
         >
           <Text className="text-xs font-bold text-primary">
-            {showTranslate ? '🙈 Ẩn Dịch Tiếng Việt' : '👁️ Hiện Dịch Tiếng Việt'}
+            {showTranslate ? 'Ẩn bản dịch' : 'Hiện bản dịch'}
           </Text>
         </Pressable>
 
@@ -63,8 +64,12 @@ export default function ReadingPassageScreen() {
         onPress={() => setShowDictLookup(true)}
         className="bg-secondary py-3.5 rounded-xl items-center shadow-md active:bg-secondary/90"
       >
-        <Text className="text-white font-bold text-base">🔍 Tra Từ Trong Bài</Text>
+        <Text className="text-white font-bold text-base">Tra từ trong bài</Text>
       </Pressable>
+
+      <View className="mt-3 -mx-4">
+        <AssignmentSubmitBanner referenceId={passageId} />
+      </View>
 
       <QuickWordLookupModal visible={showDictLookup} onClose={() => setShowDictLookup(false)} />
     </View>

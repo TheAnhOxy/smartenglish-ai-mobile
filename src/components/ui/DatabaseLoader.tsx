@@ -13,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { colors } from '@/src/theme/colors';
 import { timing, easings } from '@/src/theme/motion';
+import { font } from '@/src/theme/typography';
 
 interface DatabaseLoaderProps {
   message?: string;
@@ -333,14 +334,14 @@ const s = StyleSheet.create({
   message: {
     fontSize: 15,
     fontWeight: '700',
-    fontFamily: 'Inter',
+    fontFamily: font.family,
     textAlign: 'center',
     letterSpacing: -0.2,
   },
   subMessage: {
     fontSize: 13,
     fontWeight: '500',
-    fontFamily: 'Inter',
+    fontFamily: font.family,
     textAlign: 'center',
     marginTop: 4,
     opacity: 0.8,

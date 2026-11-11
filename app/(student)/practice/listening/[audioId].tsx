@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAudioTrackQuery } from '@/src/features/reading-listening/application/useReadingListening';
+import { AssignmentSubmitBanner } from '@/src/features/class-membership/presentation/components/AssignmentSubmitBanner';
 
 export default function ListeningPlayerScreen() {
   const { audioId } = useLocalSearchParams<{ audioId: string }>();
@@ -16,7 +17,7 @@ export default function ListeningPlayerScreen() {
   if (isLoading || !track) {
     return (
       <View className="flex-1 bg-surface justify-center items-center">
-        <ActivityIndicator color="#FF6B35" size="large" />
+        <ActivityIndicator color="#0EA5E9" size="large" />
       </View>
     );
   }
@@ -75,7 +76,7 @@ export default function ListeningPlayerScreen() {
               }`}
             >
               <Text className={`text-xs font-bold ${abLoop ? 'text-white' : 'text-gray-300'}`}>
-                {abLoop ? '🔁 A-B Loop Bật' : '🔁 Loop Tắt'}
+                {abLoop ? 'Lặp A-B: bật' : 'Lặp A-B: tắt'}
               </Text>
             </Pressable>
           </View>
@@ -95,9 +96,13 @@ export default function ListeningPlayerScreen() {
           className="bg-gray-800 py-3 rounded-xl items-center border border-gray-700"
         >
           <Text className="text-xs font-bold text-gray-300">
-            {showSub ? '🙈 Ẩn Phụ Đề Song Ngữ' : '👁️ Bật Phụ Đề Song Ngữ'}
+            {showSub ? 'Ẩn phụ đề' : 'Hiện phụ đề'}
           </Text>
         </Pressable>
+
+        <View className="mt-4 -mx-4">
+          <AssignmentSubmitBanner referenceId={audioId} />
+        </View>
       </ScrollView>
     </View>
   );

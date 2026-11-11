@@ -9,6 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { usePressSpring } from '@/src/hooks/usePressSpring';
 import { colors, palette } from '@/src/theme/colors';
+import { font } from '@/src/theme/typography';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -174,7 +175,7 @@ const s = StyleSheet.create({
   baseText: {
     fontSize: 16,
     fontWeight: '700',
-    fontFamily: 'Inter',
+    fontFamily: font.family,
   },
   primaryText: {
     color: '#FFFFFF',

@@ -1,2 +1,3 @@
 import { StudentClassDetailScreen } from '@/src/features/class-membership/presentation/screens/StudentClassDetailScreen';
-export default StudentClassDetailScreen;
+import { withLoginRequired } from '@/src/core/components/GuestLoginPrompt';
+export default withLoginRequired(StudentClassDetailScreen, 'join_class_submit');
