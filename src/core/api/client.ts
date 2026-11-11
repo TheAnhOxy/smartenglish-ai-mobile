@@ -2,6 +2,7 @@ import axios, { AxiosInstance } from 'axios';
 import { Platform } from 'react-native';
 
 import Constants from 'expo-constants';
+import { getDeviceName } from './deviceName';
 import {
   getStoredAccessToken,
   getStoredRefreshToken,
@@ -17,15 +18,19 @@ const getGatewayUrl = () => {
   if (Platform.OS === 'web') {
     if (typeof window !== 'undefined' && window.location) {
       const hostname = window.location.hostname;
-      // Khi test trên localhost / 127.0.0.1, luôn gọi thẳng gateway local http://localhost:8080 để tránh CORS của ngrok
+      // Localhost: dùng gateway đã deploy nếu có; riêng ngrok (lỗi CORS) hoặc chưa cấu hình thì gọi gateway local
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return 'http://localhost:8080';
+        return envUrl && !/ngrok/i.test(envUrl) ? envUrl.replace(/\/$/, '') : 'http://localhost:8080';
+      }
+      // Bản web đã deploy: dùng địa chỉ gateway cấu hình sẵn (EXPO_PUBLIC_API_URL), không tự ghép hostname:8080
+      if (envUrl) {
+        return envUrl.replace(/\/$/, '');
       }
       if (hostname) {
-        return `http://${hostname}:8080`;
+        return `${window.location.protocol}//${hostname}:8080`;
       }
     }
-    if (envUrl && !envUrl.includes('ngrok')) {
+    if (envUrl) {
       return envUrl.replace(/\/$/, '');
     }
     return 'http://localhost:8080';
@@ -55,6 +60,9 @@ const getGatewayUrl = () => {
   return 'http://192.168.1.22:8080';
 };
 
+// Tên thiết bị gửi kèm mọi request; Auth Service dùng khi đăng nhập để ghi vào danh sách phiên
+const DEVICE_NAME = getDeviceName();
+
 export const SERVICE_URLS = {
   GATEWAY: getGatewayUrl(),
   AUTH: getGatewayUrl(),
@@ -81,6 +89,7 @@ apiClient.interceptors.request.use(
     config.baseURL = getGatewayUrl();
     config.headers = config.headers || {};
     (config.headers as any)['ngrok-skip-browser-warning'] = 'true';
+    (config.headers as any)['X-Device-Name'] = DEVICE_NAME;
 
     // Attach Authorization token from Zustand auth store or Cookie/LocalStorage tokenStorage
     try {

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Image, View, type ImageStyle, type StyleProp } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Image, Platform, View, type ImageStyle, type StyleProp } from 'react-native';
 import { User } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
 
@@ -18,8 +18,21 @@ interface UserAvatarProps {
 /** Avatar người dùng: ảnh do người dùng tải lên, nếu không có thì icon người dùng mặc định. */
 export const UserAvatar: React.FC<UserAvatarProps> = ({ uri, size = 40, style }) => {
   const shape = { width: size, height: size, borderRadius: size / 2 };
-  if (isRealAvatarUrl(uri)) {
-    return <Image source={{ uri }} style={[shape, style]} />;
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [uri]);
+
+  if (isRealAvatarUrl(uri) && !failed) {
+    if (Platform.OS === 'web') {
+      // Ảnh Google (lh3.googleusercontent.com) bị từ chối khi trình duyệt gửi kèm Referer → tắt referrer
+      return React.createElement('img', {
+        src: uri,
+        alt: '',
+        referrerPolicy: 'no-referrer',
+        onError: () => setFailed(true),
+        style: { ...shape, objectFit: 'cover', display: 'block', flexShrink: 0, ...(style as object) },
+      });
+    }
+    return <Image source={{ uri }} style={[shape, style]} onError={() => setFailed(true)} />;
   }
   return (
     <View
