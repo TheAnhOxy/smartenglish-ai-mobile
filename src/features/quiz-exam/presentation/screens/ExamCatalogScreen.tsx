@@ -187,7 +187,7 @@ export function ExamCatalogScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" />
 
       {/* ─── XP EARNED TOAST ─── */}
       {xpToast !== null ? (

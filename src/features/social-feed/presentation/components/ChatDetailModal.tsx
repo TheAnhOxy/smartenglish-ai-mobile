@@ -988,7 +988,7 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
                     </Text>
                   </View>
                 </View>
-              ) : null
+              ) : undefined
             }
             ListFooterComponent={
               loadingOlder ? (
@@ -1000,7 +1000,7 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
                   <Clock color="#64748B" size={13} />
                   <Text style={styles.loadOlderText}>Tải thêm tin nhắn cũ</Text>
                 </Pressable>
-              ) : null
+              ) : undefined
             }
           />
         )}

@@ -16,6 +16,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Linking,
+  type ScrollViewInstance,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -108,7 +109,7 @@ export const SocialFeedScreen = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { currentUser } = useAuthStore();
-  const chatScrollRef = useRef<ScrollView>(null);
+  const chatScrollRef = useRef<ScrollViewInstance>(null);
 
   const currentUserId = Number(currentUser?.id) || 1;
   const currentUserName = currentUser?.display_name || 'Học viên SmartEnglish';
@@ -1137,7 +1138,7 @@ export const SocialFeedScreen = () => {
                   <View style={{ paddingVertical: 18, alignItems: 'center', justifyContent: 'center' }}>
                     <ActivityIndicator size="small" color="#4F46E5" />
                   </View>
-                ) : null
+                ) : undefined
               }
             />
           )}

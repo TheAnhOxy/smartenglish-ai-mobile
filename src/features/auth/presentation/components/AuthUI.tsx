@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
   type TextInputProps,
+  type TextInputInstance,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Eye, EyeOff, type LucideIcon } from 'lucide-react-native';
@@ -66,7 +67,7 @@ interface AuthTextFieldProps extends Omit<TextInputProps, 'style'> {
   secure?: boolean;
 }
 
-export const AuthTextField = forwardRef<TextInput, AuthTextFieldProps>(
+export const AuthTextField = forwardRef<TextInputInstance, AuthTextFieldProps>(
   ({ label, icon: Icon, error, secure, ...inputProps }, ref) => {
     const [hidden, setHidden] = useState(true);
     return (

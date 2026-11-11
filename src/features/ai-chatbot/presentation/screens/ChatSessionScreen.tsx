@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, Text, TextInput, ScrollView, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, ScrollView, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform, type ScrollViewInstance } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/src/core/flows/authStore';
@@ -25,7 +25,7 @@ export const ChatSessionScreen = () => {
     return () => { active = false; };
   }, [userId]));
   const [quota, setQuota] = useState<{ used: number; limit: number | null } | null>(null);
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       message_id: 'welcome',
