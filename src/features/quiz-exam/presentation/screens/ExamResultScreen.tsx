@@ -26,12 +26,14 @@ import {
   RotateCcw,
   Check,
   Award,
-} from 'lucide-react-native';
+} from '@/src/components/ds/icons';
 import { useExamResultQuery } from '../../application/useExamAttempt';
 import { AssignmentSubmitBanner } from '@/src/features/class-membership/presentation/components/AssignmentSubmitBanner';
 
 import { colors } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
+import { ds, dsFont } from '@/src/theme/ds';
+import { ResultCelebrationHero } from '../components/ResultCelebrationHero';
 
 export function ExamResultScreen() {
   const router = useRouter();
@@ -126,20 +128,20 @@ export function ExamResultScreen() {
   }, [questions, userAnswers, filterMode]);
 
   if (resultQuery.isLoading) {
-    return <View style={styles.loadingState}><ActivityIndicator color={colors.primary} size="small" /><Text style={styles.loadingText}>Đang tải...</Text></View>;
+    return <View style={styles.loadingState}><ActivityIndicator color={ds.btn} size="small" /><Text style={styles.loadingText}>Đang tải...</Text></View>;
   }
 
   if (!result) {
     return (
       <View style={styles.loadingState}>
-        <XCircle color={colors.primary} size={34} />
+        <XCircle color={ds.btn} size={34} />
         <Text style={styles.loadingTitle}>Không tải được kết quả</Text>
         <Text style={styles.loadingText}>{(resultQuery.error as any)?.response?.data?.message || 'Kết quả không tồn tại hoặc bài chưa được nộp.'}</Text>
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
           <Pressable style={styles.loadingButton} onPress={() => resultQuery.refetch()}>
             <Text style={styles.loadingButtonText}>Thử lại</Text>
           </Pressable>
-          <Pressable style={[styles.loadingButton, { backgroundColor: '#64748B' }]} onPress={() => router.replace('/(student)/learn')}>
+          <Pressable style={[styles.loadingButton, { backgroundColor: '#5B6B7F' }]} onPress={() => router.replace('/(student)/learn')}>
             <Text style={styles.loadingButtonText}>Danh sách đề</Text>
           </Pressable>
         </View>
@@ -166,13 +168,13 @@ export function ExamResultScreen() {
           hitSlop={10}
           style={styles.headerBtn}
         >
-          <ArrowLeft color={colors.text} size={22} strokeWidth={2.2} />
+          <ArrowLeft color={ds.ink} size={22} strokeWidth={2.2} />
         </Pressable>
 
         <Text style={styles.headerTitle}>Kết quả bài kiểm tra</Text>
 
         <Pressable hitSlop={10} style={styles.headerBtn}>
-          <Share2 color={colors.textSoft} size={20} />
+          <Share2 color={ds.muted} size={20} />
         </Pressable>
       </View>
 
@@ -187,35 +189,14 @@ export function ExamResultScreen() {
         />
 
         {/* ─── 1. HERO SCORE CARD ─── */}
-        <View style={styles.heroCard}>
-          <View style={styles.trophyIconWrap}>
-            <Trophy color="#F59E0B" size={36} />
-          </View>
-
-          <Text style={styles.heroSubText}>
-            {isToeicResult ? 'ĐIỂM TOEIC ƯỚC TÍNH' : 'KẾT QUẢ BÀI KIỂM TRA'}
-          </Text>
-          <View style={styles.scoreRow}>
-            <Text style={styles.scoreNumber}>{result.displayScore}</Text>
-            <Text style={styles.scoreMax}>
-              / {isToeicResult ? 990 : 100}
-              {!isToeicResult ? '%' : ''}
-            </Text>
-          </View>
-
-          <View style={styles.heroBadgeRow}>
-            <View style={styles.cefrBadge}>
-              <Award color={colors.primary} size={13} />
-              <Text style={styles.cefrBadgeText}>
-                {result.cefrLevel ? `${result.cefrLevel} · ` : ''}{result.passed ? 'Đạt mục tiêu' : 'Chưa đạt mục tiêu'}
-              </Text>
-            </View>
-            {result.xpEarned > 0 ? <View style={styles.diffBadge}>
-              <Sparkles color="#16A34A" size={13} />
-              <Text style={styles.diffBadgeText}>+{result.xpEarned} XP</Text>
-            </View> : null}
-          </View>
-        </View>
+        <ResultCelebrationHero
+          label={isToeicResult ? 'Điểm TOEIC ước tính' : 'Kết quả bài kiểm tra'}
+          score={Number(result.displayScore) || 0}
+          maxLabel={`/ ${isToeicResult ? 990 : 100}${!isToeicResult ? '%' : ''}`}
+          badgeText={`${result.cefrLevel ? `${result.cefrLevel} · ` : ''}${result.passed ? 'Đạt mục tiêu' : 'Chưa đạt mục tiêu'}`}
+          xpEarned={result.xpEarned ?? 0}
+          passed={Boolean(result.passed)}
+        />
 
         {/* ─── 2. SECTION BREAKDOWN (Listening vs Reading - chỉ cho TOEIC) ─── */}
         {isToeicResult && (stats.listeningTotal > 0 || stats.readingTotal > 0) ? <View style={styles.sectionRow}>
@@ -236,7 +217,7 @@ export function ExamResultScreen() {
               <View
                 style={[
                   styles.miniBarFill,
-                  { width: `${Math.round((stats.listeningCorrect / Math.max(1, stats.listeningTotal)) * 100)}%`, backgroundColor: '#0284C7' },
+                  { width: `${Math.round((stats.listeningCorrect / Math.max(1, stats.listeningTotal)) * 100)}%`, backgroundColor: '#0EA5E9' },
                 ]}
               />
             </View>
@@ -245,8 +226,8 @@ export function ExamResultScreen() {
           {/* Reading */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionCardHeader}>
-              <View style={[styles.sectionIconWrap, { backgroundColor: '#EDE9FE' }]}>
-                <BookOpen color="#7C3AED" size={18} />
+              <View style={[styles.sectionIconWrap, { backgroundColor: '#E0F2FE' }]}>
+                <BookOpen color="#0369A1" size={18} />
               </View>
               <Text style={styles.sectionTitle}>Reading</Text>
             </View>
@@ -259,7 +240,7 @@ export function ExamResultScreen() {
               <View
                 style={[
                   styles.miniBarFill,
-                  { width: `${Math.round((stats.readingCorrect / Math.max(1, stats.readingTotal)) * 100)}%`, backgroundColor: '#7C3AED' },
+                  { width: `${Math.round((stats.readingCorrect / Math.max(1, stats.readingTotal)) * 100)}%`, backgroundColor: '#0369A1' },
                 ]}
               />
             </View>
@@ -282,19 +263,19 @@ export function ExamResultScreen() {
               </View>
               <View style={styles.metricDivider} />
               <View style={styles.metricItem}>
-                <XCircle color="#EF4444" size={18} />
+                <XCircle color="#DC2626" size={18} />
                 <Text style={styles.metricVal}>{result.wrongAnswers}</Text>
                 <Text style={styles.metricLbl}>Sai</Text>
               </View>
               <View style={styles.metricDivider} />
               <View style={styles.metricItem}>
-                <Clock color={colors.textSoft} size={18} />
+                <Clock color={ds.muted} size={18} />
                 <Text style={styles.metricVal}>{formatDuration(result.timeSpentSeconds)}</Text>
                 <Text style={styles.metricLbl}>Thời gian</Text>
               </View>
               <View style={styles.metricDivider} />
               <View style={styles.metricItem}>
-                <Target color="#2563EB" size={18} />
+                <Target color="#0369A1" size={18} />
                 <Text style={styles.metricVal}>
                   {accuracyPct}%
                 </Text>
@@ -330,7 +311,7 @@ export function ExamResultScreen() {
                             styles.partBarFill,
                             {
                               width: `${pct}%`,
-                              backgroundColor: isHigh ? '#16A34A' : pct >= 50 ? '#F59E0B' : '#EF4444',
+                              backgroundColor: isHigh ? '#16A34A' : pct >= 50 ? '#F59E0B' : '#DC2626',
                             },
                           ]}
                         />
@@ -414,7 +395,7 @@ export function ExamResultScreen() {
                         {isCorrect ? (
                           <CheckCircle2 color="#16A34A" size={15} />
                         ) : (
-                          <XCircle color="#EF4444" size={15} />
+                          <XCircle color="#DC2626" size={15} />
                         )}
                         <Text
                           style={[
@@ -436,9 +417,9 @@ export function ExamResultScreen() {
                         {userAns || 'Chưa chọn'} / {q.correctAnswer}
                       </Text>
                       {isExpanded ? (
-                        <ChevronUp color={colors.textSoft} size={18} />
+                        <ChevronUp color={ds.muted} size={18} />
                       ) : (
-                        <ChevronDown color={colors.textSoft} size={18} />
+                        <ChevronDown color={ds.muted} size={18} />
                       )}
                     </View>
                   </Pressable>
@@ -465,7 +446,7 @@ export function ExamResultScreen() {
                                 style={[
                                   styles.expOptionKeyBadge,
                                   isRight && { backgroundColor: '#16A34A' },
-                                  isUserPicked && !isRight && { backgroundColor: '#EF4444' },
+                                  isUserPicked && !isRight && { backgroundColor: '#DC2626' },
                                 ]}
                               >
                                 <Text
@@ -499,7 +480,7 @@ export function ExamResultScreen() {
                       {/* Detailed Vietnamese explanation */}
                       <View style={styles.explanationBox}>
                         <View style={styles.explanationHeaderLine}>
-                          <Sparkles color={colors.primary} size={15} />
+                          <Sparkles color={ds.btn} size={15} />
                           <Text style={styles.explanationHeading}>Giải thích đáp án:</Text>
                         </View>
                         <Text style={styles.explanationViText}>{q.explanationVi}</Text>
@@ -519,7 +500,7 @@ export function ExamResultScreen() {
           onPress={() => router.replace({ pathname: '/(student)/practice/exam/[examId]', params: { examId: String(result.examId) } } as any)}
           style={styles.retryBtn}
         >
-          <RotateCcw color={colors.primary} size={17} />
+          <RotateCcw color={ds.btn} size={17} />
           <Text style={styles.retryBtnText}>Làm lại</Text>
         </Pressable>
 
@@ -535,14 +516,14 @@ export function ExamResultScreen() {
 }
 
 const styles = StyleSheet.create({
-  loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 12, backgroundColor: '#F8FAFC' },
-  loadingTitle: { color: colors.text, fontSize: 20, fontWeight: '800', textAlign: 'center' },
-  loadingText: { color: colors.textSoft, fontSize: 14, lineHeight: 21, textAlign: 'center' },
-  loadingButton: { marginTop: 8, borderRadius: 12, backgroundColor: colors.primary, paddingHorizontal: 18, paddingVertical: 12 },
-  loadingButtonText: { color: '#FFFFFF', fontWeight: '800' },
+  loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 12, backgroundColor: '#F4F7FB' },
+  loadingTitle: { color: ds.ink, fontSize: 20, fontFamily: dsFont.display, textAlign: 'center' },
+  loadingText: { fontFamily: dsFont.body, color: ds.muted, fontSize: 14, lineHeight: 21, textAlign: 'center' },
+  loadingButton: { marginTop: 8, borderRadius: 12, backgroundColor: ds.btn, paddingHorizontal: 18, paddingVertical: 12 },
+  loadingButtonText: { color: '#FFFFFF', fontFamily: dsFont.display },
   root: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F7FB',
   },
   header: {
     flexDirection: 'row',
@@ -552,7 +533,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#E3EAF2',
   },
   headerBtn: {
     width: 38,
@@ -560,13 +541,12 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
   },
   headerTitle: {
     fontSize: 17,
-    fontWeight: '600',
-    color: '#0F172A',
-    fontFamily: font.family,
+    fontFamily: dsFont.semibold,
+    color: '#0F2A44',
   },
   scrollContent: {
     padding: 16,
@@ -580,8 +560,8 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
+    borderColor: '#E3EAF2',
+    shadowColor: '#0F2A44',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -598,11 +578,10 @@ const styles = StyleSheet.create({
   },
   heroSubText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
+    fontFamily: dsFont.bold,
+    color: '#5B6B7F',
     letterSpacing: 0.6,
     marginBottom: 6,
-    fontFamily: font.family,
   },
   scoreRow: {
     flexDirection: 'row',
@@ -611,16 +590,14 @@ const styles = StyleSheet.create({
   },
   scoreNumber: {
     fontSize: 48,
-    fontWeight: '700',
-    color: colors.primary,
-    fontFamily: font.family,
+    fontFamily: dsFont.bold,
+    color: ds.btn,
   },
   scoreMax: {
     fontSize: 20,
-    fontWeight: '600',
-    color: '#94A3B8',
+    fontFamily: dsFont.semibold,
+    color: '#8597AB',
     marginLeft: 6,
-    fontFamily: font.family,
   },
   heroBadgeRow: {
     flexDirection: 'row',
@@ -631,16 +608,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#E0F2FE',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 12,
   },
   cefrBadgeText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
-    fontFamily: font.family,
+    fontFamily: dsFont.semibold,
+    color: ds.btn,
   },
   diffBadge: {
     flexDirection: 'row',
@@ -653,9 +629,8 @@ const styles = StyleSheet.create({
   },
   diffBadgeText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: dsFont.semibold,
     color: '#16A34A',
-    fontFamily: font.family,
   },
 
   // Sections
@@ -669,7 +644,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
   },
   sectionCardHeader: {
     flexDirection: 'row',
@@ -686,33 +661,29 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#0F172A',
-    fontFamily: font.family,
+    fontFamily: dsFont.semibold,
+    color: '#0F2A44',
   },
   sectionScore: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#0F172A',
-    fontFamily: font.family,
+    fontFamily: dsFont.bold,
+    color: '#0F2A44',
   },
   sectionScoreMax: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#94A3B8',
-    fontFamily: font.family,
+    fontFamily: dsFont.medium,
+    color: '#8597AB',
   },
   sectionSub: {
     fontSize: 12,
-    fontWeight: '400',
-    color: '#64748B',
+    fontFamily: dsFont.body,
+    color: '#5B6B7F',
     marginTop: 2,
     marginBottom: 10,
-    fontFamily: font.family,
   },
   miniBarTrack: {
     height: 5,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
     borderRadius: 3,
     overflow: 'hidden',
   },
@@ -729,7 +700,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     alignItems: 'center',
     justifyContent: 'space-around',
   },
@@ -739,20 +710,18 @@ const styles = StyleSheet.create({
   },
   metricVal: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
-    fontFamily: font.family,
+    fontFamily: dsFont.bold,
+    color: '#0F2A44',
   },
   metricLbl: {
     fontSize: 11,
-    fontWeight: '400',
-    color: '#64748B',
-    fontFamily: font.family,
+    fontFamily: dsFont.body,
+    color: '#5B6B7F',
   },
   metricDivider: {
     width: 1,
     height: 24,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E3EAF2',
   },
 
   // Card Wrapper
@@ -761,14 +730,13 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
   },
   blockTitle: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontFamily: dsFont.bold,
+    color: '#0F2A44',
     marginBottom: 12,
-    fontFamily: font.family,
   },
 
   // Parts List
@@ -785,23 +753,21 @@ const styles = StyleSheet.create({
   },
   partRowName: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#1E293B',
-    fontFamily: font.family,
+    fontFamily: dsFont.semibold,
+    color: '#0F2A44',
   },
   partRowRatio: {
     fontSize: 11,
-    fontWeight: '400',
-    color: '#64748B',
+    fontFamily: dsFont.body,
+    color: '#5B6B7F',
     marginTop: 2,
-    fontFamily: font.family,
   },
   partRowRight: {
     width: 100,
   },
   partBarTrack: {
     height: 6,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
     borderRadius: 3,
     overflow: 'hidden',
   },
@@ -823,28 +789,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 14,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
   },
   filterChipActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: ds.btn,
   },
   filterChipText: {
     fontSize: 12,
-    fontWeight: '500',
-    color: '#64748B',
-    fontFamily: font.family,
+    fontFamily: dsFont.medium,
+    color: '#5B6B7F',
   },
   filterChipTextActive: {
     color: '#FFFFFF',
-    fontWeight: '600',
+    fontFamily: dsFont.semibold,
   },
   questionList: {
     gap: 10,
   },
-  emptyReviewText: { fontSize: 13, color: '#64748B', textAlign: 'center', paddingVertical: 12 },
+  emptyReviewText: { fontFamily: dsFont.body, fontSize: 13, color: '#5B6B7F', textAlign: 'center', paddingVertical: 12 },
   reviewItemCard: {
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     borderRadius: 12,
     backgroundColor: '#FAFCFF',
     overflow: 'hidden',
@@ -877,21 +842,19 @@ const styles = StyleSheet.create({
   },
   resultStatusText: {
     fontSize: 12,
-    fontWeight: '700',
-    fontFamily: font.family,
+    fontFamily: dsFont.bold,
   },
   resultTextCorrect: {
     color: '#16A34A',
   },
   resultTextWrong: {
-    color: '#EF4444',
+    color: '#DC2626',
   },
   reviewQuestionShortText: {
     fontSize: 13,
-    fontWeight: '500',
-    color: '#1E293B',
+    fontFamily: dsFont.medium,
+    color: '#0F2A44',
     flex: 1,
-    fontFamily: font.family,
   },
   reviewItemHeaderRight: {
     flexDirection: 'row',
@@ -900,24 +863,22 @@ const styles = StyleSheet.create({
   },
   userChoiceText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#64748B',
-    fontFamily: font.family,
+    fontFamily: dsFont.bold,
+    color: '#5B6B7F',
   },
 
   // Explanation body
   explanationBody: {
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: '#E3EAF2',
     padding: 14,
     gap: 10,
   },
   expSectionTitle: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-    fontFamily: font.family,
+    fontFamily: dsFont.semibold,
+    color: '#5B6B7F',
   },
   expOptionsList: {
     gap: 6,
@@ -928,57 +889,54 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 8,
     borderRadius: 8,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F7FB',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
   },
   expOptionRowCorrect: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#DCFCE7',
     borderColor: '#86EFAC',
   },
   expOptionRowWrong: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: '#FEE2E2',
     borderColor: '#FCA5A5',
   },
   expOptionKeyBadge: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E3EAF2',
     alignItems: 'center',
     justifyContent: 'center',
   },
   expOptionKeyText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#1E293B',
-    fontFamily: font.family,
+    fontFamily: dsFont.bold,
+    color: '#0F2A44',
   },
   expOptionContent: {
     flex: 1,
   },
   expOptionLabel: {
     fontSize: 13,
-    fontWeight: '400',
-    color: '#1E293B',
-    fontFamily: font.family,
+    fontFamily: dsFont.body,
+    color: '#0F2A44',
   },
   expOptionLabelCorrect: {
-    fontWeight: '600',
+    fontFamily: dsFont.semibold,
     color: '#16A34A',
   },
   expOptionSubLabel: {
     fontSize: 11,
-    fontWeight: '400',
-    color: '#64748B',
-    fontFamily: font.family,
+    fontFamily: dsFont.body,
+    color: '#5B6B7F',
   },
   explanationBox: {
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#E0F2FE',
     borderRadius: 10,
     padding: 12,
     borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
+    borderLeftColor: ds.btn,
     marginTop: 4,
   },
   explanationHeaderLine: {
@@ -989,16 +947,14 @@ const styles = StyleSheet.create({
   },
   explanationHeading: {
     fontSize: 12,
-    fontWeight: '700',
-    color: colors.primary,
-    fontFamily: font.family,
+    fontFamily: dsFont.bold,
+    color: ds.btn,
   },
   explanationViText: {
     fontSize: 13,
-    fontWeight: '400',
-    color: '#1E293B',
+    fontFamily: dsFont.body,
+    color: '#0F2A44',
     lineHeight: 19,
-    fontFamily: font.family,
   },
 
   // Bottom CTA Bar
@@ -1009,7 +965,7 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: '#E3EAF2',
     paddingHorizontal: 16,
     paddingTop: 12,
     flexDirection: 'row',
@@ -1025,14 +981,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     borderStyle: 'solid',
-    borderColor: colors.primary,
+    borderColor: ds.btn,
     backgroundColor: '#FFFFFF',
   },
   retryBtnText: {
     fontSize: 14,
-    fontWeight: '700',
-    color: colors.primary,
-    fontFamily: font.family,
+    fontFamily: dsFont.bold,
+    color: ds.btn,
   },
   catalogBtn: {
     flex: 1,
@@ -1042,13 +997,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     borderStyle: 'solid',
-    borderColor: colors.primary,
-    backgroundColor: colors.primary,
+    borderColor: ds.btn,
+    backgroundColor: ds.btn,
   },
   catalogBtnText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: dsFont.bold,
     color: '#FFFFFF',
-    fontFamily: font.family,
   },
 });
