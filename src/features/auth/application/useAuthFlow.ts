@@ -13,6 +13,7 @@ import { useAuthStore } from '@/src/core/flows/authStore';
 import { useRoleGateStore } from '@/src/core/flows/roleGateStore';
 import { useRouter } from 'expo-router';
 import { fetchUserStatsApi } from '@/src/features/home-dashboard/data/dashboardApi';
+import { submitPendingPlacement } from '@/src/features/onboarding/application/submitPendingPlacement';
 
 export const useAuthFlow = () => {
   const { setAuthUser, loginAsRole, setUserStats } = useAuthStore();
@@ -48,6 +49,9 @@ export const useAuthFlow = () => {
       };
     }
     refreshGamificationStats(String(data.user.id));
+    if (data.user.role === 'student') {
+      void submitPendingPlacement();
+    }
     goWithTransition(data.user.role);
   };
 
