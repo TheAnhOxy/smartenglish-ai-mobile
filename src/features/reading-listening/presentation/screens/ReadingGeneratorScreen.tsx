@@ -114,7 +114,7 @@ export const ReadingGeneratorScreen = () => {
               <Text className="text-white font-bold text-base">Đang Tạo Bài Đọc Tối Ưu...</Text>
             </>
           ) : (
-            <Text className="text-white font-bold text-base">Tạo Bài Đọc Mới Cho Bạn ➔</Text>
+            <Text className="text-white font-bold text-base">Tạo bài đọc mới</Text>
           )}
         </Pressable>
       </View>
