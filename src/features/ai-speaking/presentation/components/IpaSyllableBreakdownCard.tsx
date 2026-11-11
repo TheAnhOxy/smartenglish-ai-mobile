@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { AlertCircle, CheckCircle2, HelpCircle, Sparkles } from 'lucide-react-native';
+import { AlertCircle, CheckCircle2, HelpCircle, Sparkles } from '@/src/components/ds/icons';
 import { SyllableEvaluation } from '../../data/speakingApi';
 import { MouthShapeGuideModal } from '../screens/MouthShapeGuideModal';
+import { dsFont } from '@/src/theme/ds';
 
 interface IpaSyllableBreakdownCardProps {
   syllables?: SyllableEvaluation[];
@@ -38,11 +39,11 @@ export const IpaSyllableBreakdownCard: React.FC<IpaSyllableBreakdownCardProps> =
       {/* Header */}
       <View style={styles.headerRow}>
         <View style={styles.titleWrap}>
-          <Sparkles color="#4F46E5" size={18} />
+          <Sparkles color="#0369A1" size={18} />
           <Text style={styles.cardTitle}>Phân tích âm tiết IPA (AI Phonemes)</Text>
         </View>
         <Pressable onPress={handleOpenGuide} style={styles.guideBadge}>
-          <HelpCircle color="#4F46E5" size={13} />
+          <HelpCircle color="#0369A1" size={13} />
           <Text style={styles.guideBadgeText}>Khẩu hình</Text>
         </Pressable>
       </View>
@@ -110,7 +111,7 @@ export const IpaSyllableBreakdownCard: React.FC<IpaSyllableBreakdownCardProps> =
       ) : (
         <View style={styles.feedbackSuccessBox}>
           <View style={styles.alertHeader}>
-            <CheckCircle2 color="#059669" size={16} />
+            <CheckCircle2 color="#16A34A" size={16} />
             <Text style={styles.successTitle}>Phát âm chuẩn xác 100%!</Text>
           </View>
           <Text style={styles.successDesc}>
@@ -138,9 +139,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     marginTop: 14,
-    shadowColor: '#0F172A',
+    shadowColor: '#0F2A44',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 8,
@@ -159,32 +160,33 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontFamily: dsFont.display,
+    color: '#0F2A44',
   },
   guideBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#E0F2FE',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 100,
   },
   guideBadgeText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#4F46E5',
+    fontFamily: dsFont.bold,
+    color: '#0369A1',
   },
   cardSubtitle: {
+    fontFamily: dsFont.body,
     fontSize: 12,
-    color: '#64748B',
+    color: '#5B6B7F',
     lineHeight: 17,
     marginBottom: 14,
   },
   highlightRed: {
     color: '#DC2626',
-    fontWeight: '700',
+    fontFamily: dsFont.bold,
   },
   pillsContainer: {
     flexDirection: 'row',
@@ -202,21 +204,21 @@ const styles = StyleSheet.create({
     minWidth: 70,
   },
   pillCorrect: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
+    backgroundColor: '#DCFCE7',
+    borderColor: '#86EFAC',
   },
   pillError: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#F87171',
+    backgroundColor: '#FEE2E2',
+    borderColor: '#FCA5A5',
     borderWidth: 2,
   },
   syllableText: {
     fontSize: 18,
-    fontWeight: '800',
+    fontFamily: dsFont.display,
     marginBottom: 4,
   },
   textCorrect: {
-    color: '#047857',
+    color: '#166534',
   },
   textError: {
     color: '#DC2626',
@@ -228,26 +230,26 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   badgeTagCorrect: {
-    backgroundColor: '#D1FAE5',
+    backgroundColor: '#DCFCE7',
   },
   badgeTagError: {
     backgroundColor: '#FEE2E2',
   },
   tagCorrectText: {
     fontSize: 10,
-    fontWeight: '700',
-    color: '#065F46',
+    fontFamily: dsFont.bold,
+    color: '#166534',
   },
   tagErrorText: {
     fontSize: 10,
-    fontWeight: '800',
+    fontFamily: dsFont.display,
     color: '#991B1B',
   },
   feedbackAlertBox: {
-    backgroundColor: '#FFF1F2',
+    backgroundColor: '#FEE2E2',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#FECDD3',
+    borderColor: '#FCA5A5',
     padding: 12,
   },
   alertHeader: {
@@ -258,12 +260,13 @@ const styles = StyleSheet.create({
   },
   alertTitle: {
     fontSize: 13,
-    fontWeight: '800',
-    color: '#BE123C',
+    fontFamily: dsFont.display,
+    color: '#DC2626',
   },
   alertDesc: {
+    fontFamily: dsFont.body,
     fontSize: 12,
-    color: '#475569',
+    color: '#5B6B7F',
     lineHeight: 18,
     marginBottom: 8,
   },
@@ -274,28 +277,29 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FDA4AF',
+    borderColor: '#FCA5A5',
   },
   mouthBtnText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#E11D48',
+    fontFamily: dsFont.bold,
+    color: '#DC2626',
   },
   feedbackSuccessBox: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#DCFCE7',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: '#86EFAC',
     padding: 12,
   },
   successTitle: {
     fontSize: 13,
-    fontWeight: '800',
-    color: '#15803D',
+    fontFamily: dsFont.display,
+    color: '#166534',
   },
   successDesc: {
+    fontFamily: dsFont.body,
     fontSize: 12,
-    color: '#475569',
+    color: '#5B6B7F',
     lineHeight: 17,
   },
 });
