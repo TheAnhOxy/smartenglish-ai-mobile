@@ -358,3 +358,23 @@ export const validateCouponApi = async (code: string, planPrice?: number): Promi
     message: 'Mã ưu đãi không hợp lệ hoặc đã hết hạn',
   };
 };
+
+export interface CancelPlanRefundRequest {
+  reason?: string;
+  bankName: string;
+  accountNumber: string;
+  accountHolderName: string;
+}
+
+/**
+ * POST /api/v1/payment/subscriptions/cancel-and-refund
+ * Huỷ gói ngay lập tức + gửi yêu cầu hoàn tiền (admin duyệt thủ công). Backend gửi email xác nhận cho người dùng.
+ */
+export const cancelPlanAndRequestRefundApi = async (request: CancelPlanRefundRequest): Promise<void> => {
+  try {
+    await apiClient.post('/api/v1/payment/subscriptions/cancel-and-refund', request);
+  } catch (error: unknown) {
+    const e = error as { response?: { data?: { message?: string } }; message?: string };
+    throw new Error(e?.response?.data?.message || e?.message || 'Không thể huỷ gói, vui lòng thử lại');
+  }
+};

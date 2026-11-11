@@ -46,6 +46,9 @@ import {
   StudentSubscriptionPlan,
 } from '@/src/features/subscription-paywall/data/subscriptionApi';
 import { SepayVietQrPaymentModal } from '../components/SepayVietQrPaymentModal';
+import { CancelPlanSheet } from '../components/CancelPlanSheet';
+import { isLowerThanCurrent } from '../../application/planRank';
+import { AppColors } from '@/src/core/theme/colors';
 
 export const PaywallScreen = () => {
   const router = useRouter();
@@ -55,6 +58,7 @@ export const PaywallScreen = () => {
   const [plans, setPlans] = useState<StudentSubscriptionPlan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string>('S-PLAN-YEARLY');
   const [isLoading, setIsLoading] = useState(true);
+  const [showCancelPlan, setShowCancelPlan] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [isSepayModalOpen, setIsSepayModalOpen] = useState(false);
@@ -87,6 +91,9 @@ export const PaywallScreen = () => {
 
     loadPlans();
   }, []);
+
+  // Gói đang dùng hoặc thấp hơn gói đang dùng → không cho đăng ký (tránh hạ cấp từ gói VIP)
+  const isPlanLocked = (planId: string) => isPlanCurrent(planId) || isLowerThanCurrent(planId, currentUser?.plan);
 
   const isPlanCurrent = (planId: string) => {
     if (!currentUser?.plan) return false;
@@ -178,7 +185,7 @@ export const PaywallScreen = () => {
           message: res.message,
           discountValue: res.discountValue,
         });
-        Alert.alert('Áp dụng mã thành công 🎉', res.message);
+        Alert.alert('Áp dụng mã thành công', res.message);
       } else {
         setVoucherError(res.message || 'Mã ưu đãi không hợp lệ');
         Alert.alert('Không hợp lệ', res.message || 'Mã ưu đãi không hợp lệ hoặc đã hết hạn');
@@ -337,7 +344,7 @@ export const PaywallScreen = () => {
         icon: <Crown color="#D97706" size={22} strokeWidth={2.3} />,
         iconBg: '#FEF3C7',
         iconBorder: '#FDE68A',
-        badgeTag: 'Bán chạy nhất ⭐',
+        badgeTag: 'Bán chạy nhất',
         subtitle: 'Tiết kiệm nhất cho năm học',
         mainPrice: `${formatPriceVnd(monthlyEquiv)}`,
         unitLabel: '/tháng',
@@ -360,7 +367,7 @@ export const PaywallScreen = () => {
         icon: <Sparkles color="#7C3AED" size={22} strokeWidth={2.3} />,
         iconBg: '#F3E8FF',
         iconBorder: '#E9D5FF',
-        badgeTag: 'Đầu tư 1 lần 👑',
+        badgeTag: 'Đầu tư 1 lần',
         subtitle: 'Sở hữu trọn đời vĩnh viễn',
         mainPrice: `${formatPriceVnd(price)}`,
         unitLabel: '/trọn đời',
@@ -382,7 +389,7 @@ export const PaywallScreen = () => {
       icon: <Zap color="#0284C7" size={22} strokeWidth={2.3} />,
       iconBg: '#E0F2FE',
       iconBorder: '#BAE6FD',
-      badgeTag: 'Ưu đãi 20k 🔥',
+      badgeTag: 'Ưu đãi 20k',
       subtitle: 'Bán chạy nhất • Ưu đãi trải nghiệm',
       mainPrice: `${formatPriceVnd(price)}`,
       unitLabel: '/tháng',
@@ -458,9 +465,12 @@ export const PaywallScreen = () => {
         {isCurrentPremium && (
           <View style={s.currentPlanNotice}>
             <ShieldCheck color="#10B981" size={16} />
-            <Text style={s.currentPlanNoticeText}>
-              Tài khoản của bạn đang kích hoạt gói PRO. Bạn có thể gia hạn hoặc nâng cấp thêm kỳ hạn mới.
-            </Text>
+            <Text style={s.currentPlanNoticeText}>Bạn đang dùng gói PRO</Text>
+            <Pressable onPress={() => setShowCancelPlan(true)} hitSlop={8}>
+              <Text style={{ color: AppColors.error, fontSize: 12, fontWeight: '600', textDecorationLine: 'underline' }}>
+                Huỷ gói
+              </Text>
+            </Pressable>
           </View>
         )}
 
@@ -508,7 +518,8 @@ export const PaywallScreen = () => {
             <View style={s.plansList}>
               {paidPlans.map((plan) => {
                 const isCurrentPlan = isPlanCurrent(plan.id);
-                const isSelected = !isCurrentPlan && selectedPlanId === plan.id;
+                const isLocked = isPlanLocked(plan.id);
+                const isSelected = !isLocked && selectedPlanId === plan.id;
                 const info = getPlanHighlightInfo(plan);
                 const isPromo = plan.id.includes('MONTHLY') || plan.priceMonthly === 20000;
                 const topBadgeText = isCurrentPlan ? 'Đang hoạt động' : info.badgeTag;
@@ -517,16 +528,16 @@ export const PaywallScreen = () => {
                   <View key={plan.id} style={s.planCardWrapper}>
                     <TouchableOpacity
                       activeOpacity={0.88}
-                      disabled={isCurrentPlan}
+                      disabled={isLocked}
                       onPress={() => {
-                        if (!isCurrentPlan) {
+                        if (!isLocked) {
                           setSelectedPlanId(plan.id);
                         }
                       }}
                       style={[
                         s.planCard,
                         isSelected && s.planCardActive,
-                        isCurrentPlan && s.planCardCurrent,
+                        isLocked && s.planCardCurrent,
                       ]}
                     >
                       {/* Header Row: Icon box (như card quyền lợi) + Tên gói & Subtitle + Radio circle / Active badge */}
@@ -779,28 +790,38 @@ export const PaywallScreen = () => {
         <View style={{ height: 110 }} />
       </ScrollView>
 
+      <CancelPlanSheet
+        visible={showCancelPlan}
+        onClose={() => setShowCancelPlan(false)}
+        onCancelled={() => {
+          setShowCancelPlan(false);
+          Alert.alert('Đã huỷ gói', 'Email xác nhận hoàn tiền đã được gửi tới bạn.');
+          loadPlans();
+        }}
+      />
+
       {/* 3. NÚT BẤM CHUẨN CHỈ, NỔI BẬT Ở ĐÁY MÀN HÌNH (TACTILE CTA BUTTON) */}
       <View style={s.floatingBottomBar}>
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={handleSubscribe}
-          disabled={isSubscribing || isPlanCurrent(selectedPlan.id)}
+          disabled={isSubscribing || isPlanLocked(selectedPlan.id)}
           style={[
             s.mainCtaButton,
-            isPlanCurrent(selectedPlan.id) && s.mainCtaButtonDisabled,
+            isPlanLocked(selectedPlan.id) && s.mainCtaButtonDisabled,
           ]}
         >
           {isSubscribing ? (
             <ActivityIndicator color="#FFFFFF" size="small" />
-          ) : isPlanCurrent(selectedPlan.id) ? (
+          ) : isPlanLocked(selectedPlan.id) ? (
             <View style={s.ctaContentRow}>
               <View style={s.ctaTextGroup}>
                 <View style={s.ctaTitleRow}>
-                  <Text style={s.ctaTitleText}>GÓI ĐANG ĐƯỢC SỬ DỤNG</Text>
+                  <Text style={s.ctaTitleText}>
+                    {isPlanCurrent(selectedPlan.id) ? 'GÓI ĐANG SỬ DỤNG' : 'THẤP HƠN GÓI HIỆN TẠI'}
+                  </Text>
                 </View>
-                <Text style={s.ctaSubtitleText}>
-                  Bạn đã kích hoạt gói này • Có thể gia hạn khi hết hạn
-                </Text>
+                <Text style={s.ctaSubtitleText}>Chỉ có thể nâng cấp lên gói cao hơn</Text>
               </View>
               <View style={[s.ctaArrowCircle, { backgroundColor: '#E2E8F0' }]}>
                 <Check color="#059669" size={18} strokeWidth={2.5} />
