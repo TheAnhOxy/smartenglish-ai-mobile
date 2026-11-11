@@ -13,7 +13,6 @@ import {
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import {
   Mic,
-  ArrowLeft,
   Lightbulb,
   X,
   Volume2,
@@ -40,6 +39,8 @@ import {
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { speakText, stopSpeech } from '@/src/core/services/speechService';
 import { UserAvatar } from '@/src/core/components/UserAvatar';
+import { BackButton } from '@/src/core/components/BackButton';
+import { hasActivePremium } from '@/src/core/utils/plan';
 
 interface ChatTurn {
   role: 'ai' | 'user';
@@ -50,7 +51,7 @@ export const RoleplaySessionScreen = () => {
   const { scenarioId } = useLocalSearchParams<{ scenarioId: string }>();
   const router = useRouter();
   const { currentUser } = useAuthStore();
-  const isPremium = currentUser?.plan !== 'free';
+  const isPremium = hasActivePremium(currentUser);
 
   const { getQuota, consumeTurn, canChat } = useSpeakingQuotaStore();
   const quota = getQuota(isPremium);
@@ -386,8 +387,7 @@ export const RoleplaySessionScreen = () => {
     <View style={s.root}>
       {/* ── TOP BAR (Sạch sẽ, thân thiện, không icon robot) ────────────────── */}
       <View style={s.topBar}>
-        <Pressable
-          onPress={() => {
+        <BackButton onPress={() => {
             stopSpeech();
             Speech.stop();
             if (recognitionRef.current) {
@@ -401,12 +401,7 @@ export const RoleplaySessionScreen = () => {
               return;
             }
             setShowSummaryModal(true);
-          }}
-          style={({ pressed }) => [s.exitBtn, pressed && { opacity: 0.7 }]}
-          accessibilityLabel="Rời phòng"
-        >
-          <ArrowLeft color="#EF4444" size={20} strokeWidth={2.4} />
-        </Pressable>
+          }} />
 
         {/* AI Partner Profile ở giữa */}
         <View style={s.partnerCenter}>
@@ -722,7 +717,7 @@ export const RoleplaySessionScreen = () => {
               onPress={() => {
                 useAuthStore.getState().updateCurrentUser({ plan: 'premium_yearly' });
                 setShowQuotaModal(false);
-                alert('🎉 Bạn đã nâng cấp Premium thành công! Bây giờ bạn có thể tiếp tục luyện nói không giới hạn.');
+                alert('Nâng cấp Premium thành công. Bạn có thể tiếp tục luyện nói không giới hạn.');
               }}
               style={s.btnUpgrade}
             >

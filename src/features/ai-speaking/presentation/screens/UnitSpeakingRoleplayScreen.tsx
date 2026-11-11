@@ -13,7 +13,6 @@ import {
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import {
   Mic,
-  ArrowLeft,
   Bot,
   Star,
   Zap,
@@ -45,12 +44,14 @@ import {
   useSpeakingQuotaStore,
   FREE_SPEAKING_DAILY_LIMIT,
 } from '../../data/speakingApi';
+import { BackButton } from '@/src/core/components/BackButton';
+import { hasActivePremium } from '@/src/core/utils/plan';
 
 export const UnitSpeakingRoleplayScreen = () => {
   const { scenarioName } = useLocalSearchParams<{ scenarioName?: string }>();
   const router = useRouter();
   const { currentUser } = useAuthStore();
-  const isPremium = currentUser?.plan !== 'free';
+  const isPremium = hasActivePremium(currentUser);
 
   const { getQuota, consumeTurn, canChat } = useSpeakingQuotaStore();
   const quota = getQuota(isPremium);
@@ -237,8 +238,7 @@ export const UnitSpeakingRoleplayScreen = () => {
     <View style={s.root}>
       {/* Top Header Bar */}
       <View style={s.headerBar}>
-        <Pressable
-          onPress={() => {
+        <BackButton onPress={() => {
             stopSpeech();
             Speech.stop();
             try {
@@ -251,11 +251,7 @@ export const UnitSpeakingRoleplayScreen = () => {
               } catch (_) {}
             }
             router.back();
-          }}
-          style={s.backBtn}
-        >
-          <ArrowLeft color="#1E293B" size={20} />
-        </Pressable>
+          }} />
 
         <Text style={s.headerTitle}>SmartEnglish AI Roleplay</Text>
 

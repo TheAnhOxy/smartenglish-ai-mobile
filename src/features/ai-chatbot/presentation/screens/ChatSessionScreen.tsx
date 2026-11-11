@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Send } from 'lucide-react-native';
 import { View, Text, TextInput, ScrollView, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -110,7 +111,7 @@ export const ChatSessionScreen = () => {
                 </Text>
               </View>
 
-              {m.is_quota_message && <Pressable onPress={() => router.push('/(student)/shop')}>
+              {m.is_quota_message && <Pressable onPress={() => router.push('/(student)/profile/premium')}>
                 <Text className="text-primary font-bold py-2">Xem gói nâng cấp →</Text>
               </Pressable>}
               {/* Inline Grammar & Refactor Suggestion Card */}
@@ -123,7 +124,7 @@ export const ChatSessionScreen = () => {
                       onPress={() => setSelectedRefactorList(m.grammar_check?.natural_alternatives || [])}
                       className="bg-secondary px-3 py-1.5 rounded-lg self-start"
                     >
-                      <Text className="text-[10px] font-bold text-white">Xem 2 Cụm Câu Chuẩn Bản Xứ ➔</Text>
+                      <Text className="text-[10px] font-bold text-white">Xem cách nói tự nhiên hơn</Text>
                     </Pressable>
                   )}
                 </View>
@@ -155,7 +156,7 @@ export const ChatSessionScreen = () => {
             input.trim() && !isPending ? 'bg-primary shadow-sm' : 'bg-gray-300'
           }`}
         >
-          <Text className="text-white font-bold text-base">➔</Text>
+          <Send size={18} color="#FFFFFF" />
         </Pressable>
       </View>
 

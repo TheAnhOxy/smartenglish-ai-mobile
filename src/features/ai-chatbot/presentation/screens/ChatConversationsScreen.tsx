@@ -19,7 +19,6 @@ import {
   Mic,
   Send,
   Bot,
-  ArrowLeft,
   RotateCcw,
   Volume2,
   Sparkles,
@@ -48,6 +47,8 @@ import { font } from '@/src/theme/typography';
 import { MarkdownText } from '../components/MarkdownText';
 import { useTutorVoice } from '../../application/useTutorVoice';
 import { ThinkingIndicator } from '../components/ThinkingIndicator';
+import { BackButton } from '@/src/core/components/BackButton';
+import { hasActivePremium } from '@/src/core/utils/plan';
 
 export interface ChatMessage {
   id: string;
@@ -100,7 +101,7 @@ export const ChatConversationsScreen = () => {
   const [quotaError, setQuotaError] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
-  const isPremium = !!currentUser?.plan && currentUser.plan !== 'free';
+  const isPremium = hasActivePremium(currentUser);
   const dailyLimit = isPremium ? 999 : 15;
   const [usedMessages, setUsedMessages] = useState(0);
   const [inputText, setInputText] = useState('');
@@ -393,19 +394,13 @@ export const ChatConversationsScreen = () => {
       <View style={[s.header, { paddingTop: safeTop }]}>
         <View style={s.headerTopRow}>
           <View style={s.headerLeft}>
-            <Pressable
-              onPress={() => {
+            <BackButton onPress={() => {
                 stopSpeech();
                 Speech.stop();
                 setIsSpeaking(null);
                 if (router.canGoBack()) router.back();
                 else router.replace('/(student)/home' as never);
-              }}
-              style={s.backBtn}
-              hitSlop={8}
-            >
-              <ArrowLeft color="#1E293B" size={22} />
-            </Pressable>
+              }} />
 
             <View style={s.aiAvatarContainer}>
               <Animated.View style={[s.avatarPulseAura, avatarAuraStyle]} />
@@ -474,7 +469,7 @@ export const ChatConversationsScreen = () => {
       </View>
 
       <Pressable style={s.quotaBanner}
-        onPress={() => { if (quota && quota.quota_limit !== null) router.push('/(student)/shop'); }}>
+        onPress={() => { if (quota && quota.quota_limit !== null) router.push('/(student)/profile/premium'); }}>
         <Text style={s.quotaText}>
           {quota ? quota.quota_limit === null ? 'Premium · Học cùng Loxera AI không giới hạn'
             : `Quota hôm nay: còn ${Math.max(0, quota.quota_limit - quota.quota_used)}/${quota.quota_limit} tin nhắn Gemini AI`
@@ -557,7 +552,7 @@ export const ChatConversationsScreen = () => {
               <View style={s.aiBubble}>
                 <MarkdownText content={msg.content} textColor="#1E293B" />
               </View>
-              {!!msg.isQuota && <Pressable onPress={() => router.push('/(student)/shop')}>
+              {!!msg.isQuota && <Pressable onPress={() => router.push('/(student)/profile/premium')}>
                 <Text style={s.quotaText}>Xem gói nâng cấp →</Text>
               </Pressable>}
               <Text style={s.timestampText}>{msg.timestamp}{msg.responseMs ? ` · ${(msg.responseMs / 1000).toFixed(1)} giây` : ''}</Text>
