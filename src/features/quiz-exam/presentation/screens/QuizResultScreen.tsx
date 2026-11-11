@@ -10,7 +10,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
-  ChevronLeft,
   User,
   Zap,
   RotateCcw,
@@ -21,6 +20,7 @@ import {
   Clock,
 } from 'lucide-react-native';
 import { colors } from '../../../../theme/colors';
+import { BackButton } from '@/src/core/components/BackButton';
 
 export interface InlineQuestionReviewItem {
   id: number;
@@ -106,12 +106,7 @@ export const QuizResultScreen: React.FC = () => {
 
       {/* Top Header */}
       <View style={styles.header}>
-        <Pressable
-          onPress={() => router.back()}
-          style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]}
-        >
-          <ChevronLeft size={24} color="#0F172A" />
-        </Pressable>
+        <BackButton onPress={() => router.back()} />
 
         <Text style={styles.headerTitle}>Quiz Results</Text>
 

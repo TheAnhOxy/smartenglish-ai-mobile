@@ -12,7 +12,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Trophy,
-  ArrowLeft,
   Share2,
   CheckCircle2,
   XCircle,
@@ -32,6 +31,7 @@ import { AssignmentSubmitBanner } from '@/src/features/class-membership/presenta
 
 import { colors } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
+import { BackButton } from '@/src/core/components/BackButton';
 
 export function ExamResultScreen() {
   const router = useRouter();
@@ -161,19 +161,11 @@ export function ExamResultScreen() {
     <View style={styles.root}>
       {/* ─── HEADER ─── */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 14) + 6 }]}>
-        <Pressable
-          onPress={handleBackToCatalog}
-          hitSlop={10}
-          style={styles.headerBtn}
-        >
-          <ArrowLeft color={colors.text} size={22} strokeWidth={2.2} />
-        </Pressable>
+        <BackButton onPress={handleBackToCatalog} />
 
         <Text style={styles.headerTitle}>Kết quả bài kiểm tra</Text>
 
-        <Pressable hitSlop={10} style={styles.headerBtn}>
-          <Share2 color={colors.textSoft} size={20} />
-        </Pressable>
+        <View style={styles.headerBtn} />
       </View>
 
       <ScrollView
