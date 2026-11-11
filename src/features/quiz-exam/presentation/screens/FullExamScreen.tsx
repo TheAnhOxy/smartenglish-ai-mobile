@@ -41,7 +41,7 @@ import {
   Sparkles,
   Camera,
   Languages,
-} from 'lucide-react-native';
+} from '@/src/components/ds/icons';
 import {
   translateQuestionAndOptions,
   getCachedTranslation,
@@ -67,6 +67,8 @@ import { ExamReadingClusterView } from '../components/ExamReadingClusterView';
 import { FillInTheBlankView } from '../components/FillInTheBlankView';
 import { MatchingPairsView } from '../components/MatchingPairsView';
 import { OrderingQuestionView } from '../components/OrderingQuestionView';
+import { ds, dsFont } from '@/src/theme/ds';
+import { ProgressBar, feedback } from '@/src/components/ds';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -726,6 +728,17 @@ export function FullExamScreen() {
   // Chọn đáp án cho bất kỳ câu hỏi nào trong cụm
   const handleSelectClusterAnswer = (questionId: string, key: AnswerKey) => {
     if (isPracticeMode && revealedQuestions[questionId]) return;
+    if (isPracticeMode && !isCluster) {
+      const answeredQ = questions.find((q) => q.id === questionId);
+      if (answeredQ && typeof key === 'string' && answeredQ.correctAnswer) {
+        if (key === answeredQ.correctAnswer) feedback.correct();
+        else feedback.wrong();
+      } else {
+        feedback.select();
+      }
+    } else {
+      feedback.select();
+    }
     const nextAnswers = { ...userAnswers, [questionId]: key };
     setUserAnswers(nextAnswers);
 
@@ -753,6 +766,7 @@ export function FullExamScreen() {
   };
 
   const handleRevealCluster = () => {
+    feedback.tap();
     setRevealedQuestions((prev) => {
       const next = { ...prev };
       clusterQuestions.forEach((q) => {
@@ -940,7 +954,7 @@ export function FullExamScreen() {
   if (isDataLoading) {
     return (
       <View style={[styles.loadingState, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="small" color={colors.primary} />
+        <ActivityIndicator size="small" color={ds.btn} />
         <Text style={styles.loadingTitle}>Đang tải...</Text>
       </View>
     );
@@ -949,7 +963,7 @@ export function FullExamScreen() {
   if (!currentQ || questions.length === 0) {
     return (
       <View style={[styles.loadingState, { paddingTop: insets.top }]}>
-        <AlertCircle color={colors.primary} size={36} />
+        <AlertCircle color={ds.btn} size={36} />
         <Text style={styles.loadingTitle}>
           {isWrongOnly ? 'Không có câu hỏi sai' : 'Không tìm thấy câu hỏi bài thi'}
         </Text>
@@ -1010,7 +1024,7 @@ export function FullExamScreen() {
           hitSlop={12}
           style={styles.headerIconButton}
         >
-          <X color={colors.text} size={22} strokeWidth={2.2} />
+          <X color={ds.ink} size={22} strokeWidth={2.2} />
         </Pressable>
 
         {/* Center: Exam Title & Mode Badge */}
@@ -1030,12 +1044,12 @@ export function FullExamScreen() {
           <Pressable onPress={() => setShowGridModal(true)} style={styles.timerPill}>
             {isPracticeMode ? (
               <>
-                <Grid color={colors.primary} size={15} strokeWidth={2} />
+                <Grid color={ds.btn} size={15} strokeWidth={2} />
                 <Text style={styles.timerTextPractice}>{answeredCount}/{questions.length}</Text>
               </>
             ) : (
               <>
-                <Clock color={colors.textSoft} size={15} strokeWidth={2} />
+                <Clock color={ds.muted} size={15} strokeWidth={2} />
                 <Text style={styles.timerText}>{formatTimer(timeLeft)}</Text>
               </>
             )}
@@ -1066,9 +1080,7 @@ export function FullExamScreen() {
         </View>
 
         {/* Thin Slim Progress Bar */}
-        <View style={styles.progressBarTrack}>
-          <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
-        </View>
+        <ProgressBar value={progressPercent / 100} color={ds.sky} height={10} />
       </View>
 
       {/* Wrong Only Mode Notice Banner */}
@@ -1216,14 +1228,14 @@ export function FullExamScreen() {
               </View>
             ) : (
               <View style={styles.feedbackHeaderWrong}>
-                <X color="#EF4444" size={18} />
+                <X color="#DC2626" size={18} />
                 <Text style={styles.feedbackTitleWrong}>Chưa đúng! Đáp án đúng: {currentQ.correctAnswer}</Text>
               </View>
             )}
 
             {isWrongOnly && selectedAnswer === currentQ.correctAnswer && (
               <View style={styles.resolvedWrongBanner}>
-                <Sparkles size={13} color="#15803D" />
+                <Sparkles size={13} color="#166534" />
                 <Text style={styles.resolvedWrongBannerText}>Đã sửa đúng! Đã xóa câu này khỏi danh sách câu sai.</Text>
               </View>
             )}
@@ -1236,12 +1248,12 @@ export function FullExamScreen() {
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <View style={styles.dropdownTitleRow}>
-                    <Headphones size={13} color="#64748B" />
+                    <Headphones size={13} color="#5B6B7F" />
                     <Text style={styles.transcriptHeading}>Lời thoại (Transcript)</Text>
                   </View>
                   {showTranscript
-                    ? <ChevronUp size={16} color="#64748B" />
-                    : <ChevronDown size={16} color="#64748B" />}
+                    ? <ChevronUp size={16} color="#5B6B7F" />
+                    : <ChevronDown size={16} color="#5B6B7F" />}
                 </Pressable>
                 {showTranscript && (
                   <Text style={styles.transcriptBody}>{currentQ.audioScript}</Text>
@@ -1256,18 +1268,18 @@ export function FullExamScreen() {
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <View style={styles.dropdownTitleRow}>
-                  <Languages size={13} color="#475569" />
+                  <Languages size={13} color="#5B6B7F" />
                   <Text style={styles.translationHeading}>Bản dịch đáp án & câu hỏi</Text>
                 </View>
                 {showTranslations
-                  ? <ChevronUp size={16} color="#475569" />
-                  : <ChevronDown size={16} color="#475569" />}
+                  ? <ChevronUp size={16} color="#5B6B7F" />
+                  : <ChevronDown size={16} color="#5B6B7F" />}
               </Pressable>
               {showTranslations ? (
                 isTranslating ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 }}>
-                    <ActivityIndicator size="small" color={colors.primary} />
-                    <Text style={{ fontSize: 13, color: '#64748B' }}>Đang nạp bản dịch hỗ trợ...</Text>
+                    <ActivityIndicator size="small" color={ds.btn} />
+                    <Text style={{ fontSize: 13, color: '#5B6B7F' }}>Đang nạp bản dịch hỗ trợ...</Text>
                   </View>
                 ) : (
                   <View style={styles.translationList}>
@@ -1336,7 +1348,7 @@ export function FullExamScreen() {
             style={styles.flagHelpBtn}
           >
             <Bookmark
-              color={isCurrentBookmarked ? '#D97706' : colors.textSoft}
+              color={isCurrentBookmarked ? '#D97706' : ds.muted}
               size={14}
             />
             <Text style={styles.flagHelpText}>
@@ -1359,7 +1371,7 @@ export function FullExamScreen() {
           style={[styles.prevButton, currentIndex === 0 && styles.prevButtonDisabled]}
         >
           <ChevronLeft
-            color={currentIndex === 0 ? colors.textFaint : colors.text}
+            color={currentIndex === 0 ? ds.faint : ds.ink}
             size={20}
           />
           <Text
@@ -1378,7 +1390,7 @@ export function FullExamScreen() {
           onPress={() => setShowGridModal(true)}
           style={styles.quickGridButton}
         >
-          <Grid color={colors.primary} size={16} />
+          <Grid color={ds.btn} size={16} />
           <Text style={styles.quickGridText}>
             {isCluster
               ? `${clusterQuestions[0]?.questionNumber}–${clusterQuestions[clusterQuestions.length - 1]?.questionNumber}/${questions.length}`
@@ -1408,7 +1420,7 @@ export function FullExamScreen() {
               onPress={() => setIsPassageModalOpen(false)}
               style={styles.modalCloseBtn}
             >
-              <X color={colors.text} size={20} />
+              <X color={ds.ink} size={20} />
             </Pressable>
           </View>
 
@@ -1462,14 +1474,14 @@ export function FullExamScreen() {
                 onPress={() => setShowGridModal(false)}
                 style={styles.modalCloseBtn}
               >
-                <X color={colors.text} size={20} />
+                <X color={ds.ink} size={20} />
               </Pressable>
             </View>
 
             {/* Legend row */}
             <View style={styles.legendRow}>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
+                <View style={[styles.legendDot, { backgroundColor: ds.btn }]} />
                 <Text style={styles.legendText}>Đã chọn</Text>
               </View>
               <View style={styles.legendItem}>
@@ -1477,7 +1489,7 @@ export function FullExamScreen() {
                 <Text style={styles.legendText}>Đánh dấu</Text>
               </View>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: colors.border }]} />
+                <View style={[styles.legendDot, { backgroundColor: ds.line }]} />
                 <Text style={styles.legendText}>Chưa làm</Text>
               </View>
             </View>
@@ -1555,7 +1567,7 @@ export function FullExamScreen() {
         <View style={styles.modalBackdrop}>
           <View style={styles.confirmBox}>
             <View style={styles.confirmIconWrap}>
-              <CheckCircle2 color={colors.primary} size={32} />
+              <CheckCircle2 color={ds.btn} size={32} />
             </View>
 
             <Text style={styles.confirmTitle}>Xác nhận nộp bài thi?</Text>
@@ -1617,7 +1629,7 @@ export function FullExamScreen() {
               {isPracticeMode ? (
                 <CheckCircle2 color="#0284C7" size={32} />
               ) : (
-                <AlertCircle color="#EF4444" size={32} />
+                <AlertCircle color="#DC2626" size={32} />
               )}
             </View>
             <Text style={styles.confirmTitle}>
@@ -1652,7 +1664,7 @@ export function FullExamScreen() {
                     router.back();
                   }
                 }}
-                style={[styles.submitModalBtn, { backgroundColor: isPracticeMode ? '#0284C7' : '#EF4444' }]}
+                style={[styles.submitModalBtn, { backgroundColor: isPracticeMode ? '#0369A1' : '#DC2626' }]}
               >
                 <Text style={styles.submitModalBtnText}>
                   {isPracticeMode ? 'Lưu & Thoát' : (submitAttempt.isPending ? 'Đang lưu...' : 'Lưu & Thoát')}
@@ -1667,12 +1679,12 @@ export function FullExamScreen() {
 }
 
 const styles = StyleSheet.create({
-  loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 12, backgroundColor: '#F8FAFC' },
-  loadingTitle: { color: colors.text, fontSize: 20, fontWeight: '800', textAlign: 'center' },
-  loadingText: { color: colors.textSoft, fontSize: 14, lineHeight: 21, textAlign: 'center' },
-  loadingButton: { marginTop: 8, borderRadius: 12, backgroundColor: colors.primary, paddingHorizontal: 18, paddingVertical: 12 },
-  loadingButtonText: { color: '#FFFFFF', fontWeight: '800' },
-  root: { flex: 1, backgroundColor: '#F8FAFC' },
+  loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 12, backgroundColor: '#F4F7FB' },
+  loadingTitle: { color: ds.ink, fontSize: 20, fontFamily: dsFont.display, textAlign: 'center' },
+  loadingText: { color: ds.muted, fontSize: 14, lineHeight: 21, textAlign: 'center' },
+  loadingButton: { marginTop: 8, borderRadius: 12, backgroundColor: ds.btn, paddingHorizontal: 18, paddingVertical: 12 },
+  loadingButtonText: { color: '#FFFFFF', fontFamily: dsFont.display },
+  root: { flex: 1, backgroundColor: '#F4F7FB' },
 
   // Header
   header: {
@@ -1683,7 +1695,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#F4F7FB',
   },
   headerIconButton: {
     width: 38,
@@ -1691,15 +1703,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F7FB',
   },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
     fontSize: 17,
-    fontWeight: '800',
-    color: '#0F172A',
-    fontFamily: font.family,
+    fontFamily: dsFont.display,
+    color: '#0F2A44',
     marginHorizontal: 8,
   },
   headerRightRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -1707,22 +1718,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
   },
   timerText: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#334155',
-    fontFamily: font.family,
+    fontFamily: dsFont.bold,
+    color: '#33465C',
   },
   avatarButton: {
     width: 34,
     height: 34,
     borderRadius: 999,
-    backgroundColor: '#1E3A5F',
+    backgroundColor: '#0369A1',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1731,9 +1741,8 @@ const styles = StyleSheet.create({
   headerCenterWrap: { flex: 1, alignItems: 'center', gap: 3 },
   headerExamTitle: {
     fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
-    fontFamily: font.family,
+    fontFamily: dsFont.display,
+    color: '#0F2A44',
     maxWidth: 200,
     textAlign: 'center',
   },
@@ -1743,13 +1752,13 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   headerModePillExam: { backgroundColor: '#FEE2E2' },
-  headerModePillPractice: { backgroundColor: '#D1FAE5' },
-  headerModePillText: { fontSize: 10, fontWeight: '700' },
+  headerModePillPractice: { backgroundColor: '#DCFCE7' },
+  headerModePillText: { fontSize: 10, fontFamily: dsFont.bold },
   headerModePillTextExam: { color: '#DC2626' },
-  headerModePillTextPractice: { color: '#059669' },
+  headerModePillTextPractice: { color: '#16A34A' },
 
   // Timer text for practice mode (answered/total count)
-  timerTextPractice: { fontSize: 13, fontWeight: '700', color: colors.primary, fontFamily: font.family },
+  timerTextPractice: { fontSize: 13, fontFamily: dsFont.bold, color: ds.btn },
 
   // Sub-header part label
   partLabelContainer: { flex: 1, alignItems: 'flex-end' },
@@ -1759,13 +1768,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#FEF3C7',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#FED7AA',
   },
-  wrongOnlyBannerText: { fontSize: 12, fontWeight: '700', color: '#C2410C', flex: 1 },
+  wrongOnlyBannerText: { fontSize: 12, fontFamily: dsFont.bold, color: '#C2410C', flex: 1 },
 
   // Subheader & Progress
 
@@ -1782,7 +1791,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   questionNumberBadge: {
-    backgroundColor: '#1E3A5F',
+    backgroundColor: '#0369A1',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -1790,24 +1799,22 @@ const styles = StyleSheet.create({
   questionNumberBadgeText: {
     color: '#FFFFFF',
     fontSize: 11,
-    fontWeight: '800',
-    fontFamily: font.family,
+    fontFamily: dsFont.display,
   },
   subHeaderPartTitle: {
-    color: '#64748B',
+    color: '#5B6B7F',
     fontSize: 12,
-    fontWeight: '600',
-    fontFamily: font.family,
+    fontFamily: dsFont.semibold,
   },
   progressBarTrack: {
     height: 3,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E3EAF2',
     borderRadius: 2,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#1E3A5F',
+    backgroundColor: '#0369A1',
     borderRadius: 2,
   },
 
@@ -1824,7 +1831,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     padding: 12,
     gap: 12,
   },
@@ -1833,7 +1840,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
     height: 210,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#0F2A44',
   },
   photoImage: { width: '100%', height: '100%' },
   photoTagBadge: {
@@ -1848,15 +1855,15 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 6,
   },
-  photoTagText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+  photoTagText: { color: '#FFFFFF', fontSize: 11, fontFamily: dsFont.bold },
 
   // Audio Box Common
   audioPlayerBox: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F7FB',
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     gap: 10,
   },
   audioPlayerControls: {
@@ -1868,36 +1875,36 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 999,
-    backgroundColor: '#1E3A5F',
+    backgroundColor: '#0369A1',
     alignItems: 'center',
     justifyContent: 'center',
   },
   audioTimelineWrap: { flex: 1, gap: 4 },
   audioTimeLabels: { flexDirection: 'row', justifyContent: 'space-between' },
-  audioTimeText: { fontSize: 11, color: '#64748B', fontWeight: '600', fontFamily: font.family },
+  audioTimeText: { fontSize: 11, color: '#5B6B7F', fontFamily: dsFont.semibold },
   audioSliderTrack: {
     height: 6,
-    backgroundColor: '#CBD5E1',
+    backgroundColor: '#CBD6E2',
     borderRadius: 3,
     overflow: 'hidden',
   },
-  audioSliderFill: { height: '100%', backgroundColor: '#1E3A5F', borderRadius: 3 },
+  audioSliderFill: { height: '100%', backgroundColor: '#0369A1', borderRadius: 3 },
   audioFooterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   audioEtsNotice: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  blueDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#0284C7' },
-  audioNoticeText: { fontSize: 11, color: '#0284C7', fontWeight: '600' },
-  etsStandardTag: { fontSize: 11, color: '#475569', fontWeight: '700' },
+  blueDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#0369A1' },
+  audioNoticeText: { fontSize: 11, color: '#0369A1', fontFamily: dsFont.semibold },
+  etsStandardTag: { fontSize: 11, color: '#5B6B7F', fontFamily: dsFont.bold },
 
   instructionWrap: { gap: 4, paddingHorizontal: 4 },
-  instructionTitle: { fontSize: 16, fontWeight: '800', color: '#0F172A', fontFamily: font.family },
-  instructionSub: { fontSize: 13, color: '#475569', lineHeight: 18, fontFamily: font.family },
+  instructionTitle: { fontSize: 16, fontFamily: dsFont.display, color: '#0F2A44' },
+  instructionSub: { fontSize: 13, color: '#5B6B7F', lineHeight: 18 },
 
   // Part 2 Audio Card
   part2AudioCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     padding: 14,
     gap: 12,
   },
@@ -1911,33 +1918,33 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 999,
   },
-  audioActivePillText: { fontSize: 11.5, fontWeight: '700', color: '#0284C7' },
+  audioActivePillText: { fontSize: 11.5, fontFamily: dsFont.bold, color: '#0369A1' },
   soundWavePill: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
     justifyContent: 'center',
   },
-  soundWaveText: { fontSize: 11, color: '#64748B', fontWeight: '600' },
-  etsSubNotice: { fontSize: 11, color: '#64748B', textAlign: 'center' },
+  soundWaveText: { fontSize: 11, color: '#5B6B7F', fontFamily: dsFont.semibold },
+  etsSubNotice: { fontSize: 11, color: '#5B6B7F', textAlign: 'center' },
 
   // Part 3 & 4 Audio Card with Waveform
   audioGroupContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     padding: 14,
     gap: 12,
   },
   audioCardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   waveformPlayerCard: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F7FB',
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     gap: 12,
   },
   waveControlsRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
@@ -1945,7 +1952,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 999,
-    backgroundColor: '#1E3A5F',
+    backgroundColor: '#0369A1',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1958,17 +1965,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   waveformBar: { width: 3, borderRadius: 2 },
-  waveformBarActive: { backgroundColor: '#1E3A5F' },
-  waveformBarInactive: { backgroundColor: '#CBD5E1' },
+  waveformBarActive: { backgroundColor: '#0369A1' },
+  waveformBarInactive: { backgroundColor: '#CBD6E2' },
   etsInfoBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
     padding: 8,
     borderRadius: 8,
   },
-  etsInfoBoxText: { fontSize: 11, color: '#64748B', flex: 1, lineHeight: 15 },
+  etsInfoBoxText: { fontSize: 11, color: '#5B6B7F', flex: 1, lineHeight: 15 },
 
   // Group sub-question switcher
   groupNavigationRow: {
@@ -1977,39 +1984,39 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: '#F4F7FB',
   },
-  groupNavTitle: { fontSize: 13, fontWeight: '800', color: '#0F172A', fontFamily: font.family },
-  groupNavSub: { fontSize: 11, color: '#64748B' },
+  groupNavTitle: { fontSize: 13, fontFamily: dsFont.display, color: '#0F2A44' },
+  groupNavSub: { fontSize: 11, color: '#5B6B7F' },
   groupNumberChips: { flexDirection: 'row', gap: 6 },
   groupNumberChip: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
   },
   groupNumberChipCurrent: {
-    backgroundColor: '#1E3A5F',
-    borderColor: '#1E3A5F',
+    backgroundColor: '#0369A1',
+    borderColor: '#0369A1',
   },
   groupNumberChipDone: {
     backgroundColor: '#E0F2FE',
     borderColor: '#BAE6FD',
   },
-  groupNumberChipText: { fontSize: 12, fontWeight: '700', color: '#475569' },
-  groupNumberChipTextCurrent: { color: '#FFFFFF', fontWeight: '800' },
-  groupNumberChipTextDone: { color: '#0284C7', fontWeight: '700' },
+  groupNumberChipText: { fontSize: 12, fontFamily: dsFont.bold, color: '#5B6B7F' },
+  groupNumberChipTextCurrent: { color: '#FFFFFF', fontFamily: dsFont.display },
+  groupNumberChipTextDone: { color: '#0369A1', fontFamily: dsFont.bold },
 
   // Part 6 & 7 Reading Passage Card
   passageCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     padding: 14,
     gap: 12,
   },
@@ -2019,22 +2026,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   passageHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  passageHeaderTitle: { fontSize: 14, fontWeight: '800', color: '#0F172A', fontFamily: font.family },
+  passageHeaderTitle: { fontSize: 14, fontFamily: dsFont.display, color: '#0F2A44' },
   passageHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   passageActionBtn: {
     width: 30,
     height: 30,
     borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
     alignItems: 'center',
     justifyContent: 'center',
   },
   passageContentBox: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F7FB',
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     gap: 12,
   },
   emailHeadersBox: {
@@ -2042,16 +2049,16 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     gap: 5,
   },
   emailHeaderLine: { flexDirection: 'row', gap: 6 },
-  emailHeaderLabel: { fontSize: 11.5, fontWeight: '700', color: '#64748B', width: 55 },
-  emailHeaderValue: { fontSize: 11.5, color: '#1E293B', flex: 1, fontWeight: '500' },
-  emailHeaderSubject: { fontSize: 12, fontWeight: '800', color: '#0369A1', flex: 1 },
+  emailHeaderLabel: { fontSize: 11.5, fontFamily: dsFont.bold, color: '#5B6B7F', width: 55 },
+  emailHeaderValue: { fontSize: 11.5, color: '#0F2A44', flex: 1, fontFamily: dsFont.medium },
+  emailHeaderSubject: { fontSize: 12, fontFamily: dsFont.display, color: '#0369A1', flex: 1 },
   passageParagraphs: { gap: 10 },
-  passageParagraphText: { fontSize: 13, color: '#334155', lineHeight: 20, fontFamily: font.family },
-  passageParagraphTextLarge: { fontSize: 14.5, color: '#1E293B', lineHeight: 23, fontFamily: font.family },
+  passageParagraphText: { fontSize: 13, color: '#33465C', lineHeight: 20 },
+  passageParagraphTextLarge: { fontSize: 14.5, color: '#0F2A44', lineHeight: 23 },
 
   readingGroupNavRow: {
     flexDirection: 'row',
@@ -2059,15 +2066,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 8,
   },
-  readingSharedLabel: { fontSize: 10, color: '#64748B', textTransform: 'uppercase', fontWeight: '700' },
-  readingGroupName: { fontSize: 13, fontWeight: '800', color: '#0F172A', fontFamily: font.family },
+  readingSharedLabel: { fontSize: 10, color: '#5B6B7F', textTransform: 'uppercase', fontFamily: dsFont.bold },
+  readingGroupName: { fontSize: 13, fontFamily: dsFont.display, color: '#0F2A44' },
 
   // Question Card
   questionCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     padding: 16,
     gap: 12,
   },
@@ -2078,12 +2085,12 @@ const styles = StyleSheet.create({
   },
   questionCardBadges: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   categoryPill: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
-  categoryPillText: { fontSize: 11, fontWeight: '700', color: '#475569' },
+  categoryPillText: { fontSize: 11, fontFamily: dsFont.bold, color: '#5B6B7F' },
   ttsButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2093,7 +2100,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 6,
   },
-  ttsButtonText: { fontSize: 11, fontWeight: '700', color: '#0284C7' },
+  ttsButtonText: { fontSize: 11, fontFamily: dsFont.bold, color: '#0369A1' },
   bookmarkButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2103,14 +2110,13 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   bookmarkButtonActive: { backgroundColor: '#FEF3C7' },
-  bookmarkButtonText: { fontSize: 11, color: '#64748B', fontWeight: '600' },
-  bookmarkButtonTextActive: { color: '#B45309', fontWeight: '700' },
+  bookmarkButtonText: { fontSize: 11, color: '#5B6B7F', fontFamily: dsFont.semibold },
+  bookmarkButtonTextActive: { color: '#B45309', fontFamily: dsFont.bold },
   mainQuestionText: {
     fontSize: 18,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontFamily: dsFont.display,
+    color: '#0F2A44',
     lineHeight: 26,
-    fontFamily: font.family,
   },
 
   // Options List (Chuẩn mobile: Full width, xếp dọc)
@@ -2121,74 +2127,85 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     padding: 14,
-    borderRadius: 16,
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
+    borderBottomWidth: 4,
+    borderRadius: 16,
+    paddingVertical: 14,
   },
   optionCardSelected: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#1E3A5F',
+    borderColor: '#0EA5E9',
+    backgroundColor: '#E0F2FE',
   },
   optionKeyCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
     alignItems: 'center',
     justifyContent: 'center',
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: '#E3EAF2',
   },
   optionKeyCircleSelected: {
-    backgroundColor: '#1E3A5F',
+    backgroundColor: '#0369A1',
+    borderColor: '#0369A1',
   },
-  optionKeyText: { fontSize: 13, fontWeight: '800', color: '#64748B' },
+  optionKeyText: { fontSize: 13, fontFamily: dsFont.display, color: '#5B6B7F' },
   optionKeyTextSelected: { color: '#FFFFFF' },
   optionContentWrap: { flex: 1, gap: 2 },
-  optionLabelText: { fontSize: 15, fontWeight: '600', color: '#1E293B', fontFamily: font.family },
-  optionLabelTextSelected: { fontWeight: '800', color: '#0F172A' },
-  optionSubLabelText: { fontSize: 12, color: '#64748B' },
+  optionLabelText: { fontSize: 15, fontFamily: dsFont.semibold, color: '#0F2A44' },
+  optionLabelTextSelected: { fontFamily: dsFont.display, color: '#0F2A44' },
+  optionSubLabelText: { fontSize: 12, color: '#5B6B7F' },
   radioCircle: {
     width: 20,
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#CBD5E1',
+    borderColor: '#CBD6E2',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  radioCircleSelected: { borderColor: '#1E3A5F' },
+  radioCircleSelected: { borderColor: '#0369A1' },
   radioCircleRevealedCorrect: { borderColor: '#16A34A' },
-  radioCircleRevealedWrong: { borderColor: '#EF4444' },
-  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#1E3A5F' },
+  radioCircleRevealedWrong: { borderColor: '#DC2626' },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#0369A1' },
 
   // Practice mode: revealed correct/wrong option cards
   optionCardRevealedCorrect: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#DCFCE7',
     borderColor: '#16A34A',
   },
   optionCardRevealedWrong: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#EF4444',
+    backgroundColor: '#FEE2E2',
+    borderColor: '#DC2626',
   },
-  optionKeyCircleRevealedCorrect: { backgroundColor: '#16A34A' },
-  optionKeyCircleRevealedWrong: { backgroundColor: '#EF4444' },
-  optionLabelTextRevealedCorrect: { color: '#15803D', fontWeight: '700' },
-  optionLabelTextRevealedWrong: { color: '#DC2626', fontWeight: '700' },
+  optionKeyCircleRevealedCorrect: {
+    backgroundColor: '#16A34A',
+    borderColor: '#16A34A',
+  },
+  optionKeyCircleRevealedWrong: {
+    backgroundColor: '#DC2626',
+    borderColor: '#DC2626',
+  },
+  optionLabelTextRevealedCorrect: { color: '#166534', fontFamily: dsFont.bold },
+  optionLabelTextRevealedWrong: { color: '#DC2626', fontFamily: dsFont.bold },
 
   revealedListeningTextBox: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F7FB',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#CBD6E2',
     padding: 14,
     gap: 6,
   },
-  revealedListeningTextTitle: { fontSize: 12, fontWeight: '800', color: '#475569', textTransform: 'uppercase' },
-  revealedListeningTextLine: { fontSize: 14, color: '#1E293B', lineHeight: 21, fontFamily: font.family },
+  revealedListeningTextTitle: { fontSize: 12, fontFamily: dsFont.display, color: '#5B6B7F', textTransform: 'uppercase' },
+  revealedListeningTextLine: { fontSize: 14, color: '#0F2A44', lineHeight: 21 },
 
   // Practice Mode: Cluster Check Control Box
   clusterControlBox: {
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#E0F2FE',
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#BAE6FD',
@@ -2196,25 +2213,27 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   clusterStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  clusterStatusText: { fontSize: 13, fontWeight: '600', color: '#0369A1', flex: 1 },
+  clusterStatusText: { fontSize: 13, fontFamily: dsFont.semibold, color: '#0369A1', flex: 1 },
   btnCheckCluster: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#0284C7',
-    paddingVertical: 12,
-    borderRadius: 12,
+    backgroundColor: '#0369A1',
+    borderBottomWidth: 4,
+    borderBottomColor: '#023E5F',
+    borderRadius: 16,
+    paddingVertical: 13,
   },
-  btnCheckClusterText: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', fontFamily: font.family },
-  clusterHintText: { fontSize: 12.5, color: '#64748B', textAlign: 'center', lineHeight: 18 },
+  btnCheckClusterText: { fontSize: 14, fontFamily: dsFont.display, color: '#FFFFFF' },
+  clusterHintText: { fontSize: 12.5, color: '#5B6B7F', textAlign: 'center', lineHeight: 18 },
 
   // Practice Mode: Feedback Card (after reveal)
   practiceFeedbackCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     padding: 16,
     gap: 12,
   },
@@ -2222,37 +2241,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#DCFCE7',
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: '#86EFAC',
   },
   feedbackHeaderWrong: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: '#FEE2E2',
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#FECACA',
   },
-  feedbackTitleCorrect: { fontSize: 14, fontWeight: '800', color: '#15803D', flex: 1, fontFamily: font.family },
-  feedbackTitleWrong: { fontSize: 14, fontWeight: '800', color: '#DC2626', flex: 1, fontFamily: font.family },
+  feedbackTitleCorrect: { fontSize: 14, fontFamily: dsFont.display, color: '#166534', flex: 1 },
+  feedbackTitleWrong: { fontSize: 14, fontFamily: dsFont.display, color: '#DC2626', flex: 1 },
 
   // Wrong-only mode resolved banner
   resolvedWrongBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#DCFCE7',
     padding: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: '#86EFAC',
   },
-  resolvedWrongBannerText: { fontSize: 12.5, fontWeight: '700', color: '#15803D', flex: 1 },
+  resolvedWrongBannerText: { fontSize: 12.5, fontFamily: dsFont.bold, color: '#166534', flex: 1 },
 
   dropdownHeader: {
     flexDirection: 'row',
@@ -2268,28 +2287,28 @@ const styles = StyleSheet.create({
 
   // Transcript & Explanation areas
   transcriptWrap: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F7FB',
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     gap: 6,
   },
-  transcriptHeading: { fontSize: 11, fontWeight: '800', color: '#64748B', textTransform: 'uppercase' },
-  transcriptBody: { fontSize: 13, color: '#334155', lineHeight: 20, fontFamily: font.family },
+  transcriptHeading: { fontSize: 11, fontFamily: dsFont.display, color: '#5B6B7F', textTransform: 'uppercase' },
+  transcriptBody: { fontSize: 13, color: '#33465C', lineHeight: 20 },
 
   translationWrap: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F7FB',
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#CBD6E2',
     gap: 6,
   },
-  translationHeading: { fontSize: 11, fontWeight: '800', color: '#475569', textTransform: 'uppercase' },
+  translationHeading: { fontSize: 11, fontFamily: dsFont.display, color: '#5B6B7F', textTransform: 'uppercase' },
   translationSourceBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#E0F2FE',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -2297,33 +2316,31 @@ const styles = StyleSheet.create({
   },
   translationSourceBadgeText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#4F46E5',
-    fontFamily: font.family,
+    fontFamily: dsFont.bold,
+    color: '#0369A1',
   },
   translationList: { gap: 5 },
-  translationBody: { fontSize: 13, color: '#334155', lineHeight: 20, fontFamily: font.family },
-  translationKey: { fontWeight: '800', color: '#1E3A5F' },
-  translationEmpty: { fontSize: 12.5, color: '#64748B', fontStyle: 'italic' },
+  translationBody: { fontSize: 13, color: '#33465C', lineHeight: 20 },
+  translationKey: { fontFamily: dsFont.display, color: '#0369A1' },
+  translationEmpty: { fontSize: 12.5, color: '#5B6B7F', fontStyle: 'italic' },
   translationQuestionRow: {
     marginBottom: 6,
     paddingBottom: 6,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#E3EAF2',
     gap: 2,
   },
   translationQuestionLabel: {
     fontSize: 10.5,
-    fontWeight: '800',
-    color: '#64748B',
+    fontFamily: dsFont.display,
+    color: '#5B6B7F',
     textTransform: 'uppercase',
   },
   translationQuestionText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#1E293B',
+    fontFamily: dsFont.semibold,
+    color: '#0F2A44',
     lineHeight: 18,
-    fontFamily: font.family,
   },
   translateButton: {
     flexDirection: 'row',
@@ -2332,28 +2349,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9,
     paddingVertical: 4.5,
     borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#CBD6E2',
   },
   translateButtonActive: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#E0F2FE',
     borderColor: '#93C5FD',
   },
   translateButtonText: {
     fontSize: 11.5,
-    fontWeight: '700',
-    color: '#475569',
-    fontFamily: font.family,
+    fontFamily: dsFont.bold,
+    color: '#5B6B7F',
   },
   translateButtonTextActive: {
-    color: colors.primary,
+    color: ds.btn,
   },
   questionTranslationBox: {
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: '#E3EAF2',
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 6,
@@ -2364,7 +2380,6 @@ const styles = StyleSheet.create({
     color: '#1D4ED8',
     fontStyle: 'italic',
     lineHeight: 19,
-    fontFamily: font.family,
   },
   optionTranslationText: {
     fontSize: 12.5,
@@ -2372,19 +2387,18 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: 2,
     lineHeight: 17,
-    fontFamily: font.family,
   },
 
   explanationWrap: {
-    backgroundColor: '#FFFBEB',
+    backgroundColor: '#FEF3C7',
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
     borderColor: '#FDE68A',
     gap: 6,
   },
-  explanationHeading: { fontSize: 11, fontWeight: '800', color: '#92400E', textTransform: 'uppercase' },
-  explanationBody: { fontSize: 13, color: '#78350F', lineHeight: 20, fontFamily: font.family },
+  explanationHeading: { fontSize: 11, fontFamily: dsFont.display, color: '#92400E', textTransform: 'uppercase' },
+  explanationBody: { fontSize: 13, color: '#78350F', lineHeight: 20 },
 
   // Practice Mode: "Next Question" button inside feedback card
   btnNextQuestionPractice: {
@@ -2392,14 +2406,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#1E3A5F',
-    paddingVertical: 13,
-    borderRadius: 14,
+    backgroundColor: '#0369A1',
+    borderBottomWidth: 4,
+    borderBottomColor: '#023E5F',
+    borderRadius: 16,
+    paddingVertical: 14,
   },
-  btnNextQuestionPracticeText: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', fontFamily: font.family },
+  btnNextQuestionPracticeText: { fontSize: 14, fontFamily: dsFont.display, color: '#FFFFFF' },
 
   // Pressed feedback
-  pressed: { opacity: 0.75 },
+  pressed: { transform: [{ scale: 0.98 }, { translateY: 2 }] },
 
   // Bottom Helper
   bottomHelpRow: {
@@ -2410,9 +2426,9 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   flagHelpBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  flagHelpText: { fontSize: 12, color: '#64748B', fontWeight: '600' },
+  flagHelpText: { fontSize: 12, color: '#5B6B7F', fontFamily: dsFont.semibold },
   tapNotice: { flexDirection: 'row', alignItems: 'center' },
-  tapNoticeText: { fontSize: 11.5, color: '#94A3B8' },
+  tapNoticeText: { fontSize: 11.5, color: '#8597AB' },
 
   // Bottom Navigation Bar
   bottomBar: {
@@ -2423,7 +2439,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: '#F4F7FB',
     gap: 10,
   },
   prevButton: {
@@ -2432,12 +2448,15 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    borderRadius: 14,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E3EAF2',
+    borderBottomWidth: 4,
+    borderRadius: 16,
   },
   prevButtonDisabled: { opacity: 0.4 },
-  prevButtonText: { fontSize: 13, fontWeight: '700', color: '#0F172A', fontFamily: font.family },
-  prevButtonTextDisabled: { color: '#94A3B8' },
+  prevButtonText: { fontSize: 13, fontFamily: dsFont.bold, color: '#0F2A44' },
+  prevButtonTextDisabled: { color: '#8597AB' },
 
   quickGridButton: {
     flexDirection: 'row',
@@ -2445,10 +2464,12 @@ const styles = StyleSheet.create({
     gap: 5,
     paddingHorizontal: 12,
     paddingVertical: 12,
-    borderRadius: 14,
     backgroundColor: '#E0F2FE',
+    borderBottomWidth: 4,
+    borderBottomColor: '#BAE6FD',
+    borderRadius: 16,
   },
-  quickGridText: { fontSize: 12.5, fontWeight: '800', color: '#0284C7', fontFamily: font.family },
+  quickGridText: { fontSize: 12.5, fontFamily: dsFont.display, color: '#0369A1' },
 
   nextButton: {
     flex: 1,
@@ -2456,11 +2477,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 12,
-    borderRadius: 14,
-    backgroundColor: '#1E3A5F',
+    backgroundColor: '#0369A1',
+    borderBottomWidth: 4,
+    borderBottomColor: '#023E5F',
+    borderRadius: 16,
+    paddingVertical: 13,
   },
-  nextButtonText: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', fontFamily: font.family },
+  nextButtonText: { fontSize: 14, fontFamily: dsFont.display, color: '#FFFFFF' },
 
   // Modals Common
   modalRoot: { flex: 1, backgroundColor: '#FFFFFF', padding: 16 },
@@ -2470,15 +2493,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#F4F7FB',
   },
-  modalTitle: { fontSize: 17, fontWeight: '800', color: '#0F172A', fontFamily: font.family },
-  modalSubTitle: { fontSize: 12, color: '#64748B', marginTop: 2 },
+  modalTitle: { fontSize: 17, fontFamily: dsFont.display, color: '#0F2A44' },
+  modalSubTitle: { fontSize: 12, color: '#5B6B7F', marginTop: 2 },
   modalCloseBtn: {
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2502,7 +2525,7 @@ const styles = StyleSheet.create({
   legendRow: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendText: { fontSize: 12, color: '#64748B', fontWeight: '600' },
+  legendText: { fontSize: 12, color: '#5B6B7F', fontFamily: dsFont.semibold },
 
   gridMatrixWrap: {
     flexDirection: 'row',
@@ -2515,30 +2538,30 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F7FB',
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  matrixCellAnswered: { backgroundColor: '#1E3A5F', borderColor: '#1E3A5F' },
+  matrixCellAnswered: { backgroundColor: '#0369A1', borderColor: '#0369A1' },
   matrixCellBookmarked: { borderColor: '#F59E0B', borderWidth: 2 },
-  matrixCellCurrent: { borderWidth: 2.5, borderColor: '#0284C7' },
-  matrixCellText: { fontSize: 13, fontWeight: '700', color: '#475569' },
-  matrixCellTextAnswered: { color: '#FFFFFF', fontWeight: '800' },
-  matrixCellTextBookmarked: { color: '#D97706', fontWeight: '800' },
-  matrixCellTextCurrent: { color: '#0284C7', fontWeight: '800' },
-  matrixCellPartSub: { fontSize: 9, color: '#94A3B8', fontWeight: '600', marginTop: 1 },
+  matrixCellCurrent: { borderWidth: 2.5, borderColor: '#0369A1' },
+  matrixCellText: { fontSize: 13, fontFamily: dsFont.bold, color: '#5B6B7F' },
+  matrixCellTextAnswered: { color: '#FFFFFF', fontFamily: dsFont.display },
+  matrixCellTextBookmarked: { color: '#D97706', fontFamily: dsFont.display },
+  matrixCellTextCurrent: { color: '#0369A1', fontFamily: dsFont.display },
+  matrixCellPartSub: { fontSize: 9, color: '#8597AB', fontFamily: dsFont.semibold, marginTop: 1 },
   matrixCellPartSubAnswered: { color: '#BAE6FD' },
-  matrixCellPartSubCurrent: { color: '#0284C7' },
+  matrixCellPartSubCurrent: { color: '#0369A1' },
 
   modalSubmitButton: {
-    backgroundColor: '#1E3A5F',
+    backgroundColor: '#0369A1',
     paddingVertical: 14,
     borderRadius: 14,
     alignItems: 'center',
   },
-  modalSubmitButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+  modalSubmitButtonText: { color: '#FFFFFF', fontSize: 14, fontFamily: dsFont.display },
 
   confirmBox: {
     width: '100%',
@@ -2557,10 +2580,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 4,
   },
-  confirmTitle: { fontSize: 19, fontWeight: '800', color: '#0F172A', fontFamily: font.family },
+  confirmTitle: { fontSize: 19, fontFamily: dsFont.display, color: '#0F2A44' },
   confirmSub: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#5B6B7F',
     textAlign: 'center',
     lineHeight: 18,
   },
@@ -2569,34 +2592,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-around',
     width: '100%',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F7FB',
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
   },
   submitStatCol: { alignItems: 'center', flex: 1 },
-  submitStatNumGreen: { fontSize: 20, fontWeight: '800', color: '#16A34A' },
-  submitStatNumOrange: { fontSize: 20, fontWeight: '800', color: '#EA580C' },
-  submitStatNumYellow: { fontSize: 20, fontWeight: '800', color: '#D97706' },
-  submitStatLabel: { fontSize: 11, color: '#64748B', marginTop: 2 },
-  submitStatDivider: { width: 1, height: 28, backgroundColor: '#E2E8F0' },
+  submitStatNumGreen: { fontSize: 20, fontFamily: dsFont.display, color: '#16A34A' },
+  submitStatNumOrange: { fontSize: 20, fontFamily: dsFont.display, color: '#EA580C' },
+  submitStatNumYellow: { fontSize: 20, fontFamily: dsFont.display, color: '#D97706' },
+  submitStatLabel: { fontSize: 11, color: '#5B6B7F', marginTop: 2 },
+  submitStatDivider: { width: 1, height: 28, backgroundColor: '#E3EAF2' },
   confirmButtonRow: { flexDirection: 'row', gap: 10, width: '100%', marginTop: 8 },
   cancelModalBtn: {
     flex: 1,
     paddingVertical: 13,
     borderRadius: 12,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
     alignItems: 'center',
   },
-  cancelModalBtnText: { fontSize: 13.5, fontWeight: '700', color: '#334155' },
+  cancelModalBtnText: { fontSize: 13.5, fontFamily: dsFont.bold, color: '#33465C' },
   submitModalBtn: {
     flex: 1,
-    paddingVertical: 13,
-    borderRadius: 12,
-    backgroundColor: '#1E3A5F',
+    backgroundColor: '#0369A1',
     alignItems: 'center',
+    borderBottomWidth: 4,
+    borderBottomColor: 'rgba(0,0,0,0.22)',
+    borderRadius: 14,
+    paddingVertical: 13,
   },
-  submitModalBtnText: { fontSize: 13.5, fontWeight: '800', color: '#FFFFFF' },
+  submitModalBtnText: { fontSize: 13.5, fontFamily: dsFont.display, color: '#FFFFFF' },
 });
