@@ -32,7 +32,8 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({ uri, size: sizeProp = 40
         alt: '',
         referrerPolicy: 'no-referrer',
         onError: () => setFailed(true),
-        style: { ...shape, objectFit: 'cover', display: 'block', flexShrink: 0, ...(style as object) },
+        // style có thể là mảng → phải flatten, rải mảng vào style của thẻ DOM sẽ làm trình duyệt báo lỗi
+        style: { ...shape, objectFit: 'cover', display: 'block', flexShrink: 0, ...(StyleSheet.flatten(style) as object) },
       });
     }
     return <Image source={{ uri }} style={[shape, style]} onError={() => setFailed(true)} />;

@@ -25,6 +25,10 @@ export const QuickQuizPlayScreen = () => {
         cefrLevel: params.level || undefined,
         size: 100,
       }),
+    // Không tự tải lại giữa chừng: dữ liệu đổi sẽ sinh bộ câu mới và làm mất bài đang làm
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   const questions: QuickQuizQuestion[] = useMemo(
@@ -118,7 +122,8 @@ export const QuickQuizPlayScreen = () => {
     );
   }
 
-  const q = questions[index];
+  // Kẹp chỉ số trong phạm vi bộ câu hiện có để không bao giờ đọc câu không tồn tại
+  const q = questions[Math.min(index, questions.length - 1)];
   const answered = selected !== null;
 
   const next = () => {
