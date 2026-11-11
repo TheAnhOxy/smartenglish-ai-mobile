@@ -35,6 +35,7 @@ import { getProfileApi } from '@/src/features/profile-settings/data/profileApi';
 import { colors } from '@/src/theme/colors';
 import { StudentInvoicesModal } from '@/src/features/subscription-paywall/presentation/components/StudentInvoicesModal';
 import { UserAvatar } from '@/src/core/components/UserAvatar';
+import { planExpiryText, planLabel } from '@/src/core/utils/plan';
 
 const BADGES = [
   { icon: Flame, label: 'Người lửa', color: colors.streak, bg: colors.streakSoft },
@@ -104,10 +105,17 @@ export const ProfileScreen = () => {
   return (
     <ScrollView className="flex-1 bg-[#F8FAFC]" showsVerticalScrollIndicator={false}>
       <View className="w-full max-w-xl mx-auto">
+        {/* className không áp dụng được cho Animated.View của Reanimated → nền phải đặt bằng style */}
         <Animated.View
           entering={FadeInDown.duration(400)}
-          style={{ paddingTop: safeTop }}
-          className="bg-[#0D3B73] px-6 pb-8 rounded-b-3xl shadow-xl"
+          style={{
+            paddingTop: safeTop,
+            paddingHorizontal: 24,
+            paddingBottom: 32,
+            backgroundColor: '#0D3B73',
+            borderBottomLeftRadius: 24,
+            borderBottomRightRadius: 24,
+          }}
         >
           <View className="flex-row justify-between items-center mb-6">
             <Pressable
@@ -122,7 +130,7 @@ export const ProfileScreen = () => {
               </View>
               <View className="flex-1">
                 <Text className="text-xl font-bold text-white mb-1" numberOfLines={1}>
-                  {currentUser?.display_name || 'Nguyen Minh'}
+                  {currentUser?.display_name || 'Học viên'}
                 </Text>
                 <View className="bg-white/15 px-3 py-1 rounded-full border border-white/20 self-start">
                   <Text className="text-xs font-semibold text-gray-200">Level {userStats?.level ?? 1} - Scholar</Text>
@@ -170,10 +178,10 @@ export const ProfileScreen = () => {
               <View className="flex-1">
                 <Text className="text-[10px] font-bold text-white/60 uppercase tracking-wider mb-0.5">Gói hiện tại</Text>
                 <Text className="text-base font-extrabold text-white mb-0.5">
-                  {currentUser?.plan === 'premium_yearly' ? 'Premium Năm' : currentUser?.plan === 'premium_monthly' ? 'Premium Tháng' : 'Tài khoản Miễn phí'}
+                  {planLabel(currentUser)}
                 </Text>
                 <Text className="text-[11px] text-white/60">
-                  {currentUser?.plan?.includes('premium') ? 'Hết hạn: 24 Th09, 2026' : 'Nâng cấp để mở khóa toàn bộ'}
+                  {planExpiryText(currentUser)}
                 </Text>
               </View>
               <View
@@ -206,7 +214,6 @@ export const ProfileScreen = () => {
           <Animated.View entering={FadeInDown.delay(350).duration(400)}>
             <View className="flex-row justify-between items-center mb-3">
               <Text className="text-sm font-bold text-gray-900">Huy hiệu của tôi</Text>
-              <Pressable><Text className="text-sm font-semibold text-[#1F4E79]">Tất cả</Text></Pressable>
             </View>
             <View className="flex-row gap-2">
               {BADGES.map((badge) => {
