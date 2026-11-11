@@ -1,8 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
+import { fetchUserConversationsApi } from '@/src/features/social-feed/data/socialApi';
+import { fetchUnreadNotificationCountApi } from '@/src/features/notifications/data/notificationApi';
 import {
   Bell,
   BookOpen,
@@ -13,8 +16,12 @@ import {
   Layers,
   LogIn,
   MessageSquare,
+  PenLine,
   Play,
   ScanText,
+  School,
+  Search,
+  Users,
   Zap,
 } from 'lucide-react-native';
 import { useAuthStore } from '@/src/core/flows/authStore';
@@ -27,6 +34,7 @@ import { useMyDecksQuery } from '@/src/features/flashcard-srs/application/useFla
 import { useUserStatsQuery } from '../../application/useDashboard';
 import { DailyQuestList } from '../components/DailyQuestList';
 import { WordOfDayCard } from '../components/WordOfDayCard';
+import { QuickWordLookupModal } from '@/src/features/flashcard-srs/presentation/screens/QuickWordLookupModal';
 
 type IconType = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 
@@ -44,8 +52,35 @@ export const HomeScreen = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { currentUser, userStats, setUserStats } = useAuthStore();
-  const { hasPermission, syncRolePermissions, guestMode } = useRoleGateStore();
+  const { hasPermission, syncRolePermissions, guestMode, exitGuestMode } = useRoleGateStore();
   const isLoggedIn = !!currentUser && !guestMode;
+  const [lookupOpen, setLookupOpen] = useState(false);
+  const [isFocused, setIsFocused] = useState(true);
+  useFocusEffect(
+    React.useCallback(() => {
+      setIsFocused(true);
+      return () => setIsFocused(false);
+    }, [])
+  );
+
+  // Tổng tin nhắn chưa đọc → chấm đỏ trên lối tắt Cộng đồng
+  const { data: unreadMessages = 0 } = useQuery({
+    queryKey: ['unread-messages', currentUser?.id],
+    queryFn: async () => {
+      const conversations = await fetchUserConversationsApi();
+      return conversations.reduce((sum, c) => sum + (Number(c.unreadCount) || 0), 0);
+    },
+    enabled: isLoggedIn && isFocused,
+    refetchInterval: isFocused ? 15000 : false,
+  });
+
+  // Khoá bắt đầu bằng 'notifications' → tự làm mới khi có thông báo mới hoặc khi đánh dấu đã đọc
+  const { data: unreadNotifications = 0 } = useQuery({
+    queryKey: ['notifications', 'unread-count', currentUser?.id],
+    queryFn: fetchUnreadNotificationCountApi,
+    enabled: isLoggedIn && isFocused,
+    refetchInterval: isFocused ? 15000 : false,
+  });
 
   useEffect(() => {
     syncRolePermissions();
@@ -73,7 +108,17 @@ export const HomeScreen = () => {
     },
   ].filter((a) => a.visible);
 
+  const connectActions: QuickAction[] = [
+    { key: 'classes', label: 'Lớp học', icon: School, route: '/(student)/classes', visible: isLoggedIn && hasPermission('join_class_submit') },
+    { key: 'community', label: 'Cộng đồng', icon: Users, route: '/(student)/feed', visible: isLoggedIn && hasPermission('use_community') },
+  ].filter((a) => a.visible);
+
   const go = (route: QuickAction['route']) => router.push(route as never);
+  // Phải thoát chế độ khách trước, nếu không layout gốc sẽ đẩy khách từ màn đăng nhập về lại trang chủ
+  const goLogin = () => {
+    exitGuestMode();
+    router.replace('/(auth)/login');
+  };
 
   return (
     <ScrollView
@@ -83,7 +128,7 @@ export const HomeScreen = () => {
     >
       {/* Header */}
       <View style={s.header}>
-        <Pressable onPress={() => go(isLoggedIn ? '/(student)/profile' : '/(auth)/login')} style={s.headerLeft}>
+        <Pressable onPress={() => (isLoggedIn ? go('/(student)/profile') : goLogin())} style={s.headerLeft}>
           <UserAvatar uri={currentUser?.avatar_url} size={44} />
           <View style={{ flex: 1 }}>
             <Text style={s.greeting}>{greetingOf(new Date().getHours())}</Text>
@@ -92,12 +137,23 @@ export const HomeScreen = () => {
             </Text>
           </View>
         </Pressable>
-        {isLoggedIn ? (
-          <Pressable onPress={() => go('/(student)/notifications')} style={s.bellBtn} accessibilityLabel="Thông báo">
-            <Bell size={20} color={colors.text} />
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Pressable onPress={() => setLookupOpen(true)} style={s.bellBtn} accessibilityLabel="Tra từ vựng">
+            <Search size={20} color={colors.text} />
           </Pressable>
-        ) : null}
+          {isLoggedIn ? (
+            <Pressable onPress={() => go('/(student)/notifications')} style={s.bellBtn} accessibilityLabel="Thông báo">
+              <Bell size={20} color={colors.text} />
+              {unreadNotifications > 0 ? (
+                <View style={s.unreadBadge} accessibilityLabel={`${unreadNotifications} thông báo chưa đọc`}>
+                  <Text style={s.unreadText}>{unreadNotifications > 99 ? '99+' : unreadNotifications}</Text>
+                </View>
+              ) : null}
+            </Pressable>
+          ) : null}
+        </View>
       </View>
+      <QuickWordLookupModal visible={lookupOpen} onClose={() => setLookupOpen(false)} />
 
       {/* Chỉ số học tập */}
       {isLoggedIn ? (
@@ -106,10 +162,10 @@ export const HomeScreen = () => {
           <View style={s.statDivider} />
           <StatTile icon={Zap} color={colors.xpDeep} value={(stats?.xp_total ?? 0).toLocaleString('vi-VN')} label="Tổng XP" />
           <View style={s.statDivider} />
-          <StatTile icon={Coins} color={colors.coin} value={(stats?.coins ?? 0).toLocaleString('vi-VN')} label="Xu" />
+          <StatTile icon={Coins} color={colors.coin} value={(stats?.coins ?? 0).toLocaleString('vi-VN')} label="Xu" onPress={() => go('/(student)/shop')} />
         </View>
       ) : (
-        <Pressable onPress={() => go('/(auth)/login')} style={s.loginCard}>
+        <Pressable onPress={goLogin} style={s.loginCard}>
           <View style={s.loginIcon}>
             <LogIn size={20} color={colors.primary} />
           </View>
@@ -164,6 +220,31 @@ export const HomeScreen = () => {
         </View>
       ) : null}
 
+      {/* Lớp học & Cộng đồng */}
+      {connectActions.length > 0 ? (
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Lớp học & Cộng đồng</Text>
+          <View style={s.grid}>
+            {connectActions.map((a) => {
+              const Icon = a.icon;
+              return (
+                <Pressable key={a.key} onPress={() => go(a.route)} style={[s.pathRow, { flex: 1 }]}>
+                  <View style={s.actionIcon}>
+                    <Icon size={20} color={colors.primary} strokeWidth={2} />
+                  </View>
+                  <Text style={[s.pathTitle, { flex: 1 }]} numberOfLines={1}>{a.label}</Text>
+                  {a.key === 'community' && unreadMessages > 0 ? (
+                    <View style={s.unreadBadge} accessibilityLabel={`${unreadMessages} tin nhắn chưa đọc`}>
+                      <Text style={s.unreadText}>{unreadMessages > 99 ? '99+' : unreadMessages}</Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
+
       {/* Nhiệm vụ hằng ngày */}
       {isLoggedIn ? (
         <View style={s.section}>
@@ -182,6 +263,20 @@ export const HomeScreen = () => {
         <WordOfDayCard />
       </View>
 
+      {/* Luyện viết với AI */}
+      {isLoggedIn ? (
+        <Pressable onPress={() => go('/(student)/practice/writing')} style={s.pathRow}>
+          <View style={s.actionIcon}>
+            <PenLine size={20} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.pathTitle}>Luyện viết với AI</Text>
+            <Text style={s.pathSub}>Chấm lỗi, chấm điểm và viết lại bài của bạn</Text>
+          </View>
+          <ChevronRight size={18} color={colors.textSoft} />
+        </Pressable>
+      ) : null}
+
       {/* Lộ trình */}
       <Pressable onPress={() => go('/(student)/learn')} style={s.pathRow}>
         <View style={s.actionIcon}>
@@ -197,12 +292,12 @@ export const HomeScreen = () => {
   );
 };
 
-const StatTile: React.FC<{ icon: IconType; color: string; value: string; label: string }> = ({ icon: Icon, color, value, label }) => (
-  <View style={s.statTile}>
+const StatTile: React.FC<{ icon: IconType; color: string; value: string; label: string; onPress?: () => void }> = ({ icon: Icon, color, value, label, onPress }) => (
+  <Pressable style={s.statTile} onPress={onPress} disabled={!onPress} accessibilityLabel={onPress ? `${label} - mở cửa hàng` : undefined}>
     <Icon size={18} color={color} />
     <Text style={s.statValue}>{value}</Text>
     <Text style={s.statLabel}>{label}</Text>
-  </View>
+  </Pressable>
 );
 
 const s = StyleSheet.create({
@@ -292,6 +387,21 @@ const s = StyleSheet.create({
     borderColor: colors.border,
     padding: 14,
   },
+  unreadBadge: {
+    position: 'absolute',
+    top: -7,
+    right: -7,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
+    backgroundColor: colors.danger,
+    borderWidth: 2,
+    borderColor: colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unreadText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
   pathTitle: { fontSize: 14, fontWeight: '700', color: colors.text },
   pathSub: { fontSize: 12, color: colors.textSoft, marginTop: 2 },
 });

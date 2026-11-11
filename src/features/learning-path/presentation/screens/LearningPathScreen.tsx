@@ -37,6 +37,7 @@ import { easings } from '@/src/theme/motion';
 import { usePressSpring } from '@/src/hooks/usePressSpring';
 import { usePulseRing } from '@/src/hooks/usePulseRing';
 import { TabLoadingState } from '@/src/components/ui/TabLoadingState';
+import { hasActivePremium } from '@/src/core/utils/plan';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONTENT_WIDTH = SCREEN_WIDTH - 48;
@@ -373,7 +374,7 @@ const TactileDuolingoNode: React.FC<TactileNodeProps> = ({
 export const LearningPathScreen = () => {
   const router = useRouter();
   const { currentUser } = useAuthStore();
-  const isPremium = currentUser?.plan !== 'free';
+  const isPremium = hasActivePremium(currentUser);
 
   const [selectedUnit, setSelectedUnit] = useState<UnitNode | null>(null);
   const [curriculum, setCurriculum] = useState<Chapter[]>([]);

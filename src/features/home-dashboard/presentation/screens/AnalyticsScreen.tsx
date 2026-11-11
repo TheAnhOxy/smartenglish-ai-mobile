@@ -826,7 +826,7 @@ export const AnalyticsScreen = () => {
                     <Text style={s.remedialExplainText}>{currentQuiz.explanation}</Text>
                     <Pressable onPress={handleNextQuiz} style={s.remedialNextBtn}>
                       <Text style={s.remedialNextBtnText}>
-                        {activeQuizIndex < remedialList.length - 1 ? 'Câu tiếp theo ➔' : 'Luyện lại từ đầu ↺'}
+                        {activeQuizIndex < remedialList.length - 1 ? 'Câu tiếp theo' : 'Luyện lại từ đầu'}
                       </Text>
                     </Pressable>
                   </View>
