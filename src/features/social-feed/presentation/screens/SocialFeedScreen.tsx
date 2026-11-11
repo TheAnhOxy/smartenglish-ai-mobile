@@ -17,9 +17,8 @@ import {
   Platform,
   Linking,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
-  ArrowLeft,
   Search,
   UserPlus,
   Check,
@@ -100,6 +99,7 @@ const SOCIAL_TABS: SocialTabItem[] = [
 ];
 
 import { cleanAvatarUrl } from '../utils/avatarHelper';
+import { BackButton } from '@/src/core/components/BackButton';
 export { cleanAvatarUrl };
 
 
@@ -299,18 +299,28 @@ export const SocialFeedScreen = () => {
     loadCommunityUsers();
   }, [loadPosts, loadConversations, loadRequests, loadCommunityUsers]);
 
+  // Tab ẩn vẫn được giữ trong bộ nhớ sau khi rời màn → chỉ polling khi màn đang hiển thị
+  const [isFocused, setIsFocused] = useState(true);
+  useFocusEffect(
+    useCallback(() => {
+      setIsFocused(true);
+      return () => setIsFocused(false);
+    }, [])
+  );
+
   // Realtime Polling for Conversations List & Friend Requests
   useEffect(() => {
+    if (!isFocused) return undefined;
     const timer = setInterval(() => {
       loadConversations();
       loadRequests();
     }, 3000);
     return () => clearInterval(timer);
-  }, [loadConversations, loadRequests]);
+  }, [loadConversations, loadRequests, isFocused]);
 
   // ─── Realtime Presence: Heartbeat & Online Users Sync ───
   useEffect(() => {
-    if (!currentUserId) return;
+    if (!currentUserId || !isFocused) return;
     let active = true;
 
     const syncPresence = async () => {
@@ -336,7 +346,7 @@ export const SocialFeedScreen = () => {
       clearInterval(presenceTimer);
       sendPresenceOfflineApi(currentUserId).catch(() => {});
     };
-  }, [currentUserId]);
+  }, [currentUserId, isFocused]);
 
 
 
@@ -857,19 +867,13 @@ export const SocialFeedScreen = () => {
       {/* Community Main Navigation Bar — Capsule Track matching Learn tab */}
       <View style={[s.switcherBar, { paddingTop: Math.max(insets.top, 14) + 6 }]}>
         <View style={s.topNavRow}>
-          <Pressable
-            onPress={() => {
+          <BackButton onPress={() => {
               if (router.canGoBack()) {
                 router.back();
               } else {
                 router.replace('/(student)/home');
               }
-            }}
-            hitSlop={10}
-            style={s.backBtn}
-          >
-            <ArrowLeft size={20} color="#334155" strokeWidth={2.5} />
-          </Pressable>
+            }} />
 
           <View style={s.capsuleTrack}>
             {SOCIAL_TABS.map((tab) => {
@@ -1874,13 +1878,6 @@ export const SocialFeedScreen = () => {
               </View>
             </View>
           </ScrollView>
-
-          <View style={s.createBottomBar}>
-            <Pressable style={s.toolIconBtn}><ImageIcon color="#10B981" size={22} /></Pressable>
-            <Pressable style={s.toolIconBtn}><Smile color="#F59E0B" size={22} /></Pressable>
-            <Pressable style={s.toolIconBtn}><Trophy color="#D97706" size={22} /></Pressable>
-            <Pressable style={s.toolIconBtn}><BookOpen color="#4F46E5" size={22} /></Pressable>
-          </View>
         </View>
       </Modal>
 

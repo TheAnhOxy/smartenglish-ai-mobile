@@ -216,7 +216,7 @@ export const ListeningPhotoView: React.FC<ListeningPhotoViewProps> = ({
         </Pressable>
 
         <View style={styles.hintTouchWrap}>
-          <Text style={styles.hintTouchText}>👆 Chạm để chọn câu trả lời</Text>
+          <Text style={styles.hintTouchText}>Chạm để chọn câu trả lời</Text>
         </View>
       </View>
 

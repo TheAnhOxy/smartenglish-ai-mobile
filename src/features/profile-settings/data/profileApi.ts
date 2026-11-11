@@ -41,6 +41,7 @@ const mapUserProfile = (data: any): Partial<User> => ({
   avatar_url: data.avatarUrl || null,
   role: ((data.role || 'STUDENT') as string).toLowerCase() as any,
   plan: ((data.plan || 'FREE') as string).toLowerCase() as any,
+  plan_expires_at: data.planExpiresAt || null,
   cefr_level: data.learningSettings?.cefrLevel || data.cefrLevel || 'B1',
   target_goal: data.learningSettings?.targetGoal || data.targetGoal || '',
   ui_language: data.learningSettings?.uiLanguage || data.uiLanguage || 'vi',

@@ -25,6 +25,7 @@ import {
 import { apiClient } from '@/src/core/api/client';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { SepayInvoicePaper } from '../components/SepayInvoicePaper';
+import { BackButton } from '@/src/core/components/BackButton';
 
 export interface OrderItem {
   id: number | string;
@@ -178,14 +179,7 @@ export const StudentInvoicesScreen: React.FC = () => {
 
       {/* Top Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={handleBack}
-          style={styles.backButton}
-          activeOpacity={0.7}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <ArrowLeft size={20} color="#1E293B" />
-        </TouchableOpacity>
+        <BackButton onPress={handleBack} />
 
         <Text style={styles.headerTitle}>
           {selectedOrder ? 'Chi tiết hóa đơn' : 'Hóa đơn điện tử'}

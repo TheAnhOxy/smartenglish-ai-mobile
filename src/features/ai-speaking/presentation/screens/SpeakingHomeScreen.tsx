@@ -38,6 +38,7 @@ import {
   useSpeakingQuotaStore,
   FREE_SPEAKING_DAILY_LIMIT,
 } from '../../data/speakingApi';
+import { hasActivePremium } from '@/src/core/utils/plan';
 
 const { width } = Dimensions.get('window');
 
@@ -70,7 +71,7 @@ const CATEGORIES = ['Tất cả', 'Giao tiếp', 'Công việc', 'Đời sống'
 export const SpeakingHomeScreen = () => {
   const router = useRouter();
   const { currentUser } = useAuthStore();
-  const isPremium = currentUser?.plan !== 'free';
+  const isPremium = hasActivePremium(currentUser);
 
   const { getQuota } = useSpeakingQuotaStore();
   const quota = getQuota(isPremium);

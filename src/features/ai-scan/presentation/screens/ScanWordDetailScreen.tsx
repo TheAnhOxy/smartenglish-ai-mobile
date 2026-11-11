@@ -5,12 +5,13 @@ import { ArrowLeft, Volume2, Lock, Sparkles, Flame, Coins } from 'lucide-react-n
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { speakText } from '@/src/core/services/speechService';
 import { AppColors } from '@/src/core/theme/colors';
+import { hasActivePremium } from '@/src/core/utils/plan';
 
 export const ScanWordDetailScreen = () => {
   const router = useRouter();
   const { wordItem } = useLocalSearchParams<{ wordItem?: string }>();
   const { currentUser } = useAuthStore();
-  const isPremium = currentUser?.plan !== 'free';
+  const isPremium = hasActivePremium(currentUser);
   const [activeTab, setActiveTab] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
   const [isPlayingWord, setIsPlayingWord] = useState(false);
   const [playingSentenceIndex, setPlayingSentenceIndex] = useState<number | null>(null);

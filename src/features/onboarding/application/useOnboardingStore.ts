@@ -11,6 +11,8 @@ interface OnboardingState {
   result: PlacementResult | null;
   isLoading: boolean;
   error: string | null;
+  /** Khách đã làm xong bài nhưng chưa đăng nhập: nộp ngay sau khi đăng nhập. */
+  pendingSubmit: boolean;
 
   setTargetGoal: (goal: string) => void;
   setSession: (session: PlacementSession) => void;
@@ -20,6 +22,7 @@ interface OnboardingState {
   setResult: (res: PlacementResult) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  setPendingSubmit: (pending: boolean) => void;
   resetTest: () => void;
 }
 
@@ -33,6 +36,7 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
   result: null,
   isLoading: false,
   error: null,
+  pendingSubmit: false,
 
   setTargetGoal: (goal) => set({ targetGoal: goal }),
   setSession: (session) =>
@@ -51,6 +55,7 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
   setResult: (res) => set({ result: res }),
   setLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
+  setPendingSubmit: (pending) => set({ pendingSubmit: pending }),
   resetTest: () =>
     set({
       attemptId: null,
@@ -60,5 +65,6 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
       answers: {},
       result: null,
       error: null,
+      pendingSubmit: false,
     }),
 }));

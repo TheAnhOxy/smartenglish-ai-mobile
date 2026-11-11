@@ -11,7 +11,6 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ArrowLeft,
   ArrowRight,
   BookOpen,
   Check,
@@ -32,6 +31,7 @@ import { ExamCategory, PublicExamSection } from '../../data/examCatalogApi';
 import { EXAM_CATEGORY_LABELS } from './ExamCatalogScreen';
 import { colors } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
+import { BackButton } from '@/src/core/components/BackButton';
 
 function SectionIcon({ sectionName }: { sectionName?: string | null }) {
   const name = sectionName?.toUpperCase() ?? '';
@@ -134,9 +134,7 @@ export function ExamDetailScreen() {
   return (
     <View style={styles.root}>
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 8 }]}>
-        <Pressable onPress={() => router.back()} hitSlop={10} style={styles.backButton}>
-          <ArrowLeft color={colors.text} size={25} strokeWidth={2} />
-        </Pressable>
+        <BackButton onPress={() => router.back()} />
         <Text numberOfLines={1} style={styles.headerTitle}>Chi tiết bài kiểm tra</Text>
         <View style={styles.headerSpacer} />
       </View>

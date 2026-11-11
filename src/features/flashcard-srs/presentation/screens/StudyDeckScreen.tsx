@@ -20,7 +20,6 @@ import {
   BookOpen,
   Bookmark,
   Flame,
-  ArrowLeft,
   AlertCircle,
 } from 'lucide-react-native';
 import Animated, {
@@ -37,6 +36,7 @@ import { useAuthStore } from '@/src/core/flows/authStore';
 import { colors, palette, font, spring } from '@/src/theme';
 import { exploreWordsApi } from '../../data/vocabularyApi';
 import { fetchDeckByIdApi, submitSrsReviewApi } from '../../data/deckApi';
+import { BackButton } from '@/src/core/components/BackButton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -454,9 +454,7 @@ export const StudyDeckScreen = () => {
     <View style={styles.root}>
       {/* Header Bar */}
       <View style={styles.headerBar}>
-        <Pressable onPress={() => router.back()} style={styles.backBtnWrap}>
-          <ArrowLeft color={palette.text} size={22} />
-        </Pressable>
+        <BackButton onPress={() => router.back()} />
 
         <View style={styles.headerTitleWrap}>
           <Text style={styles.headerTitle} numberOfLines={1}>{topicTitle}</Text>

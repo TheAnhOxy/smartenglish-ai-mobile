@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
-  ArrowLeft,
   Check,
   User as UserIcon,
   Target,
@@ -25,6 +24,7 @@ import {
 import { ProfileInfoTab } from '../components/ProfileInfoTab';
 import { LearningGoalsTab } from '../components/LearningGoalsTab';
 import { SecuritySettingsTab } from '../components/SecuritySettingsTab';
+import { BackButton } from '@/src/core/components/BackButton';
 
 type ActiveTab = 'profile' | 'learning' | 'security';
 
@@ -202,18 +202,13 @@ export const EditProfileScreen = () => {
       {/* Top Header */}
       <View className="bg-[#0D3B73] pt-8 pb-5 px-4 shadow-lg">
         <View className="w-full max-w-xl mx-auto flex-row justify-between items-center">
-          <Pressable
-            onPress={() => {
+          <BackButton onPress={() => {
               if (router.canGoBack()) {
                 router.back();
               } else {
                 router.navigate('/(student)/profile' as any);
               }
-            }}
-            className="w-10 h-10 rounded-2xl bg-white/15 justify-center items-center border border-white/20 active:bg-white/25"
-          >
-            <ArrowLeft color="#FFFFFF" size={20} />
-          </Pressable>
+            }} variant="onDark" />
 
           <View className="items-center">
             <Text className="text-lg font-extrabold text-white tracking-tight">Hồ sơ của tôi</Text>

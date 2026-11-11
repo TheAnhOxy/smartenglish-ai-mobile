@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { BookOpen, ChevronRight, Headphones, Layers, Mic, PenLine } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
@@ -21,7 +21,9 @@ interface ClassCurriculumTabProps {
 
 export const ClassCurriculumTab: React.FC<ClassCurriculumTabProps> = ({ courseId, courseTitle }) => {
   const router = useRouter();
-  const { data: lessons = [], isLoading } = useCourseCurriculum(courseId);
+  const { data, isLoading } = useCourseCurriculum(courseId);
+  const lessons = data?.lessons ?? [];
+  const thumbnailUrl = data?.thumbnailUrl;
 
   const renderItem = useCallback(
     ({ item, index }: { item: CourseLessonDTO; index: number }) => {
@@ -66,12 +68,22 @@ export const ClassCurriculumTab: React.FC<ClassCurriculumTabProps> = ({ courseId
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingBottom: 60 }}
       ListHeaderComponent={
-        <View className="flex-row items-center gap-2 bg-white dark:bg-darkCard p-4 rounded-2xl border border-gray-100 dark:border-gray-800 mb-4">
-          <BookOpen size={16} color={AppColors.secondary} />
-          <Text className="text-sm font-bold text-secondary dark:text-white flex-1" numberOfLines={2}>
-            {courseTitle}
-          </Text>
-          <Text className="text-xs text-neutralGray">{lessons.length} bài</Text>
+        <View className="bg-white dark:bg-darkCard rounded-2xl border border-gray-100 dark:border-gray-800 mb-4 overflow-hidden">
+          {thumbnailUrl ? (
+            <Image
+              source={{ uri: thumbnailUrl }}
+              style={{ width: '100%', aspectRatio: 16 / 9, backgroundColor: '#E2E8F0' }}
+              resizeMode="cover"
+              accessibilityLabel={courseTitle ? `Ảnh khóa học ${courseTitle}` : 'Ảnh khóa học'}
+            />
+          ) : null}
+          <View className="flex-row items-center gap-2 p-4">
+            <BookOpen size={16} color={AppColors.secondary} />
+            <Text className="text-sm font-bold text-secondary dark:text-white flex-1" numberOfLines={2}>
+              {courseTitle}
+            </Text>
+            <Text className="text-xs text-neutralGray">{lessons.length} bài</Text>
+          </View>
         </View>
       }
       ListEmptyComponent={

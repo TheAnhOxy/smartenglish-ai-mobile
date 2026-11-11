@@ -5,6 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useOnboardingStore } from '../../application/useOnboardingStore';
 import { fetchPlacementTestApi, submitPlacementTestApi } from '../../data/onboardingApi';
 import { colors } from '@/src/theme/colors';
+import { useAuthStore } from '@/src/core/flows/authStore';
+import { useRoleGateStore } from '@/src/core/flows/roleGateStore';
 import { X, ChevronRight, Check, AlertCircle, RefreshCw } from 'lucide-react-native';
 
 export const PlacementTestScreen = () => {
@@ -24,7 +26,11 @@ export const PlacementTestScreen = () => {
     setResult,
     setLoading,
     setError,
+    setPendingSubmit,
   } = useOnboardingStore();
+  const accessToken = useAuthStore((st) => st.accessToken);
+  const exitGuestMode = useRoleGateStore((st) => st.exitGuestMode);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   const [showExitModal, setShowExitModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,7 +74,12 @@ export const PlacementTestScreen = () => {
 
     if (currentQuestionIndex < totalQuestions - 1) {
       setQuestionIndex(currentQuestionIndex + 1);
+    } else if (!accessToken) {
+      // Khách chưa đăng nhập: giữ bài làm, mời đăng nhập rồi tự nộp sau khi đăng nhập
+      setPendingSubmit(true);
+      setShowLoginModal(true);
     } else {
+      setError(null);
       setIsSubmitting(true);
       try {
         const timeSpentSeconds = Math.max(10, Math.round((Date.now() - startTimeRef.current) / 1000));
@@ -192,6 +203,7 @@ export const PlacementTestScreen = () => {
 
       {/* Next / Submit Button */}
       <View style={s.footer}>
+        {error ? <Text style={s.submitError}>{error}</Text> : null}
         <TouchableOpacity
           onPress={handleNextQuestion}
           disabled={!selectedAnswer || isSubmitting}
@@ -210,6 +222,35 @@ export const PlacementTestScreen = () => {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Mời đăng nhập để nộp bài */}
+      <Modal visible={showLoginModal} transparent animationType="fade">
+        <View style={s.modalOverlay}>
+          <View style={s.modalCard}>
+            <Text style={s.modalTitle}>Đăng nhập để nộp bài</Text>
+            <Text style={s.modalDesc}>
+              Bài làm của bạn được giữ lại và sẽ tự nộp ngay sau khi đăng nhập.
+            </Text>
+            <View style={s.modalBtnsRow}>
+              <Pressable
+                onPress={() => { setShowLoginModal(false); exitGuestMode(); router.replace('/(auth)/register' as any); }}
+                style={s.modalBtnCancel}
+              >
+                <Text style={s.modalBtnCancelText}>Đăng ký</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => { setShowLoginModal(false); exitGuestMode(); router.replace('/(auth)/login' as any); }}
+                style={s.modalBtnLogin}
+              >
+                <Text style={s.modalBtnExitText}>Đăng nhập</Text>
+              </Pressable>
+            </View>
+            <Pressable onPress={() => { setShowLoginModal(false); setPendingSubmit(false); }} style={s.modalLater} hitSlop={8}>
+              <Text style={s.modalLaterText}>Để sau</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       {/* Exit Confirmation Modal */}
       <Modal visible={showExitModal} transparent animationType="fade">
@@ -252,6 +293,28 @@ const s = StyleSheet.create({
   footer: {
     paddingHorizontal: 24,
     paddingTop: 12,
+  },
+  submitError: {
+    color: colors.danger,
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  modalBtnLogin: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+  },
+  modalLater: {
+    alignSelf: 'center',
+    marginTop: 14,
+  },
+  modalLaterText: {
+    color: colors.textSoft,
+    fontSize: 13,
+    fontWeight: '600',
   },
   centerContainer: {
     flex: 1,

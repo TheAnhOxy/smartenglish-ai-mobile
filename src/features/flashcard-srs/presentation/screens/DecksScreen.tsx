@@ -44,6 +44,7 @@ import { colors, palette, font } from '@/src/theme';
 import { usePressSpring } from '@/src/hooks/usePressSpring';
 import { TabLoadingState } from '@/src/components/ui/TabLoadingState';
 import { UserAvatar } from '@/src/core/components/UserAvatar';
+import { hasActivePremium } from '@/src/core/utils/plan';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - 48 - 14) / 2;
@@ -283,7 +284,7 @@ export const DecksScreen = () => {
     loadData();
   }, []);
 
-  const isUserPremium = !!currentUser && currentUser.plan !== 'free';
+  const isUserPremium = hasActivePremium(currentUser);
 
   const handleCreateDeck = async () => {
     if (!newDeckName.trim()) return;
