@@ -3,7 +3,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { subscribeTopic } from '@/src/core/realtime/stompClient';
 import { fetchUserConversationsApi } from '@/src/features/social-feed/data/socialApi';
 import { fetchUnreadNotificationCountApi } from '@/src/features/notifications/data/notificationApi';
 import {
@@ -62,6 +63,15 @@ export const HomeScreen = () => {
       return () => setIsFocused(false);
     }, [])
   );
+
+  // Có tin nhắn mới qua WebSocket → cập nhật chấm đỏ ngay, không chờ lượt hỏi kế tiếp
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!isLoggedIn || !currentUser?.id) return undefined;
+    return subscribeTopic(`/topic/user/${currentUser.id}`, () => {
+      queryClient.invalidateQueries({ queryKey: ['unread-messages'] });
+    });
+  }, [isLoggedIn, currentUser?.id, queryClient]);
 
   // Tổng tin nhắn chưa đọc → chấm đỏ trên lối tắt Cộng đồng
   const { data: unreadMessages = 0 } = useQuery({
