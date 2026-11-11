@@ -20,10 +20,11 @@ import {
   X,
   Languages,
   Sparkles,
-} from 'lucide-react-native';
+} from '@/src/components/ds/icons';
 import { colors } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
 import { AnswerKey, ExamPassage, ExamQuestion } from '../../data/examAttemptApi';
+import { ds, dsFont } from '@/src/theme/ds';
 
 export interface ExamReadingClusterViewProps {
   questions: ExamQuestion[];
@@ -92,7 +93,7 @@ export const ExamReadingClusterView: React.FC<ExamReadingClusterViewProps> = ({
           <View style={styles.passageHeaderRow}>
             <View style={styles.passageHeaderLeft}>
               <View style={styles.passageBadge}>
-                <FileText size={13} color="#047857" />
+                <FileText size={13} color="#166534" />
                 <Text style={styles.passageBadgeText}>
                   {passage.type ? passage.type.toUpperCase() : 'VĂN BẢN'} · {groupLabel}
                 </Text>
@@ -111,7 +112,7 @@ export const ExamReadingClusterView: React.FC<ExamReadingClusterViewProps> = ({
                 style={styles.iconBtn}
                 hitSlop={6}
               >
-                <Maximize2 size={16} color="#64748B" />
+                <Maximize2 size={16} color="#5B6B7F" />
               </Pressable>
 
               {/* Thu gọn / Mở rộng */}
@@ -121,9 +122,9 @@ export const ExamReadingClusterView: React.FC<ExamReadingClusterViewProps> = ({
                 hitSlop={6}
               >
                 {isPassageExpanded ? (
-                  <ChevronUp size={18} color="#64748B" />
+                  <ChevronUp size={18} color="#5B6B7F" />
                 ) : (
-                  <ChevronDown size={18} color="#64748B" />
+                  <ChevronDown size={18} color="#5B6B7F" />
                 )}
               </Pressable>
             </View>
@@ -153,7 +154,7 @@ export const ExamReadingClusterView: React.FC<ExamReadingClusterViewProps> = ({
               {passage.emailHeaders.subject ? (
                 <View style={styles.emailHeaderRow}>
                   <Text style={styles.emailHeaderLabel}>Subject:</Text>
-                  <Text style={[styles.emailHeaderValue, { fontWeight: '700' }]}>
+                  <Text style={[styles.emailHeaderValue, { fontFamily: dsFont.bold }]}>
                     {passage.emailHeaders.subject}
                   </Text>
                 </View>
@@ -195,7 +196,7 @@ export const ExamReadingClusterView: React.FC<ExamReadingClusterViewProps> = ({
                 <Text style={styles.modalSubtitle}>{groupLabel}</Text>
               </View>
               <Pressable onPress={() => setIsModalOpen(false)} style={styles.closeModalBtn}>
-                <X size={20} color="#0F172A" />
+                <X size={20} color="#0F2A44" />
               </Pressable>
             </View>
 
@@ -209,7 +210,7 @@ export const ExamReadingClusterView: React.FC<ExamReadingClusterViewProps> = ({
                     <Text style={styles.modalEmailText}>To: {passage.emailHeaders.to}</Text>
                   )}
                   {passage.emailHeaders.subject && (
-                    <Text style={[styles.modalEmailText, { fontWeight: '700' }]}>
+                    <Text style={[styles.modalEmailText, { fontFamily: dsFont.bold }]}>
                       Subject: {passage.emailHeaders.subject}
                     </Text>
                   )}
@@ -258,9 +259,9 @@ export const ExamReadingClusterView: React.FC<ExamReadingClusterViewProps> = ({
                       hitSlop={6}
                     >
                       {isTranslating ? (
-                        <ActivityIndicator size="small" color={colors.primary} />
+                        <ActivityIndicator size="small" color={ds.btn} />
                       ) : (
-                        <Languages size={13} color={showInlineTranslation ? colors.primary : '#475569'} />
+                        <Languages size={13} color={showInlineTranslation ? ds.btn : '#5B6B7F'} />
                       )}
                       <Text style={[styles.translateBtnText, showInlineTranslation && styles.translateBtnTextActive]}>
                         {showInlineTranslation ? 'Ẩn dịch' : 'Dịch'}
@@ -276,7 +277,7 @@ export const ExamReadingClusterView: React.FC<ExamReadingClusterViewProps> = ({
                   >
                     <Bookmark
                       size={18}
-                      color={isBookmarked ? '#F59E0B' : '#94A3B8'}
+                      color={isBookmarked ? '#F59E0B' : '#8597AB'}
                       fill={isBookmarked ? '#F59E0B' : 'transparent'}
                     />
                   </Pressable>
@@ -291,7 +292,7 @@ export const ExamReadingClusterView: React.FC<ExamReadingClusterViewProps> = ({
               {/* Inline Translation nếu có */}
               {isPracticeMode && isRevealed && showInlineTranslation && currentTranslations?.question ? (
                 <View style={styles.translationBox}>
-                  <Languages size={12} color="#2563EB" style={{ marginTop: 2 }} />
+                  <Languages size={12} color="#0369A1" style={{ marginTop: 2 }} />
                   <Text style={styles.translationText}>{currentTranslations.question}</Text>
                 </View>
               ) : null}
@@ -384,7 +385,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     padding: 16,
     gap: 12,
     shadowColor: '#000',
@@ -406,7 +407,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#ECFDF5',
+    backgroundColor: '#DCFCE7',
     paddingHorizontal: 9,
     paddingVertical: 4.5,
     borderRadius: 8,
@@ -414,16 +415,14 @@ const styles = StyleSheet.create({
   },
   passageBadgeText: {
     fontSize: 11,
-    fontWeight: '800',
-    color: '#047857',
-    fontFamily: font.family,
+    fontFamily: dsFont.display,
+    color: '#166534',
     letterSpacing: 0.3,
   },
   passageTitleText: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
-    fontFamily: font.family,
+    fontFamily: dsFont.bold,
+    color: '#0F2A44',
   },
   passageHeaderActions: {
     flexDirection: 'row',
@@ -432,11 +431,11 @@ const styles = StyleSheet.create({
   },
   iconBtn: {
     padding: 6,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
     borderRadius: 8,
   },
   emailHeadersBox: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F7FB',
     borderRadius: 10,
     padding: 10,
     gap: 4,
@@ -449,23 +448,24 @@ const styles = StyleSheet.create({
   },
   emailHeaderLabel: {
     fontSize: 12,
-    color: '#64748B',
-    fontWeight: '700',
+    color: '#5B6B7F',
+    fontFamily: dsFont.bold,
     width: 60,
   },
   emailHeaderValue: {
+    fontFamily: dsFont.body,
     fontSize: 12,
-    color: '#1E293B',
+    color: '#0F2A44',
     flex: 1,
   },
   paragraphsWrap: {
     gap: 10,
   },
   paragraphText: {
+    fontFamily: dsFont.body,
     fontSize: 14,
-    color: '#334155',
+    color: '#33465C',
     lineHeight: 22,
-    fontFamily: font.family,
   },
   expandPromptBtn: {
     paddingVertical: 6,
@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
   },
   expandPromptText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: dsFont.bold,
     color: '#0284C7',
   },
   // Modal Fullscreen
@@ -489,20 +489,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#E3EAF2',
   },
   modalTitle: {
     fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontFamily: dsFont.display,
+    color: '#0F2A44',
   },
   modalSubtitle: {
+    fontFamily: dsFont.body,
     fontSize: 12,
-    color: '#64748B',
+    color: '#5B6B7F',
   },
   closeModalBtn: {
     padding: 6,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
     borderRadius: 999,
   },
   modalScroll: {
@@ -513,13 +514,15 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   modalEmailText: {
+    fontFamily: dsFont.body,
     fontSize: 13,
-    color: '#334155',
+    color: '#33465C',
     lineHeight: 18,
   },
   modalParagraphText: {
+    fontFamily: dsFont.body,
     fontSize: 15,
-    color: '#1E293B',
+    color: '#0F2A44',
     lineHeight: 24,
   },
   // Questions List
@@ -530,7 +533,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     padding: 14,
     gap: 12,
     shadowColor: '#000',
@@ -550,12 +553,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   qNumBadge: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
     paddingHorizontal: 8,
     paddingVertical: 3.5,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
   },
   qNumBadgeAnswered: {
     backgroundColor: '#E0F2FE',
@@ -563,20 +566,19 @@ const styles = StyleSheet.create({
   },
   qNumBadgeText: {
     fontSize: 12,
-    fontWeight: '800',
-    color: '#1E3A5F',
-    fontFamily: font.family,
+    fontFamily: dsFont.display,
+    color: '#0369A1',
   },
   categoryPill: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F7FB',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
   categoryPillText: {
     fontSize: 11,
-    color: '#64748B',
-    fontWeight: '600',
+    color: '#5B6B7F',
+    fontFamily: dsFont.semibold,
   },
   qActionsRow: {
     flexDirection: 'row',
@@ -590,42 +592,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F7FB',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
   },
   translateBtnActive: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#E0F2FE',
     borderColor: '#93C5FD',
   },
   translateBtnText: {
     fontSize: 11,
-    color: '#475569',
-    fontWeight: '600',
+    color: '#5B6B7F',
+    fontFamily: dsFont.semibold,
   },
   translateBtnTextActive: {
-    color: colors.primary,
+    color: ds.btn,
   },
   questionPromptText: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontFamily: dsFont.bold,
+    color: '#0F2A44',
     lineHeight: 22,
-    fontFamily: font.family,
   },
   translationBox: {
     flexDirection: 'row',
     gap: 6,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#E0F2FE',
     padding: 10,
     borderRadius: 10,
     borderLeftWidth: 3,
-    borderLeftColor: '#3B82F6',
+    borderLeftColor: '#0EA5E9',
   },
   translationText: {
+    fontFamily: dsFont.body,
     fontSize: 12.5,
     color: '#1E40AF',
     lineHeight: 18,
@@ -641,45 +643,50 @@ const styles = StyleSheet.create({
     gap: 12,
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 14,
-    paddingVertical: 12,
+    borderColor: '#E3EAF2',
     paddingHorizontal: 14,
+    borderBottomWidth: 4,
+    borderRadius: 16,
+    paddingVertical: 14,
   },
   optionCardSelected: {
-    borderColor: '#1E3A5F',
-    backgroundColor: '#F8FAFC',
+    borderColor: '#0EA5E9',
+    backgroundColor: '#E0F2FE',
   },
   optionCardRevealedCorrect: {
-    borderColor: '#10B981',
-    backgroundColor: '#ECFDF5',
+    borderColor: '#16A34A',
+    backgroundColor: '#DCFCE7',
   },
   optionCardRevealedWrong: {
-    borderColor: '#EF4444',
-    backgroundColor: '#FEF2F2',
+    borderColor: '#DC2626',
+    backgroundColor: '#FEE2E2',
   },
   optionKeyCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
     alignItems: 'center',
     justifyContent: 'center',
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: '#E3EAF2',
   },
   optionKeyCircleSelected: {
-    backgroundColor: '#1E3A5F',
+    backgroundColor: '#0369A1',
+    borderColor: '#0369A1',
   },
   optionKeyCircleRevealedCorrect: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#16A34A',
+    borderColor: '#16A34A',
   },
   optionKeyCircleRevealedWrong: {
-    backgroundColor: '#EF4444',
+    backgroundColor: '#DC2626',
+    borderColor: '#DC2626',
   },
   optionKeyText: {
     fontSize: 13.5,
-    fontWeight: '800',
-    color: '#475569',
-    fontFamily: font.family,
+    fontFamily: dsFont.display,
+    color: '#5B6B7F',
   },
   optionKeyTextSelected: {
     color: '#FFFFFF',
@@ -689,34 +696,34 @@ const styles = StyleSheet.create({
   },
   optionLabelText: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#1E293B',
+    fontFamily: dsFont.medium,
+    color: '#0F2A44',
     lineHeight: 20,
-    fontFamily: font.family,
   },
   optionLabelTextSelected: {
-    fontWeight: '700',
-    color: '#0F172A',
+    fontFamily: dsFont.bold,
+    color: '#0F2A44',
   },
   optionLabelTextRevealedCorrect: {
-    fontWeight: '700',
-    color: '#065F46',
+    fontFamily: dsFont.bold,
+    color: '#166534',
   },
   optionLabelTextRevealedWrong: {
-    fontWeight: '700',
+    fontFamily: dsFont.bold,
     color: '#991B1B',
   },
   optionSubLabelText: {
+    fontFamily: dsFont.body,
     fontSize: 12,
-    color: '#64748B',
+    color: '#5B6B7F',
     marginTop: 2,
   },
   explanationBox: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#DCFCE7',
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: '#86EFAC',
     gap: 6,
   },
   explanationHeaderRow: {
@@ -726,15 +733,16 @@ const styles = StyleSheet.create({
   },
   explanationHeaderTitle: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#15803D',
+    fontFamily: dsFont.bold,
+    color: '#166534',
   },
   explanationText: {
+    fontFamily: dsFont.body,
     fontSize: 12.5,
     color: '#166534',
     lineHeight: 18,
   },
   pressed: {
-    opacity: 0.85,
+    transform: [{ scale: 0.98 }, { translateY: 2 }],
   },
 });

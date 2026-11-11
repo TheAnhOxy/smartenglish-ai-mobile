@@ -27,7 +27,6 @@ import {
   useAudioPlayerStatus,
   useAudioRecorder,
 } from 'expo-audio';
-import { Audio } from 'expo-av';
 import { CircularAccuracyRing } from '../components/CircularAccuracyRing';
 import { IpaSyllableBreakdownCard } from '../components/IpaSyllableBreakdownCard';
 import { SpeakingMetricsGrid } from '../components/SpeakingMetricsGrid';
@@ -199,16 +198,12 @@ export const SpeakingFeedbackScreen = () => {
         mediaRecorderRef.current.start();
         setIsRecording(true);
       } else {
-        // Kiểm tra quyền Micro 2 lớp
         let hasPermission = false;
         try {
           const perm = await AudioModule.requestRecordingPermissionsAsync();
           hasPermission = Boolean(perm?.granted);
-        } catch (_) {
-          try {
-            const avPerm = await Audio.requestPermissionsAsync();
-            hasPermission = Boolean(avPerm?.granted);
-          } catch (_) {}
+        } catch (permErr) {
+          console.warn('[Microphone] Permission check error:', permErr);
         }
 
         if (!hasPermission) {
@@ -226,13 +221,8 @@ export const SpeakingFeedbackScreen = () => {
             allowsRecording: true,
             playsInSilentMode: true,
           });
-        } catch (_) {
-          try {
-            await Audio.setAudioModeAsync({
-              allowsRecordingIOS: true,
-              playsInSilentModeIOS: true,
-            });
-          } catch (_) {}
+        } catch (modeErr) {
+          console.warn('[Microphone] setAudioModeAsync error:', modeErr);
         }
 
         await recorder.prepareToRecordAsync();

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
+import { dsFont } from '@/src/theme/ds';
 
 interface CircularAccuracyRingProps {
   score: number; // 0 - 100
@@ -25,10 +26,10 @@ export const CircularAccuracyRing: React.FC<CircularAccuracyRingProps> = ({
   const isHigh = normalizedScore >= 80;
   const isMedium = normalizedScore >= 60 && normalizedScore < 80;
 
-  const colorStart = isHigh ? '#10B981' : isMedium ? '#F59E0B' : '#EF4444';
-  const colorEnd = isHigh ? '#059669' : isMedium ? '#D97706' : '#DC2626';
-  const textColor = isHigh ? '#047857' : isMedium ? '#B45309' : '#B91C1C';
-  const bgRingColor = isHigh ? '#ECFDF5' : isMedium ? '#FFFBEB' : '#FEF2F2';
+  const colorStart = isHigh ? '#16A34A' : isMedium ? '#F59E0B' : '#DC2626';
+  const colorEnd = isHigh ? '#16A34A' : isMedium ? '#D97706' : '#DC2626';
+  const textColor = isHigh ? '#166534' : isMedium ? '#B45309' : '#991B1B';
+  const bgRingColor = isHigh ? '#DCFCE7' : isMedium ? '#FEF3C7' : '#FEE2E2';
 
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
@@ -80,13 +81,13 @@ const styles = StyleSheet.create({
   },
   scoreNumber: {
     fontSize: 26,
-    fontWeight: '900',
+    fontFamily: dsFont.displayHeavy,
     letterSpacing: -0.5,
   },
   scoreLabel: {
     fontSize: 9,
-    fontWeight: '800',
-    color: '#64748B',
+    fontFamily: dsFont.display,
+    color: '#5B6B7F',
     letterSpacing: 0.6,
     marginTop: 2,
   },

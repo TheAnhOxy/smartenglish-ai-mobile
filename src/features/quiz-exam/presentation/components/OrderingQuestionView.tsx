@@ -6,8 +6,9 @@ import {
   StyleSheet,
   ScrollView,
 } from 'react-native';
-import { Bookmark, RotateCcw, CheckCircle2, XCircle, Sparkles } from 'lucide-react-native';
+import { Bookmark, RotateCcw, CheckCircle2, XCircle, Sparkles } from '@/src/components/ds/icons';
 import { colors } from '@/src/theme/colors';
+import { ds, dsFont } from '@/src/theme/ds';
 
 export interface OrderingQuestionData {
   id: string;
@@ -119,8 +120,8 @@ export function OrderingQuestionView({
           >
             <Bookmark
               size={20}
-              color={isBookmarked ? colors.primary : colors.textSoft}
-              fill={isBookmarked ? colors.primary : 'none'}
+              color={isBookmarked ? ds.btn : ds.muted}
+              fill={isBookmarked ? ds.btn : 'none'}
             />
           </Pressable>
         </View>
@@ -150,7 +151,7 @@ export function OrderingQuestionView({
 
           {placedIndices.length > 0 && !(isPracticeMode && isRevealed) && (
             <Pressable onPress={handleReset} style={styles.resetBtn}>
-              <RotateCcw size={14} color={colors.textSoft} />
+              <RotateCcw size={14} color={ds.muted} />
               <Text style={styles.resetBtnText}>Làm lại câu này</Text>
             </Pressable>
           )}
@@ -204,7 +205,7 @@ export function OrderingQuestionView({
             {Boolean(question.explanationVi) && (
               <View style={styles.explanationBox}>
                 <View style={styles.explanationHeaderRow}>
-                  <Sparkles size={14} color={colors.primary} />
+                  <Sparkles size={14} color={ds.btn} />
                   <Text style={styles.explanationHeading}>Giải thích:</Text>
                 </View>
                 <Text style={styles.explanationText}>{question.explanationVi}</Text>
@@ -230,19 +231,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#E0F2FE',
   },
   categoryTagText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#4F46E5',
+    fontFamily: dsFont.bold,
+    color: '#0369A1',
   },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     gap: 14,
   },
   cardHeader: {
@@ -254,8 +255,8 @@ const styles = StyleSheet.create({
   instructionText: {
     flex: 1,
     fontSize: 14,
-    fontWeight: '700',
-    color: '#1E293B',
+    fontFamily: dsFont.bold,
+    color: '#0F2A44',
     lineHeight: 20,
   },
   bookmarkBtn: {
@@ -263,33 +264,34 @@ const styles = StyleSheet.create({
   },
   promptText: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#334155',
+    fontFamily: dsFont.semibold,
+    color: '#33465C',
   },
   slotContainer: {
     minHeight: 84,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F7FB',
     borderRadius: 14,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: '#CBD5E1',
+    borderColor: '#CBD6E2',
     padding: 12,
     justifyContent: 'center',
     gap: 8,
   },
   slotCorrect: {
     borderColor: '#16A34A',
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#DCFCE7',
     borderStyle: 'solid',
   },
   slotWrong: {
     borderColor: '#DC2626',
-    backgroundColor: '#FEF2F2',
+    backgroundColor: '#FEE2E2',
     borderStyle: 'solid',
   },
   slotPlaceholder: {
+    fontFamily: dsFont.body,
     fontSize: 13,
-    color: '#94A3B8',
+    color: '#8597AB',
     textAlign: 'center',
     fontStyle: 'italic',
   },
@@ -299,11 +301,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   placedChip: {
-    backgroundColor: colors.primary,
+    backgroundColor: ds.btn,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 10,
-    shadowColor: colors.primary,
+    shadowColor: ds.btn,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.15,
     shadowRadius: 2,
@@ -312,7 +314,7 @@ const styles = StyleSheet.create({
   placedChipText: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: dsFont.bold,
   },
   resetBtn: {
     flexDirection: 'row',
@@ -323,13 +325,13 @@ const styles = StyleSheet.create({
   },
   resetBtnText: {
     fontSize: 12,
-    color: colors.textSoft,
-    fontWeight: '600',
+    color: ds.muted,
+    fontFamily: dsFont.semibold,
   },
   bankLabel: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#64748B',
+    fontFamily: dsFont.bold,
+    color: '#5B6B7F',
     marginTop: 6,
   },
   bankRow: {
@@ -338,25 +340,25 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   bankChip: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
   },
   bankChipUsed: {
     opacity: 0.28,
-    backgroundColor: '#E2E8F0',
-    borderColor: '#CBD5E1',
+    backgroundColor: '#E3EAF2',
+    borderColor: '#CBD6E2',
   },
   bankChipText: {
-    color: '#0F172A',
+    color: '#0F2A44',
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: dsFont.bold,
   },
   bankChipTextUsed: {
-    color: '#94A3B8',
+    color: '#8597AB',
   },
   feedbackCard: {
     padding: 14,
@@ -365,12 +367,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   feedbackCorrect: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#DCFCE7',
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: '#86EFAC',
   },
   feedbackWrong: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: '#FEE2E2',
     borderWidth: 1,
     borderColor: '#FECACA',
   },
@@ -381,7 +383,7 @@ const styles = StyleSheet.create({
   },
   feedbackTitle: {
     fontSize: 15,
-    fontWeight: '800',
+    fontFamily: dsFont.display,
   },
   feedbackTitleGreen: {
     color: '#16A34A',
@@ -399,13 +401,13 @@ const styles = StyleSheet.create({
   },
   correctAnswerLabel: {
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: dsFont.bold,
     color: '#16A34A',
   },
   correctAnswerText: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontFamily: dsFont.bold,
+    color: '#0F2A44',
   },
   explanationBox: {
     backgroundColor: '#FFFFFF',
@@ -420,13 +422,14 @@ const styles = StyleSheet.create({
   },
   explanationHeading: {
     fontSize: 12,
-    fontWeight: '700',
-    color: colors.primary,
+    fontFamily: dsFont.bold,
+    color: ds.btn,
   },
   explanationText: {
+    fontFamily: dsFont.body,
     fontSize: 13,
     lineHeight: 18,
-    color: '#334155',
+    color: '#33465C',
   },
   pressed: {
     opacity: 0.75,

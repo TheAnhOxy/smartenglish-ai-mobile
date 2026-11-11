@@ -21,20 +21,20 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
   const center = size / 2;
   const radius = (size - strokeWidth) / 2;
 
-  const bgPath = Skia.Path.Make();
-  bgPath.addCircle(center, center, radius);
+  const bgPath = Skia.PathBuilder.Make().addCircle(center, center, radius).build();
 
-  const fgPath = Skia.Path.Make();
-  fgPath.addArc(
-    {
-      x: center - radius,
-      y: center - radius,
-      width: radius * 2,
-      height: radius * 2,
-    },
-    -90,
-    360 * Math.min(1, Math.max(0, progress))
-  );
+  const fgPath = Skia.PathBuilder.Make()
+    .addArc(
+      {
+        x: center - radius,
+        y: center - radius,
+        width: radius * 2,
+        height: radius * 2,
+      },
+      -90,
+      360 * Math.min(1, Math.max(0, progress))
+    )
+    .build();
 
   return (
     <View style={{ width: size, height: size }}>

@@ -20,8 +20,12 @@ import {
   BookOpen,
   Bookmark,
   Flame,
+  ChevronLeft,
   AlertCircle,
-} from 'lucide-react-native';
+} from '@/src/components/ds/icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button3D, ProgressBar, PulseRing, Reveal, Tap, feedback } from '@/src/components/ds';
+import { ds, dsFont, dsRadius, dsShadow, dsSize } from '@/src/theme/ds';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -33,7 +37,6 @@ import Animated, {
 import * as Speech from 'expo-speech';
 import { speakText, stopSpeech } from '@/src/core/services/speechService';
 import { useAuthStore } from '@/src/core/flows/authStore';
-import { colors, palette, font, spring } from '@/src/theme';
 import { exploreWordsApi } from '../../data/vocabularyApi';
 import { fetchDeckByIdApi, submitSrsReviewApi } from '../../data/deckApi';
 import { BackButton } from '@/src/core/components/BackButton';
@@ -65,7 +68,9 @@ export const StudyDeckScreen = () => {
     deckName?: string;
   }>();
   const router = useRouter();
-  const { currentUser } = useAuthStore();
+  const { currentUser, userStats } = useAuthStore();
+  const insets = useSafeAreaInsets();
+  const streakDays = userStats?.streak_current ?? 0;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -240,6 +245,7 @@ export const StudyDeckScreen = () => {
       }
 
       // Backend confirmed! Now reset card transforms and advance to next card
+      feedback.rate(rating >= 2);
       translateX.value = 0;
       translateY.value = 0;
       flipRotation.value = 0;
@@ -251,6 +257,7 @@ export const StudyDeckScreen = () => {
         err?.response?.data?.message ||
         err?.message ||
         'Không thể gửi kết quả ôn tập. Vui lòng kiểm tra kết nối mạng và thử lại.';
+      feedback.wrong();
       Alert.alert('Lỗi gửi đánh giá SRS', errMsg);
       // Restore card to center so user can retry
       translateX.value = withSpring(0, { damping: 12, stiffness: 150 });
@@ -301,11 +308,12 @@ export const StudyDeckScreen = () => {
   ).current;
 
   const toggleFlip = () => {
+    feedback.flip();
     if (isFlipped) {
-      flipRotation.value = withTiming(0, { duration: 280 });
+      flipRotation.value = withSpring(0, { damping: 14, stiffness: 160 });
       setIsFlipped(false);
     } else {
-      flipRotation.value = withTiming(180, { duration: 280 });
+      flipRotation.value = withSpring(180, { damping: 14, stiffness: 160 });
       setIsFlipped(true);
     }
   };
@@ -348,11 +356,16 @@ export const StudyDeckScreen = () => {
     return { opacity };
   });
 
+  const studyFinished = !loading && !error && studyQueue.length > 0 && !currentCard;
+  useEffect(() => {
+    if (studyFinished) feedback.fanfare();
+  }, [studyFinished]);
+
   // 1. Loading State
   if (loading) {
     return (
       <View style={[styles.completedContainer, { justifyContent: 'center' }]}>
-        <ActivityIndicator size="small" color={palette.primary} />
+        <ActivityIndicator size="small" color={ds.btn} />
         <Text style={[styles.completedSub, { marginTop: 12 }]}>
           Đang tải dữ liệu thẻ ôn tập...
         </Text>
@@ -364,30 +377,17 @@ export const StudyDeckScreen = () => {
   if (!loading && error) {
     return (
       <View style={styles.completedContainer}>
-        <View style={[styles.completedIconBadge, { backgroundColor: '#FEE2E2' }]}>
-          <AlertCircle color="#EF4444" size={48} />
-        </View>
-        <Text style={styles.completedTitle}>Lỗi kết nối máy chủ</Text>
-        <Text style={styles.completedSub}>{error}</Text>
-        <View style={{ width: '100%', gap: 12, marginTop: 24 }}>
-          <Pressable
-            onPress={loadCards}
-            style={[
-              styles.completedBtn,
-              { backgroundColor: palette.primary, flexDirection: 'row', justifyContent: 'center', gap: 8 },
-            ]}
-          >
-            <RotateCcw color="#FFFFFF" size={18} />
-            <Text style={styles.completedBtnText}>Thử lại</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => router.back()}
-            style={[styles.completedBtn, { backgroundColor: '#F1F5F9' }]}
-          >
-            <Text style={[styles.completedBtnText, { color: palette.text }]}>Quay Về Bộ Thẻ</Text>
-          </Pressable>
-        </View>
+        <Reveal style={{ alignItems: 'center', width: '100%' }}>
+          <View style={[styles.completedIconBadge, { backgroundColor: ds.redSoft }]}>
+            <AlertCircle color={ds.red} size={44} />
+          </View>
+          <Text style={styles.completedTitle}>Lỗi kết nối máy chủ</Text>
+          <Text style={styles.completedSub}>{error}</Text>
+          <View style={styles.completedActions}>
+            <Button3D label="Thử lại" onPress={loadCards} icon={<RotateCcw color={ds.white} size={20} />} />
+            <Button3D label="Quay về bộ thẻ" variant="light" onPress={() => router.back()} />
+          </View>
+        </Reveal>
       </View>
     );
   }
@@ -396,16 +396,18 @@ export const StudyDeckScreen = () => {
   if (!loading && !error && studyQueue.length === 0) {
     return (
       <View style={styles.completedContainer}>
-        <View style={styles.completedIconBadge}>
-          <BookOpen color={palette.primary} size={48} />
-        </View>
-        <Text style={styles.completedTitle}>Chưa có từ vựng</Text>
-        <Text style={styles.completedSub}>
-          Chủ đề hoặc bộ thẻ "{topicTitle}" hiện chưa có dữ liệu từ vựng. Vui lòng quay lại và chọn bộ thẻ khác!
-        </Text>
-        <Pressable onPress={() => router.back()} style={styles.completedBtn}>
-          <Text style={styles.completedBtnText}>Quay Về Bộ Thẻ</Text>
-        </Pressable>
+        <Reveal style={{ alignItems: 'center', width: '100%' }}>
+          <View style={styles.completedIconBadge}>
+            <BookOpen color={ds.btn} size={44} />
+          </View>
+          <Text style={styles.completedTitle}>Chưa có từ vựng</Text>
+          <Text style={styles.completedSub}>
+            Chủ đề hoặc bộ thẻ "{topicTitle}" hiện chưa có dữ liệu từ vựng. Vui lòng quay lại và chọn bộ thẻ khác!
+          </Text>
+          <View style={styles.completedActions}>
+            <Button3D label="Quay về bộ thẻ" onPress={() => router.back()} />
+          </View>
+        </Reveal>
       </View>
     );
   }
@@ -414,46 +416,47 @@ export const StudyDeckScreen = () => {
   if (!currentCard) {
     return (
       <View style={styles.completedContainer}>
-        <View style={styles.completedIconBadge}>
-          <CheckCircle2 color={palette.success} size={56} />
-        </View>
-        <Text style={styles.completedTitle}>Đã hoàn thành lượt ôn tập!</Text>
-        <Text style={styles.completedSub}>
-          Bạn đã hoàn thành {studyQueue.length} từ vựng thuộc chủ đề "{topicTitle}".
-          Thuật toán SuperMemo-2 đã ghi nhận kết quả và xếp lịch ôn tập tối ưu tiếp theo cho bạn.
-        </Text>
-        <View style={{ width: '100%', gap: 12, marginTop: 24 }}>
-          <Pressable
-            onPress={() => {
-              translateX.value = 0;
-              translateY.value = 0;
-              flipRotation.value = 0;
-              setIsFlipped(false);
-              setCurrentIndex(0);
-            }}
-            style={[styles.completedBtn, { backgroundColor: palette.primary, flexDirection: 'row', justifyContent: 'center', gap: 8 }]}
-          >
-            <RotateCcw color="#FFFFFF" size={18} />
-            <Text style={styles.completedBtnText}>Ôn Lại Từ Đầu</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => router.back()}
-            style={[styles.completedBtn, { backgroundColor: '#F1F5F9' }]}
-          >
-            <Text style={[styles.completedBtnText, { color: palette.text }]}>Quay Về Bộ Thẻ</Text>
-          </Pressable>
-        </View>
+        <Reveal style={{ alignItems: 'center', width: '100%' }}>
+          <View style={styles.doneBadgeWrap}>
+            <PulseRing size={112} color={ds.green} />
+            <View style={styles.doneBadge}>
+              <CheckCircle2 color={ds.white} size={56} fill="none" />
+            </View>
+          </View>
+          <Text style={styles.completedTitle}>Đã hoàn thành lượt ôn tập!</Text>
+          <Text style={styles.completedSub}>
+            Bạn đã hoàn thành {studyQueue.length} từ vựng thuộc chủ đề "{topicTitle}".
+            Thuật toán SuperMemo-2 đã ghi nhận kết quả và xếp lịch ôn tập tối ưu tiếp theo cho bạn.
+          </Text>
+          <View style={styles.completedActions}>
+            <Button3D
+              label="Ôn lại từ đầu"
+              icon={<RotateCcw color={ds.white} size={20} />}
+              onPress={() => {
+                translateX.value = 0;
+                translateY.value = 0;
+                flipRotation.value = 0;
+                setIsFlipped(false);
+                setCurrentIndex(0);
+              }}
+            />
+            <Button3D label="Quay về bộ thẻ" variant="light" onPress={() => router.back()} />
+          </View>
+        </Reveal>
       </View>
     );
   }
 
   const progressPct = Math.round(((currentIndex + 1) / studyQueue.length) * 100);
+  const remaining = studyQueue.length - currentIndex - 1;
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { paddingTop: (insets.top || 20) + 8, paddingBottom: (insets.bottom || 12) + 12 }]}>
       {/* Header Bar */}
       <View style={styles.headerBar}>
+        <Tap onPress={() => router.back()} style={styles.backBtnWrap} accessibilityLabel="Quay lại">
+          <ChevronLeft color={ds.ink} size={24} />
+        </Tap>
         <BackButton onPress={() => router.back()} />
 
         <View style={styles.headerTitleWrap}>
@@ -462,33 +465,34 @@ export const StudyDeckScreen = () => {
         </View>
 
         <View style={styles.streakBadge}>
-          <Flame color={colors.streak} size={14} fill={colors.streak} />
-          <Text style={styles.streakText}>4 Ngày</Text>
+          <Flame color={ds.amberDeep} size={18} />
+          <Text style={styles.streakText}>{streakDays} ngày</Text>
         </View>
       </View>
 
       {/* Progress Bar */}
       <View style={styles.progressSection}>
-        <View style={styles.progressRow}>
-          <Text style={styles.progressText}>
-            Thẻ {currentIndex + 1}/{studyQueue.length}
-          </Text>
-          <Text style={styles.progressPctText}>{progressPct}%</Text>
-        </View>
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressBar, { width: `${progressPct}%` }]} />
-        </View>
+        <ProgressBar value={progressPct / 100} color={ds.sky} height={12} style={{ flex: 1 }} />
+        <Text style={styles.progressText}>
+          {currentIndex + 1}/{studyQueue.length}
+        </Text>
       </View>
 
       {/* Hint Banner */}
       <View style={styles.hintBanner}>
-        <Text style={styles.hintText}>
-          Vuốt trái: <Text style={{ color: palette.danger, fontWeight: '700' }}>Chưa thuộc</Text> | Vuốt phải: <Text style={{ color: palette.success, fontWeight: '700' }}>Thuộc</Text>
-        </Text>
+        <View style={[styles.hintDot, { backgroundColor: ds.red }]} />
+        <Text style={styles.hintText}>Vuốt trái: chưa thuộc</Text>
+        <View style={styles.hintSep} />
+        <View style={[styles.hintDot, { backgroundColor: ds.green }]} />
+        <Text style={styles.hintText}>Vuốt phải: thuộc</Text>
       </View>
 
       {/* Card Viewport */}
       <View style={styles.cardViewport}>
+        {/* Thẻ xếp chồng phía sau tạo chiều sâu */}
+        {remaining > 1 ? <View pointerEvents="none" style={[styles.stackCard, styles.stackCard2]} /> : null}
+        {remaining > 0 ? <View pointerEvents="none" style={[styles.stackCard, styles.stackCard1]} /> : null}
+
         <Animated.View
           style={[styles.animatedCardWrap, cardContainerStyle]}
           {...panResponder.panHandlers}
@@ -496,7 +500,7 @@ export const StudyDeckScreen = () => {
           {/* Swipe Indicator: RIGHT = THUỘC */}
           <Animated.View style={[styles.swipeOverlay, styles.swipeRightOverlay, rightOverlayStyle]} pointerEvents="none">
             <View style={styles.swipeBadgeRight}>
-              <ThumbsUp color={palette.success} size={24} />
+              <ThumbsUp color={ds.green} size={24} />
               <Text style={styles.swipeBadgeTextRight}>THUỘC</Text>
             </View>
           </Animated.View>
@@ -504,7 +508,7 @@ export const StudyDeckScreen = () => {
           {/* Swipe Indicator: LEFT = CHƯA THUỘC */}
           <Animated.View style={[styles.swipeOverlay, styles.swipeLeftOverlay, leftOverlayStyle]} pointerEvents="none">
             <View style={styles.swipeBadgeLeft}>
-              <ThumbsDown color={palette.danger} size={24} />
+              <ThumbsDown color={ds.red} size={24} />
               <Text style={styles.swipeBadgeTextLeft}>CHƯA THUỘC</Text>
             </View>
           </Animated.View>
@@ -516,7 +520,7 @@ export const StudyDeckScreen = () => {
               <Pressable onPress={handleCardTapToFlip} style={styles.cardBackgroundTapArea}>
                 <View style={styles.cardHeaderTagRow}>
                   <View style={styles.cardHeaderTag}>
-                    <BookOpen color={palette.primary} size={14} />
+                    <BookOpen color={ds.btn} size={16} />
                     <Text style={styles.cardTagText}>{currentCard.type}</Text>
                   </View>
                   {!!currentCard.cefrLevel && (
@@ -527,12 +531,12 @@ export const StudyDeckScreen = () => {
                 </View>
 
                 <View style={styles.frontCenterContent}>
-                  <Text style={styles.wordTitle}>{currentCard.word}</Text>
+                  <Text style={styles.wordTitle} adjustsFontSizeToFit numberOfLines={2}>{currentCard.word}</Text>
                   {!!currentCard.ipa && <Text style={styles.ipaText}>{currentCard.ipa}</Text>}
                 </View>
 
                 <View style={styles.cardFooter}>
-                  <RotateCcw color={palette.textSoft} size={14} />
+                  <RotateCcw color={ds.muted} size={16} />
                   <Text style={styles.flipHintText}>Chạm vào thẻ để lật xem định nghĩa</Text>
                 </View>
               </Pressable>
@@ -542,7 +546,7 @@ export const StudyDeckScreen = () => {
             <Animated.View style={[styles.cardFace, styles.cardBack, backAnimatedStyle]}>
               <Pressable onPress={toggleFlip} style={styles.cardBackgroundTapArea}>
                 <View style={styles.cardHeaderTagBack}>
-                  <Bookmark color={palette.primary} size={14} />
+                  <Bookmark color={ds.skyLight} size={16} />
                   <Text style={styles.cardTagTextBack}>ĐỊNH NGHĨA & VÍ DỤ</Text>
                 </View>
 
@@ -555,7 +559,7 @@ export const StudyDeckScreen = () => {
 
                   {!!currentCard.example && (
                     <View style={styles.exampleBox}>
-                      <Text style={styles.exampleTitle}>Ví dụ:</Text>
+                      <Text style={styles.exampleTitle}>Ví dụ</Text>
                       <Text style={styles.exampleText}>"{currentCard.example}"</Text>
                       {!!currentCard.exampleVi && (
                         <Text style={styles.exampleViText}>{currentCard.exampleVi}</Text>
@@ -570,9 +574,9 @@ export const StudyDeckScreen = () => {
                   )}
                 </View>
 
-                <View style={styles.cardFooter}>
-                  <RotateCcw color={palette.primary} size={14} />
-                  <Text style={[styles.flipHintText, { color: palette.primary }]}>Chạm để quay lại mặt trước</Text>
+                <View style={[styles.cardFooter, styles.cardFooterBack]}>
+                  <RotateCcw color={ds.skyLight} size={16} />
+                  <Text style={[styles.flipHintText, { color: ds.skyLight }]}>Chạm để quay lại mặt trước</Text>
                 </View>
               </Pressable>
             </Animated.View>
@@ -583,12 +587,17 @@ export const StudyDeckScreen = () => {
       {/* Speaker Button */}
       {!isFlipped && currentCard && (
         <View style={styles.speakerRow}>
-          <Pressable
-            onPressIn={handleSpeakerPress}
-            style={[styles.speakerBtn, isPlayingAudio && styles.speakerBtnActive]}
-          >
-            <Volume2 color="#FFFFFF" size={22} />
-          </Pressable>
+          <View style={styles.speakerWrap}>
+            <PulseRing size={56} color={ds.sky} active={isPlayingAudio} />
+            <View style={styles.speakerEdge} />
+            <Pressable
+              onPressIn={handleSpeakerPress}
+              style={[styles.speakerBtn, isPlayingAudio && styles.speakerBtnActive]}
+              accessibilityLabel="Nghe phát âm"
+            >
+              <Volume2 color={ds.white} size={26} fill="none" />
+            </Pressable>
+          </View>
           <Text style={styles.speakerHint}>
             {isPlayingAudio ? 'Đang phát...' : 'Nghe phát âm'}
           </Text>
@@ -598,70 +607,71 @@ export const StudyDeckScreen = () => {
       {/* Rating Buttons */}
       <View style={styles.ratingSection}>
         <Text style={styles.ratingSectionTitle}>
-          {isSubmittingReview ? 'Đang lưu kết quả SRS...' : 'Mức độ nhớ từ này:'}
+          {isSubmittingReview ? 'Đang lưu kết quả SRS...' : 'Mức độ nhớ từ này'}
         </Text>
         <View style={styles.ratingRow}>
-          <Pressable
-            onPress={() => advanceCardRef.current(0)}
-            disabled={isSubmittingReview}
-            style={[styles.rateBtn, styles.rateAgain, isSubmittingReview && { opacity: 0.5 }]}
-          >
-            <Text style={[styles.rateBtnTitle, { color: palette.danger }]}>Chưa thuộc</Text>
-            <Text style={styles.rateBtnSub}>&lt;1m</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => advanceCardRef.current(1)}
-            disabled={isSubmittingReview}
-            style={[styles.rateBtn, styles.rateHard, isSubmittingReview && { opacity: 0.5 }]}
-          >
-            <Text style={[styles.rateBtnTitle, { color: palette.warning }]}>Khó</Text>
-            <Text style={styles.rateBtnSub}>2 ngày</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => advanceCardRef.current(2)}
-            disabled={isSubmittingReview}
-            style={[styles.rateBtn, styles.rateGood, isSubmittingReview && { opacity: 0.5 }]}
-          >
-            <Text style={[styles.rateBtnTitle, { color: palette.primary }]}>Thuộc</Text>
-            <Text style={styles.rateBtnSub}>4 ngày</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => advanceCardRef.current(3)}
-            disabled={isSubmittingReview}
-            style={[styles.rateBtn, styles.rateEasy, isSubmittingReview && { opacity: 0.5 }]}
-          >
-            <Text style={[styles.rateBtnTitle, { color: palette.success }]}>Dễ</Text>
-            <Text style={styles.rateBtnSub}>7 ngày</Text>
-          </Pressable>
+          <RateButton label="Chưa thuộc" sub="<1m" bg={ds.red} edge={ds.redEdge} disabled={isSubmittingReview} onPress={() => advanceCardRef.current(0)} />
+          <RateButton label="Khó" sub="2 ngày" bg={ds.amber} edge={ds.amberDeep} fg={ds.ink} disabled={isSubmittingReview} onPress={() => advanceCardRef.current(1)} />
+          <RateButton label="Thuộc" sub="4 ngày" bg={ds.btn} edge={ds.btnEdge} disabled={isSubmittingReview} onPress={() => advanceCardRef.current(2)} />
+          <RateButton label="Dễ" sub="7 ngày" bg={ds.green} edge={ds.greenEdge} disabled={isSubmittingReview} onPress={() => advanceCardRef.current(3)} />
         </View>
       </View>
     </View>
   );
 };
 
+/** Nút đánh giá SRS kiểu 3D: lún xuống khi nhấn */
+const RateButton: React.FC<{
+  label: string;
+  sub: string;
+  bg: string;
+  edge: string;
+  fg?: string;
+  disabled?: boolean;
+  onPress: () => void;
+}> = ({ label, sub, bg, edge, fg = ds.white, disabled, onPress }) => {
+  const [down, setDown] = useState(false);
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      onPressIn={() => setDown(true)}
+      onPressOut={() => setDown(false)}
+      style={[styles.rateBtnOuter, disabled && { opacity: 0.5 }]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <View style={[styles.rateBtnEdge, { backgroundColor: edge }]} />
+      <View style={[styles.rateBtn, { backgroundColor: bg, transform: [{ translateY: down ? 3 : 0 }] }]}>
+        <Text style={[styles.rateBtnTitle, { color: fg }]} numberOfLines={1} adjustsFontSizeToFit>
+          {label}
+        </Text>
+        <Text style={[styles.rateBtnSub, { color: fg }]}>{sub}</Text>
+      </View>
+    </Pressable>
+  );
+};
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: palette.bg,
-    paddingTop: 52,
+    backgroundColor: ds.bg,
     paddingHorizontal: 20,
-    paddingBottom: 24,
     justifyContent: 'space-between',
   },
   headerBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   backBtnWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.04)',
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: ds.card,
+    borderWidth: 1.5,
+    borderColor: ds.line,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -671,78 +681,74 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   headerTitle: {
-    fontSize: 16,
-    fontFamily: font.family,
-    fontWeight: '700',
-    color: palette.text,
+    fontSize: dsSize.md,
+    fontFamily: dsFont.display,
+    color: ds.ink,
   },
   headerSub: {
-    fontSize: 11,
-    fontFamily: font.family,
-    color: palette.textSoft,
+    fontSize: dsSize.xs,
+    fontFamily: dsFont.medium,
+    color: ds.muted,
   },
   streakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.streakSoft,
+    backgroundColor: ds.amberSoft,
     paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
   },
   streakText: {
-    fontSize: 12,
-    fontFamily: font.family,
-    fontWeight: '700',
-    color: colors.streakDeep,
+    fontSize: dsSize.xs,
+    fontFamily: dsFont.bold,
+    color: ds.amberText,
   },
   progressSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     marginBottom: 10,
   },
-  progressRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
   progressText: {
-    fontSize: 12,
-    fontFamily: font.family,
-    fontWeight: '600',
-    color: palette.textSoft,
-  },
-  progressPctText: {
-    fontSize: 12,
-    fontFamily: font.family,
-    fontWeight: '700',
-    color: palette.primary,
-  },
-  progressTrack: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: palette.border,
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: palette.primary,
-    borderRadius: 3,
+    fontSize: dsSize.sm,
+    fontFamily: dsFont.bold,
+    color: ds.muted,
+    minWidth: 44,
+    textAlign: 'right',
   },
   hintBanner: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 6,
   },
+  hintDot: { width: 7, height: 7, borderRadius: 4 },
+  hintSep: { width: 1, height: 12, backgroundColor: ds.lineStrong, marginHorizontal: 6 },
   hintText: {
-    fontSize: 11,
-    fontFamily: font.family,
-    color: palette.textSoft,
+    fontSize: dsSize.xs,
+    fontFamily: dsFont.medium,
+    color: ds.muted,
   },
   cardViewport: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: 6,
+    marginVertical: 8,
   },
+  stackCard: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    maxHeight: 380,
+    borderRadius: dsRadius.xl,
+    backgroundColor: ds.card,
+    borderWidth: 1.5,
+    borderColor: ds.line,
+  },
+  stackCard1: { transform: [{ translateY: 12 }, { scale: 0.95 }], opacity: 0.9 },
+  stackCard2: { transform: [{ translateY: 24 }, { scale: 0.9 }], opacity: 0.6 },
   animatedCardWrap: {
     width: '100%',
     height: '100%',
@@ -764,35 +770,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(31, 174, 122, 0.15)',
-    borderWidth: 2,
-    borderColor: palette.success,
+    backgroundColor: ds.greenSoft,
+    borderWidth: 2.5,
+    borderColor: ds.green,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 16,
+    borderRadius: 14,
+    transform: [{ rotate: '8deg' }],
   },
   swipeBadgeTextRight: {
-    fontSize: 14,
-    fontFamily: font.family,
-    fontWeight: '700',
-    color: palette.success,
+    fontSize: dsSize.sm,
+    fontFamily: dsFont.displayHeavy,
+    color: ds.green,
+    letterSpacing: 1,
   },
   swipeBadgeLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(225, 84, 63, 0.15)',
-    borderWidth: 2,
-    borderColor: palette.danger,
+    backgroundColor: ds.redSoft,
+    borderWidth: 2.5,
+    borderColor: ds.red,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 16,
+    borderRadius: 14,
+    transform: [{ rotate: '-8deg' }],
   },
   swipeBadgeTextLeft: {
-    fontSize: 14,
-    fontFamily: font.family,
-    fontWeight: '700',
-    color: palette.danger,
+    fontSize: dsSize.sm,
+    fontFamily: dsFont.displayHeavy,
+    color: ds.red,
+    letterSpacing: 1,
   },
   cardInnerContainer: {
     width: '100%',
@@ -805,23 +813,21 @@ const styles = StyleSheet.create({
     top: 0,
     right: 0,
     bottom: 0,
-    borderRadius: 24,
+    borderRadius: dsRadius.xl,
     overflow: 'hidden',
-    shadowColor: palette.text,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
+    ...dsShadow.lift,
   },
   cardFront: {
-    backgroundColor: palette.surface,
-    borderWidth: 1,
-    borderColor: palette.border,
+    backgroundColor: ds.card,
+    borderWidth: 1.5,
+    borderColor: ds.line,
+    borderBottomWidth: 6,
+    borderBottomColor: ds.lineStrong,
   },
   cardBack: {
-    backgroundColor: palette.surface,
-    borderWidth: 1.5,
-    borderColor: palette.primarySoft,
+    backgroundColor: ds.ink,
+    borderBottomWidth: 6,
+    borderBottomColor: '#07182A',
   },
   cardBackgroundTapArea: {
     flex: 1,
@@ -838,266 +844,242 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: palette.primarySoft,
+    backgroundColor: ds.skySoft,
     paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
   },
   cefrBadge: {
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    backgroundColor: ds.amberSoft,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
   },
   cefrBadgeText: {
-    fontSize: 10,
-    fontFamily: font.family,
-    fontWeight: '700',
-    color: '#2563EB',
+    fontSize: dsSize.xs,
+    fontFamily: dsFont.bold,
+    color: ds.amberText,
   },
   cardHeaderTagBack: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: palette.primarySoft,
+    backgroundColor: ds.onInkFaint,
     paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
   },
   cardTagText: {
-    fontSize: 11,
-    fontFamily: font.family,
-    fontWeight: '600',
-    color: palette.primary,
+    fontSize: dsSize.xs,
+    fontFamily: dsFont.semibold,
+    color: ds.btn,
   },
   cardTagTextBack: {
-    fontSize: 11,
-    fontFamily: font.family,
-    fontWeight: '600',
-    color: palette.primary,
+    fontSize: dsSize.xs,
+    fontFamily: dsFont.bold,
+    color: ds.skyLight,
+    letterSpacing: 0.8,
   },
   frontCenterContent: {
     alignItems: 'center',
     width: '100%',
-    gap: 4,
+    gap: 6,
   },
   wordTitle: {
-    fontSize: 34,
-    fontFamily: font.family,
-    fontWeight: '700',
-    color: palette.text,
+    fontSize: dsSize.display,
+    fontFamily: dsFont.displayHeavy,
+    color: ds.ink,
     textAlign: 'center',
+    letterSpacing: -0.8,
   },
   ipaText: {
-    fontSize: 16,
-    fontFamily: font.family,
-    color: palette.textSoft,
+    fontSize: dsSize.md,
+    fontFamily: dsFont.medium,
+    color: ds.muted,
     marginBottom: 8,
   },
   speakerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 6,
+    gap: 12,
+    paddingVertical: 8,
   },
+  speakerWrap: { width: 56, height: 60, alignItems: 'center' },
+  speakerEdge: { position: 'absolute', top: 4, width: 56, height: 56, borderRadius: 28, backgroundColor: ds.btnEdge },
   speakerBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: palette.primary,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: ds.btn,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: palette.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 4,
   },
   speakerBtnActive: {
-    backgroundColor: colors.primaryDeep,
-    transform: [{ scale: 1.05 }],
+    backgroundColor: ds.sky,
+    transform: [{ translateY: 2 }],
   },
   speakerHint: {
-    fontSize: 12,
-    fontFamily: font.family,
-    color: palette.textSoft,
+    fontSize: dsSize.sm,
+    fontFamily: dsFont.semibold,
+    color: ds.muted,
   },
   backCenterContent: {
     width: '100%',
     alignItems: 'center',
   },
   meaningText: {
-    fontSize: 18,
-    fontFamily: font.family,
-    fontWeight: '700',
-    color: palette.text,
+    fontSize: dsSize.lg,
+    fontFamily: dsFont.display,
+    color: ds.white,
     textAlign: 'center',
-    lineHeight: 25,
+    lineHeight: 28,
     marginBottom: 6,
   },
   meaningEnText: {
-    fontSize: 12,
-    fontFamily: font.family,
-    color: palette.textSoft,
+    fontSize: dsSize.sm,
+    fontFamily: dsFont.body,
+    color: ds.onInk,
     textAlign: 'center',
-    lineHeight: 16,
-    marginBottom: 10,
+    lineHeight: 18,
+    marginBottom: 12,
   },
   exampleBox: {
-    backgroundColor: palette.bg,
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: palette.border,
+    backgroundColor: ds.onInkFaint,
+    padding: 14,
+    borderRadius: dsRadius.md,
+    borderLeftWidth: 3,
+    borderLeftColor: ds.sky,
     width: '100%',
     marginBottom: 8,
   },
   exampleTitle: {
-    fontSize: 11,
-    fontFamily: font.family,
-    fontWeight: '600',
-    color: palette.primary,
+    fontSize: dsSize.xs,
+    fontFamily: dsFont.bold,
+    color: ds.skyLight,
     marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   exampleText: {
-    fontSize: 13,
-    fontFamily: font.family,
-    color: palette.text,
+    fontSize: dsSize.sm + 1,
+    fontFamily: dsFont.medium,
+    color: ds.white,
     fontStyle: 'italic',
-    lineHeight: 18,
+    lineHeight: 20,
   },
   exampleViText: {
-    fontSize: 12,
-    fontFamily: font.family,
-    color: palette.textSoft,
+    fontSize: dsSize.xs,
+    fontFamily: dsFont.body,
+    color: ds.onInk,
     marginTop: 4,
-    lineHeight: 16,
+    lineHeight: 17,
   },
   collocationBox: {
-    backgroundColor: palette.primarySoft,
+    backgroundColor: 'rgba(245,158,11,0.18)',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 10,
+    borderRadius: 999,
     maxWidth: '100%',
   },
   collocationText: {
-    fontSize: 11,
-    fontFamily: font.family,
-    fontWeight: '600',
-    color: palette.primary,
+    fontSize: dsSize.xs,
+    fontFamily: dsFont.semibold,
+    color: '#FCD34D',
     textAlign: 'center',
   },
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 6,
+    paddingVertical: 7,
     paddingHorizontal: 14,
-    borderRadius: 12,
-    backgroundColor: palette.bg,
-    borderWidth: 1,
-    borderColor: palette.border,
+    borderRadius: 999,
+    backgroundColor: ds.bg,
   },
+  cardFooterBack: { backgroundColor: ds.onInkFaint },
   flipHintText: {
-    fontSize: 11,
-    fontFamily: font.family,
-    color: palette.textSoft,
+    fontSize: dsSize.xs,
+    fontFamily: dsFont.medium,
+    color: ds.muted,
   },
   ratingSection: {
     marginTop: 6,
   },
   ratingSectionTitle: {
-    fontSize: 12,
-    fontFamily: font.family,
-    fontWeight: '600',
-    color: palette.textSoft,
+    fontSize: dsSize.xs,
+    fontFamily: dsFont.bold,
+    color: ds.muted,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   ratingRow: {
     flexDirection: 'row',
     gap: 8,
   },
+  rateBtnOuter: { flex: 1, height: 62 },
+  rateBtnEdge: { position: 'absolute', left: 0, right: 0, top: 4, height: 58, borderRadius: dsRadius.md },
   rateBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 14,
+    height: 58,
+    borderRadius: dsRadius.md,
     alignItems: 'center',
-    borderWidth: 1,
-  },
-  rateAgain: {
-    backgroundColor: 'rgba(225, 84, 63, 0.08)',
-    borderColor: 'rgba(225, 84, 63, 0.2)',
-  },
-  rateHard: {
-    backgroundColor: 'rgba(227, 166, 62, 0.08)',
-    borderColor: 'rgba(227, 166, 62, 0.2)',
-  },
-  rateGood: {
-    backgroundColor: palette.primarySoft,
-    borderColor: palette.border,
-  },
-  rateEasy: {
-    backgroundColor: 'rgba(31, 174, 122, 0.08)',
-    borderColor: 'rgba(31, 174, 122, 0.2)',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
   },
   rateBtnTitle: {
-    fontSize: 12,
-    fontFamily: font.family,
-    fontWeight: '700',
+    fontSize: dsSize.sm,
+    fontFamily: dsFont.bold,
   },
   rateBtnSub: {
-    fontSize: 10,
-    fontFamily: font.family,
-    color: palette.textSoft,
+    fontSize: 11,
+    fontFamily: dsFont.medium,
+    opacity: 0.85,
     marginTop: 2,
   },
   completedContainer: {
     flex: 1,
-    backgroundColor: palette.bg,
+    backgroundColor: ds.bg,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
   },
+  completedActions: { width: '100%', gap: 12, marginTop: 8 },
   completedIconBadge: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: palette.primarySoft,
+    width: 88,
+    height: 88,
+    borderRadius: 28,
+    backgroundColor: ds.skySoft,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 18,
+  },
+  doneBadgeWrap: { width: 112, height: 112, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+  doneBadge: {
+    width: 104,
+    height: 104,
+    borderRadius: 52,
+    backgroundColor: ds.green,
+    borderBottomWidth: 6,
+    borderBottomColor: ds.greenEdge,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   completedTitle: {
-    fontSize: 20,
-    fontFamily: font.family,
-    fontWeight: '700',
-    color: palette.text,
+    fontSize: dsSize.xl,
+    fontFamily: dsFont.displayHeavy,
+    color: ds.ink,
     textAlign: 'center',
     marginBottom: 8,
+    letterSpacing: -0.3,
   },
   completedSub: {
-    fontSize: 13,
-    fontFamily: font.family,
-    color: palette.textSoft,
+    fontSize: dsSize.sm + 1,
+    fontFamily: dsFont.body,
+    color: ds.muted,
     textAlign: 'center',
     marginBottom: 24,
-    lineHeight: 18,
-  },
-  completedBtn: {
-    backgroundColor: palette.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 16,
-    alignItems: 'center',
-  },
-  completedBtnText: {
-    fontSize: 14,
-    fontFamily: font.family,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    lineHeight: 21,
   },
 });

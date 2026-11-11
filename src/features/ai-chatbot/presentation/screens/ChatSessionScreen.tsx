@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { View, Text, TextInput, ScrollView, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform, type ScrollViewInstance } from 'react-native';
 import { Send } from 'lucide-react-native';
 import { View, Text, TextInput, ScrollView, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -26,7 +27,7 @@ export const ChatSessionScreen = () => {
     return () => { active = false; };
   }, [userId]));
   const [quota, setQuota] = useState<{ used: number; limit: number | null } | null>(null);
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       message_id: 'welcome',
