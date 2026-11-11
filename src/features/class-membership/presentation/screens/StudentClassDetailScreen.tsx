@@ -1,376 +1,111 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, ScrollView, ActivityIndicator, StatusBar, FlatList } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Users } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AlertCircle, ArrowLeft } from 'lucide-react-native';
+import { AppColors } from '@/src/core/theme/colors';
+import { useClassDetail } from '../../application/useClassMembership';
+import { ClassCurriculumTab } from '../components/ClassCurriculumTab';
+import { ClassMembersTab } from '../components/ClassMembersTab';
 import { StudentAssignmentsScreen } from './StudentAssignmentsScreen';
 import { StudentGradesTab } from './StudentGradesTab';
-import {
-  useClassDetail,
-  useClassMembers,
-  useCourseCurriculum,
-} from '../../application/useClassMembership';
+
+type DetailTab = 'curriculum' | 'assignments' | 'grades' | 'members';
+
+const TABS: { key: DetailTab; label: string }[] = [
+  { key: 'curriculum', label: 'Giáo trình' },
+  { key: 'assignments', label: 'Bài tập' },
+  { key: 'grades', label: 'Bảng điểm' },
+  { key: 'members', label: 'Thành viên' },
+];
 
 export const StudentClassDetailScreen = () => {
   const { classId } = useLocalSearchParams<{ classId?: string }>();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'curriculum' | 'assignments' | 'grades' | 'members'>('curriculum');
+  const insets = useSafeAreaInsets();
+  const [activeTab, setActiveTab] = useState<DetailTab>('curriculum');
 
   const validClassId = classId ? String(classId) : '';
-  const { data: currentClass, isLoading: isClassLoading, isError: isClassError, error: classError, refetch: refetchClass } = useClassDetail(validClassId);
-  const { data: members = [], isLoading: isMembersLoading, refetch: refetchMembers } = useClassMembers(validClassId);
-  const { data: curriculum = [], isLoading: isCurriculumLoading } = useCourseCurriculum(
-    currentClass?.courseId ? Number(currentClass.courseId) : undefined
-  );
+  const { data: currentClass, isLoading, isError, error, refetch } = useClassDetail(validClassId);
 
-  const getLessonTypeIcon = (type: string) => {
-    switch (type) {
-      case 'READING':
-        return '📖';
-      case 'LISTENING':
-        return '🎧';
-      case 'GRAMMAR':
-        return '📐';
-      case 'SPEAKING':
-        return '🗣️';
-      case 'VOCABULARY':
-      default:
-        return '🎴';
-    }
-  };
-
-  const getLessonTypeLabel = (type: string) => {
-    switch (type) {
-      case 'READING':
-        return 'Đọc hiểu Reading';
-      case 'LISTENING':
-        return 'Luyện nghe Listening';
-      case 'GRAMMAR':
-        return 'Ngữ pháp Grammar';
-      case 'SPEAKING':
-        return 'Luyện nói Speaking';
-      case 'VOCABULARY':
-      default:
-        return 'Từ vựng Vocabulary';
-    }
-  };
-
-  if (isClassLoading) {
+  if (isLoading) {
     return (
-      <View className="flex-1 bg-[#F8FAFC] justify-center items-center">
-        <ActivityIndicator color="#FF6B35" size="small" />
-        <Text className="text-xs text-gray-500 mt-2 font-medium">Đang tải chi tiết lớp học...</Text>
+      <View className="flex-1 bg-surface dark:bg-darkBg justify-center items-center">
+        <ActivityIndicator color={AppColors.primary} size="small" />
       </View>
     );
   }
 
-  if (!validClassId || isClassError || !currentClass) {
+  if (!validClassId || isError || !currentClass) {
     return (
-      <View className="flex-1 bg-[#F8FAFC] justify-center items-center px-6">
-        <View className="bg-white p-6 rounded-2xl border border-red-100 items-center shadow-xs w-full max-w-sm">
-          <Text className="text-4xl mb-3">🏫</Text>
-          <Text className="text-base font-bold text-gray-900 mb-1 text-center">Không Thể Tải Lớp Học</Text>
-          <Text className="text-xs text-gray-500 text-center mb-5 leading-5">
-            {classError instanceof Error ? classError.message : 'Lớp học không tồn tại hoặc đã có lỗi xảy ra khi tải dữ liệu.'}
-          </Text>
-          <View className="flex-row gap-3">
-            <Pressable
-              onPress={() => router.back()}
-              className="flex-1 bg-gray-100 py-2.5 rounded-xl items-center active:bg-gray-200"
-            >
-              <Text className="text-xs font-bold text-gray-700">Quay lại</Text>
+      <View className="flex-1 bg-surface dark:bg-darkBg justify-center items-center px-6">
+        <AlertCircle size={28} color={AppColors.error} />
+        <Text className="text-sm text-neutralGray text-center my-3">
+          {error instanceof Error ? error.message : 'Không thể tải lớp học'}
+        </Text>
+        <View className="flex-row gap-3">
+          <Pressable onPress={() => router.back()} className="px-5 py-2.5 rounded-xl bg-gray-100 dark:bg-darkCard">
+            <Text className="text-xs font-bold text-neutralInk dark:text-white">Quay lại</Text>
+          </Pressable>
+          {validClassId ? (
+            <Pressable onPress={() => refetch()} className="px-5 py-2.5 rounded-xl bg-primary active:bg-primaryDark">
+              <Text className="text-xs font-bold text-white">Thử lại</Text>
             </Pressable>
-            {validClassId ? (
-              <Pressable
-                onPress={() => {
-                  refetchClass();
-                  refetchMembers();
-                }}
-                className="flex-1 bg-primary py-2.5 rounded-xl items-center active:bg-primaryDark"
-              >
-                <Text className="text-xs font-bold text-white">Thử lại</Text>
-              </Pressable>
-            ) : null}
-          </View>
+          ) : null}
         </View>
       </View>
     );
   }
-
-  const teacherMembers = members.filter((m) => m.role === 'TEACHER');
-  const studentMembers = members.filter((m) => m.role !== 'TEACHER');
 
   return (
-    <View className="flex-1 bg-[#F8FAFC]">
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
-      {/* Top Navigation */}
-      <View className="bg-white border-b border-gray-100 pt-14 pb-3 px-5">
-        <View className="flex-row justify-between items-center mb-3">
-          <Pressable
-            onPress={() => router.back()}
-            className="w-10 h-10 rounded-xl bg-gray-50 items-center justify-center border border-gray-200 active:bg-gray-100"
-          >
-            <Text className="text-gray-700 font-bold text-base">←</Text>
+    <View className="flex-1 bg-surface dark:bg-darkBg">
+      <View
+        className="bg-white dark:bg-darkCard border-b border-gray-100 dark:border-gray-800 pb-3 px-4"
+        style={{ paddingTop: insets.top + 8 }}
+      >
+        <View className="flex-row items-center mb-2">
+          <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Quay lại" className="w-10 h-10 items-center justify-center -ml-2">
+            <ArrowLeft size={20} color={AppColors.neutralInk} />
           </Pressable>
-
-          <View className="bg-primary/10 border border-primary/20 px-3 py-1 rounded-full">
-            <Text className="text-xs font-bold text-primary">
-              Mục tiêu: {currentClass?.cefrTarget || 'B1'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Class Title & Teacher */}
-        <Text className="text-xl font-bold text-gray-900 leading-tight mb-1">
-          {currentClass?.name || 'Chi Tiết Lớp Học'}
-        </Text>
-        <View className="flex-row items-center gap-2 flex-wrap mb-3">
-          <Text className="text-xs text-gray-600 font-medium">
-            👩‍🏫 {currentClass?.teacherName || 'Giáo viên'}
+          <Text className="flex-1 text-base font-bold text-neutralInk dark:text-white" numberOfLines={1}>
+            {currentClass.name}
           </Text>
-          <Text className="text-gray-300">•</Text>
-          <Text className="text-xs font-mono text-gray-500">Mã Lớp: {currentClass?.joinCode}</Text>
-          <Text className="text-gray-300">•</Text>
-          <Text className="text-xs text-emerald-600 font-semibold">● Đang hoạt động</Text>
+          {currentClass.cefrTarget ? (
+            <View className="bg-primary/10 px-2.5 py-1 rounded-lg">
+              <Text className="text-[11px] font-bold text-primary">{currentClass.cefrTarget}</Text>
+            </View>
+          ) : null}
         </View>
+        <Text className="text-xs text-neutralGray mb-3">
+          {currentClass.teacherName || 'Giáo viên'} · {currentClass.joinCode}
+        </Text>
 
-        {/* 4 Tabs Bar */}
-        <View className="flex-row bg-gray-100 p-1 rounded-xl">
-          <Pressable
-            onPress={() => setActiveTab('curriculum')}
-            className={`flex-1 py-2 rounded-lg items-center ${
-              activeTab === 'curriculum' ? 'bg-white shadow-sm' : ''
-            }`}
-          >
-            <Text
-              className={`font-bold text-[11px] ${
-                activeTab === 'curriculum' ? 'text-primary' : 'text-gray-500'
-              }`}
-            >
-              Giáo trình
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => setActiveTab('assignments')}
-            className={`flex-1 py-2 rounded-lg items-center ${
-              activeTab === 'assignments' ? 'bg-white shadow-sm' : ''
-            }`}
-          >
-            <Text
-              className={`font-bold text-[11px] ${
-                activeTab === 'assignments' ? 'text-primary' : 'text-gray-500'
-              }`}
-            >
-              Bài tập
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => setActiveTab('grades')}
-            className={`flex-1 py-2 rounded-lg items-center ${
-              activeTab === 'grades' ? 'bg-white shadow-sm' : ''
-            }`}
-          >
-            <Text
-              className={`font-bold text-[11px] ${
-                activeTab === 'grades' ? 'text-primary' : 'text-gray-500'
-              }`}
-            >
-              Bảng điểm
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => setActiveTab('members')}
-            className={`flex-1 py-2 rounded-lg items-center ${
-              activeTab === 'members' ? 'bg-white shadow-sm' : ''
-            }`}
-          >
-            <Text
-              className={`font-bold text-[11px] ${
-                activeTab === 'members' ? 'text-primary' : 'text-gray-500'
-              }`}
-            >
-              Thành viên
-            </Text>
-          </Pressable>
+        <View className="flex-row bg-surface dark:bg-darkBg p-1 rounded-xl">
+          {TABS.map((tab) => {
+            const active = activeTab === tab.key;
+            return (
+              <Pressable
+                key={tab.key}
+                onPress={() => setActiveTab(tab.key)}
+                className={`flex-1 py-2 rounded-lg items-center ${active ? 'bg-white dark:bg-darkCard' : ''}`}
+              >
+                <Text className={`text-xs font-bold ${active ? 'text-primary' : 'text-neutralGray'}`}>{tab.label}</Text>
+              </Pressable>
+            );
+          })}
         </View>
       </View>
 
-      {/* Tab Body */}
       <View className="flex-1 p-4">
-        {/* TAB 1: CURRICULUM */}
         {activeTab === 'curriculum' && (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
-            {/* Attached Course Banner */}
-            <View className="bg-gradient-to-r from-sky-50 to-indigo-50 bg-sky-50 p-4 rounded-2xl border border-sky-200 mb-4 shadow-sm">
-              <View className="flex-row items-center gap-2 mb-1.5">
-                <Text className="text-lg">📚</Text>
-                <Text className="text-xs font-bold text-sky-900 uppercase tracking-wide">
-                  Khóa Học Chính Thức Của Lớp
-                </Text>
-              </View>
-              <Text className="text-base font-bold text-sky-950 mb-1">
-                {currentClass?.courseTitle || 'IELTS Master 6.5+ Comprehensive'}
-              </Text>
-              <Text className="text-xs text-sky-800 leading-5">
-                Giáo trình chuẩn được giáo viên chỉ định làm lộ trình học tập xuyên suốt. Học viên học tuần tự theo từng bài học bên dưới.
-              </Text>
-            </View>
-
-            <View className="flex-row justify-between items-center mb-3 px-1">
-              <Text className="text-xs font-bold text-gray-700 uppercase tracking-wider">
-                Danh Sách Bài Học ({curriculum.length})
-              </Text>
-              <Text className="text-xs text-gray-400">Chạm để vào bài</Text>
-            </View>
-
-            {isCurriculumLoading ? (
-              <View className="items-center py-12">
-                <ActivityIndicator color="#FF6B35" size="small" />
-                <Text className="text-xs text-gray-500 mt-2 font-medium">Đang tải...</Text>
-              </View>
-            ) : curriculum.length === 0 ? (
-              <View className="bg-white p-6 rounded-2xl border border-gray-100 items-center">
-                <Text className="text-3xl mb-2">📖</Text>
-                <Text className="text-sm font-bold text-gray-800 mb-1">Khóa học chưa có bài giảng</Text>
-                <Text className="text-xs text-gray-500 text-center">
-                  Giáo viên đang cập nhật các chương bài học cho khóa học này.
-                </Text>
-              </View>
-            ) : (
-              curriculum.map((lesson, idx) => (
-                <Pressable
-                  key={lesson.id}
-                  onPress={() => router.push(`/(student)/lesson/${lesson.id}` as any)}
-                  className="bg-white p-4 rounded-2xl border border-gray-100 mb-3 shadow-xs active:bg-gray-50 flex-row items-center justify-between"
-                >
-                  <View className="flex-row items-center flex-1 mr-3 gap-3">
-                    <View className="w-10 h-10 rounded-2xl bg-sky-50 border border-sky-100 items-center justify-center">
-                      <Text className="text-lg">{getLessonTypeIcon(lesson.lessonType)}</Text>
-                    </View>
-
-                    <View className="flex-1">
-                      <View className="flex-row items-center gap-1.5 mb-0.5">
-                        <Text className="text-[10px] font-bold text-sky-700 uppercase bg-sky-50 px-1.5 py-0.5 rounded">
-                          Bài {lesson.orderNumber || idx + 1}
-                        </Text>
-                        <Text className="text-[10px] font-semibold text-gray-400">
-                          {getLessonTypeLabel(lesson.lessonType)}
-                        </Text>
-                      </View>
-                      <Text className="text-sm font-bold text-gray-900 leading-snug" numberOfLines={1}>
-                        {lesson.titleVi}
-                      </Text>
-                      {lesson.descriptionVi ? (
-                        <Text className="text-xs text-gray-500 leading-4 mt-0.5" numberOfLines={1}>
-                          {lesson.descriptionVi}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </View>
-
-                  <View className="flex-row items-center gap-1 bg-primary/10 px-3 py-1.5 rounded-xl">
-                    <Text className="text-xs font-bold text-primary">Học</Text>
-                    <Text className="text-xs text-primary">→</Text>
-                  </View>
-                </Pressable>
-              ))
-            )}
-          </ScrollView>
+          <ClassCurriculumTab
+            courseId={currentClass.courseId ? Number(currentClass.courseId) : undefined}
+            courseTitle={currentClass.courseTitle}
+          />
         )}
-
-        {/* TAB 2: ASSIGNMENTS */}
-        {activeTab === 'assignments' && (
-          <StudentAssignmentsScreen classId={classId || '1'} />
-        )}
-
-        {/* TAB 3: GRADES (BẢNG ĐIỂM) */}
-        {activeTab === 'grades' && (
-          <StudentGradesTab classId={validClassId} className={currentClass?.name} />
-        )}
-
-        {/* TAB 4: MEMBERS */}
-        {activeTab === 'members' && (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
-            {/* Teacher section */}
-            <Text className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2 px-1">
-              Giảng Viên Phụ Trách
-            </Text>
-            <View className="bg-white p-4 rounded-2xl border border-gray-100 mb-5 shadow-xs">
-              <View className="flex-row items-center gap-3">
-                <View className="w-12 h-12 rounded-2xl bg-orange-100 border border-orange-200 items-center justify-center">
-                  <Text className="text-2xl">👩‍🏫</Text>
-                </View>
-                <View className="flex-1">
-                  <View className="flex-row items-center gap-2 mb-0.5">
-                    <Text className="text-sm font-bold text-gray-900">
-                      {currentClass?.teacherName || 'Cô Trần Mai Hương'}
-                    </Text>
-                    <View className="bg-primary/10 px-2 py-0.5 rounded-md">
-                      <Text className="text-[10px] font-bold text-primary">Giáo Viên Chính</Text>
-                    </View>
-                  </View>
-                  <Text className="text-xs text-gray-500">Trực tiếp giao bài tập & chấm điểm</Text>
-                  {currentClass?.courseTitle ? (
-                    <View className="flex-row items-center gap-1.5 mt-2 bg-sky-50 px-2.5 py-1 rounded-lg border border-sky-100 self-start">
-                      <Text className="text-[11px] text-sky-800 font-semibold">
-                        📚 Khóa học phụ trách: {currentClass.courseTitle}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-              </View>
-            </View>
-
-            {/* Students section */}
-            <View className="flex-row justify-between items-center mb-2 px-1">
-              <Text className="text-xs font-bold text-gray-700 uppercase tracking-wider">
-                Học Viên Trong Lớp ({studentMembers.length > 0 ? studentMembers.length : currentClass?.studentCount || 1})
-              </Text>
-              <Text className="text-xs text-gray-400">
-                Sĩ số tối đa: {currentClass?.maxStudents || 35}
-              </Text>
-            </View>
-
-            {isMembersLoading ? (
-              <View className="items-center py-8">
-                <ActivityIndicator color="#FF6B35" size="small" />
-              </View>
-            ) : studentMembers.length === 0 ? (
-              <View className="bg-white rounded-2xl border border-gray-100 p-8 items-center justify-center">
-                <Users size={32} color="#9CA3AF" />
-                <Text className="text-sm font-semibold text-gray-700 mt-2">Chưa có thành viên nào khác</Text>
-                <Text className="text-xs text-gray-400 mt-1 text-center">Danh sách học viên tham gia lớp học sẽ hiển thị tại đây.</Text>
-              </View>
-            ) : (
-              <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-xs divide-y divide-gray-100">
-                {studentMembers.map((member, idx) => (
-                  <View key={member.id || idx} className="p-3.5 flex-row justify-between items-center">
-                    <View className="flex-row items-center gap-3">
-                      <View className="w-8 h-8 rounded-full bg-gray-100 items-center justify-center">
-                        <Text className="text-xs font-bold text-gray-600">
-                          {member.userName.charAt(0)}
-                        </Text>
-                      </View>
-                      <View>
-                        <Text className="text-xs font-bold text-gray-800">{member.userName}</Text>
-                        <Text className="text-[10px] text-gray-400">
-                          Tham gia: {member.joinedAt ? new Date(member.joinedAt).toLocaleDateString('vi-VN') : 'Gần đây'}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View className="bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                      <Text className="text-[10px] font-bold text-emerald-700">Đang học</Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            )}
-          </ScrollView>
-        )}
+        {activeTab === 'assignments' && <StudentAssignmentsScreen classId={validClassId} />}
+        {activeTab === 'grades' && <StudentGradesTab classId={validClassId} className={currentClass.name} />}
+        {activeTab === 'members' && <ClassMembersTab classInfo={currentClass} />}
       </View>
     </View>
   );

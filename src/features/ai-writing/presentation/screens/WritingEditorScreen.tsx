@@ -62,7 +62,7 @@ export const WritingEditorScreen = () => {
         {isPending ? (
           <ActivityIndicator color="#FFFFFF" size="small" />
         ) : (
-          <Text className="text-white font-bold text-lg">Chấm Bài Viết Với AI ✨</Text>
+          <Text className="text-white font-bold text-lg">Chấm Bài Viết Với AI</Text>
         )}
       </Pressable>
     </View>

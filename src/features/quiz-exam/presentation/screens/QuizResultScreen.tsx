@@ -132,7 +132,7 @@ export const QuizResultScreen: React.FC = () => {
           </View>
           <View style={styles.xpBadge}>
             <Zap size={14} color="#0284C7" fill="#0284C7" />
-            <Text style={styles.xpBadgeText}>⚡ {xpEarned}</Text>
+            <Text style={styles.xpBadgeText}>{xpEarned}</Text>
           </View>
         </View>
 

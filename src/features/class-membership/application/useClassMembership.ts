@@ -6,8 +6,9 @@ import {
   fetchClassMembersApi,
   fetchStudentAssignmentsApi,
   fetchClassCourseLessonsApi,
+  submitAssignmentApi,
+  SubmitAssignmentPayload,
 } from '../data/classApi';
-import { useAuthStore } from '@/src/core/flows/authStore';
 
 export const useStudentClasses = () => {
   return useQuery({
@@ -46,6 +47,18 @@ export const useCourseCurriculum = (courseId?: number) => {
     queryKey: ['course-curriculum', courseId],
     queryFn: () => fetchClassCourseLessonsApi(courseId),
     enabled: !!courseId,
+  });
+};
+
+export const useSubmitAssignment = (classId: string | number) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ assignmentId, payload }: { assignmentId: string | number; payload: SubmitAssignmentPayload }) =>
+      submitAssignmentApi(assignmentId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['student-assignments', String(classId)] });
+    },
   });
 };
 

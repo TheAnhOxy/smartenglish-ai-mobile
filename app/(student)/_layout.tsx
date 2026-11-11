@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { Animated, StyleSheet } from 'react-native';
 import { GraduationCap, BarChart2, Home, Bot, User } from 'lucide-react-native';
 import { colors } from '@/src/theme/colors';
 import { useTabBounce } from '@/src/hooks/useTabBounce';
+import { useRoleGateStore } from '@/src/core/flows/roleGateStore';
+import { useAuthStore } from '@/src/core/flows/authStore';
 
 // AnimatedTabIcon: icon nảy lên khi tab active
 type AnimatedTabIconProps = { focused: boolean; children: React.ReactNode };
@@ -19,6 +21,15 @@ const tabStyles = StyleSheet.create({
 const hideTabOptions = { href: null, tabBarStyle: { display: 'none' as const } };
 
 export default function StudentTabsLayout() {
+  const { hasPermission, syncRolePermissions } = useRoleGateStore();
+
+  useEffect(() => {
+    syncRolePermissions();
+  }, [syncRolePermissions]);
+
+  const canLearnOrQuiz = hasPermission('learn_courses') || hasPermission('take_quiz_exam');
+  const isLoggedIn = useAuthStore((st) => !!st.currentUser);
+
   return (
     <Tabs
       screenOptions={{
@@ -50,6 +61,7 @@ export default function StudentTabsLayout() {
         name="learn"
         options={{
           title: 'Lộ trình',
+          href: canLearnOrQuiz ? undefined : null,
           tabBarIcon: ({ color, focused }) => (
             <AnimatedTabIcon focused={focused}>
               <GraduationCap color={color} size={22} strokeWidth={focused ? 2.5 : 1.8} />
@@ -61,6 +73,7 @@ export default function StudentTabsLayout() {
         name="stats"
         options={{
           title: 'Thống kê',
+          href: isLoggedIn ? undefined : null,
           tabBarIcon: ({ color, focused }) => (
             <AnimatedTabIcon focused={focused}>
               <BarChart2 color={color} size={22} strokeWidth={focused ? 2.5 : 1.8} />
@@ -83,6 +96,9 @@ export default function StudentTabsLayout() {
         name="assistant"
         options={{
           title: 'Trợ lý',
+          // Không đặt ở thanh tab: vào từ lối tắt "Hội thoại AI" ở Trang chủ, màn chat có nút quay lại
+          href: null,
+          tabBarStyle: { display: 'none' },
           tabBarIcon: ({ color, focused }) => (
             <AnimatedTabIcon focused={focused}>
               <Bot color={color} size={22} strokeWidth={focused ? 2.5 : 1.8} />
@@ -105,6 +121,7 @@ export default function StudentTabsLayout() {
       {/* Hide Non-Tab Subroutes from Bottom Navigation Bar */}
       <Tabs.Screen name="profile/classes" options={hideTabOptions} />
       <Tabs.Screen name="profile/edit" options={hideTabOptions} />
+      <Tabs.Screen name="profile/invoices" options={hideTabOptions} />
       <Tabs.Screen name="profile/premium" options={hideTabOptions} />
       <Tabs.Screen name="profile/settings" options={hideTabOptions} />
       <Tabs.Screen name="league" options={hideTabOptions} />

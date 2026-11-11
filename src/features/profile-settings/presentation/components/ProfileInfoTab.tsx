@@ -17,14 +17,15 @@ import {
   Check,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { UserAvatar } from '@/src/core/components/UserAvatar';
 
 export const COUNTRY_OPTIONS = [
-  { code: 'VN', label: 'Việt Nam 🇻🇳' },
-  { code: 'US', label: 'Hoa Kỳ 🇺🇸' },
-  { code: 'UK', label: 'Anh 🇬🇧' },
-  { code: 'JP', label: 'Nhật Bản 🇯🇵' },
-  { code: 'KR', label: 'Hàn Quốc 🇰🇷' },
-  { code: 'SG', label: 'Singapore 🇸🇬' },
+  { code: 'VN', label: 'Việt Nam' },
+  { code: 'US', label: 'Hoa Kỳ' },
+  { code: 'UK', label: 'Anh' },
+  { code: 'JP', label: 'Nhật Bản' },
+  { code: 'KR', label: 'Hàn Quốc' },
+  { code: 'SG', label: 'Singapore' },
 ];
 
 interface ProfileInfoTabProps {
@@ -71,10 +72,7 @@ export const ProfileInfoTab: React.FC<ProfileInfoTabProps> = ({
       {/* Avatar Hero Card */}
       <View className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm items-center mb-4">
         <View className="relative">
-          <Image
-            source={{ uri: avatarUrl }}
-            className="w-24 h-24 rounded-full border-4 border-[#0D3B73]/20 bg-gray-100"
-          />
+          <UserAvatar uri={avatarUrl} size={96} style={{ borderWidth: 4, borderColor: 'rgba(13,59,115,0.2)' }} />
           {isUploadingAvatar && (
             <View className="absolute inset-0 bg-black/50 rounded-full justify-center items-center">
               <ActivityIndicator size="small" color="#FFFFFF" />

@@ -39,6 +39,7 @@ export const useAuthFlow = () => {
   };
 
   const handleAuthSuccess = (data: LoginResponse) => {
+    useRoleGateStore.getState().exitGuestMode();
     setRole(data.user.role);
     setAuthUser(data.user, data.access_token, data.refresh_token);
     if (typeof window !== 'undefined') {

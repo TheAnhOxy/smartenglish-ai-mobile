@@ -3,6 +3,8 @@ import { View, Text, ScrollView, Pressable, Modal, ActivityIndicator } from 'rea
 import { useKnowledgeGapQuery } from '../../application/useKnowledgeGap';
 import { SkillGapItem } from '../../data/knowledgeGapApi';
 import { useRouter } from 'expo-router';
+import { AlertTriangle, Target } from 'lucide-react-native';
+import { AppColors } from '@/src/core/theme/colors';
 
 export const KnowledgeGapScreen = () => {
   const router = useRouter();
@@ -57,7 +59,7 @@ export const KnowledgeGapScreen = () => {
           </View>
         ) : isError ? (
           <View className="bg-cardWhite p-6 rounded-2xl border border-red-100 items-center shadow-sm">
-            <Text className="text-3xl mb-2">⚠️</Text>
+            <View className="mb-2"><AlertTriangle size={30} color={AppColors.warning} /></View>
             <Text className="text-base font-bold text-neutralInk mb-1">Không Thể Tải Báo Cáo</Text>
             <Text className="text-xs text-neutralGray text-center mb-4 leading-5 px-2">
               Đã có lỗi xảy ra trong quá trình kết nối với máy chủ phân tích kỹ năng.
@@ -71,7 +73,7 @@ export const KnowledgeGapScreen = () => {
           </View>
         ) : gapList.length === 0 ? (
           <View className="bg-cardWhite p-6 rounded-2xl border border-gray-100 items-center shadow-sm">
-            <Text className="text-4xl mb-3">🎯</Text>
+            <View className="mb-3"><Target size={36} color={AppColors.primary} /></View>
             <Text className="text-base font-bold text-neutralInk mb-1">Chưa Đủ Dữ Liệu Phân Tích</Text>
             <Text className="text-xs text-neutralGray text-center mb-4 leading-5 px-3">
               Bạn chưa có bài nộp kiểm tra nào được ghi nhận. Hãy hoàn thành ít nhất 1 bài thi để AI chẩn đoán chính xác lỗ hổng ngữ pháp và từ vựng của bạn.

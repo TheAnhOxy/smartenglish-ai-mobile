@@ -1,103 +1,180 @@
-import React from 'react';
-import { View, Text, FlatList, Pressable, ActivityIndicator } from 'react-native';
-import { useStudentAssignments } from '../../application/useClassMembership';
-import { ClassAssignmentDTO } from '../../data/classApi';
+import React, { useCallback, useState } from 'react';
+import { ActivityIndicator, FlatList, Linking, Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { AlertCircle, BookOpen, Clock, ClipboardList, Paperclip, Play, Send } from 'lucide-react-native';
+import { AppColors } from '@/src/core/theme/colors';
+import { useStudentAssignments } from '../../application/useClassMembership';
+import { useActiveAssignmentStore } from '../../application/activeAssignmentStore';
+import {
+  canSubmitAssignment,
+  getAssignmentRoute,
+  getAssignmentTypeLabel,
+  isAssignmentOverdue,
+} from '../../application/assignmentNavigation';
+import type { ClassAssignmentDTO } from '../../data/classApi';
+import { AssignmentStatusBadge } from '../components/AssignmentStatusBadge';
+import { SubmitAssignmentSheet } from '../components/SubmitAssignmentSheet';
 
 interface StudentAssignmentsScreenProps {
   classId: string | number;
 }
 
+const openAttachment = async (url?: string) => {
+  if (!url) return;
+  try {
+    await Linking.openURL(url);
+  } catch (err) {
+    console.warn('Cannot open attachment URL:', err);
+  }
+};
+
 export const StudentAssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ classId }) => {
-  const { data: assignments = [], isLoading, isError, error, refetch } = useStudentAssignments(classId);
+  const { data: assignments = [], isLoading, isError, error, refetch, isRefetching } = useStudentAssignments(classId);
   const router = useRouter();
+  const startAssignment = useActiveAssignmentStore((s) => s.start);
+  const [submitting, setSubmitting] = useState<ClassAssignmentDTO | null>(null);
 
-  const getAssignmentIcon = (type: string) => {
-    switch (type) {
-      case 'quiz':
-        return '❓';
-      case 'vocab_deck':
-        return '🎴';
-      case 'writing':
-        return '✍️';
-      case 'roleplay':
-        return '🗣️';
-      case 'reading':
-        return '📖';
-      case 'exam':
-        return '📑';
-      default:
-        return '📝';
-    }
-  };
+  const handleOpen = useCallback(
+    (item: ClassAssignmentDTO) => {
+      const route = getAssignmentRoute(item);
+      if (route) {
+        // Ghi nhớ bài tập đang làm để màn học liệu hiện nút "Nộp vào bài tập lớp"
+        startAssignment({
+          assignmentId: item.id,
+          classId,
+          title: item.title,
+          assignmentType: item.assignmentType,
+          referenceId: item.referenceId,
+        });
+        router.push(route);
+      } else if (item.attachmentUrl) {
+        openAttachment(item.attachmentUrl);
+      } else if (canSubmitAssignment(item)) {
+        setSubmitting(item);
+      }
+    },
+    [router, startAssignment, classId]
+  );
 
-  const getAssignmentTypeLabel = (type: string) => {
-    switch (type) {
-      case 'quiz':
-        return 'Quiz trắc nghiệm';
-      case 'vocab_deck':
-        return 'Bộ Flashcard từ vựng';
-      case 'writing':
-        return 'Bài viết luận AI chấm';
-      case 'roleplay':
-        return 'Hội thoại AI Speaking';
-      case 'reading':
-        return 'Bài đọc hiểu Reading';
-      case 'exam':
-        return 'Đề thi chuẩn hóa';
-      default:
-        return 'Bài tập rèn luyện';
-    }
-  };
+  const renderItem = useCallback(
+    ({ item }: { item: ClassAssignmentDTO }) => {
+      const overdue = isAssignmentOverdue(item);
+      const submittable = canSubmitAssignment(item);
+      const hasPractice = !!getAssignmentRoute(item);
 
-  const handlePressAssignment = (item: ClassAssignmentDTO) => {
-    const refId = item.referenceId ? String(item.referenceId) : '';
-    switch (item.assignmentType) {
-      case 'quiz':
-        router.push(refId ? (`/(student)/practice/exam/${refId}` as any) : ({ pathname: '/(student)/learn', params: { tab: 'quiz' } } as any));
-        break;
-      case 'vocab_deck':
-        router.push(refId ? (`/(student)/review/decks/${refId}/study` as any) : ('/(student)/review' as any));
-        break;
-      case 'writing':
-        router.push('/(student)/practice/writing' as any);
-        break;
-      case 'roleplay':
-        router.push('/(student)/practice/speaking' as any);
-        break;
-      case 'reading':
-        router.push('/(student)/practice/reading' as any);
-        break;
-      case 'exam':
-        router.push(refId ? (`/(student)/practice/exam/${refId}` as any) : ('/(student)/practice' as any));
-        break;
-      default:
-        router.push('/(student)/practice' as any);
-        break;
-    }
-  };
+      return (
+        <Pressable
+          onPress={() => handleOpen(item)}
+          className="bg-white dark:bg-darkCard p-4 rounded-2xl border border-gray-100 dark:border-gray-800 mb-3 active:bg-gray-50"
+        >
+          <View className="flex-row items-start justify-between mb-2">
+            <View className="flex-1 mr-3">
+              <Text className="text-[10px] uppercase font-bold text-primary mb-0.5">
+                {getAssignmentTypeLabel(item.assignmentType)}
+              </Text>
+              <Text className="text-sm font-bold text-neutralInk dark:text-white leading-snug" numberOfLines={2}>
+                {item.title}
+              </Text>
+            </View>
+            <AssignmentStatusBadge item={item} />
+          </View>
+
+          {item.referenceTitle ? (
+            <View className="flex-row items-center gap-1.5 bg-surface dark:bg-darkBg rounded-xl px-3 py-1.5 mb-2">
+              <BookOpen size={13} color={AppColors.secondary} />
+              <Text className="text-xs font-semibold text-secondary dark:text-gray-200 flex-1" numberOfLines={1}>
+                {item.referenceTitle}
+              </Text>
+            </View>
+          ) : null}
+
+          {item.attachmentUrl ? (
+            <Pressable
+              onPress={() => openAttachment(item.attachmentUrl)}
+              className="flex-row items-center gap-2 bg-surface dark:bg-darkBg rounded-xl px-3 py-2 mb-2"
+            >
+              <Paperclip size={13} color={AppColors.secondary} />
+              <Text className="text-xs font-semibold text-neutralInk dark:text-white flex-1" numberOfLines={1}>
+                {item.attachmentName || 'Tài liệu đính kèm'}
+              </Text>
+            </Pressable>
+          ) : null}
+
+          {item.instructions ? (
+            <Text className="text-xs text-neutralGray mb-2 px-1" numberOfLines={2}>
+              {item.instructions}
+            </Text>
+          ) : null}
+
+          {item.feedback ? (
+            <View className="bg-surface dark:bg-darkBg p-2.5 rounded-xl mb-2">
+              <Text className="text-[11px] text-neutralInk dark:text-gray-200 leading-4">
+                <Text className="font-semibold">Nhận xét: </Text>
+                {item.feedback}
+              </Text>
+            </View>
+          ) : null}
+
+          <View className="flex-row justify-between items-center pt-2 border-t border-gray-50 dark:border-gray-800">
+            <View className="flex-row items-center gap-1">
+              <Clock size={12} color={overdue && item.status === 'Chưa làm' ? AppColors.error : AppColors.neutralGray} />
+              <Text
+                className={`text-[11px] font-medium ${
+                  overdue && item.status === 'Chưa làm' ? 'text-error' : 'text-neutralGray'
+                }`}
+              >
+                {item.dueDate ? new Date(item.dueDate).toLocaleString('vi-VN') : 'Không giới hạn'}
+              </Text>
+            </View>
+
+            {hasPractice && submittable ? (
+              <Pressable
+                onPress={() => handleOpen(item)}
+                hitSlop={8}
+                className="flex-row items-center gap-1 bg-primary px-3 py-1.5 rounded-xl active:bg-primaryDark"
+              >
+                <Play size={12} color="#FFFFFF" />
+                <Text className="text-xs font-bold text-white">
+                  {item.status === 'Đã nộp' ? 'Làm lại' : 'Làm bài'}
+                </Text>
+              </Pressable>
+            ) : submittable ? (
+              <Pressable
+                onPress={() => setSubmitting(item)}
+                hitSlop={8}
+                className="flex-row items-center gap-1 bg-primary px-3 py-1.5 rounded-xl active:bg-primaryDark"
+              >
+                <Send size={12} color="#FFFFFF" />
+                <Text className="text-xs font-bold text-white">
+                  {item.status === 'Đã nộp' ? 'Nộp lại' : 'Nộp bài'}
+                </Text>
+              </Pressable>
+            ) : hasPractice ? (
+              <Text className="text-xs font-bold text-primary">Xem bài</Text>
+            ) : null}
+          </View>
+        </Pressable>
+      );
+    },
+    [handleOpen]
+  );
 
   if (isLoading) {
     return (
       <View className="flex-1 justify-center items-center py-16">
-        <ActivityIndicator color="#FF6B35" size="small" />
-        <Text className="text-xs text-gray-500 mt-2 font-medium">Đang tải...</Text>
+        <ActivityIndicator color={AppColors.primary} size="small" />
       </View>
     );
   }
 
   if (isError) {
     return (
-      <View className="items-center py-14 bg-white rounded-2xl border border-red-100 p-6 mx-1 shadow-xs">
-        <Text className="text-3xl mb-2">⚠️</Text>
-        <Text className="text-base font-bold text-gray-800 mb-1">Không Thể Tải Bài Tập</Text>
-        <Text className="text-xs text-gray-500 text-center mb-4 leading-5 px-3">
-          {error instanceof Error ? error.message : 'Đã có lỗi xảy ra khi tải danh sách bài tập. Vui lòng thử lại.'}
+      <View className="items-center py-14 bg-white dark:bg-darkCard rounded-2xl p-6 mx-1">
+        <AlertCircle size={28} color={AppColors.error} />
+        <Text className="text-sm text-neutralGray text-center my-3 px-3">
+          {error instanceof Error ? error.message : 'Không thể tải danh sách bài tập'}
         </Text>
-        <Pressable
-          onPress={() => refetch()}
-          className="bg-primary px-5 py-2.5 rounded-xl active:bg-primaryDark"
-        >
+        <Pressable onPress={() => refetch()} className="bg-primary px-5 py-2.5 rounded-xl active:bg-primaryDark">
           <Text className="text-white font-bold text-xs">Thử lại</Text>
         </Pressable>
       </View>
@@ -105,99 +182,23 @@ export const StudentAssignmentsScreen: React.FC<StudentAssignmentsScreenProps> =
   }
 
   return (
-    <FlatList
-      data={assignments}
-      keyExtractor={(item) => String(item.id)}
-      showsVerticalScrollIndicator={false}
-      onRefresh={refetch}
-      refreshing={isLoading}
-      contentContainerStyle={{ paddingBottom: 80 }}
-      ListEmptyComponent={() => (
-        <View className="items-center py-14 bg-white rounded-2xl border border-gray-100 p-6 mx-1 shadow-xs">
-          <Text className="text-4xl mb-3">📝</Text>
-          <Text className="text-base font-bold text-gray-800 mb-1">Chưa Có Bài Tập Nào</Text>
-          <Text className="text-xs text-gray-500 text-center leading-5 px-3">
-            Giáo viên chưa giao bài tập cho lớp này. Bài tập trắc nghiệm, bài viết hoặc luyện nói sẽ xuất hiện ở đây khi được chỉ định.
-          </Text>
-        </View>
-      )}
-      renderItem={({ item }) => {
-        const status = item.status || 'Chưa làm';
-        const isOverdue = item.dueDate ? new Date(item.dueDate) < new Date() : false;
-
-        return (
-          <Pressable
-            onPress={() => handlePressAssignment(item)}
-            className="bg-white p-4 rounded-2xl border border-gray-100 mb-3 shadow-xs active:bg-gray-50"
-          >
-            <View className="flex-row items-start justify-between mb-2">
-              <View className="flex-row items-center flex-1 mr-3 gap-3">
-                <View className="w-11 h-11 rounded-2xl bg-orange-50 border border-orange-100 items-center justify-center">
-                  <Text className="text-xl">{getAssignmentIcon(item.assignmentType)}</Text>
-                </View>
-                <View className="flex-1">
-                  <Text className="text-[10px] uppercase font-bold text-primary mb-0.5">
-                    {getAssignmentTypeLabel(item.assignmentType)}
-                  </Text>
-                  <Text className="text-sm font-bold text-gray-900 leading-snug" numberOfLines={2}>
-                    {item.title}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Status Badge */}
-              <View
-                className={`px-2.5 py-1 rounded-full ${
-                  status === 'Đạt'
-                    ? 'bg-emerald-50 border border-emerald-200'
-                    : status === 'Đã nộp'
-                    ? 'bg-blue-50 border border-blue-200'
-                    : isOverdue
-                    ? 'bg-rose-50 border border-rose-200'
-                    : 'bg-amber-50 border border-amber-200'
-                }`}
-              >
-                <Text
-                  className={`text-[11px] font-bold ${
-                    status === 'Đạt'
-                      ? 'text-emerald-700'
-                      : status === 'Đã nộp'
-                      ? 'text-blue-700'
-                      : isOverdue
-                      ? 'text-rose-600'
-                      : 'text-amber-800'
-                  }`}
-                >
-                  {isOverdue && status === 'Chưa làm' ? 'Quá hạn' : status}
-                </Text>
-              </View>
-            </View>
-
-            {item.instructions ? (
-              <Text className="text-xs text-gray-500 mb-2.5 line-clamp-2 px-1" numberOfLines={2}>
-                {item.instructions}
-              </Text>
-            ) : null}
-
-            {/* Footer */}
-            <View className="flex-row justify-between items-center pt-2 border-t border-gray-50">
-              <Text
-                className={`text-[11px] font-medium ${
-                  isOverdue && status === 'Chưa làm' ? 'text-rose-600 font-semibold' : 'text-gray-400'
-                }`}
-              >
-                ⏰ Hạn nộp:{' '}
-                {item.dueDate ? new Date(item.dueDate).toLocaleDateString('vi-VN') : 'Không giới hạn'}
-              </Text>
-
-              <View className="flex-row items-center gap-1">
-                <Text className="text-xs font-bold text-primary">Làm bài</Text>
-                <Text className="text-xs text-primary">→</Text>
-              </View>
-            </View>
-          </Pressable>
-        );
-      }}
-    />
+    <>
+      <FlatList
+        data={assignments}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={renderItem}
+        showsVerticalScrollIndicator={false}
+        onRefresh={refetch}
+        refreshing={isRefetching}
+        contentContainerStyle={{ paddingBottom: 80 }}
+        ListEmptyComponent={
+          <View className="items-center py-14 bg-white dark:bg-darkCard rounded-2xl p-6 mx-1">
+            <ClipboardList size={28} color={AppColors.neutralGray} />
+            <Text className="text-sm font-bold text-neutralInk dark:text-white mt-3">Chưa có bài tập</Text>
+          </View>
+        }
+      />
+      <SubmitAssignmentSheet classId={classId} assignment={submitting} onClose={() => setSubmitting(null)} />
+    </>
   );
 };

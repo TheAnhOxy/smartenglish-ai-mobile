@@ -226,7 +226,7 @@ export const SaveWordSheetModal: React.FC<SaveWordSheetModalProps> = ({
       );
 
       const countText = itemsToSave.length > 1 ? `${itemsToSave.length} từ vựng` : `"${itemsToSave[0].word}"`;
-      setSuccessNotice(`Đã lưu ${countText} vào "${targetDeckName}"! 🎉`);
+      setSuccessNotice(`Đã lưu ${countText} vào "${targetDeckName}"!`);
 
       if (onSaved) {
         onSaved(targetDeckName);
@@ -265,7 +265,7 @@ export const SaveWordSheetModal: React.FC<SaveWordSheetModalProps> = ({
           <View style={s.headerRow}>
             <View style={{ flex: 1 }}>
               <View style={s.badgeRow}>
-                <Sparkles color="#FF6B35" size={15} />
+                <Sparkles color="#0EA5E9" size={15} />
                 <Text style={s.badgeText}>Bộ thẻ cá nhân của bạn</Text>
               </View>
               <Text style={s.headerTitle}>Lưu từ vào bộ thẻ</Text>
@@ -306,7 +306,7 @@ export const SaveWordSheetModal: React.FC<SaveWordSheetModalProps> = ({
           {/* ─── TOP ACTION: TẠO BỘ THẺ MỚI (NẰM NGAY TRÊN ĐẦU, KHÔNG BỊ BÀN PHÍM CHE) ─── */}
           {isCreatingDeck ? (
             <Animated.View entering={FadeIn.duration(180)} style={s.createDeckCard}>
-              <Text style={s.createDeckTitle}>✨ Tạo bộ thẻ mới</Text>
+              <Text style={s.createDeckTitle}>Tạo bộ thẻ mới</Text>
               <TextInput
                 value={newDeckNameInput}
                 onChangeText={setNewDeckNameInput}
@@ -351,7 +351,7 @@ export const SaveWordSheetModal: React.FC<SaveWordSheetModalProps> = ({
               onPress={() => setIsCreatingDeck(true)}
               style={s.openCreateDeckBtn}
             >
-              <FolderPlus color="#FF6B35" size={20} />
+              <FolderPlus color="#0EA5E9" size={20} />
               <Text style={s.openCreateDeckText}>+ Tạo bộ thẻ mới</Text>
             </Pressable>
           )}
@@ -370,7 +370,7 @@ export const SaveWordSheetModal: React.FC<SaveWordSheetModalProps> = ({
           >
             {isLoadingDecks ? (
               <View style={s.loadingBox}>
-                <ActivityIndicator size="small" color="#FF6B35" />
+                <ActivityIndicator size="small" color="#0EA5E9" />
                 <Text style={s.loadingText}>Đang tải...</Text>
               </View>
             ) : (
@@ -390,7 +390,7 @@ export const SaveWordSheetModal: React.FC<SaveWordSheetModalProps> = ({
                         ]}
                       >
                         <Folder
-                          color={isSelected ? '#FFFFFF' : '#FF6B35'}
+                          color={isSelected ? '#FFFFFF' : '#0EA5E9'}
                           size={20}
                         />
                       </View>
@@ -505,7 +505,7 @@ const s = StyleSheet.create({
   badgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FF6B35',
+    color: '#0EA5E9',
     fontFamily: font.family,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -591,7 +591,7 @@ const s = StyleSheet.create({
     gap: 8,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: '#FF6B35',
+    borderColor: '#0EA5E9',
     borderRadius: 18,
     paddingVertical: 13,
     backgroundColor: '#FFF7ED',
@@ -600,7 +600,7 @@ const s = StyleSheet.create({
   openCreateDeckText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FF6B35',
+    color: '#0EA5E9',
     fontFamily: font.family,
   },
   createDeckCard: {
@@ -654,7 +654,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 9,
     borderRadius: 10,
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#0EA5E9',
   },
   createDeckSubmitText: {
     fontSize: 13,
@@ -699,7 +699,7 @@ const s = StyleSheet.create({
     marginBottom: 10,
   },
   deckCardSelected: {
-    borderColor: '#FF6B35',
+    borderColor: '#0EA5E9',
     backgroundColor: '#FFF7ED',
   },
   deckCardLeft: {
@@ -718,7 +718,7 @@ const s = StyleSheet.create({
     backgroundColor: '#FFF0EB',
   },
   deckIconCircleSelected: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#0EA5E9',
   },
   deckCardName: {
     fontSize: 15,
@@ -745,13 +745,13 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   radioOuterSelected: {
-    borderColor: '#FF6B35',
+    borderColor: '#0EA5E9',
   },
   radioInner: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#0EA5E9',
   },
   footerContainer: {
     paddingTop: 4,
@@ -761,10 +761,10 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#0EA5E9',
     borderRadius: 18,
     height: 54,
-    shadowColor: '#FF6B35',
+    shadowColor: '#0EA5E9',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
     shadowRadius: 10,

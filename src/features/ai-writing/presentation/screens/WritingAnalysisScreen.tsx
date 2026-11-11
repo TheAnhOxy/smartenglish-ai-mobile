@@ -121,7 +121,7 @@ export const WritingAnalysisScreen = () => {
         }
         className="bg-primary py-3.5 rounded-xl items-center shadow-md active:bg-primaryDark"
       >
-        <Text className="text-white font-bold text-base">Xem So Sánh Bản Viết Lại AI 🔄</Text>
+        <Text className="text-white font-bold text-base">Xem So Sánh Bản Viết Lại AI</Text>
       </Pressable>
     </View>
   );

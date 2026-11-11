@@ -23,9 +23,11 @@ export interface LearningLessonNode {
   position: number;
 }
 
+export type DailyQuestIconKey = 'target' | 'vocab' | 'reading' | 'xp' | 'quiz';
+
 export interface DailyQuestItem {
   id: string;
-  icon: string;
+  icon: DailyQuestIconKey;
   title: string;
   current: number;
   target: number;
@@ -107,24 +109,24 @@ export const fetchDailyQuestsListApi = async (): Promise<{ quests: DailyQuestIte
   const rawTasks: any[] = data.tasks || [];
   const quests: DailyQuestItem[] = rawTasks.map((t: any, idx: number) => {
     const desc = t.descriptionVi || t.title || `Nhiệm vụ ${idx + 1}`;
-    let icon = '🎯';
+    let icon: DailyQuestIconKey = 'target';
     let unit = 'lần';
     let route = '/(student)/learn';
 
     if (desc.toLowerCase().includes('flashcard') || desc.toLowerCase().includes('từ vựng')) {
-      icon = '🗂️';
+      icon = 'vocab';
       unit = 'từ';
       route = '/(student)/review';
     } else if (desc.toLowerCase().includes('đọc') || desc.toLowerCase().includes('reading')) {
-      icon = '📖';
+      icon = 'reading';
       unit = 'bài';
       route = '/(student)/practice/reading';
     } else if (desc.toLowerCase().includes('xp')) {
-      icon = '⚡';
+      icon = 'xp';
       unit = 'XP';
       route = '/(student)/learn';
     } else if (desc.toLowerCase().includes('quiz')) {
-      icon = '❓';
+      icon = 'quiz';
       unit = 'bài';
       route = '/(student)/learn?tab=quiz';
     }

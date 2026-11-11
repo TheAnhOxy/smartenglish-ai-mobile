@@ -10,6 +10,7 @@ import {
   Linking
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { AssignmentSubmitBanner } from '@/src/features/class-membership/presentation/components/AssignmentSubmitBanner';
 import {
   ArrowLeft,
   BookOpen,
@@ -389,6 +390,8 @@ export const LessonDetailScreen = () => {
             })}
           </View>
         )}
+
+        <AssignmentSubmitBanner referenceId={id} />
       </ScrollView>
 
       {/* Bottom Completion Bar */}

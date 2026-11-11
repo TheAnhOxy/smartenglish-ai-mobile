@@ -196,7 +196,7 @@ export const SepayVietQrPaymentModal: React.FC<SepayVietQrPaymentModalProps> = (
                 <View style={styles.successIconBox}>
                   <CheckCircle2 color="#10B981" size={54} />
                 </View>
-                <Text style={styles.successTitle}>Thanh Toán Thành Công! 🎉</Text>
+                <Text style={styles.successTitle}>Thanh Toán Thành Công!</Text>
                 <Text style={styles.successSubtitle}>
                   Đã nhận tiền chuyển khoản cho gói <Text style={{ fontWeight: 'bold' }}>{planName}</Text>. Toàn bộ tính năng AI và đặc quyền PRO của bạn đã được kích hoạt ngay lập tức!
                 </Text>

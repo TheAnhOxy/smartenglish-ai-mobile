@@ -3,7 +3,7 @@ import { z } from 'zod';
 // ==========================================
 // 1. AUTH SCHEMA
 // ==========================================
-export type UserRole = 'admin' | 'teacher' | 'student';
+export type UserRole = 'admin' | 'teacher' | 'student' | 'guest';
 export type UserPlan = 'free' | 'premium_monthly' | 'premium_yearly' | 'lifetime' | 'student';
 
 export const UserSchema = z.object({
@@ -12,7 +12,7 @@ export const UserSchema = z.object({
   phone: z.string().optional().nullable(),
   display_name: z.string().nullable(),
   avatar_url: z.string().nullable(),
-  role: z.enum(['admin', 'teacher', 'student']).default('student'),
+  role: z.enum(['admin', 'teacher', 'student', 'guest']).default('student'),
   plan: z.enum(['free', 'premium_monthly', 'premium_yearly', 'lifetime', 'student']).default('free'),
   plan_expires_at: z.string().optional().nullable(),
   cefr_level: z.string().optional().nullable(),
@@ -244,6 +244,8 @@ export interface NotificationItem {
   notification_type: NotificationType;
   is_read: boolean;
   target_route?: string;
+  target_link?: string;
+  metadata?: Record<string, unknown>;
   created_at: string;
 }
 

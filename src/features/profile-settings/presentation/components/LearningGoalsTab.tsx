@@ -182,7 +182,7 @@ export const LearningGoalsTab: React.FC<LearningGoalsTabProps> = ({
             }`}
           >
             <Text className={`text-xs font-bold ${uiLanguage === 'vi' ? 'text-white' : 'text-gray-800'}`}>
-              Tiếng Việt 🇻🇳
+              Tiếng Việt
             </Text>
           </Pressable>
 
@@ -193,7 +193,7 @@ export const LearningGoalsTab: React.FC<LearningGoalsTabProps> = ({
             }`}
           >
             <Text className={`text-xs font-bold ${uiLanguage === 'en' ? 'text-white' : 'text-gray-800'}`}>
-              English 🇬🇧
+              English
             </Text>
           </Pressable>
         </View>

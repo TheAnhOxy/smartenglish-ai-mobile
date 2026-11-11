@@ -20,6 +20,7 @@ import { useAuthStore } from '@/src/core/flows/authStore';
 import { colors, palette, font } from '@/src/theme';
 import { usePressSpring } from '@/src/hooks/usePressSpring';
 import { usePulseRing } from '@/src/hooks/usePulseRing';
+import { UserAvatar } from '@/src/core/components/UserAvatar';
 
 type QuestionType = 'trac_nghiem' | 'dien_tu' | 'ghep_noi' | 'sap_xep';
 
@@ -168,14 +169,7 @@ export const QuickQuizSetupScreen = () => {
           <Text style={styles.headerTitle}>AI Quiz Master</Text>
         </View>
 
-        <Image
-          source={{
-            uri:
-              currentUser?.avatar_url ||
-              'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200',
-          }}
-          style={styles.avatar}
-        />
+        <UserAvatar uri={currentUser?.avatar_url} size={40} style={styles.avatar} />
       </Animated.View>
 
       <View style={styles.container}>

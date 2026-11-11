@@ -39,6 +39,7 @@ import {
 } from '../../data/speakingApi';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { speakText, stopSpeech } from '@/src/core/services/speechService';
+import { UserAvatar } from '@/src/core/components/UserAvatar';
 
 interface ChatTurn {
   role: 'ai' | 'user';
@@ -305,10 +306,7 @@ export const RoleplaySessionScreen = () => {
     void speakText(cleanSpeech || text, { language: 'en-US' });
   };
 
-  const partnerAvatar =
-    scenario.partner_avatar_url ||
-    scenario.image_url ||
-    'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80';
+  const partnerAvatar = scenario.partner_avatar_url || scenario.image_url || null;
 
   // ── TÍNH TOÁN ĐÁNH GIÁ THỰC TẾ 100% TỪ LƯỢT THOẠI CỦA HỌC VIÊN ──
   const sessionEvaluation = useMemo(() => {
@@ -413,7 +411,7 @@ export const RoleplaySessionScreen = () => {
         {/* AI Partner Profile ở giữa */}
         <View style={s.partnerCenter}>
           <View style={s.avatarWrap}>
-            <Image source={{ uri: partnerAvatar }} style={s.avatarImg} />
+            <UserAvatar uri={partnerAvatar} size={64} style={s.avatarImg} />
             <View style={s.onlineDot} />
           </View>
           <View style={{ alignItems: 'center' }}>

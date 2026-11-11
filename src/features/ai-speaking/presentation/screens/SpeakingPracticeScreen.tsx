@@ -54,13 +54,13 @@ export const SpeakingPracticeScreen = () => {
 
         {/* Center Pulsing Orange Equalizer Waveform */}
         <View className="h-32 flex-row justify-center items-center gap-1.5 my-6">
-          <Animated.View style={animatedWaveStyle} className="w-2.5 h-12 bg-[#FF6B35] rounded-full" />
-          <Animated.View style={animatedWaveStyle} className="w-2.5 h-20 bg-[#FF6B35] rounded-full" />
-          <Animated.View style={animatedWaveStyle} className="w-2.5 h-16 bg-[#FF6B35] rounded-full" />
-          <Animated.View style={animatedWaveStyle} className="w-2.5 h-24 bg-[#FF6B35] rounded-full" />
-          <Animated.View style={animatedWaveStyle} className="w-2.5 h-14 bg-[#FF6B35] rounded-full" />
-          <Animated.View style={animatedWaveStyle} className="w-2.5 h-22 bg-[#FF6B35] rounded-full" />
-          <Animated.View style={animatedWaveStyle} className="w-2.5 h-10 bg-[#FF6B35] rounded-full" />
+          <Animated.View style={animatedWaveStyle} className="w-2.5 h-12 bg-[#0EA5E9] rounded-full" />
+          <Animated.View style={animatedWaveStyle} className="w-2.5 h-20 bg-[#0EA5E9] rounded-full" />
+          <Animated.View style={animatedWaveStyle} className="w-2.5 h-16 bg-[#0EA5E9] rounded-full" />
+          <Animated.View style={animatedWaveStyle} className="w-2.5 h-24 bg-[#0EA5E9] rounded-full" />
+          <Animated.View style={animatedWaveStyle} className="w-2.5 h-14 bg-[#0EA5E9] rounded-full" />
+          <Animated.View style={animatedWaveStyle} className="w-2.5 h-22 bg-[#0EA5E9] rounded-full" />
+          <Animated.View style={animatedWaveStyle} className="w-2.5 h-10 bg-[#0EA5E9] rounded-full" />
         </View>
 
         {/* Pronunciation Accuracy Box matching Screenshot 2 */}
@@ -88,13 +88,13 @@ export const SpeakingPracticeScreen = () => {
       <View className="items-center">
         {isRecording ? (
           <View className="items-center py-4">
-            <ActivityIndicator color="#FF6B35" size="large" />
+            <ActivityIndicator color="#0EA5E9" size="large" />
             <Text className="text-xs font-bold text-primary mt-2">AI Đang Chấm Điểm Phát Âm...</Text>
           </View>
         ) : (
           <Pressable
             onPress={handleMicPress}
-            className="w-20 h-20 rounded-full bg-[#FF6B35] justify-center items-center shadow-2xl active:scale-95 border-4 border-white"
+            className="w-20 h-20 rounded-full bg-[#0EA5E9] justify-center items-center shadow-2xl active:scale-95 border-4 border-white"
           >
             <Mic color="#FFFFFF" size={32} />
           </Pressable>

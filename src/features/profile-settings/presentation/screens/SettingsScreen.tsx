@@ -20,6 +20,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { palette } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
+import { UserAvatar } from '@/src/core/components/UserAvatar';
 
 export const SettingsScreen = () => {
   const router = useRouter();
@@ -67,14 +68,7 @@ export const SettingsScreen = () => {
         {/* Account Card */}
         <Animated.View entering={FadeInDown.duration(300)}>
           <Pressable style={styles.accountCard}>
-            <Image
-              source={{
-                uri:
-                  currentUser?.avatar_url ||
-                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
-              }}
-              style={styles.avatar}
-            />
+            <UserAvatar uri={currentUser?.avatar_url} size={48} style={styles.avatar} />
             <View style={styles.accountInfo}>
               <View style={styles.nameRow}>
                 <Text style={styles.accountName}>

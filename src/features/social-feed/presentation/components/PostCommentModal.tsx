@@ -17,6 +17,7 @@ import { X, Send, MessageSquare } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cleanAvatarUrl } from '../utils/avatarHelper';
 import { addPostCommentApi, CommunityPostDto } from '../../data/socialApi';
+import { UserAvatar } from '@/src/core/components/UserAvatar';
 
 interface PostCommentModalProps {
   visible: boolean;
@@ -197,10 +198,7 @@ export const PostCommentModal: React.FC<PostCommentModalProps> = ({
 
         {/* Input Bar */}
         <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <Image
-            source={{ uri: currentUserAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200' }}
-            style={styles.inputMyAvatar}
-          />
+          <UserAvatar uri={currentUserAvatar} size={32} style={styles.inputMyAvatar} />
           <TextInput
             value={commentText}
             onChangeText={setCommentText}

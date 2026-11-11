@@ -20,23 +20,38 @@ export const fetchNotificationsApi = async (userId?: string): Promise<Notificati
       ? rawData.content
       : [];
 
-    if (items.length > 0) {
-      return items.map((n: any) => ({
-        id: String(n.id || n.notificationId || ''),
-        user_id: String(n.userId || uid),
-        notification_type: (n.type || n.notificationType || 'system').toLowerCase() as any,
-        title: n.title || 'Thông báo',
-        body: n.body || n.message || n.content || '',
-        is_read: Boolean(n.isRead || n.read),
-        created_at: n.createdAt || n.sentAt || new Date().toISOString(),
-        metadata: n.metadata || undefined,
-        target_link: n.targetLink || undefined
-      }));
-    }
+    return items.map((n: any) => mapNotification(n, uid));
   } catch (err) {
     console.warn('[NotificationAPI] fetchNotificationsApi error:', err);
   }
   return [];
+};
+
+const mapNotification = (n: any, uid: string): NotificationItem => ({
+  id: String(n.id || n.notificationId || ''),
+  user_id: String(n.userId || uid),
+  notification_type: (n.type || n.notificationType || 'system').toLowerCase() as any,
+  title: n.title || 'Thông báo',
+  body: n.body || n.message || n.content || '',
+  is_read: Boolean(n.isRead || n.read),
+  created_at: n.createdAt || n.sentAt || new Date().toISOString(),
+  metadata: n.metadata || undefined,
+  target_link: n.targetLink || undefined,
+});
+
+/**
+ * GET /api/v1/notifications?unreadOnly=true&size=N
+ * Lấy nhanh vài thông báo chưa đọc mới nhất — dùng cho cơ chế polling realtime.
+ * Ném lỗi (không nuốt) để bên gọi phân biệt "lỗi mạng" với "không có thông báo".
+ */
+export const fetchLatestUnreadNotificationsApi = async (size = 10): Promise<NotificationItem[]> => {
+  const uid = getCurrentUserId();
+  const response = await apiClient.get<any>('/api/v1/notifications', {
+    params: { unreadOnly: true, page: 0, size },
+  });
+  const rawData = response.data?.data || response.data;
+  const items = Array.isArray(rawData) ? rawData : Array.isArray(rawData?.content) ? rawData.content : [];
+  return items.map((n: any) => mapNotification(n, uid));
 };
 
 /**

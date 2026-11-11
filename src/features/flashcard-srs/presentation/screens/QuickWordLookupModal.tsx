@@ -92,7 +92,7 @@ export const QuickWordLookupModal: React.FC<QuickWordLookupModalProps> = ({ visi
 
           <View className="flex-row justify-between items-center mb-3">
             <View className="flex-row items-center gap-2">
-              <BookOpen size={20} color="#FF6B35" />
+              <BookOpen size={20} color="#0EA5E9" />
               <Text className="text-xl font-bold text-neutralInk">Tra Từ Điển Thông Minh</Text>
             </View>
             <Pressable onPress={onClose} className="p-1">
@@ -101,7 +101,7 @@ export const QuickWordLookupModal: React.FC<QuickWordLookupModalProps> = ({ visi
           </View>
 
           <Text className="text-[11px] text-neutralGray mb-3 flex-row items-center">
-            ⚡ Hệ thống tra cứu CSDL nội bộ kết hợp từ điển trực tuyến quốc tế (Free Dictionary, Oxford)
+            Hệ thống tra cứu CSDL nội bộ kết hợp từ điển trực tuyến quốc tế (Free Dictionary, Oxford)
           </Text>
 
           <TextInput
@@ -115,7 +115,7 @@ export const QuickWordLookupModal: React.FC<QuickWordLookupModalProps> = ({ visi
 
           {loading && (
             <View className="my-6 items-center">
-              <ActivityIndicator color="#FF6B35" size="large" />
+              <ActivityIndicator color="#0EA5E9" size="large" />
               <Text className="text-xs text-neutralGray mt-2">Đang tra cứu từ điển CSDL & Online...</Text>
             </View>
           )}
@@ -165,7 +165,7 @@ export const QuickWordLookupModal: React.FC<QuickWordLookupModalProps> = ({ visi
                             className={`p-1.5 rounded-full ${isSpeaking ? 'bg-primary' : 'bg-primary/10'}`}
                             accessibilityLabel="Phát âm"
                           >
-                            <Volume2 size={16} color={isSpeaking ? '#FFFFFF' : '#FF6B35'} />
+                            <Volume2 size={16} color={isSpeaking ? '#FFFFFF' : '#0EA5E9'} />
                           </Pressable>
                         </View>
                         <View className="flex-row items-center gap-2">

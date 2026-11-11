@@ -194,7 +194,7 @@ export const LoginSuccessScreen: React.FC = () => {
     outputRange: ['0%', '100%'],
   });
 
-  const greeting = role === 'teacher' ? 'Xin chào Giáo Viên! 👋' : 'Xin chào Học Viên! 👋';
+  const greeting = role === 'teacher' ? 'Xin chào Giáo Viên!' : 'Xin chào Học Viên!';
   const subtitle  = role === 'teacher' ? 'Đang tải lớp học của bạn...' : 'Đang chuẩn bị lộ trình học...';
 
   return (

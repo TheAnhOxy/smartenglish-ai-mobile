@@ -17,6 +17,7 @@ import { useRoleGateStore } from '@/src/core/flows/roleGateStore';
 import { stopAllAudio } from '@/src/core/services/speechService';
 import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync } from '@/src/features/notifications/application/pushNotificationService';
+import { useNotificationRealtimeSync } from '@/src/features/notifications/application/useNotificationRealtimeSync';
 
 // Tắt một số cảnh báo thuộc tính deprecated không cần thiết
 LogBox.ignoreLogs([
@@ -38,7 +39,11 @@ if (typeof global !== 'undefined' && (global as any).ErrorUtils) {
   });
 }
 
-if (__DEV__) {
+// Chỉ bọc console.warn MỘT lần: module có thể được nạp lại (fast refresh / web SSR),
+// bọc lồng nhiều lớp làm stack phình to và từng gây tràn bộ nhớ dev server web.
+const warnPatchFlag = '__smartEnglishWarnPatched';
+if (__DEV__ && !(globalThis as Record<string, unknown>)[warnPatchFlag]) {
+  (globalThis as Record<string, unknown>)[warnPatchFlag] = true;
   const originalWarn = console.warn;
   console.warn = (...args) => {
     const msg = args.join(' ');
@@ -102,7 +107,7 @@ function RootLayoutNav() {
   const segments = useSegments();
 
   const { currentUser, isHydrated } = useAuthStore();
-  const { getRouteForRole } = useRoleGateStore();
+  const { getRouteForRole, guestMode } = useRoleGateStore();
   const routeKey = segments.join('/');
 
   useEffect(() => {
@@ -110,6 +115,9 @@ function RootLayoutNav() {
       void stopAllAudio();
     };
   }, [routeKey]);
+
+  // Nhận thông báo gần realtime khi app đang mở (polling 5s, giống tin nhắn chat)
+  useNotificationRealtimeSync(currentUser?.id);
 
   // Đăng ký Push Token lên backend khi người dùng đăng nhập & lắng nghe click thông báo
   useEffect(() => {
@@ -155,13 +163,18 @@ function RootLayoutNav() {
         router.replace('/(teacher-companion)/classes' as any);
       } else if (role === 'student' && (inAuthGroup || inTeacherGroup || inAdminRoute || currentSegment === '' || currentSegment === 'index')) {
         router.replace('/(student)/home' as any);
+      } else if (!role && guestMode) {
+        // Khách dùng thử: vào khu học viên, quyền giới hạn theo vai trò guest
+        if (inAuthGroup || currentSegment === '' || currentSegment === 'index') {
+          router.replace('/(student)/home' as any);
+        }
       } else if (!role && !inAuthGroup && !(segments as string[]).includes('practice')) {
         router.replace('/(auth)/welcome' as any);
       }
     }, 0);
 
     return () => clearTimeout(timer);
-  }, [currentUser, isHydrated, segments]);
+  }, [currentUser, isHydrated, segments, guestMode]);
 
   return (
     <ThemeProvider value={DefaultTheme}>

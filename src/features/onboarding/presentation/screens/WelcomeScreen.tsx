@@ -5,11 +5,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LoxeraFoxMascot } from '@/src/core/components/LoxeraFoxMascot';
 import { colors } from '@/src/theme/colors';
 import { ArrowRight, PlayCircle } from 'lucide-react-native';
+import { useRoleGateStore } from '@/src/core/flows/roleGateStore';
 
 const { width } = Dimensions.get('window');
 
 export const WelcomeScreen = () => {
   const router = useRouter();
+  const enterGuestMode = useRoleGateStore((s) => s.enterGuestMode);
   const insets = useSafeAreaInsets();
 
   // Logo entrance animations
@@ -217,6 +219,18 @@ export const WelcomeScreen = () => {
         >
           <Text style={styles.outlineBtnText}>Đã Có Tài Khoản? Đăng Nhập</Text>
         </TouchableOpacity>
+
+        {/* Dùng thử với quyền khách (vai trò guest do admin cấu hình) */}
+        <TouchableOpacity
+          onPress={() => {
+            enterGuestMode();
+            router.replace('/(student)/home' as any);
+          }}
+          activeOpacity={0.7}
+          style={styles.guestLink}
+        >
+          <Text style={styles.guestLinkText}>Dùng thử không cần tài khoản</Text>
+        </TouchableOpacity>
       </Animated.View>
     </View>
   );
@@ -225,6 +239,16 @@ export const WelcomeScreen = () => {
 export default WelcomeScreen;
 
 const styles = StyleSheet.create({
+  guestLink: {
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  guestLinkText: {
+    color: '#64748B',
+    fontWeight: '500',
+    fontSize: 13,
+    textDecorationLine: 'underline',
+  },
   container: {
     flex: 1,
     backgroundColor: '#EEF2F7',

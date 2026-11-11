@@ -656,84 +656,27 @@ export const createGroupConversationApi = async (payload: {
   }
 };
 
-export const fetchUsersForCommunityApi = async (): Promise<any[]> => {
+export const fetchUsersForCommunityApi = async (search?: string): Promise<any[]> => {
   try {
-    const res = await apiClient.get<any>('/admin/users?size=50');
-    const rawData = res.data?.data || res.data;
-    const items =
-      res.data?.data?.items ||
-      res.data?.items ||
-      rawData?.items ||
-      rawData?.content ||
-      (Array.isArray(rawData) ? rawData : []);
-    if (Array.isArray(items) && items.length > 0) {
-      return items.map((u: any) => {
-        const rawAv = u.avatarUrl || u.avatar_url || u.avatar;
-        const cleanAv =
-          typeof rawAv === 'string' && !rawAv.includes('unsplash.com') && rawAv.trim().length > 0
-            ? rawAv.trim()
-            : null;
-        const dName = u.displayName || u.display_name || u.fullName || u.username || 'Người dùng';
-        return {
-          id: Number(u.id),
-          name: dName,
-          displayName: dName,
-          avatar: cleanAv,
-          avatarUrl: cleanAv,
-          role: (u.role || 'STUDENT').toUpperCase(),
-          email: u.email,
-        };
-      });
-    }
+    const res = await apiClient.get<any>('/users/directory', { params: { size: 100, search: search || undefined } });
+    const items = res.data?.data?.items ?? [];
+    if (!Array.isArray(items)) return [];
+    return items.map((u: any) => {
+      const rawAv = typeof u.avatarUrl === 'string' ? u.avatarUrl.trim() : '';
+      const avatar = rawAv.length > 0 ? rawAv : null;
+      const dName = u.displayName || u.username || 'Người dùng';
+      return {
+        id: Number(u.id),
+        name: dName,
+        displayName: dName,
+        avatar,
+        avatarUrl: avatar,
+        role: String(u.role || 'STUDENT').toUpperCase(),
+      };
+    });
   } catch (err) {
-    console.warn('[SocialApi] fetchUsersForCommunityApi fallback to default users:', err);
+    console.warn('[SocialApi] fetchUsersForCommunityApi error:', err);
+    return [];
   }
-  return [
-    {
-      id: 2,
-      name: 'Thầy John Smith (IELTS Master)',
-      displayName: 'Thầy John Smith (IELTS Master)',
-      avatar: null,
-      avatarUrl: null,
-      role: 'TEACHER',
-      email: 'john.smith@smartenglish.edu.vn',
-    },
-    {
-      id: 4,
-      name: 'Cô Sarah Jenkins (Pronunciation Coach)',
-      displayName: 'Cô Sarah Jenkins (Pronunciation Coach)',
-      avatar: null,
-      avatarUrl: null,
-      role: 'TEACHER',
-      email: 'sarah.j@smartenglish.edu.vn',
-    },
-    {
-      id: 3,
-      name: 'Nguyễn Văn Minh (IELTS 7.5 Aim)',
-      displayName: 'Nguyễn Văn Minh (IELTS 7.5 Aim)',
-      avatar: null,
-      avatarUrl: null,
-      role: 'STUDENT',
-      email: 'minh.nguyen@gmail.com',
-    },
-    {
-      id: 5,
-      name: 'Trần Thị Thu Hà (TOEIC 900+)',
-      displayName: 'Trần Thị Thu Hà (TOEIC 900+)',
-      avatar: null,
-      avatarUrl: null,
-      role: 'STUDENT',
-      email: 'ha.tran@gmail.com',
-    },
-    {
-      id: 6,
-      name: 'Lê Hoàng Nam (Speaking Club Leader)',
-      displayName: 'Lê Hoàng Nam (Speaking Club Leader)',
-      avatar: null,
-      avatarUrl: null,
-      role: 'STUDENT',
-      email: 'nam.le@gmail.com',
-    },
-  ];
 };
 

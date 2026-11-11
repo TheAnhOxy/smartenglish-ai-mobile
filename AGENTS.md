@@ -187,3 +187,9 @@ npm run lint                    # Lint
 
 ### Custom skills (dự án — có sẵn)
 `ai-object-vocabulary-scanner` · `ai-speaking-pronunciation-tutor`
+
+---
+
+## Chống lặp lỗi UI (bắt buộc)
+
+Trước khi sửa giao diện, đọc `../.claude/skills/smartenglish-ui-consistency-guard/SKILL.md`: không emoji/icon màu mè, chỉ màu `AppColors`, thang cỡ chữ cố định, `ActivityIndicator color={AppColors.primary}` cho loading, không chú thích thừa. Chạy checklist mục 5 trước khi báo xong.

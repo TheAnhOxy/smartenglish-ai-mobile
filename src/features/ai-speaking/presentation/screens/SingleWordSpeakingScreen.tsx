@@ -29,7 +29,6 @@ import Animated, {
   withSpring,
   FadeInDown,
 } from 'react-native-reanimated';
-import { Canvas, Path, LinearGradient, vec } from '@shopify/react-native-skia';
 import {
   AudioModule,
   RecordingPresets,
@@ -444,23 +443,11 @@ export const SingleWordSpeakingScreen = () => {
             <Text style={s.nativeAudioText}>Phát âm chuẩn mẫu</Text>
           </Pressable>
 
-          {/* Sóng âm thanh Skia */}
-          <View style={s.waveformWrap}>
-            <Canvas style={{ width: '100%', height: 32 }}>
-              <Path
-                path="M 10 16 Q 30 4, 50 16 T 90 16 T 130 16 T 170 16 T 210 16 T 250 16 T 290 16"
-                color={colors.primarySoft}
-                style="stroke"
-                strokeWidth={3}
-                strokeCap="round"
-              >
-                <LinearGradient
-                  start={vec(0, 0)}
-                  end={vec(300, 0)}
-                  colors={[colors.primary, colors.primaryDeep]}
-                />
-              </Path>
-            </Canvas>
+          {/* Sóng âm minh hoạ — dùng View thường để chạy được cả trên web (Skia web cần CanvasKit) */}
+          <View style={[s.waveformWrap, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, height: 32 }]}>
+            {[10, 18, 26, 14, 22, 30, 16, 24, 12, 20, 28, 14, 18, 10].map((h, i) => (
+              <View key={i} style={{ width: 4, height: h, borderRadius: 2, backgroundColor: i % 2 ? colors.primary : colors.primaryMid }} />
+            ))}
           </View>
         </Animated.View>
 
@@ -507,10 +494,10 @@ export const SingleWordSpeakingScreen = () => {
               <View style={s.scoreSummaryWrap}>
                 <Text style={s.scoreTitle}>
                   {score >= 80
-                    ? '🎉 Xuất sắc! Chuẩn giọng bản ngữ'
+                    ? 'Xuất sắc! Chuẩn giọng bản ngữ'
                     : score >= 60
-                    ? '👍 Khá tốt! Cần chú ý âm đuôi'
-                    : '💪 Cần luyện tập thêm khẩu hình'}
+                    ? 'Khá tốt! Cần chú ý âm đuôi'
+                    : 'Cần luyện tập thêm khẩu hình'}
                 </Text>
                 <Text style={s.scoreSubTitle}>
                   {score >= 80

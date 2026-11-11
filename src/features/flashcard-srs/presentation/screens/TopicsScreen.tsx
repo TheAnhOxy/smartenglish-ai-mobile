@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { RotateCcw, AlertCircle } from 'lucide-react-native';
+import { RotateCcw, AlertCircle, BookOpen } from 'lucide-react-native';
 import { getTopicsApi, VocabTopic } from '../../data/vocabularyApi';
+import { AppColors } from '@/src/core/theme/colors';
 
 export const TopicsScreen = () => {
   const router = useRouter();
@@ -38,7 +39,7 @@ export const TopicsScreen = () => {
       <Text className="text-xs text-neutralGray mb-6">Chọn chủ đề từ vựng được biên soạn sẵn bởi hệ thống</Text>
 
       {loading && (
-        <ActivityIndicator color="#FF6B35" size="large" className="my-10" />
+        <ActivityIndicator color="#0EA5E9" size="large" className="my-10" />
       )}
 
       {!loading && error && (
@@ -79,7 +80,7 @@ export const TopicsScreen = () => {
               className="bg-cardWhite p-5 rounded-2xl border border-gray-100 mb-4 shadow-sm flex-row items-center gap-4 active:bg-gray-50"
             >
               <View className="w-14 h-14 rounded-2xl items-center justify-center bg-surface border border-gray-100">
-                <Text className="text-3xl">{item.iconUrl || '📚'}</Text>
+                <BookOpen size={28} color={AppColors.primary} />
               </View>
               <View className="flex-1">
                 <Text className="text-base font-bold text-neutralInk mb-0.5">{item.name}</Text>

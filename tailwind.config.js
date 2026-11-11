@@ -6,6 +6,8 @@ module.exports = {
     "./src/**/*.{js,jsx,ts,tsx}"
   ],
   presets: [require("nativewind/preset")],
+  // "class": bản web của NativeWind v4 throw lỗi khi dùng "media". Native vẫn theo giao diện hệ thống.
+  darkMode: "class",
   theme: {
     extend: {
       colors: {

@@ -54,7 +54,7 @@ const mapUserProfile = (data: any): Partial<User> => ({
 
 /**
  * Tải ảnh đại diện người dùng lên AWS S3 qua Content Service & API Gateway
- * Endpoint: POST /admin/upload/image?folder=avatars
+ * Endpoint: POST /api/v1/content/upload/image?folder=avatars (route /admin/** bị gateway chặn với học viên)
  * Trả về: URL công khai trên AWS S3
  */
 export const uploadAvatarApi = async (fileUri: string, fileName?: string, mimeType?: string): Promise<string> => {
@@ -73,7 +73,7 @@ export const uploadAvatarApi = async (fileUri: string, fileName?: string, mimeTy
     } as any);
   }
 
-  const response = await apiClient.post<any>('/admin/upload/image?folder=avatars', formData, {
+  const response = await apiClient.post<any>('/api/v1/content/upload/image?folder=avatars', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },

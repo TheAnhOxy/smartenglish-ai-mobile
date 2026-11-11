@@ -1,48 +1,38 @@
 import React from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ArrowLeft } from 'lucide-react-native';
 import { colors } from '@/src/theme';
+import { withLoginRequired } from '@/src/core/components/GuestLoginPrompt';
+import { DailyQuestList } from '../components/DailyQuestList';
 
-const CHALLENGE_TASKS = [
-  { id: 't1', title: 'Ôn 15 Thẻ Từ Vựng SRS', xp: 15, done: true },
-  { id: 't2', title: 'Hoàn Thành 1 Bài Tập Quiz Ngữ Pháp', xp: 20, done: true },
-  { id: 't3', title: 'Luyện Phát Âm 1 Phiên Câu Dài IPA', xp: 25, done: false }
-];
-
-export const DailyChallengeScreen = () => {
+/** Toàn bộ nhiệm vụ hằng ngày (dữ liệu thật từ máy chủ) và nút nhận thưởng. */
+const DailyChallengeContent = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   return (
-    <View className="flex-1 bg-surface pt-14 px-6 justify-between pb-10">
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <Pressable onPress={() => router.back()} className="mb-4">
-          <Text className="text-primary font-bold text-sm">← Trang Chủ</Text>
+    <View style={[s.root, { paddingTop: insets.top + 8 }]}>
+      <View style={s.header}>
+        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Quay lại" style={s.backBtn}>
+          <ArrowLeft size={20} color={colors.text} />
         </Pressable>
-
-        <Text className="text-2xl font-bold text-neutralInk mb-1"> Thử Thách Hằng Ngày</Text>
-        <Text className="text-xs text-neutralGray mb-6">Hoàn thành nhiệm vụ mỗi ngày để nhận phần thưởng XP & Coin tích lũy.</Text>
-
-        <View className="gap-3 mb-6">
-          {CHALLENGE_TASKS.map((task) => (
-            <View
-              key={task.id}
-              className={`p-4 rounded-2xl border flex-row items-center justify-between ${
-                task.done ? 'bg-success/10 border-success/30' : 'bg-cardWhite border-gray-100 shadow-sm'
-              }`}
-            >
-              <View className="flex-row items-center gap-3 flex-1 mr-2">
-                <Text className="text-xl">{task.done ? '✅' : '⏳'}</Text>
-                <Text className={`text-sm font-bold flex-1 ${task.done ? 'text-success' : 'text-neutralInk'}`}>
-                  {task.title}
-                </Text>
-              </View>
-              <View style={{ backgroundColor: colors.xpSoft, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: colors.xpBorder }}>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: colors.xpDeep }}>+{task.xp} XP</Text>
-              </View>
-            </View>
-          ))}
-        </View>
+        <Text style={s.title}>Nhiệm vụ hôm nay</Text>
+        <View style={s.backBtn} />
+      </View>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 24 }} showsVerticalScrollIndicator={false}>
+        <DailyQuestList />
       </ScrollView>
     </View>
   );
 };
+
+export const DailyChallengeScreen = withLoginRequired(DailyChallengeContent);
+
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.bg },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, marginBottom: 12 },
+  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 16, fontWeight: '700', color: colors.text },
+});

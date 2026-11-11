@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router';
 import { useNotificationsQuery, useMarkNotificationReadMutation } from '../../application/useNotifications';
 import { NotificationItem } from '@/src/core/types/schema';
 import { StudentInvoicesModal } from '@/src/features/subscription-paywall/presentation/components/StudentInvoicesModal';
+import { Bell, Inbox, Receipt } from 'lucide-react-native';
+import { AppColors } from '@/src/core/theme/colors';
 
 export const NotificationsScreen = () => {
   const router = useRouter();
@@ -39,11 +41,10 @@ export const NotificationsScreen = () => {
         <Text className="text-primary font-bold text-sm">← Cá Nhân</Text>
       </Pressable>
 
-      <Text className="text-2xl font-bold text-neutralInk mb-1">Hộp Thư Thông Báo 🔔</Text>
-      <Text className="text-xs text-neutralGray mb-6">Cập nhật biên lai thanh toán, bài tập mới & nhắc nhở học tập</Text>
+      <Text className="text-xl font-bold text-neutralInk mb-5">Thông báo</Text>
 
       {isLoading ? (
-        <ActivityIndicator color="#FF6B35" size="large" />
+        <ActivityIndicator color="#0EA5E9" size="large" />
       ) : (
         <FlatList
           data={notifications || []}
@@ -51,11 +52,8 @@ export const NotificationsScreen = () => {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View className="py-16 items-center justify-center">
-              <Text className="text-4xl mb-3">📭</Text>
-              <Text className="text-sm font-semibold text-neutralInk">Không có thông báo nào</Text>
-              <Text className="text-xs text-neutralGray mt-1 text-center">
-                Bạn đã đọc hết mọi thông báo hoặc chưa có thông báo mới.
-              </Text>
+              <Inbox size={28} color={AppColors.neutralGray} />
+              <Text className="text-sm font-semibold text-neutralInk mt-3">Chưa có thông báo</Text>
             </View>
           }
           renderItem={({ item }) => {
@@ -82,7 +80,11 @@ export const NotificationsScreen = () => {
                       : 'bg-surface border-gray-100'
                   }`}
                 >
-                  <Text className="text-xl">{isPayment ? '🧾' : '🔔'}</Text>
+                  {isPayment ? (
+                    <Receipt size={18} color={AppColors.success} />
+                  ) : (
+                    <Bell size={18} color={AppColors.primary} />
+                  )}
                 </View>
                 <View className="flex-1">
                   <View className="flex-row items-center gap-2">
@@ -107,7 +109,7 @@ export const NotificationsScreen = () => {
                       onPress={() => handleOpenInvoiceFromNotif(item)}
                       className="mt-2.5 self-start bg-emerald-600 active:bg-emerald-700 px-3 py-1.5 rounded-lg flex-row items-center gap-1.5 shadow-2xs"
                     >
-                      <Text className="text-xs font-bold text-white">🧾 Xem hóa đơn điện tử</Text>
+                      <Text className="text-xs font-bold text-white">Xem hóa đơn</Text>
                     </Pressable>
                   )}
 

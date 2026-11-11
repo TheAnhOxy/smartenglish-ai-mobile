@@ -3,12 +3,12 @@ import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-nati
 import { useRouter } from 'expo-router';
 
 const TOPIC_CHIPS = [
-  { id: 'tech', name: 'Công Nghệ & AI', emoji: '💻' },
-  { id: 'business', name: 'Kinh Doanh & Khởi Nghiệp', emoji: '💼' },
-  { id: 'travel', name: 'Du Lịch & Văn Hóa', emoji: '✈️' },
-  { id: 'daily', name: 'Đời Sống Hàng Ngày', emoji: '☕' },
-  { id: 'academic', name: 'Học Thuật IELTS', emoji: '🎓' },
-  { id: 'science', name: 'Khoa Học Vũ Trụ', emoji: '🚀' },
+  { id: 'tech', name: 'Công Nghệ & AI' },
+  { id: 'business', name: 'Kinh Doanh & Khởi Nghiệp' },
+  { id: 'travel', name: 'Du Lịch & Văn Hóa' },
+  { id: 'daily', name: 'Đời Sống Hàng Ngày' },
+  { id: 'academic', name: 'Học Thuật IELTS' },
+  { id: 'science', name: 'Khoa Học Vũ Trụ' },
 ];
 
 const LENGTH_OPTIONS = [
@@ -45,7 +45,7 @@ export const ReadingGeneratorScreen = () => {
           <Text className="text-primary font-bold text-sm">← Thư Viện Bài Đọc</Text>
         </Pressable>
 
-        <Text className="text-2xl font-bold text-neutralInk mb-1">Tạo Bài Đọc Theo Chủ Đề ⚡</Text>
+        <Text className="text-2xl font-bold text-neutralInk mb-1">Tạo Bài Đọc Theo Chủ Đề</Text>
         <Text className="text-xs text-neutralGray mb-6">Tùy biến bài đọc hiểu chuẩn CEFR phù hợp với sở thích của bạn</Text>
 
         {/* Section 1: Topics */}
@@ -61,7 +61,6 @@ export const ReadingGeneratorScreen = () => {
                   active ? 'bg-primary border-primary shadow-sm' : 'bg-cardWhite border-gray-200'
                 }`}
               >
-                <Text className="text-sm">{chip.emoji}</Text>
                 <Text className={`text-xs font-bold ${active ? 'text-white' : 'text-neutralInk'}`}>
                   {chip.name}
                 </Text>

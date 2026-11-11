@@ -6,7 +6,7 @@ import { useAuthStore } from '@/src/core/flows/authStore';
 export default function Index() {
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAF9' }}>
-      <ActivityIndicator size="large" color="#FF6B35" />
+      <ActivityIndicator size="large" color="#0EA5E9" />
     </View>
   );
 }

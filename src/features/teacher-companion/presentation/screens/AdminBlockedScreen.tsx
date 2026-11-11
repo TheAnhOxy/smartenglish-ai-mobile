@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { useRouter } from 'expo-router';
+import { Lock } from 'lucide-react-native';
+import { AppColors } from '@/src/core/theme/colors';
 
 export const AdminBlockedScreen = () => {
   const { logout } = useAuthStore();
@@ -15,7 +17,7 @@ export const AdminBlockedScreen = () => {
   return (
     <View className="flex-1 bg-surface px-6 justify-center items-center">
       <View className="w-20 h-20 rounded-full bg-gray-200 justify-center items-center mb-6">
-        <Text className="text-4xl">🔒</Text>
+        <Lock size={36} color={AppColors.error} />
       </View>
 
       <Text className="text-xl font-bold text-neutralInk text-center mb-2">

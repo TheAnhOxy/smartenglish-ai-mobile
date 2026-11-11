@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, FlatList, Pressable, ActivityIndicator } from 'react-native';
 import { useTeacherClasses } from '../../application/useTeacherCompanion';
 import { useRouter } from 'expo-router';
+import { GraduationCap } from 'lucide-react-native';
+import { AppColors } from '@/src/core/theme/colors';
 
 export const TeacherClassesScreen = () => {
   const router = useRouter();
@@ -18,7 +20,7 @@ export const TeacherClassesScreen = () => {
           </Text>
         </View>
         <View className="w-10 h-10 rounded-full bg-secondary/10 justify-center items-center">
-          <Text className="text-lg">👩‍🏫</Text>
+          <GraduationCap size={18} color={AppColors.primary} />
         </View>
       </View>
 

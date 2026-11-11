@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, Modal, StyleSheet, ScrollView } from 'react-native';
-import { X, Sparkles, CheckCircle2 } from 'lucide-react-native';
+import { X, Sparkles, CheckCircle2, Smile, Waves, Wind } from 'lucide-react-native';
+import { AppColors } from '@/src/core/theme/colors';
 
 export interface MouthShapeGuideModalProps {
   visible: boolean;
@@ -123,7 +124,7 @@ export const MouthShapeGuideModal: React.FC<MouthShapeGuideModalProps> = ({
 
               <View style={s.postureRow}>
                 <View style={s.postureIconCircle}>
-                  <Text style={s.postureEmoji}>👄</Text>
+                  <Smile size={18} color={AppColors.primary} />
                 </View>
                 <View style={s.postureInfo}>
                   <Text style={s.postureTitle}>1. Độ mở của môi</Text>
@@ -135,7 +136,7 @@ export const MouthShapeGuideModal: React.FC<MouthShapeGuideModalProps> = ({
 
               <View style={s.postureRow}>
                 <View style={s.postureIconCircle}>
-                  <Text style={s.postureEmoji}>👅</Text>
+                  <Waves size={18} color={AppColors.primary} />
                 </View>
                 <View style={s.postureInfo}>
                   <Text style={s.postureTitle}>2. Vị trí đặt lưỡi</Text>
@@ -147,7 +148,7 @@ export const MouthShapeGuideModal: React.FC<MouthShapeGuideModalProps> = ({
 
               <View style={s.postureRow}>
                 <View style={s.postureIconCircle}>
-                  <Text style={s.postureEmoji}>💨</Text>
+                  <Wind size={18} color={AppColors.primary} />
                 </View>
                 <View style={s.postureInfo}>
                   <Text style={s.postureTitle}>3. Điều tiết luồng hơi</Text>
