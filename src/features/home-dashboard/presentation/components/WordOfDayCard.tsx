@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { Bookmark, BookmarkCheck, Volume2 } from 'lucide-react-native';
-import { colors } from '@/src/theme';
+import { Bookmark, BookmarkCheck, Volume2 } from '@/src/components/ds/icons';
+import { ds, dsFont, dsRadius, dsSize } from '@/src/theme/ds';
+import { Tap, feedback } from '@/src/components/ds';
 import { speakText } from '@/src/core/services/speechService';
 import { exploreWordsApi } from '@/src/features/flashcard-srs/data/vocabularyApi';
 import { useDeckStore } from '@/src/features/flashcard-srs/data/deckStore';
@@ -34,7 +35,7 @@ export const WordOfDayCard: React.FC = () => {
   if (isLoading) {
     return (
       <View style={[st.card, st.center]}>
-        <ActivityIndicator size="small" color={colors.primary} />
+        <ActivityIndicator size="small" color={ds.btn} />
       </View>
     );
   }
@@ -82,12 +83,20 @@ export const WordOfDayCard: React.FC = () => {
             {[word.ipaUs, word.partOfSpeech].filter(Boolean).join(' · ')}
           </Text>
         </View>
-        <Pressable onPress={handleSpeak} style={[st.iconBtn, speaking && st.iconBtnActive]} accessibilityLabel="Nghe phát âm">
-          <Volume2 size={18} color={speaking ? '#FFFFFF' : colors.primary} />
-        </Pressable>
-        <Pressable onPress={handleSave} style={st.iconBtn} accessibilityLabel={saved ? 'Đã lưu' : 'Lưu vào bộ thẻ'}>
-          {saved ? <BookmarkCheck size={18} color={colors.success} /> : <Bookmark size={18} color={colors.primary} />}
-        </Pressable>
+        <Tap onPress={handleSpeak} sound="none" style={[st.iconBtn, speaking && st.iconBtnActive]} accessibilityLabel="Nghe phát âm">
+          <Volume2 size={22} color={speaking ? ds.white : ds.btn} />
+        </Tap>
+        <Tap
+          onPress={() => {
+            if (!saved) feedback.success();
+            handleSave();
+          }}
+          sound="none"
+          style={[st.iconBtn, saved && st.iconBtnSaved]}
+          accessibilityLabel={saved ? 'Đã lưu' : 'Lưu vào bộ thẻ'}
+        >
+          {saved ? <BookmarkCheck size={22} color={ds.green} /> : <Bookmark size={22} color={ds.btn} />}
+        </Tap>
       </View>
 
       <Text style={st.meaning}>{word.definitionVi}</Text>
@@ -102,18 +111,28 @@ export const WordOfDayCard: React.FC = () => {
 };
 
 const st = StyleSheet.create({
-  card: { backgroundColor: colors.surface, borderRadius: 20, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 10 },
+  card: { backgroundColor: ds.card, borderRadius: dsRadius.xl, borderWidth: 1.5, borderColor: ds.line, padding: 18, gap: 10 },
   center: { alignItems: 'center', justifyContent: 'center', minHeight: 120 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  tag: { fontSize: 12, fontWeight: '700', color: colors.primary, textTransform: 'uppercase', letterSpacing: 0.5 },
-  level: { fontSize: 12, fontWeight: '700', color: colors.textSoft, backgroundColor: colors.surfaceMuted, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
+  tag: { fontFamily: dsFont.bold, fontSize: dsSize.xs, color: ds.btn, textTransform: 'uppercase', letterSpacing: 1 },
+  level: {
+    fontFamily: dsFont.bold,
+    fontSize: dsSize.xs,
+    color: ds.amberText,
+    backgroundColor: ds.amberSoft,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
   wordRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  word: { fontSize: 22, fontWeight: '800', color: colors.text },
-  phonetic: { fontSize: 13, color: colors.textSoft, marginTop: 2 },
-  iconBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
-  iconBtnActive: { backgroundColor: colors.primary },
-  meaning: { fontSize: 15, fontWeight: '600', color: colors.text },
-  exampleBox: { backgroundColor: colors.surfaceMuted, borderRadius: 12, padding: 12, gap: 4 },
-  example: { fontSize: 13, color: colors.text, fontStyle: 'italic' },
-  exampleVi: { fontSize: 12, color: colors.textSoft },
+  word: { fontFamily: dsFont.displayHeavy, fontSize: dsSize.xxl, color: ds.ink, letterSpacing: -0.5 },
+  phonetic: { fontFamily: dsFont.body, fontSize: dsSize.sm, color: ds.muted, marginTop: 2 },
+  iconBtn: { width: 44, height: 44, borderRadius: 14, backgroundColor: ds.skySoft, alignItems: 'center', justifyContent: 'center' },
+  iconBtnActive: { backgroundColor: ds.btn },
+  iconBtnSaved: { backgroundColor: ds.greenSoft },
+  meaning: { fontFamily: dsFont.semibold, fontSize: dsSize.base, color: ds.ink },
+  exampleBox: { backgroundColor: ds.bg, borderRadius: dsRadius.sm, borderLeftWidth: 3, borderLeftColor: ds.sky, padding: 12, gap: 4 },
+  example: { fontFamily: dsFont.medium, fontSize: dsSize.sm, color: ds.ink, fontStyle: 'italic' },
+  exampleVi: { fontFamily: dsFont.body, fontSize: dsSize.xs, color: ds.muted },
 });
