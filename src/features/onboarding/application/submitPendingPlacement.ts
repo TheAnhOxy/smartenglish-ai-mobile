@@ -2,6 +2,8 @@ import { Alert, Platform } from 'react-native';
 import { submitPlacementTestApi } from '../data/onboardingApi';
 import { useOnboardingStore } from './useOnboardingStore';
 import { clearRoadmapCache } from '@/src/features/learning-path/data/knowledgeGapApi';
+import { useAuthStore } from '@/src/core/flows/authStore';
+import { profileFieldsFromPlacement } from './learnerLevel';
 
 const notify = (title: string, message: string) => {
   if (Platform.OS === 'web') {
@@ -28,6 +30,8 @@ export const submitPendingPlacement = async (onSaved?: () => void): Promise<void
       answers,
     });
     setResult(result);
+    // Trình độ mới dùng ngay cho gia sư AI và nội dung gợi ý, không chờ tải lại hồ sơ
+    useAuthStore.getState().updateCurrentUser(profileFieldsFromPlacement(result));
     clearRoadmapCache();
     onSaved?.();
     notify('Đã lưu kết quả kiểm tra đầu vào', `Trình độ của bạn: ${result.cefr_level}`);

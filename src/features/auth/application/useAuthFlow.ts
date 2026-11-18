@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { PLACEMENT_STATUS_KEY } from '@/src/features/onboarding/application/placementRoutes';
+import { LEARNING_PLAN_KEY } from '@/src/features/onboarding/application/useLearningPlan';
 import {
   loginApi,
   registerApi,
@@ -54,6 +55,7 @@ export const useAuthFlow = () => {
     if (data.user.role === 'student') {
       void submitPendingPlacement(() => {
         void queryClient.invalidateQueries({ queryKey: PLACEMENT_STATUS_KEY });
+        void queryClient.invalidateQueries({ queryKey: LEARNING_PLAN_KEY });
       });
     }
     goWithTransition(data.user.role);

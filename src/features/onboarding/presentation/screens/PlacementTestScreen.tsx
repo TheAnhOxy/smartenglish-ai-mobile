@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useOnboardingStore } from '../../application/useOnboardingStore';
 import { fetchPlacementTestApi, submitPlacementTestApi } from '../../data/onboardingApi';
 import { placementRoutesFor, PLACEMENT_STATUS_KEY } from '../../application/placementRoutes';
+import { profileFieldsFromPlacement } from '../../application/learnerLevel';
+import { LEARNING_PLAN_KEY } from '../../application/useLearningPlan';
 import { clearRoadmapCache } from '@/src/features/learning-path/data/knowledgeGapApi';
 import { colors } from '@/src/theme/colors';
 import { useAuthStore } from '@/src/core/flows/authStore';
@@ -125,9 +127,12 @@ export const PlacementTestScreen = () => {
           timeSpentSeconds,
         });
         setResult(res);
-        // Kết quả mới → lộ trình và lời nhắc làm bài phải tải lại
+        // Trình độ mới dùng ngay cho gia sư AI và nội dung gợi ý
+        useAuthStore.getState().updateCurrentUser(profileFieldsFromPlacement(res));
+        // Kết quả mới → lộ trình, lời nhắc làm bài và kế hoạch học phải tải lại
         clearRoadmapCache();
         void queryClient.invalidateQueries({ queryKey: PLACEMENT_STATUS_KEY });
+        void queryClient.invalidateQueries({ queryKey: LEARNING_PLAN_KEY });
         router.replace(routes.result as any);
       } catch (submitErr: any) {
         setError(submitErr?.message || 'Có lỗi xảy ra khi nộp bài. Vui lòng thử lại.');
