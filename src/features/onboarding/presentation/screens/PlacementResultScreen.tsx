@@ -1,12 +1,13 @@
 import React from 'react';
 import { ScrollView, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useSegments } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ClipboardCheck } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { AuthButton } from '@/src/features/auth/presentation/components/AuthUI';
 import { useOnboardingStore } from '../../application/useOnboardingStore';
+import { placementRoutesFor } from '../../application/placementRoutes';
 
 const SKILLS = [
   { key: 'vocabulary', label: 'Từ vựng' },
@@ -19,6 +20,7 @@ export const PlacementResultScreen = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { result } = useOnboardingStore();
+  const routes = placementRoutesFor(useSegments()[0]);
   const { currentUser, updateCurrentUser } = useAuthStore();
 
   const finish = () => {
@@ -37,7 +39,7 @@ export const PlacementResultScreen = () => {
         <ClipboardCheck size={28} color={AppColors.neutralGray} />
         <Text className="text-sm text-neutralGray text-center my-4">Chưa có kết quả bài kiểm tra</Text>
         <View className="w-full">
-          <AuthButton label="Làm bài kiểm tra" onPress={() => router.replace('/(auth)/placement-intro')} />
+          <AuthButton label="Làm bài kiểm tra" onPress={() => router.replace(routes.intro as any)} />
         </View>
       </View>
     );

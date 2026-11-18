@@ -1,17 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Pressable, TouchableOpacity, Modal, ActivityIndicator, StyleSheet, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useSegments } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useOnboardingStore } from '../../application/useOnboardingStore';
 import { fetchPlacementTestApi, submitPlacementTestApi } from '../../data/onboardingApi';
+import { placementRoutesFor, PLACEMENT_STATUS_KEY } from '../../application/placementRoutes';
+import { clearRoadmapCache } from '@/src/features/learning-path/data/knowledgeGapApi';
 import { colors } from '@/src/theme/colors';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { useRoleGateStore } from '@/src/core/flows/roleGateStore';
-import { X, ChevronRight, Check, AlertCircle, RefreshCw } from 'lucide-react-native';
+import { X, ChevronRight, Check, AlertCircle, RefreshCw, Volume2, Square } from 'lucide-react-native';
+import { speakText, stopAllAudio } from '@/src/core/services/speechService';
 
 export const PlacementTestScreen = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const routes = placementRoutesFor(useSegments()[0]);
+  const queryClient = useQueryClient();
   const {
     attemptId,
     examId,
@@ -57,6 +63,35 @@ export const PlacementTestScreen = () => {
   }, []);
 
   const currentQuestion = questions[currentQuestionIndex];
+
+  // Câu nghe: phát nội dung bằng giọng máy; đổi câu hoặc rời màn thì dừng
+  const [isListening, setIsListening] = useState(false);
+  const [hasListened, setHasListened] = useState(false);
+  useEffect(() => {
+    setIsListening(false);
+    setHasListened(false);
+    return () => {
+      void stopAllAudio();
+    };
+  }, [currentQuestion?.id]);
+
+  const toggleListening = () => {
+    if (!currentQuestion?.audioScript) return;
+    if (isListening) {
+      void stopAllAudio();
+      setIsListening(false);
+      return;
+    }
+    setIsListening(true);
+    setHasListened(true);
+    // Bỏ nhãn người nói ("Man:", "Woman:") trước khi đọc
+    const text = currentQuestion.audioScript.replace(/\b(Man|Woman|Narrator)\s*\d*\s*:/gi, ' ');
+    void speakText(text, {
+      rate: 0.9,
+      onDone: () => setIsListening(false),
+      onError: () => setIsListening(false),
+    });
+  };
   const totalQuestions = questions.length;
   const progressPct = totalQuestions > 0 ? ((currentQuestionIndex + 1) / totalQuestions) * 100 : 0;
   const selectedAnswer = currentQuestion ? answers[currentQuestion.id] : undefined;
@@ -90,7 +125,10 @@ export const PlacementTestScreen = () => {
           timeSpentSeconds,
         });
         setResult(res);
-        router.replace('/(auth)/placement-result' as any);
+        // Kết quả mới → lộ trình và lời nhắc làm bài phải tải lại
+        clearRoadmapCache();
+        void queryClient.invalidateQueries({ queryKey: PLACEMENT_STATUS_KEY });
+        router.replace(routes.result as any);
       } catch (submitErr: any) {
         setError(submitErr?.message || 'Có lỗi xảy ra khi nộp bài. Vui lòng thử lại.');
       } finally {
@@ -150,7 +188,7 @@ export const PlacementTestScreen = () => {
       >
         {/* Header */}
         <View style={s.topRow}>
-          <Text style={s.topLabel}>Placement Test</Text>
+          <Text style={s.topLabel}>Kiểm tra trình độ</Text>
           <Text style={s.questionCounter}>
             {currentQuestionIndex + 1} / {totalQuestions}
           </Text>
@@ -168,6 +206,25 @@ export const PlacementTestScreen = () => {
         <View style={s.categoryBadge}>
           <Text style={s.categoryText}>{currentQuestion.category.toUpperCase()}</Text>
         </View>
+
+        {/* Bài nghe: đọc nội dung bằng giọng máy, nghe lại được */}
+        {currentQuestion.audioScript ? (
+          <Pressable
+            onPress={toggleListening}
+            style={s.listenBtn}
+            accessibilityLabel={isListening ? 'Dừng nghe' : 'Nghe đoạn âm thanh'}
+          >
+            {isListening ? <Square size={16} color={colors.primary} /> : <Volume2 size={18} color={colors.primary} />}
+            <Text style={s.listenBtnText}>{isListening ? 'Dừng' : hasListened ? 'Nghe lại' : 'Nghe đoạn âm thanh'}</Text>
+          </Pressable>
+        ) : null}
+
+        {/* Đoạn văn đọc hiểu */}
+        {currentQuestion.passage ? (
+          <View style={s.passageCard}>
+            <Text style={s.passageText}>{currentQuestion.passage}</Text>
+          </View>
+        ) : null}
 
         {/* Question Text */}
         <Text style={s.questionText}>{currentQuestion.question}</Text>
@@ -409,6 +466,36 @@ const s = StyleSheet.create({
     height: '100%',
     backgroundColor: colors.secondary,
     borderRadius: 4,
+  },
+  listenBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    marginBottom: 14,
+  },
+  listenBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  passageCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+    marginBottom: 14,
+  },
+  passageText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.text,
   },
   categoryBadge: {
     alignSelf: 'flex-start',
