@@ -25,6 +25,7 @@ import {
   RotateCcw,
   Check,
   Award,
+  ArrowLeft,
 } from '@/src/components/ds/icons';
 import { useExamResultQuery } from '../../application/useExamAttempt';
 import { AssignmentSubmitBanner } from '@/src/features/class-membership/presentation/components/AssignmentSubmitBanner';
