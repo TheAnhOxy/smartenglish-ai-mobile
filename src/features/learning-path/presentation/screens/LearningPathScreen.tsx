@@ -405,6 +405,9 @@ export const LearningPathScreen = () => {
           title_vi: m.titleVi || m.title || `Chương ${idx + 1}`,
           title_en: m.titleEn || m.title || `Chapter ${idx + 1}`,
           is_premium: Boolean(m.isPremium),
+          placement_start: Boolean(m.placementStart),
+          below_placement: Boolean(m.belowPlacementLevel),
+          placement_level: m.placementCefrLevel ?? null,
           units: (m.units || m.modules || []).map((u: any, uIdx: number) => {
             let titleVi = u.titleVi || u.nameVi || u.title || `Unit ${uIdx + 1}`;
             let titleEn = u.titleEn || u.nameEn || u.title || `Unit ${uIdx + 1}`;
@@ -594,6 +597,15 @@ export const LearningPathScreen = () => {
                 <Text style={s.chapterNumberText}>Chương {chapter.chapter_number}</Text>
                 <Text style={s.chapterTitle}>{chapter.title_vi}</Text>
                 <Text style={s.chapterSub}>{biome.subtitle}</Text>
+                {chapter.placement_start || chapter.below_placement ? (
+                  <View style={s.placementChip}>
+                    <Text style={s.placementChipText}>
+                      {chapter.placement_start
+                        ? `Bắt đầu từ đây theo trình độ ${chapter.placement_level ?? ''}`.trim()
+                        : 'Dưới trình độ của bạn, có thể ôn lại'}
+                    </Text>
+                  </View>
+                ) : null}
               </LinearGradient>
 
               {/* Serpentine Path Container */}
@@ -891,6 +903,20 @@ const s = StyleSheet.create({
     fontSize: 9,
     fontFamily: font.family,
     fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  placementChip: {
+    alignSelf: 'flex-start',
+    marginTop: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+  },
+  placementChipText: {
+    fontSize: 12,
+    fontFamily: font.family,
+    fontWeight: '600',
     color: '#FFFFFF',
   },
   chapterNumberText: {
