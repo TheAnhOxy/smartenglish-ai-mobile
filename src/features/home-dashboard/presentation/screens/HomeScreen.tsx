@@ -12,6 +12,7 @@ import {
   BookOpen,
   BrainCircuit,
   ChevronRight,
+  ClipboardCheck,
   Coins,
   Flame,
   Layers,
@@ -31,7 +32,9 @@ import { LoxeraFoxMascot } from '@/src/core/components/LoxeraFoxMascot';
 import { UserAvatar } from '@/src/core/components/UserAvatar';
 import { colors } from '@/src/theme';
 import { heroGradient } from '@/src/theme/gradients';
-import { useMyDecksQuery } from '@/src/features/flashcard-srs/application/useFlashcardSrs';
+import { decksKeys, useMyDecksQuery } from '@/src/features/flashcard-srs/application/useFlashcardSrs';
+import { fetchDeckDueCardsApi } from '@/src/features/flashcard-srs/data/deckApi';
+import { usePlacementStatusQuery } from '@/src/features/onboarding/application/usePlacementStatus';
 import { useUserStatsQuery } from '../../application/useDashboard';
 import { DailyQuestList } from '../components/DailyQuestList';
 import { WordOfDayCard } from '../components/WordOfDayCard';
@@ -103,15 +106,32 @@ export const HomeScreen = () => {
   const stats = realStats ?? userStats;
 
   const { data: myDecks } = useMyDecksQuery(isLoggedIn);
+  // Thẻ đến hạn ôn hôm nay (SM-2) và trạng thái bài kiểm tra đầu vào
+  const { data: dueSession, refetch: refetchDue } = useQuery({
+    queryKey: decksKeys.dueCards(),
+    queryFn: () => fetchDeckDueCardsApi(),
+    enabled: isLoggedIn,
+    staleTime: 30_000,
+  });
+  const dueToday = isLoggedIn ? dueSession?.totalDue ?? 0 : 0;
+  const { data: placement, refetch: refetchPlacement } = usePlacementStatusQuery(isLoggedIn ? currentUser?.id : null, isLoggedIn);
+  const needsPlacement = !isLoggedIn || (placement != null && !placement.completed);
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!isLoggedIn) return;
+      void refetchDue();
+      void refetchPlacement();
+    }, [isLoggedIn, refetchDue, refetchPlacement])
+  );
   const continueDeck = isLoggedIn ? (myDecks ?? []).find((d) => (d.cardCount ?? 0) > 0) : undefined;
 
   const actions: QuickAction[] = [
-    { key: 'flashcard', label: 'Flashcard', icon: Layers, route: '/(student)/review', visible: hasPermission('learn_flashcard') },
-    { key: 'chat', label: 'Hội thoại AI', icon: MessageSquare, route: '/(student)/assistant', visible: hasPermission('access_ai_tools') },
-    { key: 'scan', label: 'Quét ảnh', icon: ScanText, route: '/(student)/practice/scan', visible: hasPermission('use_ai_scan') },
+    { key: 'flashcard', label: 'Thẻ từ vựng', icon: Layers, route: '/(student)/review', visible: hasPermission('learn_flashcard') },
+    { key: 'chat', label: 'Trò chuyện AI', icon: MessageSquare, route: '/(student)/assistant', visible: hasPermission('access_ai_tools') },
+    { key: 'scan', label: 'Học qua ảnh', icon: ScanText, route: '/(student)/practice/scan', visible: hasPermission('use_ai_scan') },
     {
       key: 'quiz',
-      label: 'Kiểm tra',
+      label: 'Luyện đề',
       icon: BrainCircuit,
       route: { pathname: '/(student)/learn', params: { tab: 'quiz' } },
       visible: hasPermission('take_quiz_exam'),
@@ -189,21 +209,34 @@ export const HomeScreen = () => {
 
       {/* Thẻ tiếp tục học */}
       <Pressable
-        onPress={() => go(continueDeck ? `/(student)/review/decks/${continueDeck.id}/study` : '/(student)/review')}
+        onPress={() =>
+          go(
+            dueToday > 0
+              ? '/(student)/review/due'
+              : continueDeck
+                ? `/(student)/review/decks/${continueDeck.id}/study`
+                : '/(student)/review'
+          )
+        }
         style={s.heroWrap}
+        accessibilityLabel={dueToday > 0 ? `Ôn ${dueToday} thẻ đến hạn hôm nay` : undefined}
       >
         <LinearGradient colors={heroGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.hero}>
           <View style={{ flex: 1, gap: 6 }}>
-            <Text style={s.heroTag}>{continueDeck ? 'Tiếp tục học' : 'Bắt đầu hôm nay'}</Text>
+            <Text style={s.heroTag}>{dueToday > 0 ? 'Ôn tập hôm nay' : continueDeck ? 'Tiếp tục học' : 'Bắt đầu hôm nay'}</Text>
             <Text style={s.heroTitle} numberOfLines={2}>
-              {continueDeck ? continueDeck.name : 'Ôn từ vựng với Flashcard'}
+              {dueToday > 0 ? `${dueToday} thẻ đến hạn ôn` : continueDeck ? continueDeck.name : 'Ôn từ vựng với Flashcard'}
             </Text>
             <Text style={s.heroSub}>
-              {continueDeck ? `${continueDeck.cardCount} thẻ trong bộ` : 'Chọn bộ thẻ phù hợp với trình độ của bạn'}
+              {dueToday > 0
+                ? 'Ôn đúng lúc sắp quên để nhớ lâu hơn'
+                : continueDeck
+                  ? `${continueDeck.cardCount} thẻ trong bộ`
+                  : 'Chọn bộ thẻ phù hợp với trình độ của bạn'}
             </Text>
             <View style={s.heroCta}>
               <Play size={14} color={colors.primary} fill={colors.primary} />
-              <Text style={s.heroCtaText}>{continueDeck ? 'Học tiếp' : 'Khám phá'}</Text>
+              <Text style={s.heroCtaText}>{dueToday > 0 ? 'Ôn ngay' : continueDeck ? 'Học tiếp' : 'Khám phá'}</Text>
             </View>
           </View>
           <LoxeraFoxMascot size={96} showGlow={false} showBook={false} animated />
@@ -287,6 +320,20 @@ export const HomeScreen = () => {
         </Pressable>
       ) : null}
 
+      {/* Bài kiểm tra đầu vào: chưa làm thì mời làm để xếp lộ trình */}
+      {needsPlacement && hasPermission('take_quiz_exam') ? (
+        <Pressable onPress={() => go('/(student)/placement')} style={s.pathRow} accessibilityLabel="Làm bài kiểm tra đầu vào">
+          <View style={s.actionIcon}>
+            <ClipboardCheck size={20} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.pathTitle}>Kiểm tra trình độ đầu vào</Text>
+            <Text style={s.pathSub}>Khoảng 3 phút, lộ trình sẽ bắt đầu đúng trình độ của bạn</Text>
+          </View>
+          <ChevronRight size={18} color={colors.textSoft} />
+        </Pressable>
+      ) : null}
+
       {/* Lộ trình */}
       <Pressable onPress={() => go('/(student)/learn')} style={s.pathRow}>
         <View style={s.actionIcon}>
@@ -294,7 +341,11 @@ export const HomeScreen = () => {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={s.pathTitle}>Lộ trình học</Text>
-          <Text style={s.pathSub}>Bài học, luyện nói và đề kiểm tra</Text>
+          <Text style={s.pathSub}>
+            {placement?.completed && placement.cefrLevel
+              ? `Bắt đầu từ trình độ ${placement.cefrLevel} theo bài kiểm tra đầu vào`
+              : 'Bài học, luyện nói và đề kiểm tra'}
+          </Text>
         </View>
         <ChevronRight size={18} color={colors.textSoft} />
       </Pressable>
