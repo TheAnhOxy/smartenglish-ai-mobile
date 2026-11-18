@@ -140,9 +140,6 @@ const FlashcardDeckCard: React.FC<DeckCardItemProps> = ({
 
   const IconComponent = getDeckIconComp(deck.name);
 
-  // Giả lập tiến độ mastery SRS hiển thị hấp dẫn
-  const masteryPercent = Math.min(100, Math.max(25, ((index * 23 + 45) % 85) + 15));
-
   return (
     <View style={styles.cardStackWrapper}>
       {/* Lớp thẻ bài phụ phía sau tạo hiệu ứng xếp chồng 3D (Card Stack Illusion) */}
@@ -199,22 +196,6 @@ const FlashcardDeckCard: React.FC<DeckCardItemProps> = ({
           <Text style={styles.deckCardDesc} numberOfLines={2}>
             {deck.description || 'Luyện tập phương pháp lặp lại ngắt quãng SRS'}
           </Text>
-        </View>
-
-        {/* SRS Mastery Progress Mini Bar */}
-        <View style={styles.masteryProgressSection}>
-          <View style={styles.masteryLabelRow}>
-            <View style={styles.masteryIndicatorDot} />
-            <Text style={styles.masteryText}>Thuộc {masteryPercent}%</Text>
-          </View>
-          <View style={styles.progressBarTrack}>
-            <View
-              style={[
-                styles.progressBarFill,
-                { width: `${masteryPercent}%`, backgroundColor: theme.gradient[0] },
-              ]}
-            />
-          </View>
         </View>
       </AnimatedPressable>
     </View>

@@ -1,11 +1,12 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useSegments } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BarChart2, ClipboardCheck, Clock, Lock } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
 import { AuthButton } from '@/src/features/auth/presentation/components/AuthUI';
 import { BackButton } from '@/src/core/components/BackButton';
+import { placementRoutesFor } from '../../application/placementRoutes';
 
 const INFO = [
   { Icon: Clock, text: 'Khoảng 3 phút' },
@@ -16,6 +17,7 @@ const INFO = [
 export const PlacementIntroScreen = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const routes = placementRoutesFor(useSegments()[0]);
 
   return (
     <View
@@ -43,7 +45,7 @@ export const PlacementIntroScreen = () => {
         </View>
       </View>
 
-      <AuthButton label="Bắt đầu" onPress={() => router.push('/(auth)/placement-test')} />
+      <AuthButton label="Bắt đầu" onPress={() => router.push(routes.test as any)} />
     </View>
   );
 };

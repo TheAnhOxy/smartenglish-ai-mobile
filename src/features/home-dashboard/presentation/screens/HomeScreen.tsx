@@ -1,11 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ClipboardCheck, PenLine, School, Search, Users } from 'lucide-react-native';
 import { subscribeTopic } from '@/src/core/realtime/stompClient';
 import { fetchUserConversationsApi } from '@/src/features/social-feed/data/socialApi';
 import { fetchUnreadNotificationCountApi } from '@/src/features/notifications/data/notificationApi';
@@ -19,12 +17,8 @@ import {
   Layers,
   LogIn,
   MessageSquare,
-  PenLine,
   Play,
   ScanText,
-  School,
-  Search,
-  Users,
   Zap,
 } from '@/src/components/ds/icons';
 import { Reveal, Tap, dsText } from '@/src/components/ds';
@@ -33,11 +27,13 @@ import { useAuthStore } from '@/src/core/flows/authStore';
 import { useRoleGateStore } from '@/src/core/flows/roleGateStore';
 import { LoxeraFoxMascot } from '@/src/core/components/LoxeraFoxMascot';
 import { UserAvatar } from '@/src/core/components/UserAvatar';
-import { useMyDecksQuery } from '@/src/features/flashcard-srs/application/useFlashcardSrs';
+import { decksKeys, useMyDecksQuery } from '@/src/features/flashcard-srs/application/useFlashcardSrs';
+import { fetchDeckDueCardsApi } from '@/src/features/flashcard-srs/data/deckApi';
+import { usePlacementStatusQuery } from '@/src/features/onboarding/application/usePlacementStatus';
+import { QuickWordLookupModal } from '@/src/features/flashcard-srs/presentation/screens/QuickWordLookupModal';
 import { useUserStatsQuery } from '../../application/useDashboard';
 import { DailyQuestList } from '../components/DailyQuestList';
 import { WordOfDayCard } from '../components/WordOfDayCard';
-import { QuickWordLookupModal } from '@/src/features/flashcard-srs/presentation/screens/QuickWordLookupModal';
 
 type IconType = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 
@@ -97,6 +93,24 @@ export const HomeScreen = () => {
     refetchInterval: isFocused ? 15000 : false,
   });
 
+  // Thẻ đến hạn ôn hôm nay (SM-2) và trạng thái bài kiểm tra đầu vào
+  const { data: dueSession, refetch: refetchDue } = useQuery({
+    queryKey: decksKeys.dueCards(),
+    queryFn: () => fetchDeckDueCardsApi(),
+    enabled: isLoggedIn,
+    staleTime: 30_000,
+  });
+  const dueToday = isLoggedIn ? dueSession?.totalDue ?? 0 : 0;
+  const { data: placement, refetch: refetchPlacement } = usePlacementStatusQuery(isLoggedIn ? currentUser?.id : null, isLoggedIn);
+  const needsPlacement = !isLoggedIn || (placement != null && !placement.completed);
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!isLoggedIn) return;
+      void refetchDue();
+      void refetchPlacement();
+    }, [isLoggedIn, refetchDue, refetchPlacement])
+  );
+
   useEffect(() => {
     syncRolePermissions();
   }, [syncRolePermissions]);
@@ -113,8 +127,8 @@ export const HomeScreen = () => {
   const actions: QuickAction[] = [
     {
       key: 'flashcard',
-      label: 'Flashcard',
-      hint: 'Ôn lặp ngắt quãng',
+      label: 'Thẻ từ vựng',
+      hint: 'Ôn đúng lúc sắp quên',
       icon: Layers,
       tint: ds.btn,
       tone: ds.skySoft,
@@ -123,7 +137,7 @@ export const HomeScreen = () => {
     },
     {
       key: 'chat',
-      label: 'Hội thoại AI',
+      label: 'Trò chuyện AI',
       hint: 'Nói chuyện với gia sư',
       icon: MessageSquare,
       tint: ds.green,
@@ -133,7 +147,7 @@ export const HomeScreen = () => {
     },
     {
       key: 'scan',
-      label: 'Quét ảnh',
+      label: 'Học qua ảnh',
       hint: 'Học từ vật xung quanh',
       icon: ScanText,
       tint: ds.amberText,
@@ -143,7 +157,7 @@ export const HomeScreen = () => {
     },
     {
       key: 'quiz',
-      label: 'Kiểm tra',
+      label: 'Luyện đề',
       hint: 'Đề luyện và thi thử',
       icon: BrainCircuit,
       tint: ds.ink,
@@ -154,8 +168,26 @@ export const HomeScreen = () => {
   ].filter((a) => a.visible);
 
   const connectActions: QuickAction[] = [
-    { key: 'classes', label: 'Lớp học', icon: School, route: '/(student)/classes', visible: isLoggedIn && hasPermission('join_class_submit') },
-    { key: 'community', label: 'Cộng đồng', icon: Users, route: '/(student)/feed', visible: isLoggedIn && hasPermission('use_community') },
+    {
+      key: 'classes',
+      label: 'Lớp học',
+      hint: 'Bài tập của giáo viên',
+      icon: School,
+      tint: ds.btn,
+      tone: ds.skySoft,
+      route: '/(student)/classes',
+      visible: isLoggedIn && hasPermission('join_class_submit'),
+    },
+    {
+      key: 'community',
+      label: 'Cộng đồng',
+      hint: 'Bạn học và tin nhắn',
+      icon: Users,
+      tint: ds.green,
+      tone: ds.greenSoft,
+      route: '/(student)/feed',
+      visible: isLoggedIn && hasPermission('use_community'),
+    },
   ].filter((a) => a.visible);
 
   const go = (route: QuickAction['route']) => router.push(route as never);
@@ -174,7 +206,7 @@ export const HomeScreen = () => {
       {/* Header */}
       <Reveal delay={0}>
         <View style={s.header}>
-          <Pressable onPress={() => go(isLoggedIn ? '/(student)/profile' : '/(auth)/login')} style={s.headerLeft}>
+          <Pressable onPress={() => (isLoggedIn ? go('/(student)/profile') : goLogin())} style={s.headerLeft}>
             <View style={s.avatarRing}>
               <UserAvatar uri={currentUser?.avatar_url} size={44} />
             </View>
@@ -185,13 +217,24 @@ export const HomeScreen = () => {
               </Text>
             </View>
           </Pressable>
-          {isLoggedIn ? (
-            <Tap onPress={() => go('/(student)/notifications')} style={s.bellBtn} accessibilityLabel="Thông báo">
-              <Bell size={22} color={ds.ink} />
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Tap onPress={() => setLookupOpen(true)} style={s.bellBtn} accessibilityLabel="Tra từ vựng">
+              <Search size={22} color={ds.ink} />
             </Tap>
-          ) : null}
+            {isLoggedIn ? (
+              <Tap onPress={() => go('/(student)/notifications')} style={s.bellBtn} accessibilityLabel="Thông báo">
+                <Bell size={22} color={ds.ink} />
+                {unreadNotifications > 0 ? (
+                  <View style={s.unreadBadge} accessibilityLabel={`${unreadNotifications} thông báo chưa đọc`}>
+                    <Text style={s.unreadText}>{unreadNotifications > 99 ? '99+' : unreadNotifications}</Text>
+                  </View>
+                ) : null}
+              </Tap>
+            ) : null}
+          </View>
         </View>
       </Reveal>
+      <QuickWordLookupModal visible={lookupOpen} onClose={() => setLookupOpen(false)} />
 
       {/* Chỉ số học tập */}
       <Reveal delay={60}>
@@ -214,55 +257,11 @@ export const HomeScreen = () => {
               tone={ds.amberSoft}
               value={(stats?.coins ?? 0).toLocaleString('vi-VN')}
               label="xu"
+              onPress={() => go('/(student)/shop')}
             />
-      <View style={s.header}>
-        <Pressable onPress={() => (isLoggedIn ? go('/(student)/profile') : goLogin())} style={s.headerLeft}>
-          <UserAvatar uri={currentUser?.avatar_url} size={44} />
-          <View style={{ flex: 1 }}>
-            <Text style={s.greeting}>{greetingOf(new Date().getHours())}</Text>
-            <Text style={s.name} numberOfLines={1}>
-              {isLoggedIn ? currentUser?.display_name || 'Học viên' : 'Khách'}
-            </Text>
-          </View>
-        </Pressable>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <Pressable onPress={() => setLookupOpen(true)} style={s.bellBtn} accessibilityLabel="Tra từ vựng">
-            <Search size={20} color={colors.text} />
-          </Pressable>
-          {isLoggedIn ? (
-            <Pressable onPress={() => go('/(student)/notifications')} style={s.bellBtn} accessibilityLabel="Thông báo">
-              <Bell size={20} color={colors.text} />
-              {unreadNotifications > 0 ? (
-                <View style={s.unreadBadge} accessibilityLabel={`${unreadNotifications} thông báo chưa đọc`}>
-                  <Text style={s.unreadText}>{unreadNotifications > 99 ? '99+' : unreadNotifications}</Text>
-                </View>
-              ) : null}
-            </Pressable>
-          ) : null}
-        </View>
-      </View>
-      <QuickWordLookupModal visible={lookupOpen} onClose={() => setLookupOpen(false)} />
-
-      {/* Chỉ số học tập */}
-      {isLoggedIn ? (
-        <View style={s.statsCard}>
-          <StatTile icon={Flame} color={colors.streak} value={`${stats?.streak_current ?? 0}`} label="Ngày streak" />
-          <View style={s.statDivider} />
-          <StatTile icon={Zap} color={colors.xpDeep} value={(stats?.xp_total ?? 0).toLocaleString('vi-VN')} label="Tổng XP" />
-          <View style={s.statDivider} />
-          <StatTile icon={Coins} color={colors.coin} value={(stats?.coins ?? 0).toLocaleString('vi-VN')} label="Xu" onPress={() => go('/(student)/shop')} />
-        </View>
-      ) : (
-        <Pressable onPress={goLogin} style={s.loginCard}>
-          <View style={s.loginIcon}>
-            <LogIn size={20} color={colors.primary} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.loginTitle}>Đăng nhập để lưu tiến độ</Text>
-            <Text style={s.loginSub}>Streak, XP và nhiệm vụ hằng ngày chỉ có khi đăng nhập</Text>
           </View>
         ) : (
-          <Tap onPress={() => go('/(auth)/login')} style={s.loginCard} scaleTo={0.98}>
+          <Tap onPress={goLogin} style={s.loginCard} scaleTo={0.98}>
             <View style={s.loginIcon}>
               <LogIn size={22} color={ds.btn} />
             </View>
@@ -278,25 +277,38 @@ export const HomeScreen = () => {
       {/* Thẻ tiếp tục học */}
       <Reveal delay={120}>
         <Tap
-          onPress={() => go(continueDeck ? `/(student)/review/decks/${continueDeck.id}/study` : '/(student)/review')}
+          onPress={() =>
+            go(
+              dueToday > 0
+                ? '/(student)/review/due'
+                : continueDeck
+                  ? `/(student)/review/decks/${continueDeck.id}/study`
+                  : '/(student)/review'
+            )
+          }
           style={s.hero}
           scaleTo={0.98}
+          accessibilityLabel={dueToday > 0 ? `Ôn ${dueToday} thẻ đến hạn hôm nay` : undefined}
         >
           <View style={[s.heroDot, { width: 180, height: 180, right: -60, top: -70 }]} />
           <View style={[s.heroDot, { width: 90, height: 90, right: 70, bottom: -50 }]} />
           <View style={{ flex: 1, gap: 6 }}>
-            <Text style={s.heroTag}>{continueDeck ? 'Tiếp tục học' : 'Bắt đầu hôm nay'}</Text>
+            <Text style={s.heroTag}>{dueToday > 0 ? 'Ôn tập hôm nay' : continueDeck ? 'Tiếp tục học' : 'Bắt đầu hôm nay'}</Text>
             <Text style={s.heroTitle} numberOfLines={2}>
-              {continueDeck ? continueDeck.name : 'Ôn từ vựng với Flashcard'}
+              {dueToday > 0 ? `${dueToday} thẻ đến hạn ôn` : continueDeck ? continueDeck.name : 'Ôn từ vựng với Flashcard'}
             </Text>
             <Text style={s.heroSub}>
-              {continueDeck ? `${continueDeck.cardCount} thẻ trong bộ` : 'Chọn bộ thẻ phù hợp với trình độ của bạn'}
+              {dueToday > 0
+                ? 'Ôn đúng lúc sắp quên để nhớ lâu hơn'
+                : continueDeck
+                  ? `${continueDeck.cardCount} thẻ trong bộ`
+                  : 'Chọn bộ thẻ phù hợp với trình độ của bạn'}
             </Text>
             <View style={s.heroCtaWrap}>
               <View style={s.heroCtaEdge} />
               <View style={s.heroCta}>
                 <Play size={16} color={ds.ink} fill={ds.ink} />
-                <Text style={s.heroCtaText}>{continueDeck ? 'Học tiếp' : 'Khám phá'}</Text>
+                <Text style={s.heroCtaText}>{dueToday > 0 ? 'Ôn ngay' : continueDeck ? 'Học tiếp' : 'Khám phá'}</Text>
               </View>
             </View>
           </View>
@@ -333,27 +345,34 @@ export const HomeScreen = () => {
 
       {/* Lớp học & Cộng đồng */}
       {connectActions.length > 0 ? (
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>Lớp học & Cộng đồng</Text>
+        <Reveal delay={210} style={s.section}>
+          <Text style={dsText.h2}>Lớp học & Cộng đồng</Text>
           <View style={s.grid}>
             {connectActions.map((a) => {
               const Icon = a.icon;
               return (
-                <Pressable key={a.key} onPress={() => go(a.route)} style={[s.pathRow, { flex: 1 }]}>
-                  <View style={s.actionIcon}>
-                    <Icon size={20} color={colors.primary} strokeWidth={2} />
+                <Tap key={a.key} onPress={() => go(a.route)} style={s.actionTile}>
+                  <View style={[s.actionIcon, { backgroundColor: a.tone }]}>
+                    <Icon size={24} color={a.tint} />
                   </View>
-                  <Text style={[s.pathTitle, { flex: 1 }]} numberOfLines={1}>{a.label}</Text>
+                  <View style={{ gap: 2 }}>
+                    <Text style={s.actionLabel} numberOfLines={1}>
+                      {a.label}
+                    </Text>
+                    <Text style={s.actionHint} numberOfLines={1}>
+                      {a.hint}
+                    </Text>
+                  </View>
                   {a.key === 'community' && unreadMessages > 0 ? (
                     <View style={s.unreadBadge} accessibilityLabel={`${unreadMessages} tin nhắn chưa đọc`}>
                       <Text style={s.unreadText}>{unreadMessages > 99 ? '99+' : unreadMessages}</Text>
                     </View>
                   ) : null}
-                </Pressable>
+                </Tap>
               );
             })}
           </View>
-        </View>
+        </Reveal>
       ) : null}
 
       {/* Nhiệm vụ hằng ngày */}
@@ -376,16 +395,34 @@ export const HomeScreen = () => {
 
       {/* Luyện viết với AI */}
       {isLoggedIn ? (
-        <Pressable onPress={() => go('/(student)/practice/writing')} style={s.pathRow}>
-          <View style={s.actionIcon}>
-            <PenLine size={20} color={colors.primary} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.pathTitle}>Luyện viết với AI</Text>
-            <Text style={s.pathSub}>Chấm lỗi, chấm điểm và viết lại bài của bạn</Text>
-          </View>
-          <ChevronRight size={18} color={colors.textSoft} />
-        </Pressable>
+        <Reveal delay={320}>
+          <Tap onPress={() => go('/(student)/practice/writing')} style={s.pathRow} scaleTo={0.98}>
+            <View style={[s.actionIcon, { backgroundColor: ds.greenSoft }]}>
+              <PenLine size={22} color={ds.green} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.actionLabel}>Luyện viết với AI</Text>
+              <Text style={s.actionHint}>Chấm lỗi, chấm điểm và viết lại bài của bạn</Text>
+            </View>
+            <ChevronRight size={20} color={ds.faint} />
+          </Tap>
+        </Reveal>
+      ) : null}
+
+      {/* Bài kiểm tra đầu vào: chưa làm thì mời làm để xếp lộ trình */}
+      {needsPlacement && hasPermission('take_quiz_exam') ? (
+        <Reveal delay={330}>
+          <Tap onPress={() => go('/(student)/placement')} style={s.pathRow} scaleTo={0.98} accessibilityLabel="Làm bài kiểm tra đầu vào">
+            <View style={[s.actionIcon, { backgroundColor: ds.amberSoft }]}>
+              <ClipboardCheck size={22} color={ds.amberText} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.actionLabel}>Kiểm tra trình độ đầu vào</Text>
+              <Text style={s.actionHint}>Khoảng 3 phút, lộ trình sẽ bắt đầu đúng trình độ của bạn</Text>
+            </View>
+            <ChevronRight size={20} color={ds.faint} />
+          </Tap>
+        </Reveal>
       ) : null}
 
       {/* Lộ trình */}
@@ -396,7 +433,11 @@ export const HomeScreen = () => {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={s.actionLabel}>Lộ trình học</Text>
-            <Text style={s.actionHint}>Bài học, luyện nói và đề kiểm tra</Text>
+            <Text style={s.actionHint}>
+              {placement?.completed && placement.cefrLevel
+                ? `Bắt đầu từ trình độ ${placement.cefrLevel} theo bài kiểm tra đầu vào`
+                : 'Bài học, luyện nói và đề kiểm tra'}
+            </Text>
           </View>
           <ChevronRight size={20} color={ds.faint} />
         </Tap>
@@ -432,8 +473,19 @@ const WobbleFlame: React.FC = () => {
   );
 };
 
-const StatChip: React.FC<{ icon: React.ReactNode; tone: string; value: string; label: string }> = ({ icon, tone, value, label }) => (
-  <View style={s.statChip}>
+const StatChip: React.FC<{ icon: React.ReactNode; tone: string; value: string; label: string; onPress?: () => void }> = ({
+  icon,
+  tone,
+  value,
+  label,
+  onPress,
+}) => (
+  <Pressable
+    style={s.statChip}
+    onPress={onPress}
+    disabled={!onPress}
+    accessibilityLabel={onPress ? `${label} - mở cửa hàng` : undefined}
+  >
     <View style={[s.statIcon, { backgroundColor: tone }]}>{icon}</View>
     <View style={{ flexShrink: 1 }}>
       <Text style={s.statValue} numberOfLines={1}>
@@ -443,12 +495,6 @@ const StatChip: React.FC<{ icon: React.ReactNode; tone: string; value: string; l
         {label}
       </Text>
     </View>
-  </View>
-const StatTile: React.FC<{ icon: IconType; color: string; value: string; label: string; onPress?: () => void }> = ({ icon: Icon, color, value, label, onPress }) => (
-  <Pressable style={s.statTile} onPress={onPress} disabled={!onPress} accessibilityLabel={onPress ? `${label} - mở cửa hàng` : undefined}>
-    <Icon size={18} color={color} />
-    <Text style={s.statValue}>{value}</Text>
-    <Text style={s.statLabel}>{label}</Text>
   </Pressable>
 );
 
@@ -543,6 +589,21 @@ const s = StyleSheet.create({
   actionIcon: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   actionLabel: { fontFamily: dsFont.bold, fontSize: dsSize.base, color: ds.ink },
   actionHint: { fontFamily: dsFont.body, fontSize: dsSize.xs, color: ds.muted },
+  unreadBadge: {
+    position: 'absolute',
+    top: -7,
+    right: -7,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
+    backgroundColor: ds.red,
+    borderWidth: 2,
+    borderColor: ds.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unreadText: { fontFamily: dsFont.bold, fontSize: 11, color: ds.white },
   pathRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -554,21 +615,4 @@ const s = StyleSheet.create({
     borderBottomWidth: 4,
     padding: 14,
   },
-  unreadBadge: {
-    position: 'absolute',
-    top: -7,
-    right: -7,
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    paddingHorizontal: 6,
-    backgroundColor: colors.danger,
-    borderWidth: 2,
-    borderColor: colors.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  unreadText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
-  pathTitle: { fontSize: 14, fontWeight: '700', color: colors.text },
-  pathSub: { fontSize: 12, color: colors.textSoft, marginTop: 2 },
 });

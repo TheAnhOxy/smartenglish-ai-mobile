@@ -13,6 +13,10 @@ export interface PlacementQuestion {
   skill?: string;
   mediaUrl?: string;
   points?: number;
+  /** Đoạn văn của câu đọc hiểu. */
+  passage?: string;
+  /** Nội dung bài nghe (đọc bằng giọng máy khi chưa có file âm thanh). */
+  audioScript?: string;
 }
 
 export interface PlacementSession {
@@ -108,7 +112,9 @@ export const fetchPlacementTestApi = async (): Promise<PlacementSession> => {
       category,
       skill: category,
       mediaUrl: q.mediaUrl || q.audioUrl || undefined,
-      points: q.points || q.point || 1
+      points: q.points || q.point || 1,
+      passage: q.passageText || q.passage || undefined,
+      audioScript: q.audioScript || undefined,
     };
   });
 
@@ -120,6 +126,27 @@ export const fetchPlacementTestApi = async (): Promise<PlacementSession> => {
     totalQuestions: normalizedQuestions.length,
     questions: normalizedQuestions,
     savedAnswers: data.answers || {}
+  };
+};
+
+export interface PlacementStatus {
+  completed: boolean;
+  cefrLevel?: string | null;
+  attemptId?: number | null;
+  completedAt?: string | null;
+  recommendedGoal?: string | null;
+}
+
+/** GET /api/v1/learning/placement/status — người dùng đã làm bài kiểm tra đầu vào chưa. */
+export const fetchPlacementStatusApi = async (): Promise<PlacementStatus> => {
+  const response = await apiClient.get('/api/v1/learning/placement/status');
+  const data = response.data?.data ?? response.data ?? {};
+  return {
+    completed: Boolean(data.completed),
+    cefrLevel: data.cefrLevel ?? null,
+    attemptId: data.attemptId ?? null,
+    completedAt: data.completedAt ?? null,
+    recommendedGoal: data.recommendedGoal ?? null,
   };
 };
 
