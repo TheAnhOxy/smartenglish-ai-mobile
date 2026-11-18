@@ -79,7 +79,7 @@ export const LoginSuccessScreen: React.FC = () => {
 
   // Map role → destination internally — avoids URL-encoding issues with parens
   const getDestination = (): string => {
-    if (role === 'teacher') return '/(teacher-companion)/classes';
+    if (role === 'teacher') return '/(teacher-companion)/teacher/classes';
     const meta = (globalThis as any).__loginMeta;
     if (meta && !meta.onboarding_completed) return '/(auth)/welcome';
     return '/(student)/home';
