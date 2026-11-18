@@ -7,6 +7,8 @@ import { Tap, feedback } from '@/src/components/ds';
 import { speakText } from '@/src/core/services/speechService';
 import { exploreWordsApi } from '@/src/features/flashcard-srs/data/vocabularyApi';
 import { useDeckStore } from '@/src/features/flashcard-srs/data/deckStore';
+import { useAuthStore } from '@/src/core/flows/authStore';
+import { normalizeCefr } from '@/src/features/onboarding/application/learnerLevel';
 
 const MY_DECK_ID = 'deck-my-words';
 
@@ -16,11 +18,21 @@ const dayIndex = () => {
   return Math.floor((now.getTime() - start.getTime()) / 86_400_000);
 };
 
-/** Từ vựng hôm nay: chọn cố định theo ngày từ kho từ vựng thật của hệ thống. */
+/** Kho từ theo trình độ học viên; trình độ đó chưa có từ thì lấy kho chung. */
+const fetchWordPool = async (level: string | null) => {
+  if (level) {
+    const matched = await exploreWordsApi({ cefrLevel: level, size: 60 });
+    if (matched.items.some((w) => w.word && w.definitionVi)) return { ...matched, levelMatched: true };
+  }
+  return { ...(await exploreWordsApi({ size: 60 })), levelMatched: false };
+};
+
+/** Từ vựng hôm nay: chọn cố định theo ngày từ kho từ vựng thật, ưu tiên đúng trình độ học viên. */
 export const WordOfDayCard: React.FC = () => {
+  const learnerLevel = normalizeCefr(useAuthStore((s) => s.currentUser?.cefr_level));
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['home-word-of-day-pool'],
-    queryFn: () => exploreWordsApi({ size: 60 }),
+    queryKey: ['home-word-of-day-pool', learnerLevel ?? 'all'],
+    queryFn: () => fetchWordPool(learnerLevel),
     staleTime: 60 * 60 * 1000,
   });
   const saveWordsToDeck = useDeckStore((s) => s.saveWordsToDeck);
@@ -73,7 +85,11 @@ export const WordOfDayCard: React.FC = () => {
     <View style={st.card}>
       <View style={st.topRow}>
         <Text style={st.tag}>Từ vựng hôm nay</Text>
-        {word.cefrLevel ? <Text style={st.level}>{word.cefrLevel}</Text> : null}
+        {data?.levelMatched ? (
+          <Text style={[st.level, st.levelMatch]}>Phù hợp trình độ của bạn</Text>
+        ) : word.cefrLevel ? (
+          <Text style={st.level}>{word.cefrLevel}</Text>
+        ) : null}
       </View>
 
       <View style={st.wordRow}>
@@ -125,6 +141,7 @@ const st = StyleSheet.create({
     borderRadius: 999,
     overflow: 'hidden',
   },
+  levelMatch: { color: ds.greenText, backgroundColor: ds.greenSoft },
   wordRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   word: { fontFamily: dsFont.displayHeavy, fontSize: dsSize.xxl, color: ds.ink, letterSpacing: -0.5 },
   phonetic: { fontFamily: dsFont.body, fontSize: dsSize.sm, color: ds.muted, marginTop: 2 },

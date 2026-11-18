@@ -39,6 +39,7 @@ import {
   FREE_SPEAKING_DAILY_LIMIT,
 } from '../../data/speakingApi';
 import { hasActivePremium } from '@/src/core/utils/plan';
+import { isLevelMatch, normalizeCefr, sortByLevelCloseness } from '@/src/features/onboarding/application/learnerLevel';
 
 const { width } = Dimensions.get('window');
 
@@ -98,9 +99,12 @@ export const SpeakingHomeScreen = () => {
       .finally(() => setLoading(false));
   }, []);
 
+  // Trình độ học viên: kịch bản và bài phát âm gần trình độ lên trước
+  const learnerLevel = normalizeCefr(currentUser?.cefr_level);
+
   // Lọc kịch bản Roleplay
   const filteredScenarios = useMemo(() => {
-    return scenarios.filter((sc) => {
+    const matched = scenarios.filter((sc) => {
       const matchCat =
         selectedCategory === 'Tất cả' ||
         (sc.category && sc.category.toLowerCase().includes(selectedCategory.toLowerCase()));
@@ -111,11 +115,12 @@ export const SpeakingHomeScreen = () => {
         sc.ai_persona.toLowerCase().includes(searchQuery.toLowerCase());
       return matchCat && matchQuery;
     });
-  }, [scenarios, selectedCategory, searchQuery]);
+    return sortByLevelCloseness(matched, learnerLevel, (sc) => sc.cefr_level);
+  }, [scenarios, selectedCategory, searchQuery, learnerLevel]);
 
   // Lọc bài phát âm
   const filteredLessons = useMemo(() => {
-    return pronLessons.filter((item) => {
+    const matched = pronLessons.filter((item) => {
       const matchCat =
         selectedCategory === 'Tất cả' ||
         (item.category && item.category.toLowerCase().includes(selectedCategory.toLowerCase()));
@@ -125,7 +130,8 @@ export const SpeakingHomeScreen = () => {
         item.targetText.toLowerCase().includes(searchQuery.toLowerCase());
       return matchCat && matchQuery;
     });
-  }, [pronLessons, selectedCategory, searchQuery]);
+    return sortByLevelCloseness(matched, learnerLevel, (item) => item.cefrLevel);
+  }, [pronLessons, selectedCategory, searchQuery, learnerLevel]);
 
   return (
     <View style={s.root}>
@@ -263,6 +269,7 @@ export const SpeakingHomeScreen = () => {
                         >
                           <Text style={[s.cefrLevelText, { color: cefr.text }]}>
                             {sc.cefr_level || 'A1'}
+                            {isLevelMatch(learnerLevel, sc.cefr_level) ? ' · Phù hợp trình độ' : ''}
                           </Text>
                         </View>
 

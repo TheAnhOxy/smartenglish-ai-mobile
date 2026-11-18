@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -45,6 +45,8 @@ import { usePressSpring } from '@/src/hooks/usePressSpring';
 import { TabLoadingState } from '@/src/components/ui/TabLoadingState';
 import { UserAvatar } from '@/src/core/components/UserAvatar';
 import { hasActivePremium } from '@/src/core/utils/plan';
+import { ds, dsFont } from '@/src/theme/ds';
+import { isLevelMatch, sortByLevelCloseness } from '@/src/features/onboarding/application/learnerLevel';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - 48 - 14) / 2;
@@ -116,6 +118,8 @@ interface DeckCardItemProps {
   deck: DeckItemDTO;
   index: number;
   isUserPremium: boolean;
+  /** Bộ thẻ hệ thống gần trình độ của học viên. */
+  levelMatch?: boolean;
   onPress: (deck: DeckItemDTO) => void;
 }
 
@@ -123,6 +127,7 @@ const FlashcardDeckCard: React.FC<DeckCardItemProps> = ({
   deck,
   index,
   isUserPremium,
+  levelMatch,
   onPress,
 }) => {
   const cardSpring = usePressSpring(0.96);
@@ -196,6 +201,11 @@ const FlashcardDeckCard: React.FC<DeckCardItemProps> = ({
           <Text style={styles.deckCardDesc} numberOfLines={2}>
             {deck.description || 'Luyện tập phương pháp lặp lại ngắt quãng SRS'}
           </Text>
+          {levelMatch && (
+            <View style={styles.levelBadge}>
+              <Text style={styles.levelBadgeText}>Phù hợp trình độ</Text>
+            </View>
+          )}
         </View>
       </AnimatedPressable>
     </View>
@@ -292,7 +302,13 @@ export const DecksScreen = () => {
     }
   };
 
-  const currentList = activeTab === 'SYSTEM' ? systemDecks : myDecks;
+  const learnerLevel = currentUser?.cefr_level;
+  // Bộ thẻ hệ thống: chủ đề gần trình độ học viên lên trước
+  const sortedSystemDecks = useMemo(
+    () => sortByLevelCloseness(systemDecks, learnerLevel, (d) => d.targetExam),
+    [systemDecks, learnerLevel],
+  );
+  const currentList = activeTab === 'SYSTEM' ? sortedSystemDecks : myDecks;
 
   const handleOpenStudy = (deck: DeckItemDTO) => {
     if (deck.isPremium && !isUserPremium) {
@@ -429,6 +445,7 @@ export const DecksScreen = () => {
               deck={deck}
               index={idx}
               isUserPremium={isUserPremium}
+              levelMatch={activeTab === 'SYSTEM' && deck.source === 'SYSTEM_TOPIC' && isLevelMatch(learnerLevel, deck.targetExam)}
               onPress={handleOpenStudy}
             />
           ))}
@@ -654,6 +671,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 2,
+  },
+  levelBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: ds.greenSoft,
+  },
+  levelBadgeText: {
+    fontSize: 10,
+    fontFamily: dsFont.semibold,
+    color: ds.greenText,
   },
   cardTopBadgeRow: {
     flexDirection: 'row',

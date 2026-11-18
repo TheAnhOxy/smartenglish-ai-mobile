@@ -44,6 +44,9 @@ import {
   SavedPracticeSession,
 } from '../../data/practiceSessionStorage';
 import { colors } from '@/src/theme/colors';
+import { ds, dsFont, dsSize } from '@/src/theme/ds';
+import { useAuthStore } from '@/src/core/flows/authStore';
+import { normalizeCefr } from '@/src/features/onboarding/application/learnerLevel';
 
 export const EXAM_CATEGORY_LABELS: Record<string, string> = {
   TOEIC_FULL: 'TOEIC',
@@ -72,9 +75,24 @@ const CEFR_LEVELS = ['ALL', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
 export function ExamCatalogScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ xpAwarded?: string }>();
+  const params = useLocalSearchParams<{ xpAwarded?: string; category?: string; level?: string }>();
+  // Mặc định lọc theo trình độ của học viên (từ bài kiểm tra đầu vào)
+  const learnerLevel = normalizeCefr(useAuthStore((s) => s.currentUser?.cefr_level));
   const [selectedCategoryKey, setSelectedCategoryKey] = useState<string>('ALL');
-  const [selectedLevel, setSelectedLevel] = useState<string>('ALL');
+  const [selectedLevel, setSelectedLevel] = useState<string>(learnerLevel ?? 'ALL');
+
+  useEffect(() => {
+    if (learnerLevel) setSelectedLevel(learnerLevel);
+  }, [learnerLevel]);
+
+  // Mở từ thẻ "Kỹ năng cần cải thiện": chọn sẵn loại đề và cấp độ
+  useEffect(() => {
+    if (params.category && CATEGORY_TABS.some((t) => t.key === params.category)) {
+      setSelectedCategoryKey(params.category);
+    }
+    const level = normalizeCefr(params.level);
+    if (level) setSelectedLevel(level);
+  }, [params.category, params.level]);
   const [searchText, setSearchText] = useState<string>('');
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -225,6 +243,15 @@ export function ExamCatalogScreen() {
             {activeFilterCount > 0 && !filtersOpen ? <View style={styles.filterDot} /> : null}
           </Pressable>
         </View>
+
+        {learnerLevel && selectedLevel === learnerLevel ? (
+          <View style={styles.levelMatchRow}>
+            <Text style={styles.levelMatchText}>Phù hợp trình độ của bạn · {learnerLevel}</Text>
+            <Pressable onPress={() => setSelectedLevel('ALL')} hitSlop={6} accessibilityLabel="Xem đề mọi cấp độ">
+              <Text style={styles.levelMatchAction}>Xem tất cả</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         {filtersOpen ? (
           <View style={styles.filterPanel}>
@@ -472,6 +499,18 @@ export function ExamCatalogScreen() {
 }
 
 const styles = StyleSheet.create({
+  levelMatchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: ds.greenSoft,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  levelMatchText: { fontFamily: dsFont.semibold, fontSize: dsSize.sm, color: ds.greenText },
+  levelMatchAction: { fontFamily: dsFont.bold, fontSize: dsSize.sm, color: ds.btn },
   quickQuizCard: {
     flexDirection: 'row',
     alignItems: 'center',
