@@ -19,6 +19,8 @@ import {
   Lock,
   Languages,
   Sparkles,
+  RotateCcw,
+  Timer,
 } from 'lucide-react-native';
 import { colors } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
@@ -41,7 +43,13 @@ export interface ExamListeningClusterViewProps {
   currentAudioDuration: number;
   formatAudioTime: (seconds?: number) => string;
   onToggleAudio: () => void;
+  /** Luyện tập: nghe lại từ đầu. */
+  onReplayAudio?: () => void;
   audioHasEnded?: boolean;
+  /** Thi thử: số giây trả lời còn lại trước khi tự chuyển câu. */
+  answerCountdown?: number | null;
+  /** Thi thử: trình duyệt chặn tự phát, cho bấm nghe một lần. */
+  autoplayBlocked?: boolean;
   // Practice mode translation & TTS
   currentTranslations?: Record<string, string> | null;
   showInlineTranslation?: boolean;
@@ -66,7 +74,10 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
   currentAudioDuration,
   formatAudioTime,
   onToggleAudio,
+  onReplayAudio,
   audioHasEnded = false,
+  answerCountdown = null,
+  autoplayBlocked = false,
   currentTranslations,
   showInlineTranslation,
   isTranslating,
@@ -96,7 +107,12 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
 
           {isExamMode ? (
             <View style={[styles.statusBadge, audioHasEnded ? styles.statusBadgeEnded : styles.statusBadgePlaying]}>
-              {audioHasEnded ? (
+              {audioHasEnded && answerCountdown != null ? (
+                <>
+                  <Timer size={12} color="#059669" />
+                  <Text style={styles.statusBadgeTextEnded}>Chuyển câu sau {answerCountdown} giây</Text>
+                </>
+              ) : audioHasEnded ? (
                 <>
                   <CheckCircle2 size={12} color="#059669" />
                   <Text style={styles.statusBadgeTextEnded}>Đã nghe (1 lần duy nhất)</Text>
@@ -137,7 +153,15 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
         <View style={styles.playerInnerBox}>
           <View style={styles.playerMainRow}>
             {/* Play/Pause Button - Bị khóa hoặc ẩn khi ở Exam Mode */}
-            {isExamMode ? (
+            {isExamMode && autoplayBlocked ? (
+              <Pressable
+                onPress={onToggleAudio}
+                accessibilityLabel="Bấm để nghe"
+                style={({ pressed }) => [styles.playPauseBtn, pressed && styles.pressed]}
+              >
+                <Play size={20} color="#FFFFFF" style={{ marginLeft: 2 }} />
+              </Pressable>
+            ) : isExamMode ? (
               <View style={[styles.playPauseBtn, styles.playPauseBtnDisabled]}>
                 {audioHasEnded ? (
                   <CheckCircle2 size={20} color="#94A3B8" />
@@ -159,6 +183,17 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
                 )}
               </Pressable>
             )}
+            {!isExamMode && onReplayAudio ? (
+              <Pressable
+                onPress={onReplayAudio}
+                accessibilityLabel="Nghe lại từ đầu"
+                hitSlop={6}
+                style={({ pressed }) => [styles.replayBtn, pressed && styles.pressed]}
+              >
+                <RotateCcw size={16} color={colors.primary} />
+                <Text style={styles.replayBtnText}>Nghe lại</Text>
+              </Pressable>
+            ) : null}
 
             {/* Waveform Visualization */}
             <View style={styles.waveFormArea}>
@@ -201,8 +236,10 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
             <HelpCircle size={13} color="#64748B" />
             <Text style={styles.audioInfoText}>
               {isExamMode
-                ? 'Đoạn băng tự phát 1 lần theo quy chế ETS · Không thể tua hoặc nghe lại'
-                : 'Chế độ luyện tập · Bạn có thể bấm nghe lại và xem transcript sau khi trả lời'}
+                ? autoplayBlocked
+                  ? 'Trình duyệt chưa cho tự phát âm thanh · Bấm nút phát để nghe (chỉ 1 lần)'
+                  : 'Băng tự phát 1 lần như đề thật · Hết băng sẽ có thời gian trả lời rồi tự chuyển câu'
+                : 'Luyện tập · Nghe lại bao nhiêu lần cũng được, không giới hạn thời gian'}
             </Text>
           </View>
         </View>
@@ -479,6 +516,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E3A5F',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  replayBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  replayBtnText: {
+    fontSize: 12,
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: colors.primary,
   },
   playPauseBtnDisabled: {
     backgroundColor: '#64748B',
