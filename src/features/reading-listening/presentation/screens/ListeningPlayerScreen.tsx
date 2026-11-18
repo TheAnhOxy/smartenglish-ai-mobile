@@ -1,159 +1,204 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAudioTrackQuery } from '../../application/useReadingListening';
-import { Headphones } from 'lucide-react-native';
-import { AppColors } from '@/src/core/theme/colors';
+import { useListeningPlayback } from '../../application/useListeningPlayback';
+import { ArrowLeft, Headphones, Pause, Play } from '@/src/components/ds/icons';
+import { Button3D, Tap, dsText } from '@/src/components/ds';
+import { ds, dsFont, dsRadius, dsShadow, dsSize } from '@/src/theme/ds';
 import { TranslatableText, TranslationPanel } from '@/src/core/components/TranslatableText';
+import { SeekBar } from '../components/SeekBar';
 
-export const ListeningPlayerScreen = () => {
+const SPEEDS = [
+  { label: '0.75x', rate: 0.75 },
+  { label: '1.0x', rate: 1 },
+  { label: '1.25x', rate: 1.25 },
+  { label: '1.5x', rate: 1.5 },
+] as const;
+
+const formatDuration = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`;
+
+interface Props {
+  /** Nội dung thêm ở cuối màn (ví dụ banner nộp bài tập lớp). */
+  footer?: React.ReactNode;
+}
+
+export const ListeningPlayerScreen: React.FC<Props> = ({ footer }) => {
   const { audioId } = useLocalSearchParams<{ audioId?: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const validId = audioId ? String(audioId) : '';
   const { data: track, isLoading, isError, error, refetch } = useAudioTrackQuery(validId);
 
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [speed, setSpeed] = useState<'0.75x' | '1.0x' | '1.25x' | '1.5x'>('1.0x');
+  const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>(SPEEDS[1]);
   const [showSub, setShowSub] = useState(true);
-  const [abLoop, setAbLoop] = useState(false);
   const [selectedText, setSelectedText] = useState('');
   const [clearKey, setClearKey] = useState(0);
+  // Vào bài là tự phát
+  const playback = useListeningPlayback(track?.audio_url ?? '', track?.transcript ?? '', speed.rate, { autoPlay: true });
 
   if (isLoading) {
     return (
-      <View className="flex-1 bg-darkBg justify-center items-center">
-        <ActivityIndicator color="#0EA5E9" size="large" />
-        <Text className="text-xs text-gray-400 mt-2 font-medium">Đang tải bài nghe...</Text>
+      <View style={[st.screen, st.center]}>
+        <ActivityIndicator color={ds.sky} size="large" />
+        <Text style={[dsText.bodyMuted, { marginTop: 8 }]}>Đang tải bài nghe...</Text>
       </View>
     );
   }
 
   if (!validId || isError || !track) {
     return (
-      <View className="flex-1 bg-darkBg justify-center items-center px-6">
-        <View className="bg-darkCard p-6 rounded-2xl border border-gray-800 items-center shadow-lg w-full max-w-sm">
-          <View className="mb-3"><Headphones size={36} color={AppColors.neutralGray} /></View>
-          <Text className="text-base font-bold text-white mb-1 text-center">Không Thể Tải Bài Nghe</Text>
-          <Text className="text-xs text-gray-400 text-center mb-5 leading-5">
+      <View style={[st.screen, st.center, { paddingHorizontal: 24 }]}>
+        <View style={[st.card, st.stateCard]}>
+          <Headphones size={36} color={ds.faint} />
+          <Text style={[dsText.h3, { textAlign: 'center' }]}>Không thể tải bài nghe</Text>
+          <Text style={[dsText.bodyMuted, { textAlign: 'center' }]}>
             {error instanceof Error ? error.message : 'Bài nghe không tồn tại hoặc đã có lỗi xảy ra khi tải âm thanh.'}
           </Text>
-          <View className="flex-row gap-3">
-            <Pressable
-              onPress={() => router.back()}
-              className="flex-1 bg-gray-800 py-2.5 rounded-xl items-center active:bg-gray-700"
-            >
-              <Text className="text-xs font-bold text-gray-300">Quay lại</Text>
-            </Pressable>
-            {validId ? (
-              <Pressable
-                onPress={() => refetch()}
-                className="flex-1 bg-primary py-2.5 rounded-xl items-center active:bg-primaryDark"
-              >
-                <Text className="text-xs font-bold text-white">Thử lại</Text>
-              </Pressable>
-            ) : null}
+          <View style={st.row}>
+            <Button3D label="Quay lại" variant="light" onPress={() => router.back()} style={{ flex: 1 }} height={46} />
+            {validId ? <Button3D label="Thử lại" onPress={() => refetch()} style={{ flex: 1 }} height={46} /> : null}
           </View>
         </View>
       </View>
     );
   }
 
-  const currentSubEn = track.subtitles && track.subtitles.length > 0 ? track.subtitles[0].text_en : 'Đang phát âm thanh...';
-  const currentSubVi = track.subtitles && track.subtitles.length > 0 ? track.subtitles[0].text_vi : '';
+  const subtitleEn = track.subtitles[0]?.text_en || track.transcript || '';
+  const subtitleVi = track.subtitles[0]?.text_vi || '';
+  const meta = [
+    track.duration_sec > 0 ? `Thời lượng ${formatDuration(track.duration_sec)}` : null,
+    playback.source === 'tts' ? 'Giọng đọc máy' : null,
+  ].filter(Boolean).join(' · ');
 
   return (
-    <View className="flex-1 bg-darkBg pt-14 px-6 justify-between pb-10">
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <Pressable onPress={() => router.back()} className="mb-4">
-          <Text className="text-primary font-bold text-sm">← Bài Tập Luyện Nghe</Text>
-        </Pressable>
+    <View style={st.screen}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 32, paddingHorizontal: 20, gap: 16 }}
+      >
+        <Tap onPress={() => router.back()} style={st.back} accessibilityLabel="Quay lại">
+          <ArrowLeft size={22} color={ds.ink} />
+        </Tap>
 
-        <Text className="text-2xl font-bold text-white mb-1">{track.title}</Text>
-        <Text className="text-xs text-gray-400 mb-6">Thời lượng: 3:00 • Trình phát âm thanh AI</Text>
+        <View style={{ gap: 4 }}>
+          <Text style={dsText.h1}>{track.title}</Text>
+          {meta ? <Text style={dsText.bodyMuted}>{meta}</Text> : null}
+        </View>
 
-        {/* Subtitles Display Box */}
-        <View className="bg-darkCard p-6 rounded-3xl border border-gray-800 mb-6 min-h-[160px] justify-center items-center">
-          {showSub ? (
-            <View className="items-center gap-2 w-full">
+        <View style={[st.card, st.subtitleCard]}>
+          {!showSub ? (
+            <Text style={dsText.bodyMuted}>Phụ đề đã bị ẩn</Text>
+          ) : subtitleEn ? (
+            <View style={{ gap: 8, width: '100%' }}>
               <TranslatableText
-                text={currentSubEn}
+                text={subtitleEn}
                 onSelectText={setSelectedText}
                 clearKey={clearKey}
-                dark
-                textStyle={{ fontSize: 16, fontWeight: '700', lineHeight: 24, textAlign: 'center' }}
+                textStyle={st.subtitleText}
               />
-              {currentSubVi ? (
-                <Text className="text-xs text-secondary text-center">
-                  "{currentSubVi}"
-                </Text>
-              ) : null}
+              {subtitleVi ? <Text style={[dsText.bodyMuted, { textAlign: 'center' }]}>{subtitleVi}</Text> : null}
             </View>
           ) : (
-            <Text className="text-xs text-gray-500 italic">Phụ đề đã bị ẩn (Tập trung luyện nghe phản xạ)</Text>
+            <Text style={dsText.bodyMuted}>Bài nghe chưa có phụ đề</Text>
           )}
         </View>
 
         <TranslationPanel
           text={selectedText}
-          dark
           onClose={() => {
             setSelectedText('');
             setClearKey((k) => k + 1);
           }}
         />
 
-        {/* Playback Controls & Speed Selector */}
-        <View className="bg-darkCard p-5 rounded-2xl border border-gray-800 gap-4 mb-6">
-          <View className="flex-row justify-between items-center">
-            {/* Speed Selector */}
-            <View className="flex-row gap-1">
-              {(['0.75x', '1.0x', '1.25x', '1.5x'] as const).map((s) => (
-                <Pressable
-                  key={s}
-                  onPress={() => setSpeed(s)}
-                  className={`px-2.5 py-1 rounded-lg border ${
-                    speed === s ? 'bg-primary border-primary' : 'bg-gray-800 border-gray-700'
-                  }`}
-                >
-                  <Text className={`text-[10px] font-bold ${speed === s ? 'text-white' : 'text-gray-300'}`}>
-                    {s}
-                  </Text>
+        <View style={[st.card, st.controls]}>
+          <View style={st.row}>
+            {SPEEDS.map((s) => {
+              const active = speed.label === s.label;
+              return (
+                <Pressable key={s.label} onPress={() => setSpeed(s)} style={[st.speedChip, active && st.speedChipActive]}>
+                  <Text style={[st.speedText, active && st.speedTextActive]}>{s.label}</Text>
                 </Pressable>
-              ))}
-            </View>
-
-            {/* A-B Loop Toggle */}
-            <Pressable
-              onPress={() => setAbLoop(!abLoop)}
-              className={`px-3 py-1 rounded-lg border ${
-                abLoop ? 'bg-secondary border-secondary' : 'bg-gray-800 border-gray-700'
-              }`}
-            >
-              <Text className={`text-xs font-bold ${abLoop ? 'text-white' : 'text-gray-300'}`}>
-                {abLoop ? 'A-B Loop Bật' : 'Loop Tắt'}
-              </Text>
-            </Pressable>
+              );
+            })}
           </View>
 
-          {/* Play / Pause Big Button */}
-          <Pressable
-            onPress={() => setIsPlaying(!isPlaying)}
-            className="w-16 h-16 rounded-full bg-primary justify-center items-center self-center shadow-lg active:scale-95 border-2 border-white"
-          >
-            <Text className="text-2xl text-white">{isPlaying ? '⏸️' : '▶️'}</Text>
-          </Pressable>
+          {playback.source === 'file' ? (
+            <SeekBar
+              position={playback.position}
+              duration={playback.duration > 0 ? playback.duration : track.duration_sec}
+              onSeek={playback.seek}
+            />
+          ) : null}
+
+          {playback.source === 'none' ? (
+            <Text style={dsText.bodyMuted}>Bài nghe này chưa có âm thanh</Text>
+          ) : (
+            <Tap
+              onPress={playback.toggle}
+              sound="none"
+              accessibilityRole="button"
+              accessibilityLabel={playback.isPlaying ? 'Tạm dừng' : 'Phát bài nghe'}
+              style={st.playBtn}
+            >
+              {playback.isPlaying ? <Pause size={28} color={ds.white} /> : <Play size={28} color={ds.white} />}
+            </Tap>
+          )}
         </View>
 
-        {/* Subtitle Toggle Chip */}
-        <Pressable
-          onPress={() => setShowSub(!showSub)}
-          className="bg-gray-800 py-3 rounded-xl items-center border border-gray-700"
-        >
-          <Text className="text-xs font-bold text-gray-300">
-            {showSub ? 'Ẩn Phụ Đề Song Ngữ' : 'Bật Phụ Đề Song Ngữ'}
-          </Text>
-        </Pressable>
+        <Button3D label={showSub ? 'Ẩn phụ đề' : 'Hiện phụ đề'} variant="light" onPress={() => setShowSub(!showSub)} height={48} />
+
+        {footer}
       </ScrollView>
     </View>
   );
 };
+
+const st = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: ds.bg },
+  center: { justifyContent: 'center', alignItems: 'center' },
+  row: { flexDirection: 'row', gap: 8, justifyContent: 'center' },
+  back: {
+    width: 40,
+    height: 40,
+    borderRadius: dsRadius.full,
+    backgroundColor: ds.card,
+    borderWidth: 1.5,
+    borderColor: ds.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  card: {
+    backgroundColor: ds.card,
+    borderRadius: dsRadius.lg,
+    borderWidth: 1.5,
+    borderColor: ds.line,
+    borderBottomWidth: 4,
+    ...dsShadow.card,
+  },
+  stateCard: { padding: 24, gap: 12, alignItems: 'center', width: '100%', maxWidth: 360 },
+  subtitleCard: { padding: 20, minHeight: 140, alignItems: 'center', justifyContent: 'center' },
+  subtitleText: { fontFamily: dsFont.bold, fontSize: dsSize.md, lineHeight: 26, textAlign: 'center', color: ds.ink },
+  controls: { padding: 18, gap: 18, alignItems: 'center' },
+  speedChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: dsRadius.full,
+    borderWidth: 1.5,
+    borderColor: ds.line,
+    backgroundColor: ds.card,
+  },
+  speedChipActive: { backgroundColor: ds.skySoft, borderColor: ds.sky },
+  speedText: { fontFamily: dsFont.semibold, fontSize: dsSize.sm, color: ds.muted },
+  speedTextActive: { color: ds.btn },
+  playBtn: {
+    width: 68,
+    height: 68,
+    borderRadius: dsRadius.full,
+    backgroundColor: ds.sky,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

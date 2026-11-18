@@ -14,7 +14,9 @@ export interface AudioTrackItem {
   title: string;
   audio_url: string;
   duration_sec: number;
-  subtitles: Array<{ time_ms: number; text_en: string; text_vi: string }>;
+  /** Lời thoại đầy đủ, dùng để đọc bằng giọng máy khi bài chưa có file audio. */
+  transcript: string;
+  subtitles:Array<{ time_ms: number; text_en: string; text_vi: string }>;
 }
 
 export const fetchPassageApi = async (id: string): Promise<PassageItem> => {
@@ -50,6 +52,7 @@ export const fetchAudioTrackApi = async (id: string): Promise<AudioTrackItem> =>
     title: data.titleEn || data.titleVi || 'Listening Lesson',
     audio_url: data.audioUrl || '',
     duration_sec: data.durationSec || 0,
+    transcript: data.transcript || '',
     subtitles: (data.syncedTranscripts || []).map((st: any) => ({
       time_ms: st.startMs || st.time_ms || 0,
       text_en: st.text || st.text_en || '',
@@ -91,6 +94,7 @@ export const fetchListeningLessonsListApi = async (cefrLevel?: string, topicId?:
       title: l.titleEn || l.titleVi || 'Listening Lesson',
       audio_url: l.audioUrl || '',
       duration_sec: l.durationSec || 0,
+      transcript: l.transcript || '',
       subtitles: (l.syncedTranscripts || []).map((st: any) => ({
         time_ms: st.startMs || 0,
         text_en: st.text || '',
