@@ -34,6 +34,7 @@ import { QuickWordLookupModal } from '@/src/features/flashcard-srs/presentation/
 import { useUserStatsQuery } from '../../application/useDashboard';
 import { DailyQuestList } from '../components/DailyQuestList';
 import { WordOfDayCard } from '../components/WordOfDayCard';
+import { LearningPlanCards } from '../components/LearningPlanCards';
 
 type IconType = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 
@@ -315,6 +316,9 @@ export const HomeScreen = () => {
           <LoxeraFoxMascot size={92} showGlow={false} showBook={false} animated />
         </Tap>
       </Reveal>
+
+      {/* Kế hoạch học sau bài kiểm tra đầu vào */}
+      {isLoggedIn && currentUser?.id != null ? <LearningPlanCards userId={currentUser.id} /> : null}
 
       {/* Lối tắt tính năng */}
       {actions.length > 0 ? (
