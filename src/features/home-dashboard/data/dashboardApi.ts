@@ -1,5 +1,6 @@
 import { apiClient, getCurrentUserId } from '@/src/core/api/client';
 import { UserStats } from '@/src/core/types/schema';
+import { toDailyQuest, type RawDailyTask, type DailyQuestItem } from './dailyQuestMapper';
 
 export interface DailyPlanData {
   id: string;
@@ -23,19 +24,7 @@ export interface LearningLessonNode {
   position: number;
 }
 
-export type DailyQuestIconKey = 'target' | 'vocab' | 'reading' | 'xp' | 'quiz';
-
-export interface DailyQuestItem {
-  id: string;
-  icon: DailyQuestIconKey;
-  title: string;
-  current: number;
-  target: number;
-  xp: number;
-  unit: string;
-  claimed: boolean;
-  route: string;
-}
+export type { DailyQuestIconKey, DailyQuestItem } from './dailyQuestMapper';
 
 export const fetchUserStatsApi = async (userId?: string): Promise<UserStats> => {
   const uid = userId || getCurrentUserId();
@@ -96,55 +85,37 @@ export const fetchDailyPlanApi = async (userId?: string): Promise<DailyPlanData>
   };
 };
 
-export const fetchDailyQuestsListApi = async (): Promise<{ quests: DailyQuestItem[]; questId: number; isClaimed: boolean; totalXpReward: number }> => {
+export interface DailyQuestsData {
+  quests: DailyQuestItem[];
+  questId: number;
+  isClaimed: boolean;
+  totalXpReward: number;
+  gemReward?: number;
+  /** Trình độ dùng để lập nhiệm vụ; trống nếu chưa làm bài kiểm tra đầu vào. */
+  cefrLevel?: string;
+  estimatedMinutes?: number;
+}
+
+export const fetchDailyQuestsListApi = async (): Promise<DailyQuestsData> => {
   const response = await apiClient.get<any>('/api/v1/learning/gamification/daily-quests');
   const data = response.data?.data || response.data;
   if (!data) {
     throw new Error('Không thể tải nhiệm vụ hôm nay');
   }
-  const questId = data.id || 1;
   const isClaimed = Boolean(data.isClaimed);
   const totalXp = data.totalXpReward || 50;
+  const rawTasks: RawDailyTask[] = data.tasks || [];
+  const xpEach = Math.round(totalXp / Math.max(rawTasks.length, 1));
 
-  const rawTasks: any[] = data.tasks || [];
-  const quests: DailyQuestItem[] = rawTasks.map((t: any, idx: number) => {
-    const desc = t.descriptionVi || t.title || `Nhiệm vụ ${idx + 1}`;
-    let icon: DailyQuestIconKey = 'target';
-    let unit = 'lần';
-    let route = '/(student)/learn';
-
-    if (desc.toLowerCase().includes('flashcard') || desc.toLowerCase().includes('từ vựng')) {
-      icon = 'vocab';
-      unit = 'từ';
-      route = '/(student)/review';
-    } else if (desc.toLowerCase().includes('đọc') || desc.toLowerCase().includes('reading')) {
-      icon = 'reading';
-      unit = 'bài';
-      route = '/(student)/practice/reading';
-    } else if (desc.toLowerCase().includes('xp')) {
-      icon = 'xp';
-      unit = 'XP';
-      route = '/(student)/learn';
-    } else if (desc.toLowerCase().includes('quiz')) {
-      icon = 'quiz';
-      unit = 'bài';
-      route = '/(student)/learn?tab=quiz';
-    }
-
-    return {
-      id: String(t.taskId || idx + 1),
-      icon,
-      title: desc,
-      current: t.currentCount ?? 0,
-      target: t.targetCount ?? 1,
-      xp: Math.round(totalXp / Math.max(rawTasks.length, 1)),
-      unit,
-      claimed: isClaimed || Boolean(t.isClaimed),
-      route,
-    };
-  });
-
-  return { quests, questId, isClaimed, totalXpReward: totalXp };
+  return {
+    quests: rawTasks.map((t, idx) => toDailyQuest(t, idx, xpEach, isClaimed)),
+    questId: data.id || 1,
+    isClaimed,
+    totalXpReward: totalXp,
+    gemReward: data.gemReward ?? undefined,
+    cefrLevel: data.cefrLevel ?? undefined,
+    estimatedMinutes: data.estimatedMinutes ?? undefined,
+  };
 };
 
 export const claimDailyQuestRewardApi = async (questId: number | string): Promise<any> => {

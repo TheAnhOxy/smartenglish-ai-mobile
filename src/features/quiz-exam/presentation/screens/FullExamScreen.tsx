@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   BackHandler,
   View,
   Text,
@@ -332,12 +333,22 @@ export function FullExamScreen() {
     }
   }, [activeSession, attemptQuery.data, examDetailQuery.data]);
 
+  // Màn thi nằm trong Tabs nên vẫn còn mounted sau khi thoát: chỉ đếm giờ (và tự nộp) khi đang mở màn này
+  const [isScreenFocused, setIsScreenFocused] = useState(true);
+  useFocusEffect(
+    useCallback(() => {
+      setIsScreenFocused(true);
+      return () => setIsScreenFocused(false);
+    }, [])
+  );
+
   useEffect(() => {
+    if (!isScreenFocused) return;
     const timer = setInterval(() => {
       setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [isScreenFocused]);
 
   const formatTimer = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -401,7 +412,7 @@ export function FullExamScreen() {
         htmlAudioRef.current.pause();
         htmlAudioRef.current.currentTime = 0;
       } catch (_) {}
-      htmlAudioRef.current = null;
+      // Giữ lại phần tử: bấm phát lại vẫn dùng đúng bộ phát này (bỏ đi thì rơi sang bộ phát thứ hai, nút không cập nhật)
     }
     setWebAudioPlaying(false);
   }, [audioPlayer]);
@@ -425,13 +436,12 @@ export function FullExamScreen() {
   // Bắt phím cứng Back trên Android: tắt âm thanh và hiện modal xác nhận thoát
   useEffect(() => {
     const onBackPress = () => {
-      stopAllAudio();
-      setShowExitModal(true);
+      setShowExitModal(true); // băng tạm dừng khi hộp thoại mở, thoát hẳn mới tắt
       return true;
     };
     const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => sub.remove();
-  }, [stopAllAudio]);
+  }, []);
 
   // Khi chuyển câu hỏi: lập tức tắt âm thanh câu cũ
   useEffect(() => {
@@ -679,6 +689,19 @@ export function FullExamScreen() {
     } catch (_) {}
   };
 
+  // Tua bài nghe: chỉ khi luyện tập và có file audio (giọng máy không tua được, thi thử không cho tua)
+  const handleSeekAudio = (seconds: number) => {
+    const target = Math.max(0, seconds);
+    setAudioHasEnded(false);
+    if (Platform.OS === 'web') {
+      if (!htmlAudioRef.current) return;
+      try { htmlAudioRef.current.currentTime = target; } catch (_) {}
+      setWebCurrentTime(target);
+      return;
+    }
+    try { void audioPlayer.seekTo(target); } catch (_) {}
+  };
+
   const isPlayingAudio = !ENABLE_LAYER_1 ? isSpeaking : (Platform.OS === 'web' ? webAudioPlaying : audioStatus.playing);
   const currentAudioTime = Platform.OS === 'web' ? webCurrentTime : audioStatus.currentTime;
   const currentAudioDuration = Platform.OS === 'web'
@@ -748,12 +771,48 @@ export function FullExamScreen() {
         }, 500);
         return () => clearTimeout(timer);
       }
+    } else if (isPracticeMode && isListeningPart && currentQ) {
+      // Luyện tập: vào câu nào cũng tự phát; nghe lại, tạm dừng và tua thoải mái
+      setAudioHasEnded(false);
+      const timer = setTimeout(() => handleToggleAudio(), 500);
+      return () => clearTimeout(timer);
     }
   }, [clusterKey, isPracticeMode, isListeningPart]);
 
+  // Đang mở hộp thoại thoát / nộp bài hoặc app chạy nền: tạm dừng băng và đóng băng việc tự chuyển câu,
+  // để băng câu sau không phát sau lưng hộp thoại. Quay lại thì phát tiếp từ chỗ đang nghe.
+  const [appActive, setAppActive] = useState(true);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => setAppActive(state === 'active'));
+    return () => sub.remove();
+  }, []);
+  const isInterrupted = showExitModal || showSubmitModal || !appActive;
+  const isPlayingRef = useRef(false);
+  isPlayingRef.current = isPlayingAudio;
+  const resumeAfterInterruptRef = useRef(false);
+  useEffect(() => {
+    if (isInterrupted) {
+      resumeAfterInterruptRef.current = isPlayingRef.current;
+      if (!isPlayingRef.current) return;
+      if (!ENABLE_LAYER_1) {
+        stopAllAudio(); // giọng máy không tạm dừng được: dừng rồi đọc lại từ đầu khi quay lại
+      } else if (Platform.OS === 'web' && htmlAudioRef.current) {
+        htmlAudioRef.current.pause();
+        setWebAudioPlaying(false);
+      } else {
+        try { audioPlayer.pause(); } catch (_) {}
+      }
+      return;
+    }
+    if (!resumeAfterInterruptRef.current) return;
+    resumeAfterInterruptRef.current = false;
+    if (!ENABLE_LAYER_1) startTts();
+    else handleToggleAudio();
+  }, [isInterrupted]);
+
   // Phòng âm thanh/TTS lỗi không báo kết thúc: quá thời gian chờ thì coi như đã phát xong
   useEffect(() => {
-    if (!isExamListening || !autoAdvanceArmed || audioHasEnded || autoplayBlocked) return;
+    if (!isExamListening || !autoAdvanceArmed || audioHasEnded || autoplayBlocked || isInterrupted) return;
     const script = clusterQuestions.map((q) => q.audioScript || q.questionText || '').join(' ');
     const limit = audioWatchdogSeconds({ durationSec: currentQ?.audioDurationSec, script });
     const t = setTimeout(() => {
@@ -761,7 +820,7 @@ export function FullExamScreen() {
       setAudioHasEnded(true);
     }, limit * 1000);
     return () => clearTimeout(t);
-  }, [isExamListening, autoAdvanceArmed, audioHasEnded, autoplayBlocked, clusterKey]);
+  }, [isExamListening, autoAdvanceArmed, audioHasEnded, autoplayBlocked, clusterKey, isInterrupted]);
 
   // Hết băng → bắt đầu đếm thời gian trả lời
   useEffect(() => {
@@ -772,7 +831,7 @@ export function FullExamScreen() {
 
   const goToNextRef = useRef<() => void>(() => {});
   useEffect(() => {
-    if (answerCountdown == null) return;
+    if (answerCountdown == null || isInterrupted) return;
     if (answerCountdown <= 0) {
       setAnswerCountdown(null);
       goToNextRef.current();
@@ -780,7 +839,7 @@ export function FullExamScreen() {
     }
     const t = setTimeout(() => setAnswerCountdown((c) => (c == null ? c : c - 1)), 1000);
     return () => clearTimeout(t);
-  }, [answerCountdown]);
+  }, [answerCountdown, isInterrupted]);
 
   // Thi thử phần nghe: không quay lại câu trước, chỉ sang câu sau khi băng đã phát xong
   const lockPrev = isExamListening;
@@ -1028,10 +1087,11 @@ export function FullExamScreen() {
   const autoSubmittedRef = useRef(false);
   useEffect(() => {
     if (isPracticeMode) return; // In practice mode, don't auto submit on timer
+    if (!isScreenFocused || !activeAttemptId) return;
     if (timeLeft > 0 || autoSubmittedRef.current) return;
     autoSubmittedRef.current = true;
     handleSubmit();
-  }, [timeLeft, isPracticeMode]);
+  }, [timeLeft, isPracticeMode, isScreenFocused, activeAttemptId]);
 
   const isDataLoading =
     (!activeAttemptId && examId && startAttempt.isPending) ||
@@ -1105,10 +1165,7 @@ export function FullExamScreen() {
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 14) + 6 }]}>
         {/* Left: Close Button */}
         <Pressable
-          onPress={() => {
-            stopAllAudio();
-            setShowExitModal(true);
-          }}
+          onPress={() => setShowExitModal(true)}
           hitSlop={12}
           style={styles.headerIconButton}
         >
@@ -1240,6 +1297,7 @@ export function FullExamScreen() {
         ) : isListeningPart ? (
           <ExamListeningClusterView
             questions={clusterQuestions}
+            hideListeningText={isListeningOnlyPart}
             userAnswers={userAnswers}
             onSelectAnswer={handleSelectClusterAnswer}
             isExamMode={!isPracticeMode}
@@ -1255,6 +1313,7 @@ export function FullExamScreen() {
             formatAudioTime={formatAudioTime}
             onToggleAudio={handleToggleAudio}
             onReplayAudio={handleReplayAudio}
+            onSeekAudio={isPracticeMode && ENABLE_LAYER_1 ? handleSeekAudio : undefined}
             audioHasEnded={audioHasEnded}
             answerCountdown={answerCountdown}
             autoplayBlocked={autoplayBlocked}

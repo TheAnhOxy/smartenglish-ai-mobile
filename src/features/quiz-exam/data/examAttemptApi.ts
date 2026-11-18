@@ -197,6 +197,7 @@ export const normalizeQuestion = (raw: any, index: number, total: number, catego
     options: normalizeOptions(raw?.options),
     imageUrl: raw?.imageUrl || undefined,
     audioUrl: raw?.audioUrl || undefined,
+    audioDurationSec: Number(raw?.audioDurationSec) > 0 ? Number(raw.audioDurationSec) : undefined,
     audioTitle: raw?.audioTitle || (raw?.audioUrl ? `Audio câu ${qNum}` : undefined),
     audioScript: raw?.audioScript || undefined,
     groupTag,

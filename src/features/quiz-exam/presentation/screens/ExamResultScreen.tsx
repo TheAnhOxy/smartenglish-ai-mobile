@@ -12,7 +12,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Trophy,
-  Share2,
   CheckCircle2,
   XCircle,
   Clock,
@@ -25,7 +24,6 @@ import {
   RotateCcw,
   Check,
   Award,
-  ArrowLeft,
 } from '@/src/components/ds/icons';
 import { useExamResultQuery } from '../../application/useExamAttempt';
 import { AssignmentSubmitBanner } from '@/src/features/class-membership/presentation/components/AssignmentSubmitBanner';
@@ -95,9 +93,12 @@ export function ExamResultScreen() {
     // Điểm Listening và Reading ưu tiên lấy từ kết quả chấm chuẩn ETS của backend
     const rawL = Math.max(0, Math.min(100, Math.round((listeningCorrect / Math.max(1, listeningTotal)) * 100)));
     const rawR = Math.max(0, Math.min(100, Math.round((readingCorrect / Math.max(1, readingTotal)) * 100)));
-    const listeningScore = result?.listeningScore ?? (rawL <= 6 ? 5 : Math.min(495, Math.round((rawL * 4.95) / 5) * 5));
-    const readingScore = result?.readingScore ?? (rawR <= 9 ? 5 : Math.min(495, Math.round((rawR * 4.95) / 5) * 5));
-    const totalScore = result?.displayScore ?? (listeningScore + readingScore);
+    // Không làm đúng câu nào ở phần nào thì phần đó 0 điểm (kể cả bài cũ backend đã chấm theo mức sàn 5 của ETS)
+    const listeningScore = listeningCorrect === 0 ? 0
+      : result?.listeningScore ?? (rawL <= 6 ? 5 : Math.min(495, Math.round((rawL * 4.95) / 5) * 5));
+    const readingScore = readingCorrect === 0 ? 0
+      : result?.readingScore ?? (rawR <= 9 ? 5 : Math.min(495, Math.round((rawR * 4.95) / 5) * 5));
+    const totalScore = isToeicResult ? listeningScore + readingScore : (result?.displayScore ?? listeningScore + readingScore);
 
     return {
       correct,
@@ -164,19 +165,6 @@ export function ExamResultScreen() {
     <View style={styles.root}>
       {/* ─── HEADER ─── */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 14) + 6 }]}>
-        <Pressable
-          onPress={handleBackToCatalog}
-          hitSlop={10}
-          style={styles.headerBtn}
-        >
-          <ArrowLeft color={ds.ink} size={22} strokeWidth={2.2} />
-        </Pressable>
-
-        <Text style={styles.headerTitle}>Kết quả bài kiểm tra</Text>
-
-        <Pressable hitSlop={10} style={styles.headerBtn}>
-          <Share2 color={ds.muted} size={20} />
-        </Pressable>
         <BackButton onPress={handleBackToCatalog} />
 
         <Text style={styles.headerTitle}>Kết quả bài kiểm tra</Text>
@@ -197,7 +185,7 @@ export function ExamResultScreen() {
         {/* ─── 1. HERO SCORE CARD ─── */}
         <ResultCelebrationHero
           label={isToeicResult ? 'Điểm TOEIC ước tính' : 'Kết quả bài kiểm tra'}
-          score={Number(result.displayScore) || 0}
+          score={isToeicResult ? stats.totalScore : Number(result.displayScore) || 0}
           maxLabel={`/ ${isToeicResult ? 990 : 100}${!isToeicResult ? '%' : ''}`}
           badgeText={`${result.cefrLevel ? `${result.cefrLevel} · ` : ''}${result.passed ? 'Đạt mục tiêu' : 'Chưa đạt mục tiêu'}`}
           xpEarned={result.xpEarned ?? 0}

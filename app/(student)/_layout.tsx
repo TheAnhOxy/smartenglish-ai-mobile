@@ -18,7 +18,14 @@ const tabStyles = StyleSheet.create({
   iconWrap: { alignItems: 'center', justifyContent: 'center', width: 32, height: 28 },
 });
 
-const hideTabOptions = { href: null, tabBarStyle: { display: 'none' as const } };
+// Màn chi tiết: ẩn nút trên thanh tab nhưng vẫn điều hướng tới được.
+// Không dùng `href: null`: từ expo-router 58 nó thành `hidden: true`, và tab ẩn đang mở sẽ bị đẩy về tab đầu (Trang chủ).
+const hiddenTabButton = () => null;
+const hideTabOptions = {
+  tabBarButton: hiddenTabButton,
+  tabBarItemStyle: { display: 'none' as const },
+  tabBarStyle: { display: 'none' as const },
+};
 
 export default function StudentTabsLayout() {
   const { hasPermission, syncRolePermissions } = useRoleGateStore();
@@ -99,7 +106,8 @@ export default function StudentTabsLayout() {
         options={{
           title: 'Trợ lý',
           // Không đặt ở thanh tab: vào từ lối tắt "Hội thoại AI" ở Trang chủ, màn chat có nút quay lại
-          href: null,
+          tabBarButton: hiddenTabButton,
+          tabBarItemStyle: { display: 'none' },
           tabBarStyle: { display: 'none' },
           tabBarIcon: ({ color, focused }) => (
             <AnimatedTabIcon focused={focused}>

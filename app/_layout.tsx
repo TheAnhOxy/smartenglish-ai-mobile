@@ -173,7 +173,7 @@ function RootLayoutNav() {
       if (role === 'admin' && !inAdminRoute) {
         router.replace('/admin-blocked' as any);
       } else if (role === 'teacher' && !inTeacherGroup) {
-        router.replace('/(teacher-companion)/classes' as any);
+        router.replace('/(teacher-companion)/teacher/classes' as any);
       } else if (role === 'student' && (inAuthGroup || inTeacherGroup || inAdminRoute || currentSegment === '' || currentSegment === 'index')) {
         router.replace('/(student)/home' as any);
       } else if (!role && guestMode) {

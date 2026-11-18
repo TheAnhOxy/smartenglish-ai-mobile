@@ -13,7 +13,7 @@ import { colors } from '@/src/theme/colors';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { useRoleGateStore } from '@/src/core/flows/roleGateStore';
 import { X, ChevronRight, Check, AlertCircle, RefreshCw, Volume2, Square } from 'lucide-react-native';
-import { speakText, stopAllAudio } from '@/src/core/services/speechService';
+import { useListeningPlayback } from '@/src/features/reading-listening/application/useListeningPlayback';
 
 export const PlacementTestScreen = () => {
   const router = useRouter();
@@ -66,34 +66,26 @@ export const PlacementTestScreen = () => {
 
   const currentQuestion = questions[currentQuestionIndex];
 
-  // Câu nghe: phát nội dung bằng giọng máy; đổi câu hoặc rời màn thì dừng
-  const [isListening, setIsListening] = useState(false);
+  // Câu nghe: vào câu là tự phát (file audio nếu có, không thì giọng máy theo từng người nói);
+  // đổi câu, mở hộp thoại hoặc rời màn thì dừng.
+  const isListeningQuestion = currentQuestion?.category === 'listening' || Boolean(currentQuestion?.audioScript);
+  const listening = useListeningPlayback(
+    isListeningQuestion ? currentQuestion?.mediaUrl ?? '' : '',
+    isListeningQuestion ? currentQuestion?.audioScript ?? '' : '',
+    1,
+    { autoPlay: true },
+  );
   const [hasListened, setHasListened] = useState(false);
   useEffect(() => {
-    setIsListening(false);
     setHasListened(false);
-    return () => {
-      void stopAllAudio();
-    };
   }, [currentQuestion?.id]);
-
-  const toggleListening = () => {
-    if (!currentQuestion?.audioScript) return;
-    if (isListening) {
-      void stopAllAudio();
-      setIsListening(false);
-      return;
-    }
-    setIsListening(true);
-    setHasListened(true);
-    // Bỏ nhãn người nói ("Man:", "Woman:") trước khi đọc
-    const text = currentQuestion.audioScript.replace(/\b(Man|Woman|Narrator)\s*\d*\s*:/gi, ' ');
-    void speakText(text, {
-      rate: 0.9,
-      onDone: () => setIsListening(false),
-      onError: () => setIsListening(false),
-    });
-  };
+  useEffect(() => {
+    if (listening.isPlaying) setHasListened(true);
+  }, [listening.isPlaying]);
+  const stopListening = listening.stop;
+  useEffect(() => {
+    if (showExitModal || showLoginModal) stopListening();
+  }, [showExitModal, showLoginModal, stopListening]);
   const totalQuestions = questions.length;
   const progressPct = totalQuestions > 0 ? ((currentQuestionIndex + 1) / totalQuestions) * 100 : 0;
   const selectedAnswer = currentQuestion ? answers[currentQuestion.id] : undefined;
@@ -133,6 +125,7 @@ export const PlacementTestScreen = () => {
         clearRoadmapCache();
         void queryClient.invalidateQueries({ queryKey: PLACEMENT_STATUS_KEY });
         void queryClient.invalidateQueries({ queryKey: LEARNING_PLAN_KEY });
+        void queryClient.invalidateQueries({ queryKey: ['daily-quests'] });
         router.replace(routes.result as any);
       } catch (submitErr: any) {
         setError(submitErr?.message || 'Có lỗi xảy ra khi nộp bài. Vui lòng thử lại.');
@@ -212,15 +205,16 @@ export const PlacementTestScreen = () => {
           <Text style={s.categoryText}>{currentQuestion.category.toUpperCase()}</Text>
         </View>
 
-        {/* Bài nghe: đọc nội dung bằng giọng máy, nghe lại được */}
-        {currentQuestion.audioScript ? (
+        {listening.source !== 'none' ? (
           <Pressable
-            onPress={toggleListening}
+            onPress={listening.toggle}
             style={s.listenBtn}
-            accessibilityLabel={isListening ? 'Dừng nghe' : 'Nghe đoạn âm thanh'}
+            accessibilityLabel={listening.isPlaying ? 'Dừng nghe' : 'Nghe đoạn âm thanh'}
           >
-            {isListening ? <Square size={16} color={colors.primary} /> : <Volume2 size={18} color={colors.primary} />}
-            <Text style={s.listenBtnText}>{isListening ? 'Dừng' : hasListened ? 'Nghe lại' : 'Nghe đoạn âm thanh'}</Text>
+            {listening.isPlaying ? <Square size={16} color={colors.primary} /> : <Volume2 size={18} color={colors.primary} />}
+            <Text style={s.listenBtnText}>
+              {listening.isPlaying ? 'Dừng' : hasListened ? 'Nghe lại' : 'Nghe đoạn âm thanh'}
+            </Text>
           </Pressable>
         ) : null}
 
