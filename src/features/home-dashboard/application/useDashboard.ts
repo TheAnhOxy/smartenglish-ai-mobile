@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { fetchUserStatsApi, fetchDailyPlanApi, fetchLearningPathApi, fetchDailyQuestsListApi } from '../data/dashboardApi';
+import { hasClaimedToday } from '../data/dailyClaimMemory';
 
 export const useUserStatsQuery = (userId: string) => {
   return useQuery({
@@ -31,5 +32,10 @@ export const useDailyQuestsQuery = () => {
     queryKey: ['daily-quests', userId],
     queryFn: () => fetchDailyQuestsListApi(),
     enabled: !!userId,
+    // Đã nhận thưởng hôm nay trên máy này thì coi như đã nhận, kể cả khi server cũ báo chưa
+    select: (data) =>
+      !data.isClaimed && hasClaimedToday(userId)
+        ? { ...data, isClaimed: true, quests: data.quests.map((q) => ({ ...q, claimed: true })) }
+        : data,
   });
 };

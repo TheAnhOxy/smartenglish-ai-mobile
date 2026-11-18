@@ -56,6 +56,7 @@ export const useAuthFlow = () => {
       void submitPendingPlacement(() => {
         void queryClient.invalidateQueries({ queryKey: PLACEMENT_STATUS_KEY });
         void queryClient.invalidateQueries({ queryKey: LEARNING_PLAN_KEY });
+        void queryClient.invalidateQueries({ queryKey: ['daily-quests'] });
       });
     }
     goWithTransition(data.user.role);

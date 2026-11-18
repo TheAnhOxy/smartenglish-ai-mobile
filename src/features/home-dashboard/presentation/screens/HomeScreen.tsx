@@ -388,7 +388,7 @@ export const HomeScreen = () => {
               <Text style={s.seeAll}>Xem tất cả</Text>
             </Pressable>
           </View>
-          <DailyQuestList limit={3} />
+          <DailyQuestList />
         </Reveal>
       ) : null}
 

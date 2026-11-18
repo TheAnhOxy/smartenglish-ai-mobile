@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { AlertCircle, BookOpen, CheckCircle2, HelpCircle, Layers, Target, Zap } from '@/src/components/ds/icons';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { AlertCircle, BookOpen, CheckCircle2, Headphones, HelpCircle, Layers, Target, Zap } from '@/src/components/ds/icons';
 import { ds, dsFont, dsRadius, dsSize } from '@/src/theme/ds';
 import { ProgressBar, feedback } from '@/src/components/ds';
 import { useQueryClient } from '@tanstack/react-query';
 import { claimDailyQuestRewardApi, DailyQuestIconKey, DailyQuestItem } from '../../data/dashboardApi';
 import { useDailyQuestsQuery } from '../../application/useDashboard';
+import { rememberDailyClaim } from '../../data/dailyClaimMemory';
+import { useAuthStore } from '@/src/core/flows/authStore';
 
 const QUEST_ICONS: Record<DailyQuestIconKey, React.ComponentType<{ size?: number; color?: string }>> = {
   target: Target,
   vocab: Layers,
   reading: BookOpen,
+  listening: Headphones,
   xp: Zap,
   quiz: HelpCircle,
 };
@@ -28,6 +31,14 @@ export const DailyQuestList: React.FC<DailyQuestListProps> = ({ limit }) => {
   const [claiming, setClaiming] = useState(false);
   const [claimError, setClaimError] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const userId = useAuthStore((s) => s.currentUser?.id);
+
+  // Quay lại từ bài tập thì cập nhật tiến độ ngay
+  useFocusEffect(
+    React.useCallback(() => {
+      void refetch();
+    }, [refetch])
+  );
 
   if (isLoading) {
     return (
@@ -67,6 +78,7 @@ export const DailyQuestList: React.FC<DailyQuestListProps> = ({ limit }) => {
     setClaimError(null);
     try {
       await claimDailyQuestRewardApi(data.questId);
+      if (userId != null) rememberDailyClaim(userId);
       feedback.success();
       await Promise.all([refetch(), queryClient.invalidateQueries({ queryKey: ['user-stats'] })]);
     } catch (e: any) {
@@ -76,8 +88,13 @@ export const DailyQuestList: React.FC<DailyQuestListProps> = ({ limit }) => {
     }
   };
 
+  const levelLine = data.cefrLevel
+    ? `Trình độ ${data.cefrLevel}${data.estimatedMinutes ? ` · khoảng ${data.estimatedMinutes} phút` : ''}`
+    : null;
+
   return (
     <View style={st.list}>
+      {levelLine ? <Text style={st.levelLine}>{levelLine}</Text> : null}
       {quests.map((quest: DailyQuestItem) => {
         const Icon = QUEST_ICONS[quest.icon] ?? Target;
         const done = quest.current >= quest.target;
@@ -92,6 +109,7 @@ export const DailyQuestList: React.FC<DailyQuestListProps> = ({ limit }) => {
             </View>
             <View style={st.center}>
               <Text style={st.title} numberOfLines={1}>{quest.title}</Text>
+              {quest.subtitle ? <Text style={st.subtitle} numberOfLines={1}>{quest.subtitle}</Text> : null}
               <View style={st.progressRow}>
                 <ProgressBar value={pct / 100} color={done ? ds.green : ds.sky} height={8} style={{ flex: 1 }} />
                 <Text style={st.progressLabel}>
@@ -113,7 +131,7 @@ export const DailyQuestList: React.FC<DailyQuestListProps> = ({ limit }) => {
       {canClaim ? (
         <Pressable onPress={handleClaim} disabled={claiming} style={[st.claimBtn, claiming && { opacity: 0.6 }]}>
           {claiming ? <ActivityIndicator size="small" color={ds.ink} /> : null}
-          <Text style={st.claimText}>Nhận {data.totalXpReward} XP</Text>
+          <Text style={st.claimText}>Nhận {data.totalXpReward} XP{data.gemReward ? ` + ${data.gemReward} gem` : ''}</Text>
         </Pressable>
       ) : data.isClaimed ? (
         <Text style={st.claimedText}>Đã nhận thưởng hôm nay</Text>
@@ -150,6 +168,8 @@ const st = StyleSheet.create({
   iconBoxDone: { backgroundColor: ds.greenSoft },
   center: { flex: 1, gap: 7 },
   title: { fontFamily: dsFont.semibold, fontSize: dsSize.base - 1, color: ds.ink },
+  subtitle: { fontFamily: dsFont.body, fontSize: dsSize.xs, color: ds.muted, marginTop: -4 },
+  levelLine: { fontFamily: dsFont.medium, fontSize: dsSize.sm, color: ds.muted },
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   progressLabel: { fontFamily: dsFont.medium, fontSize: dsSize.xs, color: ds.muted },
   xpPill: { backgroundColor: ds.amberSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
