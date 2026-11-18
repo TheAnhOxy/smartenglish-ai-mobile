@@ -35,30 +35,27 @@ import { speakText, stopSpeech } from '@/src/core/services/speechService';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { colors, palette, font, spring } from '@/src/theme';
 import { exploreWordsApi } from '../../data/vocabularyApi';
-import { fetchDeckByIdApi, submitSrsReviewApi } from '../../data/deckApi';
+import { fetchDeckByIdApi, fetchStudyQueueApi, fetchSystemDecksApi, submitSrsReviewApi } from '../../data/deckApi';
+import { useQueryClient } from '@tanstack/react-query';
+import { useRoleGateStore } from '@/src/core/flows/roleGateStore';
+import {
+  StudyCard,
+  describeNextDue,
+  findSystemDeckIdForTopic,
+  mapDeckCardToStudyCard,
+  ratingHint,
+  requeueAfterRating,
+} from '../../application/studyQueue';
+import { decksKeys } from '../../application/useFlashcardSrs';
 import { BackButton } from '@/src/core/components/BackButton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const SWIPE_THRESHOLD = 90;
 
-export interface StudyCard {
-  id: string;
-  cardId?: number;
-  word: string;
-  ipa: string;
-  type: string;
-  cefrLevel?: string;
-  meaning: string;
-  meaningEn?: string;
-  example: string;
-  exampleVi?: string;
-  collocation?: string;
-  audioUrl?: string;
-  imageUrl?: string;
-}
+export type { StudyCard };
 
-export const StudyDeckScreen = () => {
+export const StudyDeckScreen = ({ mode }: { mode?: 'due' } = {}) => {
   const { deckId, topicId, deckName } = useLocalSearchParams<{
     deckId: string;
     topicId?: string;
@@ -66,6 +63,14 @@ export const StudyDeckScreen = () => {
   }>();
   const router = useRouter();
   const { currentUser } = useAuthStore();
+  const accessToken = useAuthStore((st) => st.accessToken);
+  const streakDays = useAuthStore((st) => st.userStats?.streak_current ?? 0);
+  const guestMode = useRoleGateStore((st) => st.guestMode);
+  // Đã đăng nhập: học theo hàng đợi SM-2 của chính mình; khách: chỉ xem thử thẻ, không chấm
+  const useSrsQueue = Boolean(accessToken) && !guestMode;
+  const queryClient = useQueryClient();
+  const [isSrsSession, setIsSrsSession] = useState(false);
+  const [nextDueDate, setNextDueDate] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -98,6 +103,29 @@ export const StudyDeckScreen = () => {
     } catch (_) {}
 
     try {
+      if (useSrsQueue) {
+        // Mở từ danh sách chủ đề: id là id chủ đề, cần đổi sang bộ thẻ hệ thống cùng tên để chấm SM-2
+        let srsDeckId: string | number | null | undefined = mode === 'due' ? undefined : deckId;
+        if (mode !== 'due' && topicId) {
+          const systemDecks = await fetchSystemDecksApi().catch(() => []);
+          srsDeckId = findSystemDeckIdForTopic(deckName, systemDecks);
+        }
+        if (srsDeckId !== null) {
+          const queue = await fetchStudyQueueApi(srsDeckId, 20);
+          setTopicTitle(mode === 'due' ? 'Ôn tập hôm nay' : deckName || queue.deckName || 'Ôn Tập Từ Vựng');
+          setNextDueDate(queue.nextDueDate ?? null);
+          setIsSrsSession(true);
+          setStudyQueue(queue.cards.map(mapDeckCardToStudyCard));
+          return;
+        }
+        // Chủ đề chưa có bộ thẻ hệ thống: xem từ vựng của chủ đề như bình thường
+      }
+      if (mode === 'due') {
+        setError('Đăng nhập để hệ thống nhắc và lưu lịch ôn tập của bạn.');
+        setStudyQueue([]);
+        return;
+      }
+      setIsSrsSession(false);
       let cards: StudyCard[] = [];
       const effectiveTopicId = topicId ? Number(topicId) : Number(deckId);
 
@@ -183,7 +211,7 @@ export const StudyDeckScreen = () => {
         Speech.stop();
       } catch (_) {}
     };
-  }, [deckId, topicId]);
+  }, [deckId, topicId, mode, useSrsQueue]);
 
   const currentCard = studyQueue[currentIndex];
 
@@ -244,6 +272,10 @@ export const StudyDeckScreen = () => {
       translateY.value = 0;
       flipRotation.value = 0;
       setIsFlipped(false);
+      if (isSrsSession) {
+        setStudyQueue((q) => requeueAfterRating(q, currentIndex, rating));
+        void queryClient.invalidateQueries({ queryKey: decksKeys.dueCards() });
+      }
       setCurrentIndex((prev) => prev + 1);
     } catch (err: any) {
       console.warn('SRS review failed:', err);
@@ -392,6 +424,27 @@ export const StudyDeckScreen = () => {
     );
   }
 
+  // 3a. Hàng đợi SRS rỗng: đã ôn xong thẻ đến hạn hôm nay
+  if (!loading && !error && studyQueue.length === 0 && isSrsSession) {
+    const next = describeNextDue(nextDueDate);
+    return (
+      <View style={styles.completedContainer}>
+        <View style={styles.completedIconBadge}>
+          <CheckCircle2 color={palette.success} size={48} />
+        </View>
+        <Text style={styles.completedTitle}>Hôm nay bạn đã ôn xong</Text>
+        <Text style={styles.completedSub}>
+          {next
+            ? `Không còn thẻ đến hạn. Lần ôn tiếp theo: ${next}.`
+            : 'Không còn thẻ đến hạn. Hãy thêm từ mới vào bộ thẻ để tiếp tục học.'}
+        </Text>
+        <Pressable onPress={() => router.back()} style={styles.completedBtn}>
+          <Text style={styles.completedBtnText}>Quay lại</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   // 3. Empty State (Genuinely 0 cards from server)
   if (!loading && !error && studyQueue.length === 0) {
     return (
@@ -419,8 +472,9 @@ export const StudyDeckScreen = () => {
         </View>
         <Text style={styles.completedTitle}>Đã hoàn thành lượt ôn tập!</Text>
         <Text style={styles.completedSub}>
-          Bạn đã hoàn thành {studyQueue.length} từ vựng thuộc chủ đề "{topicTitle}".
-          Thuật toán SuperMemo-2 đã ghi nhận kết quả và xếp lịch ôn tập tối ưu tiếp theo cho bạn.
+          {isSrsSession
+            ? `Bạn đã hoàn thành ${studyQueue.length} lượt thẻ của "${topicTitle}". Hệ thống đã xếp lịch ôn tiếp theo và sẽ nhắc bạn khi đến lúc ôn lại.`
+            : `Bạn đã xem hết ${studyQueue.length} từ vựng của "${topicTitle}". Đăng nhập để hệ thống lưu kết quả và nhắc lịch ôn.`}
         </Text>
         <View style={{ width: '100%', gap: 12, marginTop: 24 }}>
           <Pressable
@@ -458,12 +512,12 @@ export const StudyDeckScreen = () => {
 
         <View style={styles.headerTitleWrap}>
           <Text style={styles.headerTitle} numberOfLines={1}>{topicTitle}</Text>
-          <Text style={styles.headerSub}>Ôn tập thuật toán SM-2</Text>
+          <Text style={styles.headerSub}>Ôn đúng lúc sắp quên</Text>
         </View>
 
         <View style={styles.streakBadge}>
           <Flame color={colors.streak} size={14} fill={colors.streak} />
-          <Text style={styles.streakText}>4 Ngày</Text>
+          <Text style={styles.streakText}>{streakDays} Ngày</Text>
         </View>
       </View>
 
@@ -607,7 +661,7 @@ export const StudyDeckScreen = () => {
             style={[styles.rateBtn, styles.rateAgain, isSubmittingReview && { opacity: 0.5 }]}
           >
             <Text style={[styles.rateBtnTitle, { color: palette.danger }]}>Chưa thuộc</Text>
-            <Text style={styles.rateBtnSub}>&lt;1m</Text>
+            {isSrsSession && <Text style={styles.rateBtnSub}>{ratingHint(currentCard, 0)}</Text>}
           </Pressable>
 
           <Pressable
@@ -616,7 +670,7 @@ export const StudyDeckScreen = () => {
             style={[styles.rateBtn, styles.rateHard, isSubmittingReview && { opacity: 0.5 }]}
           >
             <Text style={[styles.rateBtnTitle, { color: palette.warning }]}>Khó</Text>
-            <Text style={styles.rateBtnSub}>2 ngày</Text>
+            {isSrsSession && <Text style={styles.rateBtnSub}>{ratingHint(currentCard, 1)}</Text>}
           </Pressable>
 
           <Pressable
@@ -625,7 +679,7 @@ export const StudyDeckScreen = () => {
             style={[styles.rateBtn, styles.rateGood, isSubmittingReview && { opacity: 0.5 }]}
           >
             <Text style={[styles.rateBtnTitle, { color: palette.primary }]}>Thuộc</Text>
-            <Text style={styles.rateBtnSub}>4 ngày</Text>
+            {isSrsSession && <Text style={styles.rateBtnSub}>{ratingHint(currentCard, 2)}</Text>}
           </Pressable>
 
           <Pressable
@@ -634,7 +688,7 @@ export const StudyDeckScreen = () => {
             style={[styles.rateBtn, styles.rateEasy, isSubmittingReview && { opacity: 0.5 }]}
           >
             <Text style={[styles.rateBtnTitle, { color: palette.success }]}>Dễ</Text>
-            <Text style={styles.rateBtnSub}>7 ngày</Text>
+            {isSrsSession && <Text style={styles.rateBtnSub}>{ratingHint(currentCard, 3)}</Text>}
           </Pressable>
         </View>
       </View>

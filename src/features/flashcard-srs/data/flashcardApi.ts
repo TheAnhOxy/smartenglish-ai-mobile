@@ -43,17 +43,17 @@ export const fetchDeckDueCardsApi = async (deckId: string, _unusedUserId?: strin
   const session = await baseFetchDeckDueCardsApi(deckId);
   return session.cards.map((c: DueCardItemDTO, idx: number) => {
     const cardObj: DeckCard = {
-      id: String(c.cardId || idx + 1),
+      id: String(c.cardId || (c as any).id || idx + 1),
       deck_id: String(c.deckId || deckId),
       word_id: c.wordId ? String(c.wordId) : undefined,
-      custom_front: c.frontText || 'Vocabulary Word',
-      custom_back: c.backText || 'Từ vựng tiếng Anh',
+      custom_front: c.frontText || (c as any).customFront || 'Vocabulary Word',
+      custom_back: c.backText || (c as any).customBack || 'Từ vựng tiếng Anh',
       user_note: '',
       is_suspended: false,
     };
     const wordObj: Word = {
       id: cardObj.word_id || `word-${idx}`,
-      word: c.frontText || 'Word',
+      word: c.frontText || String((c as any).customFront || 'Word').split(/\s{2,}|\//)[0].trim(),
       ipa_us: c.ipaUs || '',
       part_of_speech: 'noun',
       cefr_level: 'B1',
