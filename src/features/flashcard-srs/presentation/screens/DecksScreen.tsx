@@ -193,9 +193,13 @@ const FlashcardDeckCard: React.FC<DeckCardItemProps> = ({
           </View>
         </View>
 
+        {/* Card Title & Desc */}
         <View style={styles.cardMiddleWrap}>
           <Text style={styles.deckCardName} numberOfLines={2}>
             {deck.name}
+          </Text>
+          <Text style={styles.deckCardDesc} numberOfLines={2}>
+            {deck.description || 'Luyện tập phương pháp lặp lại ngắt quãng SRS'}
           </Text>
           {levelMatch && (
             <View style={styles.levelBadge}>
@@ -730,6 +734,13 @@ const styles = StyleSheet.create({
     color: '#1E293B',
     lineHeight: 18,
     marginBottom: 4,
+  },
+  deckCardDesc: {
+    fontSize: 11,
+    fontFamily: font.family,
+    fontWeight: '500',
+    color: '#94A3B8',
+    lineHeight: 15,
   },
   masteryProgressSection: {
     marginTop: 4,
