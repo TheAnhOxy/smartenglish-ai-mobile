@@ -2,8 +2,8 @@ module.exports = {
   preset: 'jest-expo',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   moduleNameMapper: {
-    '^react-native/asset-registry$': '<rootDir>/node_modules/@react-native/assets-registry/registry.js',
-    '^react-native/Libraries/Image/AssetRegistry$': '<rootDir>/node_modules/@react-native/assets-registry/registry.js',
+    '^react-native/asset-registry$': '<rootDir>/node_modules/react-native/src/asset-registry.js',
+    '^react-native/Libraries/Image/AssetRegistry$': '<rootDir>/node_modules/react-native/src/asset-registry.js',
     '^@/(.*)$': '<rootDir>/$1',
   },
   transformIgnorePatterns: [
