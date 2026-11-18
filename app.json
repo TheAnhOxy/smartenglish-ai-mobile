@@ -37,7 +37,10 @@
       "expo-sqlite",
       "react-native-nfc-manager",
       "expo-audio",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-asset",
+      "expo-font",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true

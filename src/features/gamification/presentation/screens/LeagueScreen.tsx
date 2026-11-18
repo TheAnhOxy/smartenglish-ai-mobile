@@ -60,7 +60,7 @@ export const LeagueScreen = () => {
         );
       })}
     </View>
-  ) : null;
+  ) : undefined;
 
   return (
     <View className="flex-1 bg-surface dark:bg-darkBg px-5" style={{ paddingTop: insets.top + 8 }}>

@@ -7,8 +7,9 @@ import {
   StyleSheet,
   ScrollView,
 } from 'react-native';
-import { Bookmark, Lightbulb, Info, X } from 'lucide-react-native';
+import { Bookmark, Lightbulb, Info, X } from '@/src/components/ds/icons';
 import { colors } from '@/src/theme/colors';
+import { ds, dsFont } from '@/src/theme/ds';
 
 export interface FillInTheBlankQuestionData {
   id: string;
@@ -71,8 +72,8 @@ export function FillInTheBlankView({
           >
             <Bookmark
               size={20}
-              color={isBookmarked ? colors.primary : colors.textSoft}
-              fill={isBookmarked ? colors.primary : 'transparent'}
+              color={isBookmarked ? ds.btn : ds.muted}
+              fill={isBookmarked ? ds.btn : 'transparent'}
             />
           </Pressable>
         </View>
@@ -101,7 +102,7 @@ export function FillInTheBlankView({
                   pressed && styles.pressed,
                 ]}
               >
-                <Lightbulb size={15} color={colors.primary} />
+                <Lightbulb size={15} color={ds.btn} />
                 <Text style={styles.hintTriggerText}>Gợi ý</Text>
               </Pressable>
             ) : null}
@@ -114,13 +115,13 @@ export function FillInTheBlankView({
               value={userAnswer}
               onChangeText={onAnswerChange}
               placeholder="Nhập từ cần điền..."
-              placeholderTextColor={colors.textFaint}
+              placeholderTextColor={ds.faint}
               autoCapitalize="none"
               autoCorrect={false}
             />
             {userAnswer.length > 0 && (
               <Pressable onPress={handleClear} style={styles.clearBtn} hitSlop={8}>
-                <X size={18} color={colors.textSoft} />
+                <X size={18} color={ds.muted} />
               </Pressable>
             )}
           </View>
@@ -128,7 +129,7 @@ export function FillInTheBlankView({
           {/* Grammar Hint Box */}
           {showHint && question.grammarHint ? (
             <View style={styles.hintBox}>
-              <Info size={18} color={colors.primary} style={styles.hintIcon} />
+              <Info size={18} color={ds.btn} style={styles.hintIcon} />
               <Text style={styles.hintContentText}>
                 <Text style={styles.hintBoldTitle}>Gợi ý ngữ pháp: </Text>
                 {question.grammarHint}
@@ -186,7 +187,7 @@ const styles = StyleSheet.create({
   },
   categoryTagText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: dsFont.bold,
     color: '#1A4B84',
   },
   questionCard: {
@@ -194,8 +195,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 18,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
+    borderColor: '#E3EAF2',
+    shadowColor: '#0F2A44',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 8,
@@ -212,24 +213,24 @@ const styles = StyleSheet.create({
   instructionText: {
     flex: 1,
     fontSize: 15,
-    fontWeight: '600',
-    color: '#334155',
+    fontFamily: dsFont.semibold,
+    color: '#33465C',
     lineHeight: 22,
   },
   bookmarkBtn: {
     padding: 8,
     borderRadius: 12,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F7FB',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
   },
   sentenceContainer: {
     marginBottom: 20,
   },
   sentenceText: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontFamily: dsFont.bold,
+    color: '#0F2A44',
     lineHeight: 34,
   },
   blankPill: {
@@ -241,7 +242,7 @@ const styles = StyleSheet.create({
   },
   blankPillText: {
     fontSize: 20,
-    fontWeight: '800',
+    fontFamily: dsFont.display,
     color: '#144173',
   },
   inputSection: {
@@ -254,8 +255,8 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#64748B',
+    fontFamily: dsFont.semibold,
+    color: '#5B6B7F',
   },
   hintTriggerBtn: {
     flexDirection: 'row',
@@ -271,7 +272,7 @@ const styles = StyleSheet.create({
   },
   hintTriggerText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: dsFont.bold,
     color: '#1A4B84',
   },
   inputBoxContainer: {
@@ -279,7 +280,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderWidth: 2,
-    borderColor: '#0F172A',
+    borderColor: '#0F2A44',
     borderRadius: 16,
     paddingHorizontal: 14,
     height: 52,
@@ -287,8 +288,8 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
     fontSize: 18,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontFamily: dsFont.bold,
+    color: '#0F2A44',
   },
   clearBtn: {
     padding: 4,
@@ -307,13 +308,14 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   hintContentText: {
+    fontFamily: dsFont.body,
     flex: 1,
     fontSize: 13,
-    color: '#1E293B',
+    color: '#0F2A44',
     lineHeight: 19,
   },
   hintBoldTitle: {
-    fontWeight: '700',
+    fontFamily: dsFont.bold,
     color: '#144173',
   },
   wordBankSection: {
@@ -321,8 +323,8 @@ const styles = StyleSheet.create({
   },
   wordBankLabel: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#64748B',
+    fontFamily: dsFont.semibold,
+    color: '#5B6B7F',
     marginBottom: 10,
   },
   wordBankRow: {
@@ -333,7 +335,7 @@ const styles = StyleSheet.create({
   wordChip: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 14,
@@ -349,8 +351,8 @@ const styles = StyleSheet.create({
   },
   wordChipText: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#1E293B',
+    fontFamily: dsFont.bold,
+    color: '#0F2A44',
   },
   wordChipTextSelected: {
     color: '#144173',

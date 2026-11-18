@@ -38,7 +38,7 @@ export const PostImageViewerModal: React.FC<PostImageViewerModalProps> = ({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#000000" />
+      <StatusBar barStyle="light-content" />
       <SafeAreaView style={styles.container}>
         {/* Header Bar */}
         <View style={styles.header}>

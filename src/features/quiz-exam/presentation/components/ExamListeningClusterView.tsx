@@ -20,11 +20,12 @@ import {
   Languages,
   Sparkles,
   RotateCcw,
-  Timer,
-} from 'lucide-react-native';
+  Clock,
+} from '@/src/components/ds/icons';
 import { colors } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
 import { AnswerKey, ExamQuestion } from '../../data/examAttemptApi';
+import { ds, dsFont } from '@/src/theme/ds';
 
 export interface ExamListeningClusterViewProps {
   questions: ExamQuestion[];
@@ -109,12 +110,12 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
             <View style={[styles.statusBadge, audioHasEnded ? styles.statusBadgeEnded : styles.statusBadgePlaying]}>
               {audioHasEnded && answerCountdown != null ? (
                 <>
-                  <Timer size={12} color="#059669" />
+                  <Clock size={12} color={ds.green} />
                   <Text style={styles.statusBadgeTextEnded}>Chuyển câu sau {answerCountdown} giây</Text>
                 </>
               ) : audioHasEnded ? (
                 <>
-                  <CheckCircle2 size={12} color="#059669" />
+                  <CheckCircle2 size={12} color="#16A34A" />
                   <Text style={styles.statusBadgeTextEnded}>Đã nghe (1 lần duy nhất)</Text>
                 </>
               ) : isPlayingAudio ? (
@@ -124,7 +125,7 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
                 </>
               ) : (
                 <>
-                  <Lock size={12} color="#475569" />
+                  <Lock size={12} color="#5B6B7F" />
                   <Text style={styles.statusBadgeTextLocked}>Tự phát khi bắt đầu</Text>
                 </>
               )}
@@ -164,7 +165,7 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
             ) : isExamMode ? (
               <View style={[styles.playPauseBtn, styles.playPauseBtnDisabled]}>
                 {audioHasEnded ? (
-                  <CheckCircle2 size={20} color="#94A3B8" />
+                  <CheckCircle2 size={20} color="#8597AB" />
                 ) : isPlayingAudio ? (
                   <Volume2 size={20} color="#FFFFFF" />
                 ) : (
@@ -190,7 +191,7 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
                 hitSlop={6}
                 style={({ pressed }) => [styles.replayBtn, pressed && styles.pressed]}
               >
-                <RotateCcw size={16} color={colors.primary} />
+                <RotateCcw size={16} color={ds.btn} />
                 <Text style={styles.replayBtnText}>Nghe lại</Text>
               </Pressable>
             ) : null}
@@ -233,7 +234,7 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
 
           {/* ETS Note */}
           <View style={styles.audioInfoRow}>
-            <HelpCircle size={13} color="#64748B" />
+            <HelpCircle size={13} color="#5B6B7F" />
             <Text style={styles.audioInfoText}>
               {isExamMode
                 ? autoplayBlocked
@@ -277,9 +278,9 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
                       hitSlop={6}
                     >
                       {isTranslating ? (
-                        <ActivityIndicator size="small" color={colors.primary} />
+                        <ActivityIndicator size="small" color={ds.btn} />
                       ) : (
-                        <Languages size={13} color={showInlineTranslation ? colors.primary : '#475569'} />
+                        <Languages size={13} color={showInlineTranslation ? ds.btn : '#5B6B7F'} />
                       )}
                       <Text style={[styles.translateBtnText, showInlineTranslation && styles.translateBtnTextActive]}>
                         {showInlineTranslation ? 'Ẩn dịch' : 'Dịch'}
@@ -295,7 +296,7 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
                   >
                     <Bookmark
                       size={18}
-                      color={isBookmarked ? '#F59E0B' : '#94A3B8'}
+                      color={isBookmarked ? '#F59E0B' : '#8597AB'}
                       fill={isBookmarked ? '#F59E0B' : 'transparent'}
                     />
                   </Pressable>
@@ -310,7 +311,7 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
               {/* Inline Translation nếu có */}
               {isPracticeMode && isRevealed && showInlineTranslation && currentTranslations?.question ? (
                 <View style={styles.translationBox}>
-                  <Languages size={12} color="#2563EB" style={{ marginTop: 2 }} />
+                  <Languages size={12} color="#0369A1" style={{ marginTop: 2 }} />
                   <Text style={styles.translationText}>{currentTranslations.question}</Text>
                 </View>
               ) : null}
@@ -403,7 +404,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     padding: 14,
     gap: 12,
     shadowColor: '#000',
@@ -422,7 +423,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#E0F2FE',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
@@ -430,9 +431,8 @@ const styles = StyleSheet.create({
   },
   dialogBadgeText: {
     fontSize: 11.5,
-    fontWeight: '700',
+    fontFamily: dsFont.bold,
     color: '#1E40AF',
-    fontFamily: font.family,
   },
   statusBadge: {
     flexDirection: 'row',
@@ -446,28 +446,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#E0F2FE',
   },
   statusBadgeEnded: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: '#DCFCE7',
   },
   statusBadgeLocked: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
   },
   statusBadgeTextPlaying: {
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: dsFont.bold,
     color: '#0284C7',
-    fontFamily: font.family,
   },
   statusBadgeTextEnded: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#059669',
-    fontFamily: font.family,
+    fontFamily: dsFont.bold,
+    color: '#16A34A',
   },
   statusBadgeTextLocked: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#475569',
-    fontFamily: font.family,
+    fontFamily: dsFont.semibold,
+    color: '#5B6B7F',
   },
   pulsingDot: {
     width: 7,
@@ -476,32 +473,32 @@ const styles = StyleSheet.create({
     backgroundColor: '#0284C7',
   },
   playingBadge: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
   },
   playingBadgeText: {
     fontSize: 11,
-    color: '#475569',
-    fontWeight: '600',
+    color: '#5B6B7F',
+    fontFamily: dsFont.semibold,
   },
   photoWrapper: {
     borderRadius: 14,
     overflow: 'hidden',
     height: 200,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#0F2A44',
   },
   photoImage: {
     width: '100%',
     height: '100%',
   },
   playerInnerBox: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F7FB',
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     gap: 10,
   },
   playerMainRow: {
@@ -513,7 +510,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 999,
-    backgroundColor: '#1E3A5F',
+    backgroundColor: '#0369A1',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -525,16 +522,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: ds.btn,
   },
   replayBtnText: {
     fontSize: 12,
-    fontFamily: font.family,
-    fontWeight: '600',
-    color: colors.primary,
+    fontFamily: dsFont.semibold,
+    color: ds.btn,
   },
   playPauseBtnDisabled: {
-    backgroundColor: '#64748B',
+    backgroundColor: '#5B6B7F',
     opacity: 0.85,
   },
   waveFormArea: {
@@ -555,17 +551,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#0284C7',
   },
   waveBarInactive: {
-    backgroundColor: '#CBD5E1',
+    backgroundColor: '#CBD6E2',
   },
   miniProgressTrack: {
     height: 4,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E3EAF2',
     borderRadius: 2,
     overflow: 'hidden',
   },
   miniProgressFill: {
     height: '100%',
-    backgroundColor: '#1E3A5F',
+    backgroundColor: '#0369A1',
     borderRadius: 2,
   },
   timeLabelsRow: {
@@ -574,9 +570,8 @@ const styles = StyleSheet.create({
   },
   timeText: {
     fontSize: 10.5,
-    color: '#64748B',
-    fontWeight: '600',
-    fontFamily: font.family,
+    color: '#5B6B7F',
+    fontFamily: dsFont.semibold,
   },
   audioInfoRow: {
     flexDirection: 'row',
@@ -585,9 +580,9 @@ const styles = StyleSheet.create({
     paddingTop: 2,
   },
   audioInfoText: {
+    fontFamily: dsFont.body,
     fontSize: 10.5,
-    color: '#64748B',
-    fontFamily: font.family,
+    color: '#5B6B7F',
     flex: 1,
     lineHeight: 15,
   },
@@ -599,7 +594,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     padding: 14,
     gap: 12,
     shadowColor: '#000',
@@ -619,12 +614,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   qNumBadge: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
     paddingHorizontal: 8,
     paddingVertical: 3.5,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
   },
   qNumBadgeAnswered: {
     backgroundColor: '#E0F2FE',
@@ -632,20 +627,19 @@ const styles = StyleSheet.create({
   },
   qNumBadgeText: {
     fontSize: 12,
-    fontWeight: '800',
-    color: '#1E3A5F',
-    fontFamily: font.family,
+    fontFamily: dsFont.display,
+    color: '#0369A1',
   },
   categoryPill: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F7FB',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
   categoryPillText: {
     fontSize: 11,
-    color: '#64748B',
-    fontWeight: '600',
+    color: '#5B6B7F',
+    fontFamily: dsFont.semibold,
   },
   qActionsRow: {
     flexDirection: 'row',
@@ -659,42 +653,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F7FB',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
   },
   translateBtnActive: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#E0F2FE',
     borderColor: '#93C5FD',
   },
   translateBtnText: {
     fontSize: 11,
-    color: '#475569',
-    fontWeight: '600',
+    color: '#5B6B7F',
+    fontFamily: dsFont.semibold,
   },
   translateBtnTextActive: {
-    color: colors.primary,
+    color: ds.btn,
   },
   questionPromptText: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontFamily: dsFont.bold,
+    color: '#0F2A44',
     lineHeight: 22,
-    fontFamily: font.family,
   },
   translationBox: {
     flexDirection: 'row',
     gap: 6,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#E0F2FE',
     padding: 10,
     borderRadius: 10,
     borderLeftWidth: 3,
-    borderLeftColor: '#3B82F6',
+    borderLeftColor: '#0EA5E9',
   },
   translationText: {
+    fontFamily: dsFont.body,
     fontSize: 12.5,
     color: '#1E40AF',
     lineHeight: 18,
@@ -710,45 +704,50 @@ const styles = StyleSheet.create({
     gap: 12,
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 14,
-    paddingVertical: 12,
+    borderColor: '#E3EAF2',
     paddingHorizontal: 14,
+    borderBottomWidth: 4,
+    borderRadius: 16,
+    paddingVertical: 14,
   },
   optionCardSelected: {
-    borderColor: '#1E3A5F',
-    backgroundColor: '#F8FAFC',
+    borderColor: '#0EA5E9',
+    backgroundColor: '#E0F2FE',
   },
   optionCardRevealedCorrect: {
-    borderColor: '#10B981',
-    backgroundColor: '#ECFDF5',
+    borderColor: '#16A34A',
+    backgroundColor: '#DCFCE7',
   },
   optionCardRevealedWrong: {
-    borderColor: '#EF4444',
-    backgroundColor: '#FEF2F2',
+    borderColor: '#DC2626',
+    backgroundColor: '#FEE2E2',
   },
   optionKeyCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
     alignItems: 'center',
     justifyContent: 'center',
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: '#E3EAF2',
   },
   optionKeyCircleSelected: {
-    backgroundColor: '#1E3A5F',
+    backgroundColor: '#0369A1',
+    borderColor: '#0369A1',
   },
   optionKeyCircleRevealedCorrect: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#16A34A',
+    borderColor: '#16A34A',
   },
   optionKeyCircleRevealedWrong: {
-    backgroundColor: '#EF4444',
+    backgroundColor: '#DC2626',
+    borderColor: '#DC2626',
   },
   optionKeyText: {
     fontSize: 13.5,
-    fontWeight: '800',
-    color: '#475569',
-    fontFamily: font.family,
+    fontFamily: dsFont.display,
+    color: '#5B6B7F',
   },
   optionKeyTextSelected: {
     color: '#FFFFFF',
@@ -758,34 +757,34 @@ const styles = StyleSheet.create({
   },
   optionLabelText: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#1E293B',
+    fontFamily: dsFont.medium,
+    color: '#0F2A44',
     lineHeight: 20,
-    fontFamily: font.family,
   },
   optionLabelTextSelected: {
-    fontWeight: '700',
-    color: '#0F172A',
+    fontFamily: dsFont.bold,
+    color: '#0F2A44',
   },
   optionLabelTextRevealedCorrect: {
-    fontWeight: '700',
-    color: '#065F46',
+    fontFamily: dsFont.bold,
+    color: '#166534',
   },
   optionLabelTextRevealedWrong: {
-    fontWeight: '700',
+    fontFamily: dsFont.bold,
     color: '#991B1B',
   },
   optionSubLabelText: {
+    fontFamily: dsFont.body,
     fontSize: 12,
-    color: '#64748B',
+    color: '#5B6B7F',
     marginTop: 2,
   },
   explanationBox: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#DCFCE7',
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: '#86EFAC',
     gap: 6,
   },
   explanationHeaderRow: {
@@ -795,15 +794,16 @@ const styles = StyleSheet.create({
   },
   explanationHeaderTitle: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#15803D',
+    fontFamily: dsFont.bold,
+    color: '#166534',
   },
   explanationText: {
+    fontFamily: dsFont.body,
     fontSize: 12.5,
     color: '#166534',
     lineHeight: 18,
   },
   pressed: {
-    opacity: 0.85,
+    transform: [{ scale: 0.98 }, { translateY: 2 }],
   },
 });

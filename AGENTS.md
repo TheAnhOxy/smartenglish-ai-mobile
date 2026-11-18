@@ -1,7 +1,7 @@
 ﻿# Project: SmartEnglish AI Lexora (Mobile)
 
 > Ứng dụng học tiếng Anh AI-first trên React Native + Expo.
-> Đọc docs Expo chính xác tại: https://docs.expo.dev/versions/v57.0.0/
+> Đọc docs Expo chính xác tại: https://docs.expo.dev/versions/v58.0.0/
 
 ---
 
@@ -9,14 +9,14 @@
 
 | Lớp | Thư viện / Phiên bản |
 |---|---|
-| Framework | React Native `0.86.3` + Expo SDK `~57` |
+| Framework | React Native `0.88.1` + Expo SDK `~58` |
 | Ngôn ngữ | TypeScript `~6.0`, strict mode |
-| Navigation | Expo Router `~57` (file-based, typed routes) |
+| Navigation | Expo Router `~58` (file-based, typed routes) |
 | State | Zustand `^5` (auth, role gate) + TanStack Query `^5` (server state) |
 | Styling | NativeWind `^4` (Tailwind `^3.4`) + theme tokens (`src/core/theme/colors.ts`) |
-| Animation | React Native Reanimated `^4.5` + Gesture Handler `~2.32` |
+| Animation | React Native Reanimated `4.7` + Worklets `0.13` (phải khớp Expo Go — dùng `npx expo install`, không tự nâng) |
 | HTTP | Axios (`apiClient` tập trung tại `src/core/api/client.ts`) |
-| Local DB | Expo SQLite `~57`, MMKV `^4` |
+| Local DB | Expo SQLite `~58`, MMKV `^4` |
 | Media | expo-av, expo-audio, expo-speech, expo-image-picker, VisionCamera `^5` |
 | AI / Skia | `@shopify/react-native-skia ^2.6`, Lottie `~7.3` |
 | Validation | Zod `^4` |

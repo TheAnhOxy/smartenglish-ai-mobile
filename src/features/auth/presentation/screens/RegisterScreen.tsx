@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Platform, TextInput } from 'react-native';
+import { Platform, TextInput, type TextInputInstance } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Gift, Lock, Mail, Phone, User } from 'lucide-react-native';
 import * as WebBrowser from 'expo-web-browser';
@@ -22,9 +22,9 @@ type Field = 'name' | 'email' | 'password' | 'confirm';
 
 export const RegisterScreen = () => {
   const router = useRouter();
-  const emailRef = useRef<TextInput>(null);
-  const passwordRef = useRef<TextInput>(null);
-  const confirmRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInputInstance>(null);
+  const passwordRef = useRef<TextInputInstance>(null);
+  const confirmRef = useRef<TextInputInstance>(null);
 
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');

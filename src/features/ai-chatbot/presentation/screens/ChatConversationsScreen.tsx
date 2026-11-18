@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  type ScrollViewInstance,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import {
@@ -99,7 +100,7 @@ export const ChatConversationsScreen = () => {
   const insets = useSafeAreaInsets();
   const [quota, setQuota] = useState<ChatQuota | null>(null);
   const [quotaError, setQuotaError] = useState(false);
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
 
   const isPremium = hasActivePremium(currentUser);
   const dailyLimit = isPremium ? 999 : 15;

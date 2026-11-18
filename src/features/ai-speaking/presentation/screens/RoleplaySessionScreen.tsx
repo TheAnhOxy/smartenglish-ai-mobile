@@ -9,6 +9,7 @@ import {
   StyleSheet,
   TextInput,
   ActivityIndicator,
+  type ScrollViewInstance,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import {
@@ -72,7 +73,7 @@ export const RoleplaySessionScreen = () => {
   // Web SpeechRecognition ref & auto-scroll ref
   const recognitionRef = useRef<any>(null);
   const isRecordingRef = useRef(false);
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
 
   // Tải thông tin kịch bản từ backend
   useEffect(() => {

@@ -8,7 +8,10 @@ import {
   ActivityIndicator,
   ScrollView,
   Alert,
+  Animated as RNAnimated,
+  Easing,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
   Mic,
@@ -18,9 +21,11 @@ import {
   ChevronLeft,
   Play,
   RotateCcw,
-  CheckCircle2,
   AlertTriangle,
-} from 'lucide-react-native';
+  Lightbulb,
+} from '@/src/components/ds/icons';
+import { Button3D, PulseRing, Tap, feedback, haptic } from '@/src/components/ds';
+import { ds, dsFont, dsRadius, dsShadow, dsSize } from '@/src/theme/ds';
 import Animated, {
   useAnimatedStyle,
   withRepeat,
@@ -37,11 +42,8 @@ import {
   useAudioPlayerStatus,
   useAudioRecorder,
 } from 'expo-audio';
-import { Audio } from 'expo-av';
 import * as Speech from 'expo-speech';
 import { createManagedWebAudio, speakText, stopSpeech } from '@/src/core/services/speechService';
-import { colors, palette } from '@/src/theme/colors';
-import { font } from '@/src/theme/typography';
 import {
   evaluatePronunciationApi,
   PronunciationAssessmentData,
@@ -55,6 +57,7 @@ import { MouthShapeGuideModal } from './MouthShapeGuideModal';
 
 export const SingleWordSpeakingScreen = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { lessonId, target } = useLocalSearchParams<{ lessonId?: string; target?: string }>();
 
   const [currentLesson, setCurrentLesson] = useState<PronunciationLesson | null>(null);
@@ -244,18 +247,12 @@ export const SingleWordSpeakingScreen = () => {
         mediaRecorderRef.current.start();
         setIsRecording(true);
       } else {
-        // Kiểm tra quyền Micro an toàn 2 lớp (expo-audio + expo-av fallback)
         let hasPermission = false;
         try {
           const perm = await AudioModule.requestRecordingPermissionsAsync();
           hasPermission = Boolean(perm?.granted);
-        } catch (_) {
-          try {
-            const avPerm = await Audio.requestPermissionsAsync();
-            hasPermission = Boolean(avPerm?.granted);
-          } catch (permErr) {
-            console.warn('[Microphone] Permission check error:', permErr);
-          }
+        } catch (permErr) {
+          console.warn('[Microphone] Permission check error:', permErr);
         }
 
         if (!hasPermission) {
@@ -268,19 +265,13 @@ export const SingleWordSpeakingScreen = () => {
           return;
         }
 
-        // Thiết lập Audio Mode an toàn
         try {
           await setAudioModeAsync({
             allowsRecording: true,
             playsInSilentMode: true,
           });
-        } catch (_) {
-          try {
-            await Audio.setAudioModeAsync({
-              allowsRecordingIOS: true,
-              playsInSilentModeIOS: true,
-            });
-          } catch (_) {}
+        } catch (modeErr) {
+          console.warn('[Microphone] setAudioModeAsync error:', modeErr);
         }
 
         await recorder.prepareToRecordAsync();
@@ -397,8 +388,22 @@ export const SingleWordSpeakingScreen = () => {
     setRecordedUri(null);
   };
 
+  // Phản hồi rung khi có điểm
+  useEffect(() => {
+    if (score === null) return;
+    if (score >= 60) feedback.success();
+    else haptic('warning');
+  }, [score]);
+
+  const onMicPress = () => {
+    haptic(isRecording ? 'light' : 'medium');
+    handleRecordPress();
+  };
+
+  const timeLabel = `${String(Math.floor(recordTime / 60)).padStart(2, '0')}:${String(recordTime % 60).padStart(2, '0')}`;
+
   return (
-    <View style={s.root}>
+    <View style={[s.root, { paddingTop: (insets.top || 20) + 8, paddingBottom: (insets.bottom || 12) + 12 }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
         {/* Top Header */}
         <Animated.View entering={FadeInDown.duration(300)} style={s.headerRow}>
@@ -412,12 +417,15 @@ export const SingleWordSpeakingScreen = () => {
               router.back();
             }}
             style={s.backBtn}
+            accessibilityLabel="Quay lại"
           >
-            <ChevronLeft color={palette.text} size={20} />
-            <Text style={s.backBtnText}>Luyện phát âm IPA</Text>
+            <View style={s.backIcon}>
+              <ChevronLeft color={ds.ink} size={24} />
+            </View>
+            <Text style={s.backBtnText}>Luyện phát âm</Text>
           </Pressable>
           <View style={s.tagBadge}>
-            <Text style={s.tagBadgeText}>
+            <Text style={s.tagBadgeText} numberOfLines={1}>
               {currentLesson?.category || 'AI Pronunciation'}
             </Text>
           </View>
@@ -426,45 +434,46 @@ export const SingleWordSpeakingScreen = () => {
         {/* Thông báo quyền Micro nếu có lỗi */}
         {micNotice && (
           <View style={s.noticeBox}>
-            <AlertTriangle color="#D97706" size={16} />
+            <AlertTriangle color={ds.amberText} size={20} />
             <Text style={s.noticeText}>{micNotice}</Text>
           </View>
         )}
 
         {/* Word Display Box */}
         <Animated.View entering={FadeInDown.delay(80).duration(300)} style={s.wordCard}>
-          <Text style={s.wordTitle}>{targetWord}</Text>
+          <View style={[s.wordDot, { width: 160, height: 160, right: -60, top: -70 }]} />
+          <View style={[s.wordDot, { width: 80, height: 80, left: -30, bottom: -40 }]} />
+          <Text style={s.wordOverline}>Đọc to từ này</Text>
+          <Text style={s.wordTitle} adjustsFontSizeToFit numberOfLines={1}>{targetWord}</Text>
           <Text style={s.ipaText}>{targetIpa}</Text>
           <Text style={s.meaningText}>{meaning}</Text>
 
           {/* Nút phát âm chuẩn bản ngữ */}
-          <Pressable onPress={playNativeAudio} style={s.nativeAudioBtn}>
-            <Volume2 color={isPlayingNative ? colors.primary : colors.textSoft} size={16} />
-            <Text style={s.nativeAudioText}>Phát âm chuẩn mẫu</Text>
-          </Pressable>
+          <Tap onPress={playNativeAudio} sound="none" style={[s.nativeAudioBtn, isPlayingNative && s.nativeAudioBtnActive]}>
+            <Volume2 color={isPlayingNative ? ds.ink : ds.white} size={20} />
+            <Text style={[s.nativeAudioText, isPlayingNative && { color: ds.ink }]}>
+              {isPlayingNative ? 'Đang phát mẫu...' : 'Nghe phát âm mẫu'}
+            </Text>
+          </Tap>
 
-          {/* Sóng âm minh hoạ — dùng View thường để chạy được cả trên web (Skia web cần CanvasKit) */}
-          <View style={[s.waveformWrap, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, height: 32 }]}>
-            {[10, 18, 26, 14, 22, 30, 16, 24, 12, 20, 28, 14, 18, 10].map((h, i) => (
-              <View key={i} style={{ width: 4, height: h, borderRadius: 2, backgroundColor: i % 2 ? colors.primary : colors.primaryMid }} />
-            ))}
-          </View>
+          {/* Sóng âm — chuyển động khi đang thu hoặc đang phát mẫu */}
+          <Waveform active={isRecording || isPlayingNative} color={isRecording ? '#FCA5A5' : ds.skyLight} />
         </Animated.View>
 
         {/* ─── TRẠNG THÁI 1: CHƯA THU ÂM (SẴN SÀNG LUYỆN TẬP) ─── */}
         {!hasRecorded && !isEvaluating && (
           <Animated.View entering={FadeInDown.delay(140).duration(300)} style={s.readyCard}>
             <View style={s.readyIconWrap}>
-              <Mic color="#10B981" size={28} />
+              <Mic color={ds.btn} size={28} />
             </View>
             <Text style={s.readyTitle}>Sẵn sàng luyện phát âm</Text>
             <Text style={s.readySubtitle}>
-              Bấm nút Micro tròn bên dưới và đọc to từ "{targetWord}". AI sẽ phân tích khẩu hình,
+              Bấm nút micro bên dưới và đọc to từ "{targetWord}". AI sẽ phân tích khẩu hình,
               đối chiếu âm vị IPA và phản hồi chi tiết 4 tiêu chí cho bạn.
             </Text>
             <View style={s.readyTipsRow}>
-              <Sparkles color="#D97706" size={14} />
-              <Text style={s.readyTipsText}>Mẹo: Bấm "Phát âm chuẩn mẫu" ở trên để nghe trước</Text>
+              <Lightbulb color={ds.amberText} size={18} />
+              <Text style={s.readyTipsText}>Mẹo: nghe phát âm mẫu ở trên trước khi đọc</Text>
             </View>
           </Animated.View>
         )}
@@ -472,10 +481,12 @@ export const SingleWordSpeakingScreen = () => {
         {/* ─── TRẠNG THÁI 2: ĐANG GỬI AI PHÂN TÍCH ÂM VỊ ─── */}
         {isEvaluating && (
           <Animated.View entering={FadeInDown.duration(260)} style={s.evaluatingCard}>
-            <ActivityIndicator color="#10B981" size="large" style={{ marginBottom: 12 }} />
-            <Text style={s.evaluatingTitle}>AI đang phân tích sóng âm & đối chiếu IPA...</Text>
+            <View style={s.evaluatingSpinner}>
+              <ActivityIndicator color={ds.btn} size="large" />
+            </View>
+            <Text style={s.evaluatingTitle}>AI đang phân tích sóng âm và đối chiếu IPA...</Text>
             <Text style={s.evaluatingSubtitle}>
-              Đang chấm điểm Độ chính xác, Lưu loát, Trọng âm và tìm kiếm các âm vị phát âm sai
+              Đang chấm điểm độ chính xác, lưu loát, trọng âm và tìm các âm vị phát âm sai
             </Text>
           </Animated.View>
         )}
@@ -492,11 +503,16 @@ export const SingleWordSpeakingScreen = () => {
                 label="ĐỘ CHUẨN"
               />
               <View style={s.scoreSummaryWrap}>
+                <View style={[s.scorePill, { backgroundColor: score >= 80 ? ds.greenSoft : score >= 60 ? ds.amberSoft : ds.redSoft }]}>
+                  <Text style={[s.scorePillText, { color: score >= 80 ? ds.greenText : score >= 60 ? ds.amberText : ds.redText }]}>
+                    {score >= 80 ? 'Xuất sắc' : score >= 60 ? 'Khá tốt' : 'Cần luyện thêm'}
+                  </Text>
+                </View>
                 <Text style={s.scoreTitle}>
                   {score >= 80
-                    ? 'Xuất sắc! Chuẩn giọng bản ngữ'
+                    ? 'Chuẩn giọng bản ngữ'
                     : score >= 60
-                    ? 'Khá tốt! Cần chú ý âm đuôi'
+                    ? 'Cần chú ý âm đuôi'
                     : 'Cần luyện tập thêm khẩu hình'}
                 </Text>
                 <Text style={s.scoreSubTitle}>
@@ -527,83 +543,99 @@ export const SingleWordSpeakingScreen = () => {
             {/* Nhận xét chi tiết từ AI */}
             {assessment.errorFeedback && assessment.errorFeedback.length > 0 && (
               <View style={s.feedbackBox}>
-                <Text style={s.feedbackTitle}>Nhận xét từ AI:</Text>
+                <View style={s.feedbackHead}>
+                  <Lightbulb color={ds.amberText} size={18} />
+                  <Text style={s.feedbackTitle}>Nhận xét từ AI</Text>
+                </View>
                 {assessment.errorFeedback.map((fb, i) => (
-                  <Text key={i} style={s.feedbackText}>• {fb}</Text>
+                  <View key={i} style={s.feedbackItem}>
+                    <View style={s.feedbackBullet} />
+                    <Text style={s.feedbackText}>{fb}</Text>
+                  </View>
                 ))}
               </View>
             )}
 
             {/* Audio Playback Buttons */}
             <View style={s.playbackRow}>
-              <Pressable
+              <Button3D
+                style={{ flex: 1 }}
+                height={46}
+                label={isPlayingUserVoice ? 'Đang phát...' : 'Nghe lại'}
+                icon={<Play color={ds.white} size={16} fill={ds.white} />}
                 onPress={playUserVoice}
-                style={[s.playbackBtn, isPlayingUserVoice && s.playbackBtnActive]}
-              >
-                <Play color="#FFFFFF" size={14} fill="#FFFFFF" />
-                <Text style={s.playbackBtnText}>
-                  {isPlayingUserVoice ? 'Đang phát...' : 'Nghe lại giọng'}
-                </Text>
-              </Pressable>
-
-              <Pressable onPress={handleResetPractice} style={s.retryBtn}>
-                <RotateCcw color="#334155" size={14} />
-                <Text style={s.retryBtnText}>Luyện lại</Text>
-              </Pressable>
-
-              <Pressable
-                onPress={() => {
-                  router.push({
-                    pathname: '/(student)/practice/speaking/detailed-feedback' as any,
-                    params: {
-                      word: targetWord,
-                      ipa: targetIpa,
-                      score: String(score),
-                      accuracy: String(assessment.accuracyScore),
-                      stress: String(assessment.stressScore),
-                      intonation: String(assessment.intonationScore),
-                      fluency: String(assessment.fluencyScore),
-                      audioUri: recordedUri || '',
-                    },
-                  });
-                }}
-                style={s.analysisBtn}
-              >
-                <Sparkles color="#FFFFFF" size={14} />
-                <Text style={s.analysisBtnText}>Chi tiết</Text>
-              </Pressable>
+              />
+              <Button3D
+                style={{ flex: 1 }}
+                height={46}
+                variant="light"
+                label="Luyện lại"
+                icon={<RotateCcw color={ds.ink} size={18} />}
+                onPress={handleResetPractice}
+              />
             </View>
+            <Button3D
+              style={{ marginTop: 10 }}
+              height={46}
+              variant="amber"
+              label="Xem phân tích chi tiết"
+              icon={<Sparkles color={ds.ink} size={18} />}
+              onPress={() => {
+                router.push({
+                  pathname: '/(student)/practice/speaking/detailed-feedback' as any,
+                  params: {
+                    word: targetWord,
+                    ipa: targetIpa,
+                    score: String(score),
+                    accuracy: String(assessment.accuracyScore),
+                    stress: String(assessment.stressScore),
+                    intonation: String(assessment.intonationScore),
+                    fluency: String(assessment.fluencyScore),
+                    audioUri: recordedUri || '',
+                  },
+                });
+              }}
+            />
           </Animated.View>
         )}
       </ScrollView>
 
       {/* Record Mic Button Controls (Chuẩn 2-State Mic UI) */}
       <View style={s.micSection}>
-        <Animated.View style={animatedPulseStyle}>
-          <Pressable
-            onPress={handleRecordPress}
-            disabled={isEvaluating}
-            style={[
-              s.micBtn,
-              isRecording ? s.micBtnRecording : s.micBtnNormal,
-              isEvaluating && { opacity: 0.6 },
-            ]}
-          >
-            {isRecording ? (
-              <Square color="#FFFFFF" size={26} fill="#FFFFFF" />
-            ) : (
-              <Mic color="#FFFFFF" size={30} />
-            )}
-          </Pressable>
-        </Animated.View>
+        <View style={s.micWrap}>
+          <PulseRing size={88} color={ds.red} active={isRecording} />
+          <Animated.View style={[s.micWrap, animatedPulseStyle]}>
+            <View style={[s.micEdge, { backgroundColor: isRecording ? ds.redEdge : ds.btnEdge }]} />
+            <Pressable
+              onPress={onMicPress}
+              disabled={isEvaluating}
+              style={[
+                s.micBtn,
+                isRecording ? s.micBtnRecording : s.micBtnNormal,
+                isEvaluating && { opacity: 0.6 },
+              ]}
+              accessibilityLabel={isRecording ? 'Dừng thu âm' : 'Bắt đầu thu âm'}
+            >
+              {isRecording ? (
+                <Square color={ds.white} size={30} fill={ds.white} />
+              ) : (
+                <Mic color={ds.white} size={36} fill="none" />
+              )}
+            </Pressable>
+          </Animated.View>
+        </View>
 
-        <Text style={s.micHintText}>
-          {isEvaluating
-            ? 'Đang gửi AI phân tích âm thanh...'
-            : isRecording
-            ? `Đang thu âm 00:0${recordTime}s • Chạm để hoàn tất & chấm điểm`
-            : 'Chạm micro để thu âm giọng nói'}
-        </Text>
+        {isRecording ? (
+          <View style={s.recRow}>
+            <View style={s.recDot} />
+            <Text style={s.recTime}>{timeLabel}</Text>
+            <Text style={s.micHintText}>Chạm để hoàn tất và chấm điểm</Text>
+          </View>
+        ) : (
+          <Text style={s.micHintText}>
+            {isEvaluating ? 'Đang gửi AI phân tích âm thanh...' : 'Chạm micro để thu âm giọng nói'}
+          </Text>
+        )}
       </View>
 
       <MouthShapeGuideModal
@@ -619,205 +651,254 @@ export const SingleWordSpeakingScreen = () => {
   );
 };
 
+const BAR_HEIGHTS = [10, 18, 26, 14, 22, 30, 16, 24, 12, 20, 28, 14, 18, 10, 22, 16, 26, 12];
+
+/** Sóng âm: các thanh nhấp nhô lệch pha khi active */
+const Waveform: React.FC<{ active: boolean; color: string }> = ({ active, color }) => {
+  const v = useRef(new RNAnimated.Value(0)).current;
+  useEffect(() => {
+    if (!active) {
+      v.stopAnimation();
+      RNAnimated.timing(v, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+      return;
+    }
+    const loop = RNAnimated.loop(
+      RNAnimated.timing(v, { toValue: 1, duration: 900, easing: Easing.linear, useNativeDriver: true }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [v, active]);
+  return (
+    <View style={s.waveformWrap}>
+      {BAR_HEIGHTS.map((h, i) => {
+        const phase = (i % 6) / 6;
+        const scaleY = active
+          ? v.interpolate({
+              inputRange: [0, phase, Math.min(phase + 0.5, 1), 1],
+              outputRange: [0.45, 1, 0.35, 0.45],
+            })
+          : 0.55;
+        return (
+          <RNAnimated.View
+            key={i}
+            style={{ width: 4, height: h + 6, borderRadius: 2, backgroundColor: color, opacity: active ? 1 : 0.55, transform: [{ scaleY }] }}
+          />
+        );
+      })}
+    </View>
+  );
+};
+
 const s = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: palette.bg,
-    paddingTop: 52,
+    backgroundColor: ds.bg,
     paddingHorizontal: 20,
-    paddingBottom: 24,
     justifyContent: 'space-between',
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 18,
+    gap: 12,
   },
   backBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 10,
+  },
+  backIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: ds.card,
+    borderWidth: 1.5,
+    borderColor: ds.line,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   backBtnText: {
-    color: palette.text,
-    fontFamily: font.family,
-    fontWeight: '700',
-    fontSize: 15,
+    color: ds.ink,
+    fontFamily: dsFont.display,
+    fontSize: dsSize.md,
   },
   tagBadge: {
-    backgroundColor: palette.primarySoft,
+    backgroundColor: ds.skySoft,
     paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 100,
+    paddingVertical: 6,
+    borderRadius: 999,
+    flexShrink: 1,
   },
   tagBadgeText: {
-    fontSize: 12,
-    fontFamily: font.family,
-    fontWeight: '700',
-    color: palette.primary,
+    fontSize: dsSize.xs,
+    fontFamily: dsFont.bold,
+    color: ds.btn,
   },
   noticeBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#FFFBEB',
+    gap: 10,
+    backgroundColor: ds.amberSoft,
     padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderRadius: dsRadius.md,
     marginBottom: 14,
   },
   noticeText: {
     flex: 1,
-    fontSize: 12,
-    color: '#B45309',
+    fontSize: dsSize.xs,
+    fontFamily: dsFont.semibold,
+    color: ds.amberText,
     lineHeight: 17,
-    fontWeight: '600',
   },
   wordCard: {
-    backgroundColor: '#FFFFFF',
-    padding: 24,
-    borderRadius: 24,
+    backgroundColor: ds.ink,
+    paddingVertical: 26,
+    paddingHorizontal: 22,
+    borderRadius: dsRadius.xl,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: palette.border,
     marginBottom: 16,
-    shadowColor: palette.text,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 2,
+    overflow: 'hidden',
+    ...dsShadow.lift,
+  },
+  wordDot: { position: 'absolute', borderRadius: 999, backgroundColor: 'rgba(14,165,233,0.16)' },
+  wordOverline: {
+    fontSize: dsSize.xs,
+    fontFamily: dsFont.bold,
+    color: ds.skyLight,
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+    marginBottom: 6,
   },
   wordTitle: {
-    fontSize: 34,
-    fontFamily: font.family,
-    fontWeight: '800',
-    color: palette.text,
+    fontSize: dsSize.display,
+    fontFamily: dsFont.displayHeavy,
+    color: ds.white,
     marginBottom: 4,
-    letterSpacing: -0.5,
+    letterSpacing: -0.8,
   },
   ipaText: {
-    fontSize: 18,
-    fontFamily: font.family,
-    fontWeight: '700',
-    color: palette.primary,
+    fontSize: dsSize.md + 1,
+    fontFamily: dsFont.semibold,
+    color: ds.skyLight,
     marginBottom: 8,
   },
   meaningText: {
-    fontSize: 13,
-    fontFamily: font.family,
-    color: palette.textSoft,
+    fontSize: dsSize.sm,
+    fontFamily: dsFont.body,
+    color: ds.onInk,
     textAlign: 'center',
   },
   nativeAudioBtn: {
-    marginTop: 16,
+    marginTop: 18,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: palette.primarySoft,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 100,
+    backgroundColor: ds.onInkFaint,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: 999,
   },
+  nativeAudioBtnActive: { backgroundColor: ds.amber },
   nativeAudioText: {
-    fontSize: 13,
-    fontFamily: font.family,
-    fontWeight: '700',
-    color: palette.primary,
+    fontSize: dsSize.sm,
+    fontFamily: dsFont.bold,
+    color: ds.white,
   },
   waveformWrap: {
     width: '100%',
-    height: 32,
-    marginTop: 16,
+    height: 40,
+    marginTop: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
+    gap: 4,
   },
   readyCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: ds.card,
     padding: 22,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: palette.border,
+    borderRadius: dsRadius.xl,
+    borderWidth: 1.5,
+    borderColor: ds.line,
     alignItems: 'center',
-    shadowColor: palette.text,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 2,
     marginBottom: 16,
   },
   readyIconWrap: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#ECFDF5',
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: ds.skySoft,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
   },
   readyTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: palette.text,
+    fontSize: dsSize.md,
+    fontFamily: dsFont.display,
+    color: ds.ink,
     marginBottom: 6,
   },
   readySubtitle: {
-    fontSize: 13,
-    color: palette.textSoft,
+    fontSize: dsSize.sm,
+    fontFamily: dsFont.body,
+    color: ds.muted,
     textAlign: 'center',
-    lineHeight: 19,
-    marginBottom: 12,
+    lineHeight: 20,
+    marginBottom: 14,
   },
   readyTipsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FFFBEB',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 100,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
+    gap: 8,
+    backgroundColor: ds.amberSoft,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
   },
   readyTipsText: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#B45309',
+    fontSize: dsSize.xs,
+    fontFamily: dsFont.semibold,
+    color: ds.amberText,
+    flexShrink: 1,
   },
   evaluatingCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: ds.card,
     padding: 26,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: palette.border,
+    borderRadius: dsRadius.xl,
+    borderWidth: 1.5,
+    borderColor: ds.line,
     alignItems: 'center',
     marginBottom: 16,
-    elevation: 2,
+  },
+  evaluatingSpinner: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    backgroundColor: ds.skySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
   },
   evaluatingTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: palette.text,
+    fontSize: dsSize.base,
+    fontFamily: dsFont.display,
+    color: ds.ink,
     marginBottom: 4,
     textAlign: 'center',
   },
   evaluatingSubtitle: {
-    fontSize: 12.5,
-    color: palette.textSoft,
+    fontSize: dsSize.xs + 0.5,
+    fontFamily: dsFont.body,
+    color: ds.muted,
     textAlign: 'center',
     lineHeight: 18,
   },
   scoreCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: ds.card,
     padding: 18,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: palette.border,
-    shadowColor: palette.text,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 2,
+    borderRadius: dsRadius.xl,
+    borderWidth: 1.5,
+    borderColor: ds.line,
     marginBottom: 16,
   },
   ringHeaderSection: {
@@ -826,126 +907,81 @@ const s = StyleSheet.create({
     gap: 16,
     marginBottom: 14,
     paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomWidth: 1.5,
+    borderBottomColor: ds.line,
   },
   scoreSummaryWrap: {
     flex: 1,
+    gap: 4,
   },
+  scorePill: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  scorePillText: { fontSize: dsSize.xs, fontFamily: dsFont.bold },
   scoreTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 4,
+    fontSize: dsSize.md,
+    fontFamily: dsFont.display,
+    color: ds.ink,
   },
   scoreSubTitle: {
-    fontSize: 12,
-    color: '#64748B',
+    fontSize: dsSize.xs,
+    fontFamily: dsFont.body,
+    color: ds.muted,
     lineHeight: 17,
   },
   feedbackBox: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 14,
-    padding: 12,
+    backgroundColor: ds.amberSoft,
+    borderRadius: dsRadius.md,
+    padding: 14,
     marginTop: 14,
+    gap: 6,
   },
+  feedbackHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
   feedbackTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#334155',
-    marginBottom: 4,
+    fontSize: dsSize.sm,
+    fontFamily: dsFont.bold,
+    color: ds.amberText,
   },
+  feedbackItem: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
+  feedbackBullet: { width: 6, height: 6, borderRadius: 3, backgroundColor: ds.amberDeep, marginTop: 7 },
   feedbackText: {
-    fontSize: 12,
-    color: '#475569',
-    lineHeight: 18,
+    flex: 1,
+    fontSize: dsSize.sm,
+    fontFamily: dsFont.body,
+    color: ds.ink,
+    lineHeight: 19,
   },
   playbackRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
     width: '100%',
-    marginTop: 14,
-  },
-  playbackBtn: {
-    flex: 1,
-    backgroundColor: palette.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 11,
-    borderRadius: 12,
-  },
-  playbackBtnActive: {
-    backgroundColor: '#0284C7',
-  },
-  playbackBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  retryBtn: {
-    flex: 1,
-    backgroundColor: '#F1F5F9',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 11,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  retryBtnText: {
-    color: '#334155',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  analysisBtn: {
-    backgroundColor: '#4F46E5',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderRadius: 12,
-  },
-  analysisBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
+    marginTop: 16,
   },
   micSection: {
     alignItems: 'center',
-    paddingTop: 8,
+    paddingTop: 10,
+    gap: 10,
   },
+  micWrap: { width: 88, height: 94, alignItems: 'center' },
+  micEdge: { position: 'absolute', top: 6, width: 88, height: 88, borderRadius: 44 },
   micBtn: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 6,
-    marginBottom: 8,
   },
   micBtnNormal: {
-    backgroundColor: '#10B981', // Xanh ngọc bích chuẩn
-    shadowColor: '#10B981',
+    backgroundColor: ds.btn,
   },
   micBtnRecording: {
-    backgroundColor: '#EF4444', // Đỏ cam khi đang thu âm
-    shadowColor: '#EF4444',
+    backgroundColor: ds.red,
   },
+  recRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  recDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: ds.red },
+  recTime: { fontFamily: dsFont.displayHeavy, fontSize: dsSize.md, color: ds.red, fontVariant: ['tabular-nums'] },
   micHintText: {
-    fontSize: 12,
-    color: '#64748B',
-    fontWeight: '600',
+    fontSize: dsSize.sm,
+    fontFamily: dsFont.semibold,
+    color: ds.muted,
     textAlign: 'center',
   },
 });

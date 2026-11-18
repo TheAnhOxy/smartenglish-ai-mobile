@@ -7,8 +7,8 @@ import {
   ActivityIndicator,
   ScrollView,
   StyleSheet,
-  NativeSyntheticEvent,
-  TextInputKeyPressEventData,
+  type TextInputInstance,
+  type TextInputKeyPressEvent,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,7 +28,7 @@ export const VerifyOtpScreen = () => {
   const [localError, setLocalError] = useState<string>('');
   const [resendSuccess, setResendSuccess] = useState<string>('');
 
-  const inputRefs = useRef<Array<TextInput | null>>([]);
+  const inputRefs = useRef<Array<TextInputInstance | null>>([]);
   const { verifyOtp, resendOtp, isPending, isResendingOtp } = useAuthFlow();
 
   // Timer đếm ngược 60s cho phép gửi lại mã
@@ -88,7 +88,7 @@ export const VerifyOtpScreen = () => {
     }
   };
 
-  const handleKeyPress = (e: NativeSyntheticEvent<TextInputKeyPressEventData>, index: number) => {
+  const handleKeyPress = (e: TextInputKeyPressEvent, index: number) => {
     if (e.nativeEvent.key === 'Backspace') {
       if (!otpDigits[index] && index > 0) {
         const nextDigits = [...otpDigits];

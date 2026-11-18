@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, Text, TextInput } from 'react-native';
+import { Platform, Pressable, Text, TextInput, type TextInputInstance } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Lock, Mail } from 'lucide-react-native';
 import * as WebBrowser from 'expo-web-browser';
@@ -19,7 +19,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const LoginScreen = () => {
   const router = useRouter();
-  const passwordRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInputInstance>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [validationError, setValidationError] = useState('');

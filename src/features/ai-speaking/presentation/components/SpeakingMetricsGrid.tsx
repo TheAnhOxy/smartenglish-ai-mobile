@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Activity, CheckCircle2, Sparkles, Zap } from 'lucide-react-native';
+import { Activity, CheckCircle2, Sparkles, Zap } from '@/src/components/ds/icons';
+import { dsFont } from '@/src/theme/ds';
 
 interface SpeakingMetricsGridProps {
   accuracy: number;
@@ -20,8 +21,8 @@ export const SpeakingMetricsGrid: React.FC<SpeakingMetricsGridProps> = ({
       label: 'Độ chính xác',
       sub: 'Accuracy',
       value: Math.round(accuracy),
-      color: '#10B981',
-      bg: '#ECFDF5',
+      color: '#16A34A',
+      bg: '#DCFCE7',
       icon: CheckCircle2,
     },
     {
@@ -29,7 +30,7 @@ export const SpeakingMetricsGrid: React.FC<SpeakingMetricsGridProps> = ({
       sub: 'Fluency',
       value: Math.round(fluency),
       color: '#0EA5E9',
-      bg: '#F0F9FF',
+      bg: '#E0F2FE',
       icon: Zap,
     },
     {
@@ -37,15 +38,15 @@ export const SpeakingMetricsGrid: React.FC<SpeakingMetricsGridProps> = ({
       sub: 'Stress',
       value: Math.round(stress),
       color: '#F59E0B',
-      bg: '#FFFBEB',
+      bg: '#FEF3C7',
       icon: Activity,
     },
     {
       label: 'Ngữ điệu',
       sub: 'Intonation',
       value: Math.round(intonation),
-      color: '#6366F1',
-      bg: '#EEF2FF',
+      color: '#0369A1',
+      bg: '#E0F2FE',
       icon: Sparkles,
     },
   ];
@@ -100,8 +101,8 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
+    borderColor: '#E3EAF2',
+    shadowColor: '#0F2A44',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -122,21 +123,22 @@ const styles = StyleSheet.create({
   },
   valueText: {
     fontSize: 18,
-    fontWeight: '800',
+    fontFamily: dsFont.display,
   },
   labelText: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontFamily: dsFont.bold,
+    color: '#0F2A44',
   },
   subText: {
+    fontFamily: dsFont.body,
     fontSize: 11,
-    color: '#94A3B8',
+    color: '#8597AB',
     marginBottom: 8,
   },
   progressBarTrack: {
     height: 5,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
     borderRadius: 100,
     overflow: 'hidden',
   },

@@ -12,8 +12,9 @@ import {
   Undo2,
   RotateCcw,
   Lightbulb,
-} from 'lucide-react-native';
+} from '@/src/components/ds/icons';
 import { colors } from '@/src/theme/colors';
+import { ds, dsFont } from '@/src/theme/ds';
 
 export interface MatchingPairItem {
   id: string; // key for left item (e.g. "1")
@@ -120,7 +121,7 @@ export function MatchingPairsView({
         </View>
 
         <View style={styles.progressBadge}>
-          <CheckCircle2 size={14} color="#15803D" />
+          <CheckCircle2 size={14} color="#166534" />
           <Text style={styles.progressBadgeText}>
             Đã ghép: {currentMatchedCount}/{totalPairsCount} cặp
           </Text>
@@ -146,8 +147,8 @@ export function MatchingPairsView({
         >
           <Bookmark
             size={18}
-            color={isBookmarked ? colors.primary : colors.textSoft}
-            fill={isBookmarked ? colors.primary : 'transparent'}
+            color={isBookmarked ? ds.btn : ds.muted}
+            fill={isBookmarked ? ds.btn : 'transparent'}
           />
         </Pressable>
       </View>
@@ -165,7 +166,7 @@ export function MatchingPairsView({
               pressed && styles.pressed,
             ]}
           >
-            <Undo2 size={13} color={matchHistory.length === 0 ? '#94A3B8' : '#334155'} />
+            <Undo2 size={13} color={matchHistory.length === 0 ? '#8597AB' : '#33465C'} />
             <Text
               style={[
                 styles.actionBtnText,
@@ -185,7 +186,7 @@ export function MatchingPairsView({
               pressed && styles.pressed,
             ]}
           >
-            <RotateCcw size={13} color={currentMatchedCount === 0 ? '#94A3B8' : '#334155'} />
+            <RotateCcw size={13} color={currentMatchedCount === 0 ? '#8597AB' : '#33465C'} />
             <Text
               style={[
                 styles.actionBtnText,
@@ -311,7 +312,7 @@ export function MatchingPairsView({
       {/* Memory Tip Card */}
       <View style={styles.tipCard}>
         <View style={styles.tipIconWrapper}>
-          <Lightbulb size={18} color="#1E293B" />
+          <Lightbulb size={18} color="#0F2A44" />
         </View>
         <View style={styles.tipContent}>
           <Text style={styles.tipTitle}>Mẹo ghi nhớ</Text>
@@ -344,7 +345,7 @@ const styles = StyleSheet.create({
   },
   categoryBadgeText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: dsFont.bold,
     color: '#1A4B84',
   },
   progressBadge: {
@@ -358,20 +359,20 @@ const styles = StyleSheet.create({
   },
   progressBadgeText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#15803D',
+    fontFamily: dsFont.bold,
+    color: '#166534',
   },
   instructionCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     borderRadius: 18,
     padding: 14,
     gap: 12,
     marginBottom: 16,
-    shadowColor: '#0F172A',
+    shadowColor: '#0F2A44',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -388,28 +389,29 @@ const styles = StyleSheet.create({
   infoIconText: {
     color: '#1A4B84',
     fontSize: 15,
-    fontWeight: '800',
+    fontFamily: dsFont.display,
   },
   instructionContent: {
     flex: 1,
   },
   instructionTitle: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontFamily: dsFont.bold,
+    color: '#0F2A44',
     marginBottom: 2,
   },
   instructionText: {
+    fontFamily: dsFont.body,
     fontSize: 12.5,
-    color: '#64748B',
+    color: '#5B6B7F',
     lineHeight: 18,
   },
   bookmarkBtn: {
     padding: 6,
     borderRadius: 10,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F7FB',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
   },
   controlRow: {
     flexDirection: 'row',
@@ -419,8 +421,8 @@ const styles = StyleSheet.create({
   },
   controlHintText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
+    fontFamily: dsFont.semibold,
+    color: '#5B6B7F',
   },
   actionBtnsGroup: {
     flexDirection: 'row',
@@ -430,7 +432,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
     paddingHorizontal: 9,
     paddingVertical: 5,
     borderRadius: 12,
@@ -440,11 +442,11 @@ const styles = StyleSheet.create({
   },
   actionBtnText: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#334155',
+    fontFamily: dsFont.semibold,
+    color: '#33465C',
   },
   actionBtnTextDisabled: {
-    color: '#94A3B8',
+    color: '#8597AB',
   },
   columnsHeaderRow: {
     flexDirection: 'row',
@@ -466,14 +468,14 @@ const styles = StyleSheet.create({
   },
   columnTitle: {
     fontSize: 11.5,
-    fontWeight: '800',
+    fontFamily: dsFont.display,
     color: '#1A4B84',
     letterSpacing: 0.5,
   },
   columnCount: {
     fontSize: 11,
-    color: '#64748B',
-    fontWeight: '500',
+    color: '#5B6B7F',
+    fontFamily: dsFont.medium,
   },
   matchingGrid: {
     flexDirection: 'row',
@@ -489,7 +491,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
     borderRadius: 16,
     paddingHorizontal: 10,
     paddingVertical: 12,
@@ -505,14 +507,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F6FC',
   },
   itemPillMatched: {
-    borderColor: '#BFDBFE',
-    backgroundColor: '#F8FAFC',
+    borderColor: '#BAE6FD',
+    backgroundColor: '#F4F7FB',
   },
   indexCircle: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E3EAF2',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -521,8 +523,8 @@ const styles = StyleSheet.create({
   },
   indexText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#334155',
+    fontFamily: dsFont.bold,
+    color: '#33465C',
   },
   indexTextMatched: {
     color: '#FFFFFF',
@@ -531,7 +533,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -540,8 +542,8 @@ const styles = StyleSheet.create({
   },
   letterText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#334155',
+    fontFamily: dsFont.bold,
+    color: '#33465C',
   },
   letterTextMatched: {
     color: '#FFFFFF',
@@ -549,25 +551,25 @@ const styles = StyleSheet.create({
   itemText: {
     flex: 1,
     fontSize: 14,
-    fontWeight: '600',
-    color: '#0F172A',
+    fontFamily: dsFont.semibold,
+    color: '#0F2A44',
   },
   itemTextSelected: {
     color: '#1A4B84',
-    fontWeight: '700',
+    fontFamily: dsFont.bold,
   },
   itemTextMatched: {
-    color: '#1E293B',
+    color: '#0F2A44',
   },
   pairBadge: {
-    backgroundColor: '#DBEAFE',
+    backgroundColor: '#E0F2FE',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
   },
   pairBadgeText: {
     fontSize: 11,
-    fontWeight: '800',
+    fontFamily: dsFont.display,
     color: '#1D4ED8',
   },
   selectedDot: {
@@ -585,24 +587,24 @@ const styles = StyleSheet.create({
     height: 14,
     borderRadius: 7,
     borderWidth: 1.5,
-    borderColor: '#CBD5E1',
+    borderColor: '#CBD6E2',
     marginRight: 2,
   },
   tipCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F7FB',
     borderRadius: 16,
     padding: 12,
     gap: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E3EAF2',
   },
   tipIconWrapper: {
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E3EAF2',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -611,13 +613,14 @@ const styles = StyleSheet.create({
   },
   tipTitle: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontFamily: dsFont.bold,
+    color: '#0F2A44',
     marginBottom: 1,
   },
   tipText: {
+    fontFamily: dsFont.body,
     fontSize: 11.5,
-    color: '#64748B',
+    color: '#5B6B7F',
   },
   pressed: {
     opacity: 0.8,
