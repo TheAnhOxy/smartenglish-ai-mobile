@@ -454,7 +454,7 @@ export function FullExamScreen() {
         const audio = createManagedWebAudio(currentQ.audioUrl);
         htmlAudioRef.current = audio;
         audio.onloadedmetadata = () => {
-          setWebDuration(audio.duration || currentQ.audioDurationSec || 20);
+          setWebDuration(Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : currentQ.audioDurationSec || 0);
         };
         audio.ontimeupdate = () => {
           setWebCurrentTime(audio.currentTime);
@@ -691,7 +691,7 @@ export function FullExamScreen() {
 
   // Tua bài nghe: chỉ khi luyện tập và có file audio (giọng máy không tua được, thi thử không cho tua)
   const handleSeekAudio = (seconds: number) => {
-    const target = Math.max(0, seconds);
+    const target = Math.max(0, currentAudioDuration > 0 ? Math.min(currentAudioDuration, seconds) : seconds);
     setAudioHasEnded(false);
     if (Platform.OS === 'web') {
       if (!htmlAudioRef.current) return;
@@ -705,8 +705,8 @@ export function FullExamScreen() {
   const isPlayingAudio = !ENABLE_LAYER_1 ? isSpeaking : (Platform.OS === 'web' ? webAudioPlaying : audioStatus.playing);
   const currentAudioTime = Platform.OS === 'web' ? webCurrentTime : audioStatus.currentTime;
   const currentAudioDuration = Platform.OS === 'web'
-    ? (webDuration || currentQ?.audioDurationSec || 20)
-    : (audioStatus.duration || currentQ?.audioDurationSec || 20);
+    ? (webDuration || currentQ?.audioDurationSec || 0)
+    : (audioStatus.duration || currentQ?.audioDurationSec || 0);
   const audioProgress = isSpeaking ? 0.6 : (currentAudioDuration > 0 ? currentAudioTime / currentAudioDuration : 0);
 
   const formatAudioTime = (seconds?: number) => {
