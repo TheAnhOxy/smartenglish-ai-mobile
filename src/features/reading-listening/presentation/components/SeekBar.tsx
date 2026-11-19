@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, type GestureResponderEvent } from 'react-native';
 import { ds, dsFont, dsRadius, dsSize } from '@/src/theme/ds';
 
@@ -17,11 +17,29 @@ interface Props {
 export const SeekBar: React.FC<Props> = ({ position, duration, onSeek }) => {
   const widthRef = useRef(1);
   const [dragPos, setDragPos] = useState<number | null>(null);
-  const shown = dragPos ?? position;
+  // Vị trí vừa tua tới, giữ đến khi trình phát báo đã tới nơi để con trỏ không giật về chỗ cũ
+  const [pendingPos, setPendingPos] = useState<number | null>(null);
+  const shown = dragPos ?? pendingPos ?? position;
   const ratio = duration > 0 ? Math.max(0, Math.min(1, shown / duration)) : 0;
+
+  useEffect(() => {
+    if (pendingPos === null) return;
+    if (Math.abs(position - pendingPos) < 1) {
+      setPendingPos(null);
+      return;
+    }
+    const timer = setTimeout(() => setPendingPos(null), 1500);
+    return () => clearTimeout(timer);
+  }, [position, pendingPos]);
 
   const at = (e: GestureResponderEvent) =>
     Math.max(0, Math.min(1, e.nativeEvent.locationX / widthRef.current)) * duration;
+
+  const seekTo = (seconds: number) => {
+    const target = Math.max(0, duration > 0 ? Math.min(duration, seconds) : seconds);
+    setPendingPos(target);
+    onSeek(target);
+  };
 
   return (
     <View style={st.wrap}>
@@ -35,7 +53,7 @@ export const SeekBar: React.FC<Props> = ({ position, duration, onSeek }) => {
         onResponderGrant={(e) => setDragPos(at(e))}
         onResponderMove={(e) => setDragPos(at(e))}
         onResponderRelease={(e) => {
-          onSeek(at(e));
+          seekTo(at(e));
           setDragPos(null);
         }}
         onResponderTerminate={() => setDragPos(null)}
@@ -49,13 +67,13 @@ export const SeekBar: React.FC<Props> = ({ position, duration, onSeek }) => {
         <View pointerEvents="none" style={[st.thumb, { left: `${ratio * 100}%` }]} />
       </View>
       <View style={st.row}>
-        <Pressable onPress={() => onSeek(position - 5)} hitSlop={8} style={st.skip} accessibilityLabel="Lùi 5 giây">
+        <Pressable onPress={() => seekTo(shown - 5)} hitSlop={8} style={st.skip} accessibilityLabel="Lùi 5 giây">
           <Text style={st.skipText}>-5s</Text>
         </Pressable>
         <Text style={st.time}>
           {formatClock(shown)} / {formatClock(duration)}
         </Text>
-        <Pressable onPress={() => onSeek(position + 5)} hitSlop={8} style={st.skip} accessibilityLabel="Tới 5 giây">
+        <Pressable onPress={() => seekTo(shown + 5)} hitSlop={8} style={st.skip} accessibilityLabel="Tới 5 giây">
           <Text style={st.skipText}>+5s</Text>
         </Pressable>
       </View>
