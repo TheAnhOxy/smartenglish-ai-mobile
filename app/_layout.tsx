@@ -13,7 +13,8 @@ import { BeVietnamPro_600SemiBold } from '@expo-google-fonts/be-vietnam-pro/600S
 import { BeVietnamPro_700Bold } from '@expo-google-fonts/be-vietnam-pro/700Bold';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '@/src/core/api/queryClient';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
@@ -68,14 +69,6 @@ export const unstable_settings = {
 
 SplashScreen.preventAutoHideAsync();
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      staleTime: 1000 * 60 * 5 // 5 mins
-    }
-  }
-});
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({

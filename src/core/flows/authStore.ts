@@ -4,6 +4,7 @@ import {
   saveAuthTokens,
   getStoredAccessToken,
   getStoredUserProfile,
+  getStoredRefreshToken,
   clearAuthTokens,
 } from '../storage/tokenStorage';
 
@@ -88,7 +89,22 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
+    const refreshToken = getStoredRefreshToken();
     clearAuthTokens();
+    try {
+      // Nạp muộn để tránh vòng import (client.ts cũng nạp authStore lúc chạy)
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { apiClient } = require('../api/client');
+      // Header gán lúc làm mới token: không xoá thì mọi request sau đăng xuất vẫn mang token cũ
+      delete apiClient.defaults.headers.common['Authorization'];
+      if (refreshToken) {
+        // Thu hồi refresh token trên server; lỗi mạng không chặn việc đăng xuất ở máy
+        apiClient.post('/api/v1/auth/logout', { refreshToken }).catch(() => undefined);
+      }
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { queryClient } = require('../api/queryClient');
+      queryClient.clear();
+    } catch (_) {}
     set({
       currentUser: null,
       userStats: null,
