@@ -10,7 +10,7 @@ import { fetchUnreadNotificationCountApi } from '@/src/features/notifications/da
 import {
   Bell,
   BookOpen,
-  BrainCircuit,
+  FileText,
   ChevronRight,
   Coins,
   Flame,
@@ -25,7 +25,6 @@ import { Reveal, Tap, dsText } from '@/src/components/ds';
 import { ds, dsFont, dsRadius, dsShadow, dsSize } from '@/src/theme/ds';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { useRoleGateStore } from '@/src/core/flows/roleGateStore';
-import { LoxeraFoxMascot } from '@/src/core/components/LoxeraFoxMascot';
 import { UserAvatar } from '@/src/core/components/UserAvatar';
 import { decksKeys, useMyDecksQuery } from '@/src/features/flashcard-srs/application/useFlashcardSrs';
 import { fetchDeckDueCardsApi } from '@/src/features/flashcard-srs/data/deckApi';
@@ -35,16 +34,19 @@ import { useUserStatsQuery } from '../../application/useDashboard';
 import { DailyQuestList } from '../components/DailyQuestList';
 import { WordOfDayCard } from '../components/WordOfDayCard';
 import { LearningPlanCards } from '../components/LearningPlanCards';
+import { AiScanFeatureCard } from '../components/AiScanFeatureCard';
+import { ThinkingFox } from '../components/ThinkingFox';
+import { TeacherCoursesShowcase } from '@/src/features/learning-path/presentation/components/TeacherCoursesShowcase';
 
 type IconType = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 
 interface QuickAction {
   key: string;
   label: string;
-  hint: string;
+  hint?: string;
   icon: IconType;
-  tint: string;
-  tone: string;
+  tint?: string;
+  tone?: string;
   route: string | { pathname: string; params: Record<string, string> };
   visible: boolean;
 }
@@ -148,8 +150,8 @@ export const HomeScreen = () => {
     },
     {
       key: 'scan',
-      label: 'Học qua ảnh',
-      hint: 'Học từ vật xung quanh',
+      label: 'Quét ảnh AI',
+      hint: 'Chụp đồ vật, học từ vựng',
       icon: ScanText,
       tint: ds.amberText,
       tone: ds.amberSoft,
@@ -160,13 +162,17 @@ export const HomeScreen = () => {
       key: 'quiz',
       label: 'Luyện đề',
       hint: 'Đề luyện và thi thử',
-      icon: BrainCircuit,
-      tint: ds.ink,
-      tone: ds.line,
+      icon: FileText,
+      tint: ds.amberText,
+      tone: ds.amberSoft,
       route: { pathname: '/(student)/learn', params: { tab: 'quiz' } },
       visible: hasPermission('take_quiz_exam'),
     },
   ].filter((a) => a.visible);
+
+  // Quét ảnh AI được làm nổi bật bằng thẻ riêng, các mục còn lại xếp thành ô
+  const scanAction = actions.find((a) => a.key === 'scan');
+  const practiceTiles = actions.filter((a) => a.key !== 'scan');
 
   const connectActions: QuickAction[] = [
     {
@@ -241,12 +247,7 @@ export const HomeScreen = () => {
       <Reveal delay={60}>
         {isLoggedIn ? (
           <View style={s.statsRow}>
-            <StatChip
-              icon={<WobbleFlame />}
-              tone={ds.amberSoft}
-              value={`${stats?.streak_current ?? 0}`}
-              label="ngày streak"
-            />
+            <StatChip icon={<WobbleFlame />} tone={ds.amberSoft} value={`${stats?.streak_current ?? 0}`} label="ngày streak" />
             <StatChip
               icon={<Zap size={22} color={ds.btn} />}
               tone={ds.skySoft}
@@ -313,7 +314,7 @@ export const HomeScreen = () => {
               </View>
             </View>
           </View>
-          <LoxeraFoxMascot size={92} showGlow={false} showBook={false} animated />
+          <ThinkingFox size={86} />
         </Tap>
       </Reveal>
 
@@ -324,22 +325,26 @@ export const HomeScreen = () => {
       {actions.length > 0 ? (
         <Reveal delay={180} style={s.section}>
           <Text style={dsText.h2}>Luyện tập</Text>
+          {scanAction ? <AiScanFeatureCard onPress={() => go(scanAction.route)} /> : null}
           <View style={s.grid}>
-            {actions.map((a) => {
+            {practiceTiles.map((a) => {
               const Icon = a.icon;
               return (
-                <Tap key={a.key} onPress={() => go(a.route)} style={s.actionTile}>
-                  <View style={[s.actionIcon, { backgroundColor: a.tone }]}>
-                    <Icon size={24} color={a.tint} />
+                <Tap
+                  key={a.key}
+                  onPress={() => go(a.route)}
+                  style={s.practiceTile}
+                  accessibilityLabel={`${a.label}: ${a.hint}`}
+                >
+                  <View style={[s.practiceIcon, { backgroundColor: a.tone }]}>
+                    <Icon size={22} color={a.tint} />
                   </View>
-                  <View style={{ gap: 2 }}>
-                    <Text style={s.actionLabel} numberOfLines={1}>
-                      {a.label}
-                    </Text>
-                    <Text style={s.actionHint} numberOfLines={1}>
-                      {a.hint}
-                    </Text>
-                  </View>
+                  <Text style={s.practiceLabel} numberOfLines={2}>
+                    {a.label}
+                  </Text>
+                  <Text style={s.practiceHint} numberOfLines={2}>
+                    {a.hint}
+                  </Text>
                 </Tap>
               );
             })}
@@ -368,7 +373,7 @@ export const HomeScreen = () => {
                     </Text>
                   </View>
                   {a.key === 'community' && unreadMessages > 0 ? (
-                    <View style={s.unreadBadge} accessibilityLabel={`${unreadMessages} tin nhắn chưa đọc`}>
+                    <View style={s.unreadInline} accessibilityLabel={`${unreadMessages} tin nhắn chưa đọc`}>
                       <Text style={s.unreadText}>{unreadMessages > 99 ? '99+' : unreadMessages}</Text>
                     </View>
                   ) : null}
@@ -381,7 +386,7 @@ export const HomeScreen = () => {
 
       {/* Nhiệm vụ hằng ngày */}
       {isLoggedIn ? (
-        <Reveal delay={240} style={s.section}>
+        <Reveal delay={260} style={s.section}>
           <View style={s.sectionRow}>
             <Text style={dsText.h2}>Nhiệm vụ hôm nay</Text>
             <Pressable onPress={() => go('/(student)/daily-challenge')} hitSlop={8}>
@@ -445,6 +450,11 @@ export const HomeScreen = () => {
           </View>
           <ChevronRight size={20} color={ds.faint} />
         </Tap>
+      </Reveal>
+
+      {/* Khóa học của giáo viên, ưu tiên đúng trình độ đầu vào */}
+      <Reveal delay={360}>
+        <TeacherCoursesShowcase />
       </Reveal>
     </ScrollView>
   );
@@ -520,6 +530,30 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  unreadBadge: {
+    position: 'absolute',
+    top: -7,
+    right: -7,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
+    backgroundColor: ds.red,
+    borderWidth: 2,
+    borderColor: ds.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unreadInline: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
+    backgroundColor: ds.red,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unreadText: { color: ds.white, fontSize: 11, fontFamily: dsFont.bold },
   statsRow: { flexDirection: 'row', gap: 8 },
   statChip: {
     flex: 1,
@@ -530,6 +564,19 @@ const s = StyleSheet.create({
     borderRadius: dsRadius.md,
     borderWidth: 1.5,
     borderColor: ds.line,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+  },
+  statChipTap: { flex: 1 },
+  statChipInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: ds.card,
+    borderRadius: dsRadius.md,
+    borderWidth: 1.5,
+    borderColor: ds.line,
+    borderBottomWidth: 4,
     paddingVertical: 10,
     paddingHorizontal: 10,
   },
@@ -578,36 +625,47 @@ const s = StyleSheet.create({
   section: { gap: 12 },
   sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   seeAll: { fontFamily: dsFont.semibold, fontSize: dsSize.sm, color: ds.btn },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  grid: { flexDirection: 'row', gap: 8 },
+  connectRow: { flexDirection: 'row', gap: 10 },
   actionTile: {
-    flexGrow: 1,
-    flexBasis: '46%',
-    gap: 12,
+    flex: 1,
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: ds.card,
+    borderRadius: dsRadius.md,
+    borderWidth: 1.5,
+    borderColor: ds.line,
+    borderBottomWidth: 4,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+  },
+  practiceTile: {
+    flex: 1,
+    gap: 4,
     backgroundColor: ds.card,
     borderRadius: dsRadius.lg,
     borderWidth: 1.5,
     borderColor: ds.line,
     borderBottomWidth: 4,
-    padding: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    minHeight: 124,
   },
+  practiceIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  practiceLabel: { fontFamily: dsFont.bold, fontSize: dsSize.sm, color: ds.ink },
+  practiceHint: { fontFamily: dsFont.body, fontSize: dsSize.xs, color: ds.muted, lineHeight: 16 },
+  actionIconSm: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  actionTileLabel: { fontFamily: dsFont.semibold, fontSize: dsSize.xs, color: ds.ink, textAlign: 'center' },
   actionIcon: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   actionLabel: { fontFamily: dsFont.bold, fontSize: dsSize.base, color: ds.ink },
   actionHint: { fontFamily: dsFont.body, fontSize: dsSize.xs, color: ds.muted },
-  unreadBadge: {
-    position: 'absolute',
-    top: -7,
-    right: -7,
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    paddingHorizontal: 6,
-    backgroundColor: ds.red,
-    borderWidth: 2,
-    borderColor: ds.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  unreadText: { fontFamily: dsFont.bold, fontSize: 11, color: ds.white },
   pathRow: {
     flexDirection: 'row',
     alignItems: 'center',

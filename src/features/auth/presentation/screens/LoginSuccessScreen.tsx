@@ -1,319 +1,234 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Image, Animated, Easing } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { CheckCircle2, Sparkle } from 'lucide-react-native';
+import Animated, {
+  Easing,
+  FadeIn,
+  FadeOut,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+import { AnimatedFoxMascot } from '@/src/core/components/AnimatedFoxMascot';
+import { useAuthStore } from '@/src/core/flows/authStore';
+import { ds, dsFont, dsSize } from '@/src/theme/ds';
 
-// ─── Config ─────────────────────────────────────────────────────────────────
-const FLOAT_WORDS = ['Vocabulary', 'Grammar', 'Speaking', 'Listening', 'Fluency', 'Practice'];
-const WORD_CONFIGS = [
-  { angle: -60, radius: 130, delay: 200 },
-  { angle:  10, radius: 145, delay: 350 },
-  { angle:  80, radius: 130, delay: 500 },
-  { angle: 150, radius: 140, delay: 650 },
-  { angle: 220, radius: 132, delay: 800 },
-  { angle: 290, radius: 145, delay: 950 },
-] as const;
+/** Tổng thời gian màn chào trước khi chuyển trang (ms). */
+const DURATION = 3400;
+const EXIT = 380;
 
-// ─── Floating Word Chip ──────────────────────────────────────────────────────
-interface ChipProps { word: string; angle: number; radius: number; delay: number; }
+const STEPS = ['Đang tải hồ sơ của bạn', 'Đang xếp bài học theo trình độ', 'Sẵn sàng rồi!'] as const;
 
-const FloatingWord: React.FC<ChipProps> = ({ word, angle, radius, delay }) => {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const floatY  = useRef(new Animated.Value(10)).current;
-
+/** Ngôi sao nhỏ lấp lánh quanh linh vật. */
+const Twinkle: React.FC<{ top: number; left: number; size: number; delay: number }> = ({ top, left, size, delay }) => {
+  const v = useSharedValue(0);
   useEffect(() => {
-    const timer = setTimeout(() => {
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }).start();
-
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(floatY, {
-            toValue: -10,
-            duration: 2400,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          }),
-          Animated.timing(floatY, {
-            toValue: 10,
-            duration: 2400,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    }, delay);
-
-    return () => clearTimeout(timer);
-  }, [delay, floatY, opacity]);
-
-  const rad = (angle * Math.PI) / 180;
-  const tx  = Math.cos(rad) * radius;
-  const ty  = Math.sin(rad) * radius;
-
+    v.value = withDelay(
+      delay,
+      withRepeat(withTiming(1, { duration: 900, easing: Easing.inOut(Easing.sin) }), -1, true),
+    );
+  }, [delay, v]);
+  const style = useAnimatedStyle(() => ({
+    opacity: 0.25 + v.value * 0.75,
+    transform: [{ scale: 0.6 + v.value * 0.5 }, { rotate: `${v.value * 45}deg` }],
+  }));
   return (
-    <Animated.View
-      style={[
-        s.wordChip,
-        {
-          opacity,
-          transform: [
-            { translateX: tx },
-            { translateY: Animated.add(new Animated.Value(ty), floatY) },
-          ],
-        },
-      ]}
-    >
-      <Text style={s.wordChipText}>{word}</Text>
+    <Animated.View style={[s.twinkle, { top, left }, style]}>
+      <Sparkle size={size} color={ds.skyLight} fill={ds.skyLight} />
     </Animated.View>
   );
 };
 
-// ─── Main Screen ─────────────────────────────────────────────────────────────
 export const LoginSuccessScreen: React.FC = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ role?: string }>();
   const role = (params.role ?? 'student') as 'student' | 'teacher' | 'admin';
+  const displayName = useAuthStore((st) => st.currentUser?.display_name);
+  const firstName = (displayName || '').trim().split(/\s+/).pop() || '';
 
-  // Map role → destination internally — avoids URL-encoding issues with parens
+  // Giáo viên dùng app mobile như học viên (quản lý lớp làm trên Web Portal)
   const getDestination = (): string => {
-    // Giáo viên dùng app mobile như học viên (quản lý lớp làm trên Web Portal)
     if (role === 'teacher') return '/(student)/home';
-    const meta = (globalThis as any).__loginMeta;
+    const meta = (globalThis as { __loginMeta?: { onboarding_completed?: boolean } }).__loginMeta;
     if (meta && !meta.onboarding_completed) return '/(auth)/welcome';
     return '/(student)/home';
   };
 
-  // Shared animated values
-  const bgOpacity    = useRef(new Animated.Value(0)).current;
-  const logoScale    = useRef(new Animated.Value(0.25)).current;
-  const logoOpacity  = useRef(new Animated.Value(0)).current;
-  const logoRotate   = useRef(new Animated.Value(-10)).current;
-  const ring1Scale   = useRef(new Animated.Value(0.5)).current;
-  const ring1Opacity = useRef(new Animated.Value(0)).current;
-  const ring2Scale   = useRef(new Animated.Value(0.5)).current;
-  const ring2Opacity = useRef(new Animated.Value(0)).current;
-  const textOpacity  = useRef(new Animated.Value(0)).current;
-  const textY        = useRef(new Animated.Value(24)).current;
-  const barProgress  = useRef(new Animated.Value(0)).current;
-  const exitOpacity  = useRef(new Animated.Value(1)).current;
+  const [step, setStep] = useState(0);
+  const navigated = useRef(false);
 
-  const navigateOut = () => {
-    const dest = getDestination();
-    router.replace(dest as any);
-  };
+  const screen = useSharedValue(0);
+  const bubble = useSharedValue(0);
+  const text = useSharedValue(0);
+  const progress = useSharedValue(0);
 
   useEffect(() => {
-    // Phase 1 – Background fade-in
-    Animated.timing(bgOpacity, {
-      toValue: 1,
-      duration: 350,
-      useNativeDriver: true,
-    }).start();
+    screen.value = withTiming(1, { duration: 320 });
+    bubble.value = withDelay(650, withSpring(1, { damping: 9, stiffness: 160 }));
+    text.value = withDelay(450, withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) }));
+    progress.value = withDelay(500, withTiming(1, { duration: DURATION - 700, easing: Easing.bezier(0.3, 0.6, 0.4, 1) }));
 
-    // Phase 2 – Logo spring-in (delay 200ms)
-    setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(logoOpacity, { toValue: 1, duration: 700, useNativeDriver: true }),
-        Animated.spring(logoScale, { toValue: 1, friction: 6, tension: 70, useNativeDriver: true }),
-        Animated.timing(logoRotate, { toValue: 0, duration: 900, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      ]).start();
-    }, 200);
+    const stepTimers = [
+      setTimeout(() => setStep(1), 1300),
+      setTimeout(() => setStep(2), DURATION - 700),
+    ];
+    const exitTimer = setTimeout(() => {
+      screen.value = withTiming(0, { duration: EXIT });
+    }, DURATION);
+    const navTimer = setTimeout(() => {
+      if (navigated.current) return;
+      navigated.current = true;
+      router.replace(getDestination() as never);
+    }, DURATION + EXIT);
 
-    // Phase 3 – Pulse rings
-    setTimeout(() => {
-      Animated.loop(
-        Animated.parallel([
-          Animated.sequence([
-            Animated.timing(ring1Scale, { toValue: 0.5, duration: 0, useNativeDriver: true }),
-            Animated.timing(ring1Scale, { toValue: 2.2, duration: 2400, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-          ]),
-          Animated.sequence([
-            Animated.timing(ring1Opacity, { toValue: 0.6, duration: 0, useNativeDriver: true }),
-            Animated.timing(ring1Opacity, { toValue: 0, duration: 2400, useNativeDriver: true }),
-          ]),
-        ])
-      ).start();
-    }, 700);
-
-    setTimeout(() => {
-      Animated.loop(
-        Animated.parallel([
-          Animated.sequence([
-            Animated.timing(ring2Scale, { toValue: 0.5, duration: 0, useNativeDriver: true }),
-            Animated.timing(ring2Scale, { toValue: 2.2, duration: 2400, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-          ]),
-          Animated.sequence([
-            Animated.timing(ring2Opacity, { toValue: 0.6, duration: 0, useNativeDriver: true }),
-            Animated.timing(ring2Opacity, { toValue: 0, duration: 2400, useNativeDriver: true }),
-          ]),
-        ])
-      ).start();
-    }, 1400);
-
-    // Phase 4 – Text slide-up & fade-in (delay 900ms)
-    setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(textOpacity, { toValue: 1, duration: 700, useNativeDriver: true }),
-        Animated.timing(textY, { toValue: 0, duration: 700, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      ]).start();
-    }, 900);
-
-    // Phase 5 – Progress bar fill (delay 1000ms)
-    setTimeout(() => {
-      Animated.timing(barProgress, {
-        toValue: 1,
-        duration: 3800,
-        easing: Easing.bezier(0.25, 0.46, 0.45, 0.94),
-        useNativeDriver: false,
-      }).start();
-    }, 1000);
-
-    // Phase 6 – Fade-out & navigate after ~5s
-    const timer = setTimeout(() => {
-      Animated.timing(exitOpacity, {
-        toValue: 0,
-        duration: 500,
-        useNativeDriver: true,
-      }).start(() => {
-        navigateOut();
-      });
-    }, 5000);
-
-    return () => clearTimeout(timer);
+    return () => {
+      stepTimers.forEach(clearTimeout);
+      clearTimeout(exitTimer);
+      clearTimeout(navTimer);
+    };
+    // Chạy một lần khi vào màn
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const rotateStr = logoRotate.interpolate({
-    inputRange: [-10, 0],
-    outputRange: ['-10deg', '0deg'],
-  });
+  const screenStyle = useAnimatedStyle(() => ({ opacity: screen.value }));
+  const bubbleStyle = useAnimatedStyle(() => ({
+    opacity: bubble.value,
+    transform: [{ scale: 0.4 + bubble.value * 0.6 }, { translateY: (1 - bubble.value) * 12 }],
+  }));
+  const textStyle = useAnimatedStyle(() => ({
+    opacity: text.value,
+    transform: [{ translateY: (1 - text.value) * 18 }],
+  }));
+  const barStyle = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
 
-  const barWidth = barProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '100%'],
-  });
-
-  const greeting = role === 'teacher' ? 'Xin chào Giáo Viên!' : 'Xin chào Học Viên!';
-  const subtitle  = 'Đang chuẩn bị lộ trình học...';
+  const greeting = firstName ? `Chào ${firstName}!` : 'Chào bạn!';
+  const title = role === 'teacher' ? 'Chào mừng thầy cô trở lại' : 'Chào mừng bạn trở lại';
 
   return (
-    <Animated.View style={[s.root, { opacity: exitOpacity }]}>
-      {/* Background */}
-      <Animated.View style={[StyleSheet.absoluteFill, s.bg, { opacity: bgOpacity }]} />
+    <Animated.View style={[s.root, screenStyle]}>
+      <LinearGradient colors={[ds.ink, ds.inkSoft, ds.btnEdge]} start={{ x: 0, y: 0 }} end={{ x: 0.4, y: 1 }} style={StyleSheet.absoluteFill} />
+      <View style={[s.halo, s.haloTop]} />
+      <View style={[s.halo, s.haloBottom]} />
 
-      {/* Decorative blobs */}
-      <View style={s.blobTL} />
-      <View style={s.blobBR} />
+      <View style={[s.content, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 32 }]}>
+        <View style={s.stage}>
+          <View style={s.spotlight} />
+          <Twinkle top={18} left={40} size={16} delay={0} />
+          <Twinkle top={70} left={262} size={12} delay={300} />
+          <Twinkle top={190} left={18} size={10} delay={600} />
+          <Twinkle top={210} left={250} size={14} delay={900} />
 
-      {/* ── Logo cluster ── */}
-      <View style={s.cluster}>
-        {/* Floating English word chips */}
-        {FLOAT_WORDS.map((w, i) => (
-          <FloatingWord key={w} word={w} {...WORD_CONFIGS[i]} />
-        ))}
+          <Animated.View style={[s.bubble, bubbleStyle]}>
+            <Text style={s.bubbleText} numberOfLines={1}>
+              {greeting}
+            </Text>
+            <View style={s.bubbleTail} />
+          </Animated.View>
 
-        {/* Pulse rings */}
-        <Animated.View
-          style={[
-            s.ring,
-            {
-              opacity: ring1Opacity,
-              transform: [{ scale: ring1Scale }],
-            },
-          ]}
-        />
-        <Animated.View
-          style={[
-            s.ring,
-            {
-              opacity: ring2Opacity,
-              transform: [{ scale: ring2Scale }],
-            },
-          ]}
-        />
+          <AnimatedFoxMascot size={230} style={s.fox} />
+        </View>
 
-        {/* Logo */}
-        <Animated.View
-          style={[
-            s.logoCard,
-            {
-              opacity: logoOpacity,
-              transform: [{ scale: logoScale }, { rotate: rotateStr }],
-            },
-          ]}
-        >
-          <Image
-            source={require('@/assets/images/loxera-logo.png')}
-            style={s.logoImg}
-            resizeMode="contain"
-          />
+        <Animated.View style={[s.textBlock, textStyle]}>
+          <View style={s.badge}>
+            <CheckCircle2 size={14} color={ds.green} />
+            <Text style={s.badgeText}>Đăng nhập thành công</Text>
+          </View>
+          <Text style={s.title}>{title}</Text>
+
+          <View style={s.stepRow}>
+            <Animated.Text key={step} entering={FadeIn.duration(260)} exiting={FadeOut.duration(160)} style={s.stepText}>
+              {STEPS[step]}
+            </Animated.Text>
+          </View>
+
+          <View style={s.track}>
+            <Animated.View style={[s.fill, barStyle]} />
+          </View>
+          <View style={s.dots}>
+            {STEPS.map((label, i) => (
+              <View key={label} style={[s.dot, i <= step && s.dotOn]} />
+            ))}
+          </View>
         </Animated.View>
       </View>
-
-      {/* ── Text + Progress ── */}
-      <Animated.View
-        style={[
-          s.textBlock,
-          {
-            opacity: textOpacity,
-            transform: [{ translateY: textY }],
-          },
-        ]}
-      >
-        {/* Success badge */}
-        <View style={s.badge}>
-          <Text style={s.badgeTick}>✓ </Text>
-          <Text style={s.badgeLabel}>Đăng nhập thành công</Text>
-        </View>
-
-        <Text style={s.greeting}>{greeting}</Text>
-        <Text style={s.subtitle}>{subtitle}</Text>
-
-        {/* Glowing progress bar */}
-        <View style={s.track}>
-          <Animated.View style={[s.fill, { width: barWidth }]} />
-        </View>
-
-        <Text style={s.powered}>Powered by Loxera AI · v2.0</Text>
-      </Animated.View>
     </Animated.View>
   );
 };
 
 export default LoginSuccessScreen;
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
-const LOGO = 100;
-const RING = LOGO + 20;
+const STAGE_W = 300;
+const STAGE_H = 300;
 
 const s = StyleSheet.create({
-  root:        { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  bg:          { backgroundColor: '#060E1E' },
-  blobTL:      { position: 'absolute', top: -90, left: -90, width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(14,165,233,0.10)' },
-  blobBR:      { position: 'absolute', bottom: -70, right: -70, width: 260, height: 260, borderRadius: 130, backgroundColor: 'rgba(99,102,241,0.09)' },
+  root: { flex: 1, backgroundColor: ds.ink },
+  halo: { position: 'absolute', borderRadius: 999, backgroundColor: ds.onInkFaint },
+  haloTop: { width: 320, height: 320, top: -120, right: -110 },
+  haloBottom: { width: 260, height: 260, bottom: -90, left: -100 },
+  content: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, gap: 28 },
 
-  // Logo cluster
-  cluster:     { width: RING, height: RING, alignItems: 'center', justifyContent: 'center', marginBottom: 56 },
-  ring:        { position: 'absolute', width: RING, height: RING, borderRadius: RING / 2, borderWidth: 1.5, borderColor: 'rgba(14,165,233,0.5)' },
-  logoCard:    { width: LOGO, height: LOGO, borderRadius: LOGO / 2, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', shadowColor: '#0EA5E9', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.6, shadowRadius: 30, elevation: 18 },
-  logoImg:     { width: 76, height: 76 },
+  stage: { width: STAGE_W, height: STAGE_H, alignItems: 'center', justifyContent: 'flex-end' },
+  spotlight: {
+    position: 'absolute',
+    bottom: 6,
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: 'rgba(125,211,252,0.10)',
+  },
+  fox: { marginBottom: 4 },
+  twinkle: { position: 'absolute' },
 
-  // Word chips
-  wordChip:    { position: 'absolute', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 100, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
-  wordChipText:{ fontSize: 10, fontWeight: '600', color: 'rgba(203,213,225,0.65)', letterSpacing: 0.3 },
+  bubble: {
+    position: 'absolute',
+    top: 6,
+    right: 4,
+    maxWidth: 170,
+    backgroundColor: ds.white,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    zIndex: 2,
+    transformOrigin: '15% 100%',
+  },
+  bubbleText: { fontFamily: dsFont.display, fontSize: dsSize.base, color: ds.ink },
+  bubbleTail: {
+    position: 'absolute',
+    bottom: -6,
+    left: 22,
+    width: 14,
+    height: 14,
+    backgroundColor: ds.white,
+    borderRadius: 3,
+    transform: [{ rotate: '45deg' }],
+  },
 
-  // Text block
-  textBlock:   { alignItems: 'center', paddingHorizontal: 36, width: '100%', maxWidth: 380 },
-  badge:       { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(16,185,129,0.12)', borderRadius: 100, paddingHorizontal: 14, paddingVertical: 5, borderWidth: 1, borderColor: 'rgba(16,185,129,0.25)', marginBottom: 18 },
-  badgeTick:   { fontSize: 12, color: '#34D399', fontWeight: '800' },
-  badgeLabel:  { fontSize: 12, fontWeight: '700', color: '#34D399', letterSpacing: 0.2 },
-  greeting:    { fontSize: 22, fontWeight: '800', color: '#F1F5F9', marginBottom: 6, textAlign: 'center' },
-  subtitle:    { fontSize: 13, color: '#94A3B8', fontWeight: '500', marginBottom: 28, textAlign: 'center' },
-
-  // Progress
-  track:       { width: '100%', height: 3, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 3, overflow: 'hidden', marginBottom: 16 },
-  fill:        { height: '100%', borderRadius: 3, backgroundColor: '#0EA5E9', shadowColor: '#38BDF8', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 8 },
-  powered:     { fontSize: 10, color: 'rgba(148,163,184,0.4)', fontWeight: '500', letterSpacing: 0.4 },
+  textBlock: { width: '100%', maxWidth: 340, alignItems: 'center' },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(22,163,74,0.16)',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    marginBottom: 14,
+  },
+  badgeText: { fontFamily: dsFont.semibold, fontSize: dsSize.xs, color: ds.greenSoft },
+  title: { fontFamily: dsFont.displayHeavy, fontSize: dsSize.xl, color: ds.white, textAlign: 'center', letterSpacing: -0.3 },
+  stepRow: { height: 24, justifyContent: 'center', marginTop: 8, marginBottom: 18 },
+  stepText: { fontFamily: dsFont.medium, fontSize: dsSize.sm, color: ds.onInk, textAlign: 'center' },
+  track: { width: '100%', height: 6, borderRadius: 3, backgroundColor: ds.onInkFaint, overflow: 'hidden' },
+  fill: { height: '100%', borderRadius: 3, backgroundColor: ds.amber },
+  dots: { flexDirection: 'row', gap: 6, marginTop: 14 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: ds.onInkFaint },
+  dotOn: { backgroundColor: ds.amber },
 });

@@ -24,4 +24,6 @@ export interface Chapter {
   /** Chương thấp hơn trình độ đầu vào: mở sẵn để ôn lại. */
   below_placement?: boolean;
   placement_level?: string | null;
+  /** Trình độ CEFR của chương (mức thấp nhất của khóa học). */
+  cefr_level?: string | null;
 }

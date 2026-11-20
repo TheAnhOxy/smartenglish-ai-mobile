@@ -303,6 +303,33 @@ export const Undo2 = make('Undo2', (x) => (
   </>
 ));
 
+export const Search = make('Search', (x) => (
+  <>
+    <Circle cx="10.5" cy="10.5" r="6" {...toned(x)} />
+    <Path d="m15 15 4.5 4.5" {...line(x)} />
+  </>
+));
+export const School = make('School', (x) => (
+  <>
+    <Path d="M4 10 12 5l8 5" {...line(x)} />
+    <Path d="M6 9.5V19h12V9.5" {...toned(x)} />
+    <Path d="M10 19v-4.5h4V19M4 19h16" {...line(x)} />
+  </>
+));
+export const Users = make('Users', (x) => (
+  <>
+    <Circle cx="9" cy="8.5" r="3.3" {...toned(x)} />
+    <Path d="M3.5 19c.7-3.2 2.9-5 5.5-5s4.8 1.8 5.5 5" {...line(x)} />
+    <Path d="M15.5 5.5a3 3 0 0 1 0 6M17.5 14.3c1.6.6 2.7 2.2 3 4.7" {...line(x)} />
+  </>
+));
+export const PenLine = make('PenLine', (x) => (
+  <>
+    <Path d="M15.5 5.5 18.5 8.5 9 18H6v-3l9.5-9.5Z" {...toned(x)} />
+    <Path d="M13 20h7" {...line(x)} />
+  </>
+));
+
 // ───── Hệ thống ─────
 export const Bell = make('Bell', (x) => (
   <>

@@ -46,6 +46,8 @@ export const splitTapStyle = (style: StyleProp<ViewStyle>): { outer: ViewStyle; 
   return { outer: outer as ViewStyle, inner: flat as ViewStyle };
 };
 
+// Hiệu ứng co nằm ở Animated.View bên trong: Pressable (đã được NativeWind bọc) không được nhận
+// Animated.Value trong transform, nếu không sẽ lỗi "Transform with key of scale must be a number".
 export const Tap: React.FC<TapProps> = ({ style, scaleTo = 0.96, sound = 'tap', onPressIn, onPressOut, onPress, children, disabled, ...rest }) => {
   const scale = useRef(new Animated.Value(1)).current;
   const to = (v: number) =>
@@ -65,9 +67,9 @@ export const Tap: React.FC<TapProps> = ({ style, scaleTo = 0.96, sound = 'tap', 
         onPressOut?.(e);
       }}
       onPress={(e) => {
+        onPress?.(e);
         if (sound === 'tap') feedback.tap();
         else if (sound === 'select') feedback.select();
-        onPress?.(e);
       }}
     >
       <Animated.View style={[inner, { flexGrow: 1 }, { transform: [{ scale }] }, disabled ? { opacity: 0.5 } : null]}>{children}</Animated.View>

@@ -7,6 +7,11 @@ export const ACCESS_TOKEN_KEY = 'se_user_token';
 export const REFRESH_TOKEN_KEY = 'se_user_refresh_token';
 export const USER_PROFILE_KEY = 'se_user_profile';
 
+// Trên native (Android/iOS) không có localStorage/cookie: giữ token trong bộ nhớ của phiên chạy để
+// làm mới token và thu hồi phiên khi đăng xuất vẫn hoạt động.
+let memoryAccessToken: string | null = null;
+let memoryRefreshToken: string | null = null;
+
 function getCookie(name: string): string | null {
   if (typeof document === 'undefined') return null;
   const match = document.cookie.match(new RegExp('(^|;\\s*)(' + name + ')=([^;]*)'));
@@ -24,6 +29,8 @@ function removeCookie(name: string) {
 }
 
 export function saveAuthTokens(accessToken: string, refreshToken?: string, user?: any) {
+  if (accessToken) memoryAccessToken = accessToken;
+  if (refreshToken) memoryRefreshToken = refreshToken;
   // 1. Lưu vào Cookie riêng của ứng dụng Mobile (tránh xung đột với Web Admin trên cùng domain localhost)
   if (accessToken) {
     setCookie(ACCESS_TOKEN_KEY, accessToken, 7 * 86400);
@@ -53,7 +60,7 @@ export function getStoredAccessToken(): string | null {
   } catch (_) {}
 
   // Fallback đọc từ Cookie riêng của Mobile (không đọc cookie accessToken chung của Web Admin)
-  return getCookie(ACCESS_TOKEN_KEY);
+  return getCookie(ACCESS_TOKEN_KEY) ?? memoryAccessToken;
 }
 
 export function getStoredRefreshToken(): string | null {
@@ -65,7 +72,7 @@ export function getStoredRefreshToken(): string | null {
   } catch (_) {}
 
   // Fallback đọc từ Cookie riêng của Mobile
-  return getCookie(REFRESH_TOKEN_KEY);
+  return getCookie(REFRESH_TOKEN_KEY) ?? memoryRefreshToken;
 }
 
 export function getStoredUserProfile(): any | null {
@@ -79,6 +86,8 @@ export function getStoredUserProfile(): any | null {
 }
 
 export function clearAuthTokens() {
+  memoryAccessToken = null;
+  memoryRefreshToken = null;
   // Dọn dẹp cả cookie riêng của mobile lẫn cookie chung còn sót lại
   removeCookie('accessToken');
   removeCookie(ACCESS_TOKEN_KEY);
