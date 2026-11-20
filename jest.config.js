@@ -4,6 +4,8 @@ module.exports = {
   moduleNameMapper: {
     '^react-native/asset-registry$': '<rootDir>/node_modules/react-native/src/asset-registry.js',
     '^react-native/Libraries/Image/AssetRegistry$': '<rootDir>/node_modules/react-native/src/asset-registry.js',
+    // RN 0.88 chỉ công bố các file này qua "exports" (nằm trong src/), mapper của preset không tìm thấy
+    '^react-native/(react-private-interface|setup-env|unstable-internals-do-not-use)$': '<rootDir>/node_modules/react-native/src/$1.js',
     '^@/(.*)$': '<rootDir>/$1',
   },
   transformIgnorePatterns: [
