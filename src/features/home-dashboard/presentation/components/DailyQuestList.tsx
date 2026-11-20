@@ -9,6 +9,7 @@ import { claimDailyQuestRewardApi, DailyQuestIconKey, DailyQuestItem } from '../
 import { useDailyQuestsQuery } from '../../application/useDashboard';
 import { rememberDailyClaim } from '../../data/dailyClaimMemory';
 import { useAuthStore } from '@/src/core/flows/authStore';
+import { AnimatedFoxMascot } from '@/src/core/components/AnimatedFoxMascot';
 
 const QUEST_ICONS: Record<DailyQuestIconKey, React.ComponentType<{ size?: number; color?: string }>> = {
   target: Target,
@@ -30,6 +31,7 @@ export const DailyQuestList: React.FC<DailyQuestListProps> = ({ limit }) => {
   const { data, isLoading, isError, refetch } = useDailyQuestsQuery();
   const [claiming, setClaiming] = useState(false);
   const [claimError, setClaimError] = useState<string | null>(null);
+  const [newBadges, setNewBadges] = useState<string[]>([]);
   const queryClient = useQueryClient();
   const userId = useAuthStore((s) => s.currentUser?.id);
 
@@ -60,7 +62,29 @@ export const DailyQuestList: React.FC<DailyQuestListProps> = ({ limit }) => {
     );
   }
 
-  const quests = limit ? data.quests.slice(0, limit) : data.quests;
+  // Đã nhận thưởng: không còn nhiệm vụ hôm nay, chỉ báo hoàn thành (kèm huy hiệu vừa nhận nếu có)
+  if (data.isClaimed) {
+    return (
+      <View style={st.doneCard}>
+        <AnimatedFoxMascot size={92} entrance={false} />
+        <View style={st.doneText}>
+          <Text style={st.doneTitle}>Đã xong nhiệm vụ hôm nay</Text>
+          <Text style={st.doneHint}>Bạn đã nhận {data.totalXpReward} XP. Nhiệm vụ mới sẽ có vào ngày mai.</Text>
+          {newBadges.length > 0 ? (
+            <View style={st.badgeBox}>
+              <Text style={st.badgeTitle}>Huy hiệu mới</Text>
+              <Text style={st.badgeNames}>{newBadges.join(' · ')}</Text>
+            </View>
+          ) : null}
+        </View>
+      </View>
+    );
+  }
+
+  // Nhiệm vụ chưa xong lên trước để người học thấy việc cần làm
+  const ordered = [...data.quests].sort((a, b) => Number(a.current >= a.target) - Number(b.current >= b.target));
+  const quests = limit ? ordered.slice(0, limit) : ordered;
+  const remaining = data.quests.filter((q) => q.current < q.target).length;
   if (quests.length === 0) {
     return (
       <View style={st.state}>
@@ -77,7 +101,10 @@ export const DailyQuestList: React.FC<DailyQuestListProps> = ({ limit }) => {
     setClaiming(true);
     setClaimError(null);
     try {
-      await claimDailyQuestRewardApi(data.questId);
+      const result = await claimDailyQuestRewardApi(data.questId);
+      // Huy hiệu vừa đạt nhờ hoàn thành nhiệm vụ (server xét và trao)
+      const badges = Array.isArray(result?.newBadges) ? result.newBadges : [];
+      setNewBadges(badges.map((b: { nameVi?: string }) => b?.nameVi).filter((n: unknown): n is string => typeof n === 'string' && n.length > 0));
       if (userId != null) rememberDailyClaim(userId);
       feedback.success();
       await Promise.all([refetch(), queryClient.invalidateQueries({ queryKey: ['user-stats'] })]);
@@ -95,6 +122,9 @@ export const DailyQuestList: React.FC<DailyQuestListProps> = ({ limit }) => {
   return (
     <View style={st.list}>
       {levelLine ? <Text style={st.levelLine}>{levelLine}</Text> : null}
+      <Text style={st.remainLine}>
+        {remaining > 0 ? `Còn ${remaining}/${data.quests.length} nhiệm vụ chưa hoàn thành` : 'Đã hoàn thành tất cả, nhận thưởng thôi!'}
+      </Text>
       {quests.map((quest: DailyQuestItem) => {
         const Icon = QUEST_ICONS[quest.icon] ?? Target;
         const done = quest.current >= quest.target;
@@ -188,5 +218,22 @@ const st = StyleSheet.create({
   },
   claimText: { color: ds.ink, fontFamily: dsFont.bold, fontSize: dsSize.base },
   claimError: { textAlign: 'center', fontFamily: dsFont.medium, fontSize: dsSize.xs, color: ds.red, marginTop: 6 },
+  doneCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 14,
+    borderRadius: dsRadius.lg,
+    backgroundColor: ds.greenSoft,
+    borderWidth: 1.5,
+    borderColor: ds.green,
+  },
+  doneText: { flex: 1, gap: 4 },
+  doneTitle: { fontFamily: dsFont.display, fontSize: dsSize.md, color: ds.greenText },
+  doneHint: { fontFamily: dsFont.body, fontSize: dsSize.xs, color: ds.inkSoft, lineHeight: 18 },
+  remainLine: { fontFamily: dsFont.semibold, fontSize: dsSize.xs, color: ds.muted, marginBottom: 2 },
+  badgeBox: { marginTop: 8, padding: 12, borderRadius: dsRadius.md, backgroundColor: ds.amberSoft, alignItems: 'center', gap: 2 },
+  badgeTitle: { fontFamily: dsFont.bold, fontSize: dsSize.xs, color: ds.amberText, textTransform: 'uppercase', letterSpacing: 0.6 },
+  badgeNames: { fontFamily: dsFont.display, fontSize: dsSize.base, color: ds.ink, textAlign: 'center' },
   claimedText: { textAlign: 'center', fontFamily: dsFont.semibold, fontSize: dsSize.xs, color: ds.green, marginTop: 4 },
 });
