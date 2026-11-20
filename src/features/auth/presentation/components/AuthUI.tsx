@@ -1,10 +1,10 @@
-import React, { forwardRef, useState } from 'react';
+import React, { createContext, forwardRef, useContext, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   View,
@@ -12,50 +12,114 @@ import {
   type TextInputInstance,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Eye, EyeOff, type LucideIcon } from 'lucide-react-native';
-import { AppColors } from '@/src/core/theme/colors';
-import { LoxeraFoxMascot } from '@/src/core/components/LoxeraFoxMascot';
+import { AnimatedFoxMascot } from '@/src/core/components/AnimatedFoxMascot';
 import { BackButton } from '@/src/core/components/BackButton';
+import { Button3D } from '@/src/components/ds';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { AuthBackdropLetters, AuthHeroDecor, NightMoon, NightSky } from './AuthDecor';
 
-/* Bộ khung dùng chung cho đăng nhập / đăng ký / xác thực: cùng lề, cùng cỡ chữ, cùng kiểu nút & loading. */
+/** Chế độ đêm của màn auth (bật khi linh vật chiếu đèn pin). */
+const AuthNightContext = createContext(false);
+const useNight = () => useContext(AuthNightContext);
+import { ds, dsFont, dsRadius, dsShadow, dsSize } from '@/src/theme/ds';
+
+/* Bộ khung dùng chung cho đăng nhập / đăng ký / xác thực: phần đầu navy có linh vật, form trong thẻ trắng. */
 
 interface AuthLayoutProps {
   title: string;
+  /** Dòng phụ dưới tiêu đề. */
+  subtitle?: string;
   onBack?: () => void;
   showMascot?: boolean;
+  /** Thay linh vật mặc định (vd. cáo phản ứng theo ô mật khẩu ở màn đăng nhập). */
+  mascot?: React.ReactNode;
+  /** Chế độ đêm: nền tối, trăng và sao. */
+  night?: boolean;
   children: React.ReactNode;
   footer?: React.ReactNode;
 }
 
-export const AuthLayout: React.FC<AuthLayoutProps> = ({ title, onBack, showMascot = true, children, footer }) => {
+export const AuthLayout: React.FC<AuthLayoutProps> = ({
+  title,
+  subtitle,
+  onBack,
+  showMascot = true,
+  mascot,
+  night = false,
+  children,
+  footer,
+}) => {
   const insets = useSafeAreaInsets();
+  const nightV = useSharedValue(night ? 1 : 0);
+  useEffect(() => {
+    nightV.value = withTiming(night ? 1 : 0, { duration: 520 });
+  }, [night, nightV]);
+  const nightStyle = useAnimatedStyle(() => ({ opacity: nightV.value }));
+  const dayStyle = useAnimatedStyle(() => ({ opacity: 1 - nightV.value }));
+  const moonStyle = useAnimatedStyle(() => ({
+    opacity: nightV.value,
+    transform: [{ translateY: (1 - nightV.value) * 30 }, { scale: 0.7 + nightV.value * 0.3 }],
+  }));
+
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      className="flex-1 bg-surface dark:bg-darkBg"
-    >
+    <AuthNightContext.Provider value={night}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.root}>
+      <Animated.View style={[StyleSheet.absoluteFill, s.nightBg, nightStyle]} pointerEvents="none">
+        <NightSky />
+      </Animated.View>
+      <Animated.View style={[StyleSheet.absoluteFill, dayStyle]} pointerEvents="none">
+        <AuthBackdropLetters />
+      </Animated.View>
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24, paddingHorizontal: 24 }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + 24 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {onBack ? (
-          <BackButton onPress={onBack} />
-        ) : null}
+        {/* Phần đầu: nằm trên thẻ form để chùm đèn của linh vật có thể chiếu xuống ô nhập */}
+        <View style={[s.hero, { paddingTop: insets.top + 10 }, showMascot ? s.heroTall : s.heroCompact]}>
+          <LinearGradient
+            colors={[ds.ink, ds.inkSoft, ds.btnEdge]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[StyleSheet.absoluteFill, s.heroBg]}
+          />
+          <View style={[s.halo, { width: 180, height: 180, top: 0, right: 0, borderBottomLeftRadius: 180 }]} />
+          <View style={[s.halo, { width: 120, height: 120, bottom: 0, left: 0, borderTopRightRadius: 120 }]} />
+          {showMascot ? (
+            <Animated.View style={[StyleSheet.absoluteFill, dayStyle]} pointerEvents="none">
+              <AuthHeroDecor />
+            </Animated.View>
+          ) : null}
+          <Animated.View style={[s.moonWrap, { top: insets.top + 54 }, moonStyle]} pointerEvents="none">
+            <NightMoon size={48} />
+          </Animated.View>
 
-        {showMascot ? (
-          <View className="items-center mt-4 mb-6">
-            <LoxeraFoxMascot size={72} />
+          <View style={s.heroTop}>
+            {onBack ? <BackButton onPress={onBack} variant="onDark" /> : <View style={s.backSpacer} />}
+            <Text style={s.brand}>Loxera English</Text>
+            <View style={s.backSpacer} />
           </View>
-        ) : (
-          <View className="h-6" />
-        )}
 
-        <Text className="text-2xl font-bold text-neutralInk dark:text-white mb-6">{title}</Text>
-        {children}
-        {footer ? <View className="mt-auto pt-8">{footer}</View> : null}
+          {showMascot ? (
+            <View style={s.mascot}>{mascot ?? <AnimatedFoxMascot size={130} />}</View>
+          ) : (
+            <View style={{ height: 24 }} />
+          )}
+        </View>
+
+        <View style={[s.card, night && s.cardNight]}>
+          <Text style={[s.title, night && { color: ds.white }]}>{title}</Text>
+          {subtitle ? <Text style={[s.subtitle, night && { color: ds.onInk }]}>{subtitle}</Text> : null}
+          <View style={{ height: 18 }} />
+          {children}
+        </View>
+
+        {footer ? <View style={s.footer}>{footer}</View> : null}
       </ScrollView>
     </KeyboardAvoidingView>
+    </AuthNightContext.Provider>
   );
 };
 
@@ -64,34 +128,59 @@ interface AuthTextFieldProps extends Omit<TextInputProps, 'style'> {
   icon: LucideIcon;
   error?: string | null;
   secure?: boolean;
+  /** Báo khi người dùng bấm con mắt hiện/ẩn mật khẩu. */
+  onRevealChange?: (revealed: boolean) => void;
 }
 
 export const AuthTextField = forwardRef<TextInputInstance, AuthTextFieldProps>(
-  ({ label, icon: Icon, error, secure, ...inputProps }, ref) => {
+  ({ label, icon: Icon, error, secure, onRevealChange, onFocus, onBlur, ...inputProps }, ref) => {
     const [hidden, setHidden] = useState(true);
+    const [focused, setFocused] = useState(false);
+    const night = useNight();
+    const tint = error ? ds.red : focused ? (night ? ds.amber : ds.btn) : night ? ds.onInk : ds.faint;
     return (
-      <View className="mb-4">
-        <Text className="text-xs font-semibold text-neutralGray mb-1.5">{label}</Text>
+      <View style={s.field}>
+        <Text style={[s.label, night && { color: ds.onInk }]}>{label}</Text>
         <View
-          className={`flex-row items-center h-12 px-3 rounded-xl bg-white dark:bg-darkCard border ${
-            error ? 'border-error' : 'border-gray-200 dark:border-gray-700'
-          }`}
+          style={[
+            s.inputBox,
+            night && s.inputBoxNight,
+            focused && (night ? s.inputBoxNightFocused : s.inputBoxFocused),
+            error ? s.inputBoxError : null,
+          ]}
         >
-          <Icon size={16} color={AppColors.neutralGray} />
+          <Icon size={18} color={tint} />
           <TextInput
             ref={ref}
             {...inputProps}
+            onFocus={(e) => {
+              setFocused(true);
+              onFocus?.(e);
+            }}
+            onBlur={(e) => {
+              setFocused(false);
+              onBlur?.(e);
+            }}
             secureTextEntry={secure ? hidden : false}
-            placeholderTextColor={AppColors.neutralGray}
-            className="flex-1 ml-2 text-sm text-neutralInk dark:text-white"
+            placeholderTextColor={night ? ds.onInk : ds.faint}
+            style={[s.input, night && { color: ds.white }]}
           />
           {secure ? (
-            <Pressable onPress={() => setHidden((v) => !v)} hitSlop={8} accessibilityLabel={hidden ? 'Hiện mật khẩu' : 'Ẩn mật khẩu'}>
-              {hidden ? <Eye size={16} color={AppColors.neutralGray} /> : <EyeOff size={16} color={AppColors.neutralGray} />}
+            <Pressable
+              onPress={() => {
+                const next = !hidden;
+                setHidden(next);
+                onRevealChange?.(!next);
+              }}
+              hitSlop={10}
+              accessibilityLabel={hidden ? 'Hiện mật khẩu' : 'Ẩn mật khẩu'}
+              style={[s.eye, !hidden && s.eyeOn]}
+            >
+              {hidden ? <Eye size={18} color={ds.muted} /> : <EyeOff size={18} color={ds.amberText} />}
             </Pressable>
           ) : null}
         </View>
-        {error ? <Text className="text-xs text-error mt-1">{error}</Text> : null}
+        {error ? <Text style={s.fieldError}>{error}</Text> : null}
       </View>
     );
   }
@@ -106,47 +195,107 @@ interface AuthButtonProps {
   variant?: 'primary' | 'outline';
 }
 
-export const AuthButton: React.FC<AuthButtonProps> = ({ label, onPress, loading, disabled, variant = 'primary' }) => {
-  const isPrimary = variant === 'primary';
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={loading || disabled}
-      className={`h-12 rounded-xl items-center justify-center flex-row ${
-        isPrimary ? 'bg-primary active:bg-primaryDark' : 'border border-gray-200 dark:border-gray-700 bg-white dark:bg-darkCard'
-      }`}
-      style={{ opacity: loading || disabled ? 0.7 : 1 }}
-    >
-      {loading ? (
-        <ActivityIndicator color={isPrimary ? '#FFFFFF' : AppColors.primary} size="small" />
-      ) : (
-        <Text className={`text-sm font-bold ${isPrimary ? 'text-white' : 'text-neutralInk dark:text-white'}`}>{label}</Text>
-      )}
-    </Pressable>
-  );
-};
+export const AuthButton: React.FC<AuthButtonProps> = ({ label, onPress, loading, disabled, variant = 'primary' }) => (
+  <Button3D
+    label={label}
+    onPress={onPress}
+    loading={loading}
+    // Button3D tự chặn bấm khi loading; chỉ truyền disabled thật để nút giữ màu chính lúc đang tải
+    disabled={disabled}
+    variant={variant === 'primary' ? 'primary' : 'light'}
+    height={52}
+  />
+);
 
 export const AuthErrorBanner: React.FC<{ message?: string | null; children?: React.ReactNode }> = ({ message, children }) =>
   message ? (
-    <View className="bg-error/10 rounded-xl px-3 py-2.5 mb-4">
-      <Text className="text-xs text-error">{message}</Text>
+    <View style={s.errorBanner}>
+      <Text style={s.errorText}>{message}</Text>
       {children}
     </View>
   ) : null;
 
-export const AuthDivider: React.FC<{ label: string }> = ({ label }) => (
-  <View className="flex-row items-center my-5">
-    <View className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
-    <Text className="text-xs text-neutralGray mx-3">{label}</Text>
-    <View className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
-  </View>
-);
+export const AuthDivider: React.FC<{ label: string }> = ({ label }) => {
+  const night = useNight();
+  const line = [s.dividerLine, night && { backgroundColor: ds.onInkFaint }];
+  return (
+    <View style={s.divider}>
+      <View style={line} />
+      <Text style={[s.dividerText, night && { color: ds.onInk }]}>{label}</Text>
+      <View style={line} />
+    </View>
+  );
+};
 
-export const AuthFooterLink: React.FC<{ text: string; link: string; onPress: () => void }> = ({ text, link, onPress }) => (
-  <View className="flex-row justify-center items-center">
-    <Text className="text-sm text-neutralGray">{text} </Text>
-    <Pressable onPress={onPress} hitSlop={8}>
-      <Text className="text-sm font-bold text-primary">{link}</Text>
-    </Pressable>
-  </View>
-);
+export const AuthFooterLink: React.FC<{ text: string; link: string; onPress: () => void }> = ({ text, link, onPress }) => {
+  const night = useNight();
+  return (
+    <View style={s.footerRow}>
+      <Text style={[s.footerText, night && { color: ds.onInk }]}>{text} </Text>
+      <Pressable onPress={onPress} hitSlop={8}>
+        <Text style={[s.footerLink, night && { color: ds.amber }]}>{link}</Text>
+      </Pressable>
+    </View>
+  );
+};
+
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: ds.bg },
+  nightBg: { backgroundColor: ds.ink },
+  moonWrap: { position: 'absolute', right: 34 },
+  cardNight: { backgroundColor: ds.inkSoft, borderWidth: 1, borderColor: ds.onInkFaint },
+  inputBoxNight: { backgroundColor: ds.onInkFaint, borderColor: ds.onInkFaint },
+  inputBoxNightFocused: { borderColor: ds.amber },
+  hero: { zIndex: 10, alignItems: 'center', paddingHorizontal: 20 },
+  heroTall: { minHeight: 230 },
+  heroCompact: { paddingBottom: 20 },
+  heroBg: { borderBottomLeftRadius: 32, borderBottomRightRadius: 32 },
+  halo: { position: 'absolute', backgroundColor: ds.onInkFaint },
+  heroTop: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  backSpacer: { width: 40, height: 40 },
+  brand: { fontFamily: dsFont.bold, fontSize: dsSize.xs, color: ds.skyLight, letterSpacing: 1.2, textTransform: 'uppercase' },
+  mascot: { marginTop: 4, alignItems: 'center' },
+
+  card: {
+    marginTop: 18,
+    marginHorizontal: 16,
+    padding: 22,
+    backgroundColor: ds.card,
+    borderRadius: dsRadius.xl,
+    ...dsShadow.card,
+  },
+  title: { fontFamily: dsFont.displayHeavy, fontSize: dsSize.xl, color: ds.ink, letterSpacing: -0.3 },
+  subtitle: { fontFamily: dsFont.body, fontSize: dsSize.sm, color: ds.muted, marginTop: 4 },
+
+  field: { marginBottom: 14 },
+  label: { fontFamily: dsFont.semibold, fontSize: dsSize.xs, color: ds.muted, marginBottom: 6 },
+  inputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    height: 52,
+    paddingHorizontal: 14,
+    borderRadius: dsRadius.md,
+    backgroundColor: ds.bg,
+    borderWidth: 1.5,
+    borderColor: ds.line,
+  },
+  inputBoxFocused: { backgroundColor: ds.card, borderColor: ds.btn },
+  inputBoxError: { borderColor: ds.red },
+  input: { flex: 1, fontFamily: dsFont.medium, fontSize: dsSize.base, color: ds.ink, paddingVertical: 0 },
+  eye: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  eyeOn: { backgroundColor: ds.amberSoft },
+  fieldError: { fontFamily: dsFont.medium, fontSize: dsSize.xs, color: ds.red, marginTop: 4 },
+
+  errorBanner: { backgroundColor: ds.redSoft, borderRadius: dsRadius.sm, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 14 },
+  errorText: { fontFamily: dsFont.medium, fontSize: dsSize.xs, color: ds.redText },
+
+  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 16 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: ds.line },
+  dividerText: { fontFamily: dsFont.medium, fontSize: dsSize.xs, color: ds.faint, marginHorizontal: 12 },
+
+  footer: { marginTop: 'auto', paddingTop: 24 },
+  footerRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+  footerText: { fontFamily: dsFont.body, fontSize: dsSize.sm, color: ds.muted },
+  footerLink: { fontFamily: dsFont.bold, fontSize: dsSize.sm, color: ds.btn },
+});

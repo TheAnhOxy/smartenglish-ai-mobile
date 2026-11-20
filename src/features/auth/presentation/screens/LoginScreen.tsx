@@ -11,6 +11,8 @@ import {
   loadGoogleGsiScript,
   signInWithGoogleWeb,
 } from '../../infrastructure/googleAuthHelper';
+import { ds, dsFont, dsSize } from '@/src/theme/ds';
+import { LoginFoxGuard, type FoxMood } from '../components/LoginFoxGuard';
 import { AuthButton, AuthDivider, AuthErrorBanner, AuthFooterLink, AuthLayout, AuthTextField } from '../components/AuthUI';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -23,6 +25,10 @@ export const LoginScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [validationError, setValidationError] = useState('');
+  const [passwordFocused, setPasswordFocused] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  // Hiện mật khẩu: cáo bật đèn soi; đang gõ mật khẩu (ẩn): cáo che mắt
+  const foxMood: FoxMood = passwordVisible ? 'peek' : passwordFocused ? 'shy' : 'idle';
   const { login, googleLogin, isPending, isError, error } = useAuthFlow();
 
   useEffect(() => {
@@ -90,7 +96,10 @@ export const LoginScreen = () => {
 
   return (
     <AuthLayout
-      title="Đăng nhập"
+      title="Chào mừng trở lại"
+      subtitle="Đăng nhập để tiếp tục hành trình học tiếng Anh"
+      night={passwordVisible}
+      mascot={<LoginFoxGuard mood={foxMood} size={140} beamLength={380} />}
       onBack={() => router.replace('/(auth)/welcome')}
       footer={<AuthFooterLink text="Chưa có tài khoản?" link="Đăng ký" onPress={() => router.push('/(auth)/register')} />}
     >
@@ -98,9 +107,9 @@ export const LoginScreen = () => {
         {needsOtp && email.trim() ? (
           <Pressable
             onPress={() => router.push(`/(auth)/verify-otp?email=${encodeURIComponent(email.trim())}`)}
-            className="mt-1.5"
+            style={{ marginTop: 6 }}
           >
-            <Text className="text-xs font-bold text-primary">Xác thực OTP ngay</Text>
+            <Text style={{ fontFamily: dsFont.bold, fontSize: dsSize.xs, color: ds.btn }}>Xác thực OTP ngay</Text>
           </Pressable>
         ) : null}
       </AuthErrorBanner>
@@ -131,6 +140,9 @@ export const LoginScreen = () => {
           setValidationError('');
         }}
         autoComplete="password"
+        onFocus={() => setPasswordFocused(true)}
+        onBlur={() => setPasswordFocused(false)}
+        onRevealChange={setPasswordVisible}
         placeholder="••••••••"
         returnKeyType="go"
         onSubmitEditing={handleLogin}
