@@ -19,4 +19,9 @@ export interface Chapter {
   title_en: string;
   is_premium: boolean;
   units: UnitNode[];
+  /** Chương bắt đầu theo kết quả kiểm tra đầu vào. */
+  placement_start?: boolean;
+  /** Chương thấp hơn trình độ đầu vào: mở sẵn để ôn lại. */
+  below_placement?: boolean;
+  placement_level?: string | null;
 }

@@ -43,6 +43,8 @@ export interface DeckCardDTO {
   repetitions?: number;
   dueDate?: string;
   srsStage?: string;
+  easeFactor?: number;
+  isNew?: boolean;
 }
 
 export type CardResponse = DeckCardDTO;
@@ -347,6 +349,53 @@ export const saveWordToDeckApi = async (params: {
   }
 };
 
+export interface StudyQueueDTO {
+  deckId?: number;
+  deckName?: string;
+  dueCount: number;
+  newCount: number;
+  nextDueDate?: string | null;
+  cards: Array<DeckCardDTO & { isNew?: boolean }>;
+}
+
+/**
+ * GET /api/v1/learning/srs/study-queue?deckId={id}&newLimit={n}
+ * Hàng đợi ôn tập hôm nay của người học: thẻ đến hạn trước, rồi thẻ mới.
+ * Không truyền deckId = thẻ đến hạn của mọi bộ thẻ.
+ */
+export const fetchStudyQueueApi = async (deckId?: number | string, newLimit = 20): Promise<StudyQueueDTO> => {
+  const params = new URLSearchParams();
+  if (deckId != null && deckId !== '') params.set('deckId', String(deckId));
+  params.set('newLimit', String(newLimit));
+  let response;
+  try {
+    response = await apiClient.get<any>(`/api/v1/learning/srs/study-queue?${params.toString()}`);
+  } catch (err: unknown) {
+    // Máy chủ chưa có study-queue (404): dùng due-cards, chỉ có thẻ đến hạn, không có thẻ mới
+    const status = (err as { response?: { status?: number } })?.response?.status;
+    if (status !== 404) throw err;
+    const due = await fetchDeckDueCardsApi(deckId);
+    return {
+      deckId: due.deckId,
+      deckName: due.deckName,
+      dueCount: due.totalDue,
+      newCount: 0,
+      nextDueDate: null,
+      cards: due.cards as unknown as DeckCardDTO[],
+    };
+  }
+  const data = response.data?.data ?? response.data ?? {};
+  const cards = Array.isArray(data.cards) ? data.cards : [];
+  return {
+    deckId: data.deckId ?? undefined,
+    deckName: data.deckName ?? undefined,
+    dueCount: Number(data.dueCount ?? 0),
+    newCount: Number(data.newCount ?? 0),
+    nextDueDate: data.nextDueDate ?? null,
+    cards,
+  };
+};
+
 /**
  * GET /api/v1/learning/srs/due-cards?deckId={id}
  * Lấy danh sách thẻ đến hạn ôn tập SM-2
@@ -356,12 +405,14 @@ export const fetchDeckDueCardsApi = async (deckId?: number | string): Promise<Fl
     const query = deckId ? `?deckId=${encodeURIComponent(deckId)}` : '';
     const response = await apiClient.get<any>(`/api/v1/learning/srs/due-cards${query}`);
     const data = response.data?.data ?? response.data;
-    if (data && Array.isArray(data.cards)) {
+    // learning-service trả về "dueCards" (DeckCardResponseDTO); giữ tương thích nếu có "cards"
+    const list = Array.isArray(data?.dueCards) ? data.dueCards : Array.isArray(data?.cards) ? data.cards : null;
+    if (data && list) {
       return {
         deckId: data.deckId,
         deckName: data.deckName,
-        totalDue: data.totalDue ?? data.cards.length,
-        cards: data.cards,
+        totalDue: data.totalDue ?? list.length,
+        cards: list,
       };
     }
     return {

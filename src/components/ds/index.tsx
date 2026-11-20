@@ -26,17 +26,37 @@ type TapProps = Omit<PressableProps, 'style'> & {
   children?: React.ReactNode;
 };
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+// Thuộc tính quyết định vị trí và kích thước trong khung cha phải nằm ở Pressable ngoài cùng,
+// nếu không lưới flexWrap chỉ thấy kích thước theo nội dung và các ô bị xuống dòng lệch nhau.
+const OUTER_KEYS = [
+  'flex', 'flexGrow', 'flexShrink', 'flexBasis', 'width', 'minWidth', 'maxWidth', 'alignSelf',
+  'margin', 'marginTop', 'marginBottom', 'marginLeft', 'marginRight', 'marginHorizontal', 'marginVertical',
+  'position', 'top', 'bottom', 'left', 'right', 'zIndex',
+] as const;
 
-// Kích thước + hiệu ứng nằm trên chính vùng bấm (Pressable) để vùng nhận chạm luôn đúng bằng nút
+export const splitTapStyle = (style: StyleProp<ViewStyle>): { outer: ViewStyle; inner: ViewStyle } => {
+  const flat = { ...(StyleSheet.flatten(style) ?? {}) } as Record<string, unknown>;
+  const outer: Record<string, unknown> = {};
+  for (const key of OUTER_KEYS) {
+    if (flat[key] !== undefined) {
+      outer[key] = flat[key];
+      delete flat[key];
+    }
+  }
+  return { outer: outer as ViewStyle, inner: flat as ViewStyle };
+};
+
+// Hiệu ứng co nằm ở Animated.View bên trong: Pressable (đã được NativeWind bọc) không được nhận
+// Animated.Value trong transform, nếu không sẽ lỗi "Transform with key of scale must be a number".
 export const Tap: React.FC<TapProps> = ({ style, scaleTo = 0.96, sound = 'tap', onPressIn, onPressOut, onPress, children, disabled, ...rest }) => {
   const scale = useRef(new Animated.Value(1)).current;
   const to = (v: number) =>
     Animated.spring(scale, { toValue: v, useNativeDriver: true, speed: 40, bounciness: v === 1 ? 8 : 0 }).start();
+  const { outer, inner } = splitTapStyle(style);
   return (
-    <AnimatedPressable
+    <Pressable
       {...rest}
-      style={[style, { transform: [{ scale }] }, disabled ? { opacity: 0.5 } : null]}
+      style={outer}
       disabled={disabled}
       onPressIn={(e) => {
         to(scaleTo);
@@ -52,8 +72,8 @@ export const Tap: React.FC<TapProps> = ({ style, scaleTo = 0.96, sound = 'tap', 
         else if (sound === 'select') feedback.select();
       }}
     >
-      {children}
-    </AnimatedPressable>
+      <Animated.View style={[inner, { flexGrow: 1 }, { transform: [{ scale }] }, disabled ? { opacity: 0.5 } : null]}>{children}</Animated.View>
+    </Pressable>
   );
 };
 

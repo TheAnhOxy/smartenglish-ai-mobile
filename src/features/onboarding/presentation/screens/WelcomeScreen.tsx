@@ -173,10 +173,10 @@ export const WelcomeScreen = () => {
             <Text style={styles.featurePillText}>Cá nhân hóa</Text>
           </View>
           <View style={styles.featurePill}>
-            <Text style={styles.featurePillText}>AI Tutor</Text>
+            <Text style={styles.featurePillText}>Gia sư AI</Text>
           </View>
           <View style={styles.featurePill}>
-            <Text style={styles.featurePillText}>Placement Test</Text>
+            <Text style={styles.featurePillText}>Kiểm tra trình độ</Text>
           </View>
         </Animated.View>
       </View>
@@ -208,7 +208,7 @@ export const WelcomeScreen = () => {
           style={styles.secondaryBtn}
         >
           <PlayCircle color={colors.primary} size={18} strokeWidth={2} />
-          <Text style={styles.secondaryBtnText}>Bắt Đầu Ngay (Placement Test)</Text>
+          <Text style={styles.secondaryBtnText}>Kiểm tra trình độ ngay</Text>
         </TouchableOpacity>
 
         {/* Login link */}

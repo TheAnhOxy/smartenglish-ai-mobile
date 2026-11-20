@@ -19,11 +19,14 @@ import {
   Lock,
   Languages,
   Sparkles,
+  RotateCcw,
+  Clock,
 } from '@/src/components/ds/icons';
 import { colors } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
 import { AnswerKey, ExamQuestion } from '../../data/examAttemptApi';
 import { ds, dsFont } from '@/src/theme/ds';
+import { SeekBar } from '@/src/features/reading-listening/presentation/components/SeekBar';
 
 export interface ExamListeningClusterViewProps {
   questions: ExamQuestion[];
@@ -42,12 +45,22 @@ export interface ExamListeningClusterViewProps {
   currentAudioDuration: number;
   formatAudioTime: (seconds?: number) => string;
   onToggleAudio: () => void;
+  /** Luyện tập: nghe lại từ đầu. */
+  onReplayAudio?: () => void;
+  /** Luyện tập với file audio: tua tới vị trí (giây). Không truyền ở chế độ thi. */
+  onSeekAudio?: (seconds: number) => void;
   audioHasEnded?: boolean;
+  /** Thi thử: số giây trả lời còn lại trước khi tự chuyển câu. */
+  answerCountdown?: number | null;
+  /** Thi thử: trình duyệt chặn tự phát, cho bấm nghe một lần. */
+  autoplayBlocked?: boolean;
   // Practice mode translation & TTS
   currentTranslations?: Record<string, string> | null;
   showInlineTranslation?: boolean;
   isTranslating?: boolean;
   onToggleTranslate?: () => void;
+  /** TOEIC Part 1–2: đề thật không in chữ đáp án (Part 2 không in cả câu hỏi), chỉ hiện khi luyện tập đã xem đáp án. */
+  hideListeningText?: boolean;
 }
 
 const WAVE_BARS = [12, 22, 16, 28, 36, 24, 32, 40, 28, 35, 42, 30, 20, 34, 40, 26, 32, 20, 16, 22, 18, 12];
@@ -67,11 +80,16 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
   currentAudioDuration,
   formatAudioTime,
   onToggleAudio,
+  onReplayAudio,
+  onSeekAudio,
   audioHasEnded = false,
+  answerCountdown = null,
+  autoplayBlocked = false,
   currentTranslations,
   showInlineTranslation,
   isTranslating,
   onToggleTranslate,
+  hideListeningText = false,
 }) => {
   const firstQ = questions[0] || ({} as ExamQuestion);
   const part = firstQ.part;
@@ -97,7 +115,12 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
 
           {isExamMode ? (
             <View style={[styles.statusBadge, audioHasEnded ? styles.statusBadgeEnded : styles.statusBadgePlaying]}>
-              {audioHasEnded ? (
+              {audioHasEnded && answerCountdown != null ? (
+                <>
+                  <Clock size={12} color={ds.green} />
+                  <Text style={styles.statusBadgeTextEnded}>Chuyển câu sau {answerCountdown} giây</Text>
+                </>
+              ) : audioHasEnded ? (
                 <>
                   <CheckCircle2 size={12} color="#16A34A" />
                   <Text style={styles.statusBadgeTextEnded}>Đã nghe (1 lần duy nhất)</Text>
@@ -138,7 +161,15 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
         <View style={styles.playerInnerBox}>
           <View style={styles.playerMainRow}>
             {/* Play/Pause Button - Bị khóa hoặc ẩn khi ở Exam Mode */}
-            {isExamMode ? (
+            {isExamMode && autoplayBlocked ? (
+              <Pressable
+                onPress={onToggleAudio}
+                accessibilityLabel="Bấm để nghe"
+                style={({ pressed }) => [styles.playPauseBtn, pressed && styles.pressed]}
+              >
+                <Play size={20} color="#FFFFFF" style={{ marginLeft: 2 }} />
+              </Pressable>
+            ) : isExamMode ? (
               <View style={[styles.playPauseBtn, styles.playPauseBtnDisabled]}>
                 {audioHasEnded ? (
                   <CheckCircle2 size={20} color="#8597AB" />
@@ -160,6 +191,17 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
                 )}
               </Pressable>
             )}
+            {!isExamMode && onReplayAudio ? (
+              <Pressable
+                onPress={onReplayAudio}
+                accessibilityLabel="Nghe lại từ đầu"
+                hitSlop={6}
+                style={({ pressed }) => [styles.replayBtn, pressed && styles.pressed]}
+              >
+                <RotateCcw size={16} color={ds.btn} />
+                <Text style={styles.replayBtnText}>Nghe lại</Text>
+              </Pressable>
+            ) : null}
 
             {/* Waveform Visualization */}
             <View style={styles.waveFormArea}>
@@ -179,21 +221,24 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
                 })}
               </View>
 
-              {/* Progress Slider */}
-              <View style={styles.miniProgressTrack}>
-                <View
-                  style={[
-                    styles.miniProgressFill,
-                    { width: `${Math.round(audioProgress * 100)}%` },
-                  ]}
-                />
-              </View>
-
-              {/* Time display */}
-              <View style={styles.timeLabelsRow}>
-                <Text style={styles.timeText}>{formatAudioTime(currentAudioTime)}</Text>
-                <Text style={styles.timeText}>{formatAudioTime(currentAudioDuration)}</Text>
-              </View>
+              {!isExamMode && onSeekAudio ? (
+                <SeekBar position={currentAudioTime} duration={currentAudioDuration} onSeek={onSeekAudio} />
+              ) : (
+                <>
+                  <View style={styles.miniProgressTrack}>
+                    <View
+                      style={[
+                        styles.miniProgressFill,
+                        { width: `${Math.round(audioProgress * 100)}%` },
+                      ]}
+                    />
+                  </View>
+                  <View style={styles.timeLabelsRow}>
+                    <Text style={styles.timeText}>{formatAudioTime(currentAudioTime)}</Text>
+                    <Text style={styles.timeText}>{formatAudioTime(currentAudioDuration)}</Text>
+                  </View>
+                </>
+              )}
             </View>
           </View>
 
@@ -202,8 +247,10 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
             <HelpCircle size={13} color="#5B6B7F" />
             <Text style={styles.audioInfoText}>
               {isExamMode
-                ? 'Đoạn băng tự phát 1 lần theo quy chế ETS · Không thể tua hoặc nghe lại'
-                : 'Chế độ luyện tập · Bạn có thể bấm nghe lại và xem transcript sau khi trả lời'}
+                ? autoplayBlocked
+                  ? 'Trình duyệt chưa cho tự phát âm thanh · Bấm nút phát để nghe (chỉ 1 lần)'
+                  : 'Băng tự phát 1 lần như đề thật · Hết băng sẽ có thời gian trả lời rồi tự chuyển câu'
+                : 'Luyện tập · Nghe lại bao nhiêu lần cũng được, không giới hạn thời gian'}
             </Text>
           </View>
         </View>
@@ -214,6 +261,7 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
         {questions.map((q, index) => {
           const selectedAnswer = userAnswers[q.id];
           const isRevealed = Boolean(revealedQuestions[q.id]);
+          const hideText = hideListeningText && (isPart1 || isPart2) && !isRevealed;
           const isBookmarked = bookmarkedIds.includes(q.id);
           const isAnswered = Boolean(selectedAnswer);
 
@@ -267,7 +315,7 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
               </View>
 
               {/* Question Text */}
-              {Boolean(q.questionText) && (
+              {Boolean(q.questionText) && !(hideText && isPart2) && (
                 <Text style={styles.questionPromptText}>{q.questionText}</Text>
               )}
 
@@ -280,7 +328,7 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
               ) : null}
 
               {/* Options List (A, B, C, D) */}
-              <View style={styles.optionsList}>
+              <View style={[styles.optionsList, hideText && styles.optionsRow]}>
                 {(q.options || []).map((opt) => {
                   const isSelected = selectedAnswer === opt.key;
                   const isCorrectAnswer = opt.key === q.correctAnswer;
@@ -293,6 +341,7 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
                       disabled={isPracticeMode && isRevealed}
                       style={({ pressed }) => [
                         styles.optionCard,
+                        hideText && styles.optionCardKeyOnly,
                         isSelected && styles.optionCardSelected,
                         isRevealed && isCorrectAnswer && styles.optionCardRevealedCorrect,
                         isRevealed && isWrongSelection && styles.optionCardRevealedWrong,
@@ -320,6 +369,7 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
                       </View>
 
                       {/* Option Text */}
+                      {hideText ? null : (
                       <View style={styles.optionContentWrap}>
                         <Text
                           style={[
@@ -335,6 +385,7 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
                           <Text style={styles.optionSubLabelText}>{opt.subLabel}</Text>
                         )}
                       </View>
+                      )}
                     </Pressable>
                   );
                 })}
@@ -476,6 +527,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#0369A1',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  replayBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: ds.btn,
+  },
+  replayBtnText: {
+    fontSize: 12,
+    fontFamily: dsFont.semibold,
+    color: ds.btn,
   },
   playPauseBtnDisabled: {
     backgroundColor: '#5B6B7F',
@@ -645,6 +711,14 @@ const styles = StyleSheet.create({
   // Options
   optionsList: {
     gap: 9,
+  },
+  optionsRow: {
+    flexDirection: 'row',
+  },
+  optionCardKeyOnly: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 0,
   },
   optionCard: {
     flexDirection: 'row',

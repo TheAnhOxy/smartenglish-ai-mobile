@@ -37,7 +37,7 @@ export const TeacherClassesScreen = () => {
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <Pressable
-              onPress={() => router.push(`/(teacher-companion)/classes/${item.id}` as any)}
+              onPress={() => router.push(`/(teacher-companion)/teacher/classes/${item.id}` as any)}
               className="bg-cardWhite p-5 rounded-2xl border border-gray-100 mb-4 shadow-sm active:bg-gray-50"
             >
               <View className="flex-row justify-between items-start mb-2">

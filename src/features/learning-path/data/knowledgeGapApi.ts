@@ -115,6 +115,11 @@ export const isSystemCourse = (item: any): boolean => {
 let memoryRoadmapCache: { data: any[]; timestamp: number; userId: string } | null = null;
 const ROADMAP_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+/** Xóa lộ trình đã lưu tạm (gọi sau khi có kết quả kiểm tra đầu vào mới). */
+export const clearRoadmapCache = () => {
+  memoryRoadmapCache = null;
+};
+
 export const fetchLearningPathRoadmapApi = async (userId?: string, forceRefresh = false) => {
   const uid = userId || getCurrentUserId();
   if (!forceRefresh && memoryRoadmapCache && memoryRoadmapCache.userId === (uid || '') && Date.now() - memoryRoadmapCache.timestamp < ROADMAP_CACHE_TTL) {

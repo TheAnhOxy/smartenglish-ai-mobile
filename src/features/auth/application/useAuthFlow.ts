@@ -1,4 +1,6 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { PLACEMENT_STATUS_KEY } from '@/src/features/onboarding/application/placementRoutes';
+import { LEARNING_PLAN_KEY } from '@/src/features/onboarding/application/useLearningPlan';
 import {
   loginApi,
   registerApi,
@@ -16,6 +18,7 @@ import { fetchUserStatsApi } from '@/src/features/home-dashboard/data/dashboardA
 import { submitPendingPlacement } from '@/src/features/onboarding/application/submitPendingPlacement';
 
 export const useAuthFlow = () => {
+  const queryClient = useQueryClient();
   const { setAuthUser, loginAsRole, setUserStats } = useAuthStore();
   const { setRole } = useRoleGateStore();
   const router = useRouter();
@@ -50,7 +53,11 @@ export const useAuthFlow = () => {
     }
     refreshGamificationStats(String(data.user.id));
     if (data.user.role === 'student') {
-      void submitPendingPlacement();
+      void submitPendingPlacement(() => {
+        void queryClient.invalidateQueries({ queryKey: PLACEMENT_STATUS_KEY });
+        void queryClient.invalidateQueries({ queryKey: LEARNING_PLAN_KEY });
+        void queryClient.invalidateQueries({ queryKey: ['daily-quests'] });
+      });
     }
     goWithTransition(data.user.role);
   };

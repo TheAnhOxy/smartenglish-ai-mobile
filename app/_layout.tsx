@@ -168,13 +168,15 @@ function RootLayoutNav() {
     const inAuthGroup = currentSegment === '(auth)';
     const inTeacherGroup = currentSegment === '(teacher-companion)';
     const inAdminRoute = currentSegment === 'admin-blocked';
+    // Màn chào sau đăng nhập tự chuyển tới trang theo vai trò; điều hướng thêm ở đây sẽ chạy đè
+    // (gây cảnh báo ROUTE_NAMES_CHANGED và bỏ qua màn chào).
+    const onLoginSuccess = inAuthGroup && (segments as string[])[1] === 'login-success';
+    if (onLoginSuccess && role) return;
 
     const timer = setTimeout(() => {
       if (role === 'admin' && !inAdminRoute) {
         router.replace('/admin-blocked' as any);
-      } else if (role === 'teacher' && !inTeacherGroup) {
-        router.replace('/(teacher-companion)/classes' as any);
-      } else if (role === 'student' && (inAuthGroup || inTeacherGroup || inAdminRoute || currentSegment === '' || currentSegment === 'index')) {
+      } else if ((role === 'student' || role === 'teacher') && (inAuthGroup || inTeacherGroup || inAdminRoute || currentSegment === '' || currentSegment === 'index')) {
         router.replace('/(student)/home' as any);
       } else if (!role && guestMode) {
         // Khách dùng thử: vào khu học viên, quyền giới hạn theo vai trò guest

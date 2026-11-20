@@ -3,38 +3,40 @@ import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ClipboardCheck, PenLine, School, Search, Users } from 'lucide-react-native';
 import { subscribeTopic } from '@/src/core/realtime/stompClient';
 import { fetchUserConversationsApi } from '@/src/features/social-feed/data/socialApi';
 import { fetchUnreadNotificationCountApi } from '@/src/features/notifications/data/notificationApi';
 import {
   Bell,
   BookOpen,
-  BrainCircuit,
+  FileText,
   ChevronRight,
   Coins,
   Flame,
   Layers,
   LogIn,
   MessageSquare,
-  PenLine,
   Play,
   ScanText,
-  School,
-  Search,
-  Users,
   Zap,
 } from '@/src/components/ds/icons';
 import { Reveal, Tap, dsText } from '@/src/components/ds';
 import { ds, dsFont, dsRadius, dsShadow, dsSize } from '@/src/theme/ds';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { useRoleGateStore } from '@/src/core/flows/roleGateStore';
-import { LoxeraFoxMascot } from '@/src/core/components/LoxeraFoxMascot';
 import { UserAvatar } from '@/src/core/components/UserAvatar';
-import { useMyDecksQuery } from '@/src/features/flashcard-srs/application/useFlashcardSrs';
+import { decksKeys, useMyDecksQuery } from '@/src/features/flashcard-srs/application/useFlashcardSrs';
+import { fetchDeckDueCardsApi } from '@/src/features/flashcard-srs/data/deckApi';
+import { usePlacementStatusQuery } from '@/src/features/onboarding/application/usePlacementStatus';
+import { QuickWordLookupModal } from '@/src/features/flashcard-srs/presentation/screens/QuickWordLookupModal';
 import { useUserStatsQuery } from '../../application/useDashboard';
 import { DailyQuestList } from '../components/DailyQuestList';
 import { WordOfDayCard } from '../components/WordOfDayCard';
-import { QuickWordLookupModal } from '@/src/features/flashcard-srs/presentation/screens/QuickWordLookupModal';
+import { LearningPlanCards } from '../components/LearningPlanCards';
+import { AiScanFeatureCard } from '../components/AiScanFeatureCard';
+import { ThinkingFox } from '../components/ThinkingFox';
+import { TeacherCoursesShowcase } from '@/src/features/learning-path/presentation/components/TeacherCoursesShowcase';
 
 type IconType = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 
@@ -94,6 +96,24 @@ export const HomeScreen = () => {
     refetchInterval: isFocused ? 15000 : false,
   });
 
+  // Thẻ đến hạn ôn hôm nay (SM-2) và trạng thái bài kiểm tra đầu vào
+  const { data: dueSession, refetch: refetchDue } = useQuery({
+    queryKey: decksKeys.dueCards(),
+    queryFn: () => fetchDeckDueCardsApi(),
+    enabled: isLoggedIn,
+    staleTime: 30_000,
+  });
+  const dueToday = isLoggedIn ? dueSession?.totalDue ?? 0 : 0;
+  const { data: placement, refetch: refetchPlacement } = usePlacementStatusQuery(isLoggedIn ? currentUser?.id : null, isLoggedIn);
+  const needsPlacement = !isLoggedIn || (placement != null && !placement.completed);
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!isLoggedIn) return;
+      void refetchDue();
+      void refetchPlacement();
+    }, [isLoggedIn, refetchDue, refetchPlacement])
+  );
+
   useEffect(() => {
     syncRolePermissions();
   }, [syncRolePermissions]);
@@ -110,8 +130,8 @@ export const HomeScreen = () => {
   const actions: QuickAction[] = [
     {
       key: 'flashcard',
-      label: 'Flashcard',
-      hint: 'Ôn lặp ngắt quãng',
+      label: 'Thẻ từ vựng',
+      hint: 'Ôn đúng lúc sắp quên',
       icon: Layers,
       tint: ds.btn,
       tone: ds.skySoft,
@@ -120,7 +140,7 @@ export const HomeScreen = () => {
     },
     {
       key: 'chat',
-      label: 'Hội thoại AI',
+      label: 'Trò chuyện AI',
       hint: 'Nói chuyện với gia sư',
       icon: MessageSquare,
       tint: ds.green,
@@ -130,8 +150,8 @@ export const HomeScreen = () => {
     },
     {
       key: 'scan',
-      label: 'Quét ảnh',
-      hint: 'Học từ vật xung quanh',
+      label: 'Quét ảnh AI',
+      hint: 'Chụp đồ vật, học từ vựng',
       icon: ScanText,
       tint: ds.amberText,
       tone: ds.amberSoft,
@@ -140,19 +160,41 @@ export const HomeScreen = () => {
     },
     {
       key: 'quiz',
-      label: 'Kiểm tra',
+      label: 'Luyện đề',
       hint: 'Đề luyện và thi thử',
-      icon: BrainCircuit,
-      tint: ds.ink,
-      tone: ds.line,
+      icon: FileText,
+      tint: ds.amberText,
+      tone: ds.amberSoft,
       route: { pathname: '/(student)/learn', params: { tab: 'quiz' } },
       visible: hasPermission('take_quiz_exam'),
     },
   ].filter((a) => a.visible);
 
+  // Quét ảnh AI được làm nổi bật bằng thẻ riêng, các mục còn lại xếp thành ô
+  const scanAction = actions.find((a) => a.key === 'scan');
+  const practiceTiles = actions.filter((a) => a.key !== 'scan');
+
   const connectActions: QuickAction[] = [
-    { key: 'classes', label: 'Lớp học', icon: School, route: '/(student)/classes', visible: isLoggedIn && hasPermission('join_class_submit') },
-    { key: 'community', label: 'Cộng đồng', icon: Users, route: '/(student)/feed', visible: isLoggedIn && hasPermission('use_community') },
+    {
+      key: 'classes',
+      label: 'Lớp học',
+      hint: 'Bài tập của giáo viên',
+      icon: School,
+      tint: ds.btn,
+      tone: ds.skySoft,
+      route: '/(student)/classes',
+      visible: isLoggedIn && hasPermission('join_class_submit'),
+    },
+    {
+      key: 'community',
+      label: 'Cộng đồng',
+      hint: 'Bạn học và tin nhắn',
+      icon: Users,
+      tint: ds.green,
+      tone: ds.greenSoft,
+      route: '/(student)/feed',
+      visible: isLoggedIn && hasPermission('use_community'),
+    },
   ].filter((a) => a.visible);
 
   const go = (route: QuickAction['route']) => router.push(route as never);
@@ -237,46 +279,71 @@ export const HomeScreen = () => {
       {/* Thẻ tiếp tục học */}
       <Reveal delay={120}>
         <Tap
-          onPress={() => go(continueDeck ? `/(student)/review/decks/${continueDeck.id}/study` : '/(student)/review')}
+          onPress={() =>
+            go(
+              dueToday > 0
+                ? '/(student)/review/due'
+                : continueDeck
+                  ? `/(student)/review/decks/${continueDeck.id}/study`
+                  : '/(student)/review'
+            )
+          }
           style={s.hero}
           scaleTo={0.98}
+          accessibilityLabel={dueToday > 0 ? `Ôn ${dueToday} thẻ đến hạn hôm nay` : undefined}
         >
           <View style={[s.heroDot, { width: 180, height: 180, right: -60, top: -70 }]} />
           <View style={[s.heroDot, { width: 90, height: 90, right: 70, bottom: -50 }]} />
           <View style={{ flex: 1, gap: 6 }}>
-            <Text style={s.heroTag}>{continueDeck ? 'Tiếp tục học' : 'Bắt đầu hôm nay'}</Text>
+            <Text style={s.heroTag}>{dueToday > 0 ? 'Ôn tập hôm nay' : continueDeck ? 'Tiếp tục học' : 'Bắt đầu hôm nay'}</Text>
             <Text style={s.heroTitle} numberOfLines={2}>
-              {continueDeck ? continueDeck.name : 'Ôn từ vựng với Flashcard'}
+              {dueToday > 0 ? `${dueToday} thẻ đến hạn ôn` : continueDeck ? continueDeck.name : 'Ôn từ vựng với Flashcard'}
             </Text>
             <Text style={s.heroSub}>
-              {continueDeck ? `${continueDeck.cardCount} thẻ trong bộ` : 'Chọn bộ thẻ phù hợp với trình độ của bạn'}
+              {dueToday > 0
+                ? 'Ôn đúng lúc sắp quên để nhớ lâu hơn'
+                : continueDeck
+                  ? `${continueDeck.cardCount} thẻ trong bộ`
+                  : 'Chọn bộ thẻ phù hợp với trình độ của bạn'}
             </Text>
             <View style={s.heroCtaWrap}>
               <View style={s.heroCtaEdge} />
               <View style={s.heroCta}>
                 <Play size={16} color={ds.ink} fill={ds.ink} />
-                <Text style={s.heroCtaText}>{continueDeck ? 'Học tiếp' : 'Khám phá'}</Text>
+                <Text style={s.heroCtaText}>{dueToday > 0 ? 'Ôn ngay' : continueDeck ? 'Học tiếp' : 'Khám phá'}</Text>
               </View>
             </View>
           </View>
-          <LoxeraFoxMascot size={92} showGlow={false} showBook={false} animated />
+          <ThinkingFox size={86} />
         </Tap>
       </Reveal>
+
+      {/* Kế hoạch học sau bài kiểm tra đầu vào */}
+      {isLoggedIn && currentUser?.id != null ? <LearningPlanCards userId={currentUser.id} /> : null}
 
       {/* Lối tắt tính năng */}
       {actions.length > 0 ? (
         <Reveal delay={180} style={s.section}>
           <Text style={dsText.h2}>Luyện tập</Text>
+          {scanAction ? <AiScanFeatureCard onPress={() => go(scanAction.route)} /> : null}
           <View style={s.grid}>
-            {actions.map((a) => {
+            {practiceTiles.map((a) => {
               const Icon = a.icon;
               return (
-                <Tap key={a.key} onPress={() => go(a.route)} style={s.actionTile} accessibilityLabel={a.label}>
-                  <View style={[s.actionIconSm, { backgroundColor: a.tone }]}>
-                    <Icon size={24} color={a.tint} />
+                <Tap
+                  key={a.key}
+                  onPress={() => go(a.route)}
+                  style={s.practiceTile}
+                  accessibilityLabel={`${a.label}: ${a.hint}`}
+                >
+                  <View style={[s.practiceIcon, { backgroundColor: a.tone }]}>
+                    <Icon size={22} color={a.tint} />
                   </View>
-                  <Text style={s.actionTileLabel} numberOfLines={2}>
+                  <Text style={s.practiceLabel} numberOfLines={2}>
                     {a.label}
+                  </Text>
+                  <Text style={s.practiceHint} numberOfLines={2}>
+                    {a.hint}
                   </Text>
                 </Tap>
               );
@@ -287,19 +354,24 @@ export const HomeScreen = () => {
 
       {/* Lớp học & Cộng đồng */}
       {connectActions.length > 0 ? (
-        <Reveal delay={220} style={s.section}>
+        <Reveal delay={210} style={s.section}>
           <Text style={dsText.h2}>Lớp học & Cộng đồng</Text>
-          <View style={s.connectRow}>
+          <View style={s.grid}>
             {connectActions.map((a) => {
               const Icon = a.icon;
               return (
-                <Tap key={a.key} onPress={() => go(a.route)} style={[s.pathRow, { flex: 1 }]} scaleTo={0.97}>
-                  <View style={[s.actionIcon, { backgroundColor: a.key === 'community' ? ds.greenSoft : ds.skySoft }]}>
-                    <Icon size={22} color={a.key === 'community' ? ds.green : ds.btn} />
+                <Tap key={a.key} onPress={() => go(a.route)} style={s.actionTile}>
+                  <View style={[s.actionIcon, { backgroundColor: a.tone }]}>
+                    <Icon size={24} color={a.tint} />
                   </View>
-                  <Text style={[s.actionLabel, { flex: 1 }]} numberOfLines={1}>
-                    {a.label}
-                  </Text>
+                  <View style={{ gap: 2 }}>
+                    <Text style={s.actionLabel} numberOfLines={1}>
+                      {a.label}
+                    </Text>
+                    <Text style={s.actionHint} numberOfLines={1}>
+                      {a.hint}
+                    </Text>
+                  </View>
                   {a.key === 'community' && unreadMessages > 0 ? (
                     <View style={s.unreadInline} accessibilityLabel={`${unreadMessages} tin nhắn chưa đọc`}>
                       <Text style={s.unreadText}>{unreadMessages > 99 ? '99+' : unreadMessages}</Text>
@@ -321,7 +393,7 @@ export const HomeScreen = () => {
               <Text style={s.seeAll}>Xem tất cả</Text>
             </Pressable>
           </View>
-          <DailyQuestList limit={3} />
+          <DailyQuestList />
         </Reveal>
       ) : null}
 
@@ -334,12 +406,28 @@ export const HomeScreen = () => {
       {isLoggedIn ? (
         <Reveal delay={320}>
           <Tap onPress={() => go('/(student)/practice/writing')} style={s.pathRow} scaleTo={0.98}>
-            <View style={[s.actionIcon, { backgroundColor: ds.amberSoft }]}>
-              <PenLine size={22} color={ds.amberText} />
+            <View style={[s.actionIcon, { backgroundColor: ds.greenSoft }]}>
+              <PenLine size={22} color={ds.green} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={s.actionLabel}>Luyện viết với AI</Text>
               <Text style={s.actionHint}>Chấm lỗi, chấm điểm và viết lại bài của bạn</Text>
+            </View>
+            <ChevronRight size={20} color={ds.faint} />
+          </Tap>
+        </Reveal>
+      ) : null}
+
+      {/* Bài kiểm tra đầu vào: chưa làm thì mời làm để xếp lộ trình */}
+      {needsPlacement && hasPermission('take_quiz_exam') ? (
+        <Reveal delay={330}>
+          <Tap onPress={() => go('/(student)/placement')} style={s.pathRow} scaleTo={0.98} accessibilityLabel="Làm bài kiểm tra đầu vào">
+            <View style={[s.actionIcon, { backgroundColor: ds.amberSoft }]}>
+              <ClipboardCheck size={22} color={ds.amberText} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.actionLabel}>Kiểm tra trình độ đầu vào</Text>
+              <Text style={s.actionHint}>Khoảng 3 phút, lộ trình sẽ bắt đầu đúng trình độ của bạn</Text>
             </View>
             <ChevronRight size={20} color={ds.faint} />
           </Tap>
@@ -354,10 +442,19 @@ export const HomeScreen = () => {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={s.actionLabel}>Lộ trình học</Text>
-            <Text style={s.actionHint}>Bài học, luyện nói và đề kiểm tra</Text>
+            <Text style={s.actionHint}>
+              {placement?.completed && placement.cefrLevel
+                ? `Bắt đầu từ trình độ ${placement.cefrLevel} theo bài kiểm tra đầu vào`
+                : 'Bài học, luyện nói và đề kiểm tra'}
+            </Text>
           </View>
           <ChevronRight size={20} color={ds.faint} />
         </Tap>
+      </Reveal>
+
+      {/* Khóa học của giáo viên, ưu tiên đúng trình độ đầu vào */}
+      <Reveal delay={360}>
+        <TeacherCoursesShowcase />
       </Reveal>
     </ScrollView>
   );
@@ -396,27 +493,24 @@ const StatChip: React.FC<{ icon: React.ReactNode; tone: string; value: string; l
   value,
   label,
   onPress,
-}) => {
-  const body = (
-    <>
-      <View style={[s.statIcon, { backgroundColor: tone }]}>{icon}</View>
-      <View style={{ flexShrink: 1 }}>
-        <Text style={s.statValue} numberOfLines={1}>
-          {value}
-        </Text>
-        <Text style={s.statLabel} numberOfLines={1}>
-          {label}
-        </Text>
-      </View>
-    </>
-  );
-  if (!onPress) return <View style={s.statChip}>{body}</View>;
-  return (
-    <Tap onPress={onPress} style={s.statChipTap} accessibilityLabel={`${label} - mở cửa hàng`}>
-      <View style={s.statChipInner}>{body}</View>
-    </Tap>
-  );
-};
+}) => (
+  <Pressable
+    style={s.statChip}
+    onPress={onPress}
+    disabled={!onPress}
+    accessibilityLabel={onPress ? `${label} - mở cửa hàng` : undefined}
+  >
+    <View style={[s.statIcon, { backgroundColor: tone }]}>{icon}</View>
+    <View style={{ flexShrink: 1 }}>
+      <Text style={s.statValue} numberOfLines={1}>
+        {value}
+      </Text>
+      <Text style={s.statLabel} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  </Pressable>
+);
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: ds.bg },
@@ -545,6 +639,28 @@ const s = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 4,
   },
+  practiceTile: {
+    flex: 1,
+    gap: 4,
+    backgroundColor: ds.card,
+    borderRadius: dsRadius.lg,
+    borderWidth: 1.5,
+    borderColor: ds.line,
+    borderBottomWidth: 4,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    minHeight: 124,
+  },
+  practiceIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  practiceLabel: { fontFamily: dsFont.bold, fontSize: dsSize.sm, color: ds.ink },
+  practiceHint: { fontFamily: dsFont.body, fontSize: dsSize.xs, color: ds.muted, lineHeight: 16 },
   actionIconSm: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   actionTileLabel: { fontFamily: dsFont.semibold, fontSize: dsSize.xs, color: ds.ink, textAlign: 'center' },
   actionIcon: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },

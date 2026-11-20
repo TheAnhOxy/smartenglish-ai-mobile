@@ -22,7 +22,7 @@ const TABS: TabItem[] = [
   { key: 'path', label: 'Lộ Trình', icon: Compass },
   { key: 'decks', label: 'Bộ Thẻ', icon: Layers },
   { key: 'speaking', label: 'Luyện Nói', icon: Mic },
-  { key: 'quiz', label: 'Quiz', icon: Zap },
+  { key: 'quiz', label: 'Luyện đề', icon: Zap },
 ];
 
 const MemoizedLearningPathScreen = memo(LearningPathScreen);

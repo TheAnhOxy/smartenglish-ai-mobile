@@ -179,7 +179,7 @@ export const useRoleGateStore = create<RoleGateState>((set, get) => ({
       return '/admin-blocked';
     }
     if (role === 'teacher') {
-      return '/(teacher-companion)/classes';
+      return '/(student)/home';
     }
     if (role === 'student' || role === 'guest') {
       if (!onboardingCompleted && role === 'student') {

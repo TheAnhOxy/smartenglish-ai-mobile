@@ -79,7 +79,8 @@ export const LoginSuccessScreen: React.FC = () => {
 
   // Map role → destination internally — avoids URL-encoding issues with parens
   const getDestination = (): string => {
-    if (role === 'teacher') return '/(teacher-companion)/classes';
+    // Giáo viên dùng app mobile như học viên (quản lý lớp làm trên Web Portal)
+    if (role === 'teacher') return '/(student)/home';
     const meta = (globalThis as any).__loginMeta;
     if (meta && !meta.onboarding_completed) return '/(auth)/welcome';
     return '/(student)/home';
@@ -195,7 +196,7 @@ export const LoginSuccessScreen: React.FC = () => {
   });
 
   const greeting = role === 'teacher' ? 'Xin chào Giáo Viên!' : 'Xin chào Học Viên!';
-  const subtitle  = role === 'teacher' ? 'Đang tải lớp học của bạn...' : 'Đang chuẩn bị lộ trình học...';
+  const subtitle  = 'Đang chuẩn bị lộ trình học...';
 
   return (
     <Animated.View style={[s.root, { opacity: exitOpacity }]}>
