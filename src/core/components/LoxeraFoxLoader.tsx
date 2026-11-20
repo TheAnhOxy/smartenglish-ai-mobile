@@ -1,45 +1,25 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { LoxeraFoxMascot } from './LoxeraFoxMascot';
+import { StyleSheet, View } from 'react-native';
+import { FoxRunLoader } from './FoxRunLoader';
 
 interface LoxeraFoxLoaderProps {
   message?: string;
   subMessage?: string;
+  /** Chiều cao linh vật (px). */
   size?: number;
 }
 
+/** Loader linh vật: cáo chạy ngang trong lúc chờ dữ liệu. */
 export const LoxeraFoxLoader: React.FC<LoxeraFoxLoaderProps> = ({
   message = 'Loxera AI đang làm việc...',
   subMessage,
-  size = 100,
-}) => {
-  return (
-    <View style={styles.container}>
-      <LoxeraFoxMascot size={size} showGlow animated />
-      <Text style={styles.messageText}>{message}</Text>
-      {subMessage ? <Text style={styles.subMessageText}>{subMessage}</Text> : null}
-    </View>
-  );
-};
+  size = 72,
+}) => (
+  <View style={styles.container}>
+    <FoxRunLoader message={message} subMessage={subMessage} size={Math.min(size, 96)} />
+  </View>
+);
 
 const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-  },
-  messageText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1E293B',
-    marginTop: 12,
-    textAlign: 'center',
-  },
-  subMessageText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#64748B',
-    marginTop: 4,
-    textAlign: 'center',
-  },
+  container: { alignItems: 'center', justifyContent: 'center', padding: 16, width: '100%' },
 });
