@@ -183,6 +183,8 @@ export default function StudentTabsLayout() {
       <Tabs.Screen name="placement/index" options={hideTabOptions} />
       <Tabs.Screen name="placement/test" options={hideTabOptions} />
       <Tabs.Screen name="placement/result" options={hideTabOptions} />
+      <Tabs.Screen name="courses/index" options={hideTabOptions} />
+      <Tabs.Screen name="courses/[courseId]" options={hideTabOptions} />
 
       <Tabs.Screen name="review/index" options={hideTabOptions} />
       <Tabs.Screen name="review/due" options={hideTabOptions} />

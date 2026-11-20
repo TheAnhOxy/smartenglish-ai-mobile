@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, Pressable, Modal, StyleSheet, Dimensions } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -31,10 +31,13 @@ import {
 } from 'lucide-react-native';
 import { UnitNode, Chapter } from '../../data/curriculumData';
 import { fetchLearningPathRoadmapApi, isSystemCourse } from '../../data/knowledgeGapApi';
+import { LEVEL_FILTERS, defaultLevelFilter, resolveChaptersForLevel, type LevelFilter } from '../../application/courseLevel';
+import { useLearnerLevel } from '../../application/useTeacherCourses';
+import { TeacherCoursesShowcase } from '../components/TeacherCoursesShowcase';
+import { normalizeCefr, sortByLevelCloseness } from '@/src/features/onboarding/application/learnerLevel';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { colors, palette, font } from '@/src/theme';
 import { easings } from '@/src/theme/motion';
-import { usePressSpring } from '@/src/hooks/usePressSpring';
 import { usePulseRing } from '@/src/hooks/usePulseRing';
 import { TabLoadingState } from '@/src/components/ui/TabLoadingState';
 import { hasActivePremium } from '@/src/core/utils/plan';
@@ -382,9 +385,35 @@ export const LearningPathScreen = () => {
   const [isError, setIsError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  // Trình độ dùng để lọc: kết quả bài đầu vào mà lộ trình trả về, sau đó tới hồ sơ học viên
+  const { level: profileLevel } = useLearnerLevel();
+  const learnerLevel = useMemo(
+    () => normalizeCefr(curriculum.find((c) => c.placement_level)?.placement_level) ?? profileLevel,
+    [curriculum, profileLevel],
+  );
+  const [levelFilter, setLevelFilter] = useState<LevelFilter>('ALL');
+  const [filterTouched, setFilterTouched] = useState(false);
+  useEffect(() => {
+    if (!filterTouched) setLevelFilter(defaultLevelFilter(learnerLevel));
+  }, [learnerLevel, filterTouched]);
+  const pickLevel = (f: LevelFilter) => {
+    setFilterTouched(true);
+    setLevelFilter(f);
+  };
+  const { chapters: visibleChapters, fallbackLevel } = useMemo(() => {
+    const resolved = resolveChaptersForLevel(curriculum, levelFilter, learnerLevel);
+    // Xem tất cả: chương gần trình độ học viên đứng trước, các trình độ khác xếp sau
+    return levelFilter === 'ALL'
+      ? { ...resolved, chapters: sortByLevelCloseness(resolved.chapters, learnerLevel, (c) => c.cefr_level) }
+      : resolved;
+  }, [curriculum, levelFilter, learnerLevel]);
+  const myFilter = learnerLevel ? defaultLevelFilter(learnerLevel) : null;
+  const levelChips: LevelFilter[] = myFilter
+    ? [myFilter, 'ALL', ...LEVEL_FILTERS.filter((l) => l !== myFilter)]
+    : ['ALL', ...LEVEL_FILTERS];
+
   // Pulse animation cho node hiện tại
   const pulseScale = useSharedValue(1);
-  const ctaSpring = usePressSpring(0.97);
 
   // Fetch roadmap API
   const loadRoadmap = useCallback(() => {
@@ -408,6 +437,7 @@ export const LearningPathScreen = () => {
           placement_start: Boolean(m.placementStart),
           below_placement: Boolean(m.belowPlacementLevel),
           placement_level: m.placementCefrLevel ?? null,
+          cefr_level: m.targetCefrLevel ?? m.cefrLevelMin ?? null,
           units: (m.units || m.modules || []).map((u: any, uIdx: number) => {
             let titleVi = u.titleVi || u.nameVi || u.title || `Unit ${uIdx + 1}`;
             let titleEn = u.titleEn || u.nameEn || u.title || `Unit ${uIdx + 1}`;
@@ -514,6 +544,26 @@ export const LearningPathScreen = () => {
           )}
         </View>
 
+        {!isLoading && !isError && curriculum.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.levelChips}>
+            {levelChips.map((f) => {
+              const active = levelFilter === f;
+              const label = f === 'ALL' ? 'Tất cả trình độ' : f === myFilter ? `${f} · Trình độ của bạn` : f;
+              return (
+                <Pressable
+                  key={f}
+                  onPress={() => pickLevel(f)}
+                  style={[s.levelChip, active && s.levelChipActive]}
+                  accessibilityState={{ selected: active }}
+                  accessibilityLabel={f === 'ALL' ? 'Xem lộ trình mọi trình độ' : `Lộ trình trình độ ${f}`}
+                >
+                  <Text style={[s.levelChipText, active && s.levelChipTextActive]}>{label}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        ) : null}
+
         {isLoading ? (
           <TabLoadingState message="Đang tải lộ trình học..." />
         ) : isError ? (
@@ -553,8 +603,23 @@ export const LearningPathScreen = () => {
               <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>Làm bài kiểm tra</Text>
             </Pressable>
           </View>
+        ) : null}
+
+        {!isLoading && !isError && fallbackLevel ? (
+          <Text style={s.levelNote}>
+            Chưa có chương ở trình độ {levelFilter}, bạn có thể bắt đầu từ trình độ gần nhất {fallbackLevel}.
+          </Text>
+        ) : null}
+
+        {isLoading || isError || curriculum.length === 0 ? null : visibleChapters.length === 0 ? (
+          <View style={s.levelEmpty}>
+            <Text style={s.levelEmptyTitle}>Chưa có chương nào ở trình độ {levelFilter}</Text>
+            <Pressable onPress={() => pickLevel('ALL')} hitSlop={8}>
+              <Text style={s.levelLink}>Xem tất cả trình độ</Text>
+            </Pressable>
+          </View>
         ) : (
-          curriculum.map((chapter) => {
+          visibleChapters.map((chapter) => {
           const biome = getBiomeForChapter(chapter.chapter_number);
           const totalUnits = chapter.units.length;
           const chapterHeight = (totalUnits - 1) * VERTICAL_GAP + NODE_SIZE + 40;
@@ -725,6 +790,18 @@ export const LearningPathScreen = () => {
             </View>
           );
         }))}
+
+        {!isLoading && !isError && curriculum.length > 0 && levelFilter !== 'ALL' && visibleChapters.length > 0 ? (
+          <Pressable onPress={() => pickLevel('ALL')} style={s.levelMore} hitSlop={8} accessibilityLabel="Xem lộ trình các trình độ khác">
+            <Text style={s.levelLink}>Xem lộ trình các trình độ khác</Text>
+          </Pressable>
+        ) : null}
+
+        {!isLoading ? (
+          <View style={s.teacherCourses}>
+            <TeacherCoursesShowcase />
+          </View>
+        ) : null}
       </ScrollView>
 
       {/* Unit Detail Modal */}
@@ -775,15 +852,14 @@ export const LearningPathScreen = () => {
               </View>
 
               {/* Start Lesson CTA */}
-              <AnimatedPressable
+              {/* Pressable thường: AnimatedPressable của Reanimated không nhận Animated.Value của RN (gây lỗi transform) */}
+              <Pressable
                 onPress={() => handleStartLesson(selectedUnit.id)}
-                onPressIn={ctaSpring.onPressIn}
-                onPressOut={ctaSpring.onPressOut}
-                style={[s.startLessonBtn, ctaSpring.animatedStyle]}
+                style={({ pressed }) => [s.startLessonBtn, pressed && { transform: [{ scale: 0.97 }] }]}
               >
                 <Play color="#FFFFFF" size={18} fill="#FFFFFF" />
                 <Text style={s.startLessonBtnText}>Bắt Đầu Học Ngay</Text>
-              </AnimatedPressable>
+              </Pressable>
             </View>
           )}
         </View>
@@ -904,6 +980,64 @@ const s = StyleSheet.create({
     fontFamily: font.family,
     fontWeight: '800',
     color: '#FFFFFF',
+  },
+  levelChips: {
+    gap: 8,
+    paddingBottom: 14,
+  },
+  levelChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
+  levelChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  levelChipText: {
+    fontSize: 13,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  levelChipTextActive: {
+    color: '#FFFFFF',
+  },
+  levelNote: {
+    fontSize: 13,
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: colors.textSoft,
+    marginBottom: 12,
+  },
+  levelEmpty: {
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 32,
+  },
+  levelEmptyTitle: {
+    fontSize: 15,
+    fontFamily: font.family,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  levelLink: {
+    fontSize: 13,
+    fontFamily: font.family,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  levelMore: {
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  teacherCourses: {
+    marginTop: 8,
+    marginBottom: 24,
   },
   placementChip: {
     alignSelf: 'flex-start',
