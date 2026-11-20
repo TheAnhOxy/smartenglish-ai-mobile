@@ -454,9 +454,6 @@ export const StudyDeckScreen = () => {
     <View style={[styles.root, { paddingTop: (insets.top || 20) + 8, paddingBottom: (insets.bottom || 12) + 12 }]}>
       {/* Header Bar */}
       <View style={styles.headerBar}>
-        <Tap onPress={() => router.back()} style={styles.backBtnWrap} accessibilityLabel="Quay lại">
-          <ChevronLeft color={ds.ink} size={24} />
-        </Tap>
         <BackButton onPress={() => router.back()} />
 
         <View style={styles.headerTitleWrap}>

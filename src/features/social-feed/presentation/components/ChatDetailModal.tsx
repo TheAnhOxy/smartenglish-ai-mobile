@@ -1027,22 +1027,6 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
             removeClippedSubviews={Platform.OS === 'android'}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.messageScrollContent}
-            ListHeaderComponent={
-              activeTypingUsers.length > 0 ? (
-                <View style={styles.typingIndicatorRow}>
-                  <View style={styles.typingBubble}>
-                    <View style={styles.typingDotWrap}>
-                      <View style={styles.typingDot} />
-                      <View style={styles.typingDot} />
-                      <View style={styles.typingDot} />
-                    </View>
-                    <Text style={styles.typingText}>
-                      {activeTypingUsers[0].userName || 'Ai đó'} đang soạn tin nhắn...
-                    </Text>
-                  </View>
-                </View>
-              ) : undefined
-            }
             ListFooterComponent={
               loadingOlder ? (
                 <View style={{ paddingVertical: 12, alignItems: 'center' }}>

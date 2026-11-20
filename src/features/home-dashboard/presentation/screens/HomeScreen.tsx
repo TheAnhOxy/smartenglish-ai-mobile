@@ -1,8 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -44,10 +41,10 @@ type IconType = React.ComponentType<{ size?: number; color?: string; strokeWidth
 interface QuickAction {
   key: string;
   label: string;
-  hint: string;
+  hint?: string;
   icon: IconType;
-  tint: string;
-  tone: string;
+  tint?: string;
+  tone?: string;
   route: string | { pathname: string; params: Record<string, string> };
   visible: boolean;
 }
@@ -174,7 +171,7 @@ export const HomeScreen = () => {
       {/* Header */}
       <Reveal delay={0}>
         <View style={s.header}>
-          <Pressable onPress={() => go(isLoggedIn ? '/(student)/profile' : '/(auth)/login')} style={s.headerLeft}>
+          <Pressable onPress={() => (isLoggedIn ? go('/(student)/profile') : goLogin())} style={s.headerLeft}>
             <View style={s.avatarRing}>
               <UserAvatar uri={currentUser?.avatar_url} size={44} />
             </View>
@@ -185,24 +182,30 @@ export const HomeScreen = () => {
               </Text>
             </View>
           </Pressable>
-          {isLoggedIn ? (
-            <Tap onPress={() => go('/(student)/notifications')} style={s.bellBtn} accessibilityLabel="Thông báo">
-              <Bell size={22} color={ds.ink} />
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Tap onPress={() => setLookupOpen(true)} style={s.bellBtn} accessibilityLabel="Tra từ vựng">
+              <Search size={22} color={ds.ink} />
             </Tap>
-          ) : null}
+            {isLoggedIn ? (
+              <Tap onPress={() => go('/(student)/notifications')} style={s.bellBtn} accessibilityLabel="Thông báo">
+                <Bell size={22} color={ds.ink} />
+                {unreadNotifications > 0 ? (
+                  <View style={s.unreadBadge} accessibilityLabel={`${unreadNotifications} thông báo chưa đọc`}>
+                    <Text style={s.unreadText}>{unreadNotifications > 99 ? '99+' : unreadNotifications}</Text>
+                  </View>
+                ) : null}
+              </Tap>
+            ) : null}
+          </View>
         </View>
       </Reveal>
+      <QuickWordLookupModal visible={lookupOpen} onClose={() => setLookupOpen(false)} />
 
       {/* Chỉ số học tập */}
       <Reveal delay={60}>
         {isLoggedIn ? (
           <View style={s.statsRow}>
-            <StatChip
-              icon={<WobbleFlame />}
-              tone={ds.amberSoft}
-              value={`${stats?.streak_current ?? 0}`}
-              label="ngày streak"
-            />
+            <StatChip icon={<WobbleFlame />} tone={ds.amberSoft} value={`${stats?.streak_current ?? 0}`} label="ngày streak" />
             <StatChip
               icon={<Zap size={22} color={ds.btn} />}
               tone={ds.skySoft}
@@ -214,55 +217,11 @@ export const HomeScreen = () => {
               tone={ds.amberSoft}
               value={(stats?.coins ?? 0).toLocaleString('vi-VN')}
               label="xu"
+              onPress={() => go('/(student)/shop')}
             />
-      <View style={s.header}>
-        <Pressable onPress={() => (isLoggedIn ? go('/(student)/profile') : goLogin())} style={s.headerLeft}>
-          <UserAvatar uri={currentUser?.avatar_url} size={44} />
-          <View style={{ flex: 1 }}>
-            <Text style={s.greeting}>{greetingOf(new Date().getHours())}</Text>
-            <Text style={s.name} numberOfLines={1}>
-              {isLoggedIn ? currentUser?.display_name || 'Học viên' : 'Khách'}
-            </Text>
-          </View>
-        </Pressable>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <Pressable onPress={() => setLookupOpen(true)} style={s.bellBtn} accessibilityLabel="Tra từ vựng">
-            <Search size={20} color={colors.text} />
-          </Pressable>
-          {isLoggedIn ? (
-            <Pressable onPress={() => go('/(student)/notifications')} style={s.bellBtn} accessibilityLabel="Thông báo">
-              <Bell size={20} color={colors.text} />
-              {unreadNotifications > 0 ? (
-                <View style={s.unreadBadge} accessibilityLabel={`${unreadNotifications} thông báo chưa đọc`}>
-                  <Text style={s.unreadText}>{unreadNotifications > 99 ? '99+' : unreadNotifications}</Text>
-                </View>
-              ) : null}
-            </Pressable>
-          ) : null}
-        </View>
-      </View>
-      <QuickWordLookupModal visible={lookupOpen} onClose={() => setLookupOpen(false)} />
-
-      {/* Chỉ số học tập */}
-      {isLoggedIn ? (
-        <View style={s.statsCard}>
-          <StatTile icon={Flame} color={colors.streak} value={`${stats?.streak_current ?? 0}`} label="Ngày streak" />
-          <View style={s.statDivider} />
-          <StatTile icon={Zap} color={colors.xpDeep} value={(stats?.xp_total ?? 0).toLocaleString('vi-VN')} label="Tổng XP" />
-          <View style={s.statDivider} />
-          <StatTile icon={Coins} color={colors.coin} value={(stats?.coins ?? 0).toLocaleString('vi-VN')} label="Xu" onPress={() => go('/(student)/shop')} />
-        </View>
-      ) : (
-        <Pressable onPress={goLogin} style={s.loginCard}>
-          <View style={s.loginIcon}>
-            <LogIn size={20} color={colors.primary} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.loginTitle}>Đăng nhập để lưu tiến độ</Text>
-            <Text style={s.loginSub}>Streak, XP và nhiệm vụ hằng ngày chỉ có khi đăng nhập</Text>
           </View>
         ) : (
-          <Tap onPress={() => go('/(auth)/login')} style={s.loginCard} scaleTo={0.98}>
+          <Tap onPress={goLogin} style={s.loginCard} scaleTo={0.98}>
             <View style={s.loginIcon}>
               <LogIn size={22} color={ds.btn} />
             </View>
@@ -312,18 +271,13 @@ export const HomeScreen = () => {
             {actions.map((a) => {
               const Icon = a.icon;
               return (
-                <Tap key={a.key} onPress={() => go(a.route)} style={s.actionTile}>
-                  <View style={[s.actionIcon, { backgroundColor: a.tone }]}>
+                <Tap key={a.key} onPress={() => go(a.route)} style={s.actionTile} accessibilityLabel={a.label}>
+                  <View style={[s.actionIconSm, { backgroundColor: a.tone }]}>
                     <Icon size={24} color={a.tint} />
                   </View>
-                  <View style={{ gap: 2 }}>
-                    <Text style={s.actionLabel} numberOfLines={1}>
-                      {a.label}
-                    </Text>
-                    <Text style={s.actionHint} numberOfLines={1}>
-                      {a.hint}
-                    </Text>
-                  </View>
+                  <Text style={s.actionTileLabel} numberOfLines={2}>
+                    {a.label}
+                  </Text>
                 </Tap>
               );
             })}
@@ -333,32 +287,34 @@ export const HomeScreen = () => {
 
       {/* Lớp học & Cộng đồng */}
       {connectActions.length > 0 ? (
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>Lớp học & Cộng đồng</Text>
-          <View style={s.grid}>
+        <Reveal delay={220} style={s.section}>
+          <Text style={dsText.h2}>Lớp học & Cộng đồng</Text>
+          <View style={s.connectRow}>
             {connectActions.map((a) => {
               const Icon = a.icon;
               return (
-                <Pressable key={a.key} onPress={() => go(a.route)} style={[s.pathRow, { flex: 1 }]}>
-                  <View style={s.actionIcon}>
-                    <Icon size={20} color={colors.primary} strokeWidth={2} />
+                <Tap key={a.key} onPress={() => go(a.route)} style={[s.pathRow, { flex: 1 }]} scaleTo={0.97}>
+                  <View style={[s.actionIcon, { backgroundColor: a.key === 'community' ? ds.greenSoft : ds.skySoft }]}>
+                    <Icon size={22} color={a.key === 'community' ? ds.green : ds.btn} />
                   </View>
-                  <Text style={[s.pathTitle, { flex: 1 }]} numberOfLines={1}>{a.label}</Text>
+                  <Text style={[s.actionLabel, { flex: 1 }]} numberOfLines={1}>
+                    {a.label}
+                  </Text>
                   {a.key === 'community' && unreadMessages > 0 ? (
-                    <View style={s.unreadBadge} accessibilityLabel={`${unreadMessages} tin nhắn chưa đọc`}>
+                    <View style={s.unreadInline} accessibilityLabel={`${unreadMessages} tin nhắn chưa đọc`}>
                       <Text style={s.unreadText}>{unreadMessages > 99 ? '99+' : unreadMessages}</Text>
                     </View>
                   ) : null}
-                </Pressable>
+                </Tap>
               );
             })}
           </View>
-        </View>
+        </Reveal>
       ) : null}
 
       {/* Nhiệm vụ hằng ngày */}
       {isLoggedIn ? (
-        <Reveal delay={240} style={s.section}>
+        <Reveal delay={260} style={s.section}>
           <View style={s.sectionRow}>
             <Text style={dsText.h2}>Nhiệm vụ hôm nay</Text>
             <Pressable onPress={() => go('/(student)/daily-challenge')} hitSlop={8}>
@@ -376,16 +332,18 @@ export const HomeScreen = () => {
 
       {/* Luyện viết với AI */}
       {isLoggedIn ? (
-        <Pressable onPress={() => go('/(student)/practice/writing')} style={s.pathRow}>
-          <View style={s.actionIcon}>
-            <PenLine size={20} color={colors.primary} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.pathTitle}>Luyện viết với AI</Text>
-            <Text style={s.pathSub}>Chấm lỗi, chấm điểm và viết lại bài của bạn</Text>
-          </View>
-          <ChevronRight size={18} color={colors.textSoft} />
-        </Pressable>
+        <Reveal delay={320}>
+          <Tap onPress={() => go('/(student)/practice/writing')} style={s.pathRow} scaleTo={0.98}>
+            <View style={[s.actionIcon, { backgroundColor: ds.amberSoft }]}>
+              <PenLine size={22} color={ds.amberText} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.actionLabel}>Luyện viết với AI</Text>
+              <Text style={s.actionHint}>Chấm lỗi, chấm điểm và viết lại bài của bạn</Text>
+            </View>
+            <ChevronRight size={20} color={ds.faint} />
+          </Tap>
+        </Reveal>
       ) : null}
 
       {/* Lộ trình */}
@@ -432,25 +390,33 @@ const WobbleFlame: React.FC = () => {
   );
 };
 
-const StatChip: React.FC<{ icon: React.ReactNode; tone: string; value: string; label: string }> = ({ icon, tone, value, label }) => (
-  <View style={s.statChip}>
-    <View style={[s.statIcon, { backgroundColor: tone }]}>{icon}</View>
-    <View style={{ flexShrink: 1 }}>
-      <Text style={s.statValue} numberOfLines={1}>
-        {value}
-      </Text>
-      <Text style={s.statLabel} numberOfLines={1}>
-        {label}
-      </Text>
-    </View>
-  </View>
-const StatTile: React.FC<{ icon: IconType; color: string; value: string; label: string; onPress?: () => void }> = ({ icon: Icon, color, value, label, onPress }) => (
-  <Pressable style={s.statTile} onPress={onPress} disabled={!onPress} accessibilityLabel={onPress ? `${label} - mở cửa hàng` : undefined}>
-    <Icon size={18} color={color} />
-    <Text style={s.statValue}>{value}</Text>
-    <Text style={s.statLabel}>{label}</Text>
-  </Pressable>
-);
+const StatChip: React.FC<{ icon: React.ReactNode; tone: string; value: string; label: string; onPress?: () => void }> = ({
+  icon,
+  tone,
+  value,
+  label,
+  onPress,
+}) => {
+  const body = (
+    <>
+      <View style={[s.statIcon, { backgroundColor: tone }]}>{icon}</View>
+      <View style={{ flexShrink: 1 }}>
+        <Text style={s.statValue} numberOfLines={1}>
+          {value}
+        </Text>
+        <Text style={s.statLabel} numberOfLines={1}>
+          {label}
+        </Text>
+      </View>
+    </>
+  );
+  if (!onPress) return <View style={s.statChip}>{body}</View>;
+  return (
+    <Tap onPress={onPress} style={s.statChipTap} accessibilityLabel={`${label} - mở cửa hàng`}>
+      <View style={s.statChipInner}>{body}</View>
+    </Tap>
+  );
+};
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: ds.bg },
@@ -470,6 +436,30 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  unreadBadge: {
+    position: 'absolute',
+    top: -7,
+    right: -7,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
+    backgroundColor: ds.red,
+    borderWidth: 2,
+    borderColor: ds.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unreadInline: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
+    backgroundColor: ds.red,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unreadText: { color: ds.white, fontSize: 11, fontFamily: dsFont.bold },
   statsRow: { flexDirection: 'row', gap: 8 },
   statChip: {
     flex: 1,
@@ -480,6 +470,19 @@ const s = StyleSheet.create({
     borderRadius: dsRadius.md,
     borderWidth: 1.5,
     borderColor: ds.line,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+  },
+  statChipTap: { flex: 1 },
+  statChipInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: ds.card,
+    borderRadius: dsRadius.md,
+    borderWidth: 1.5,
+    borderColor: ds.line,
+    borderBottomWidth: 4,
     paddingVertical: 10,
     paddingHorizontal: 10,
   },
@@ -528,18 +531,22 @@ const s = StyleSheet.create({
   section: { gap: 12 },
   sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   seeAll: { fontFamily: dsFont.semibold, fontSize: dsSize.sm, color: ds.btn },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  grid: { flexDirection: 'row', gap: 8 },
+  connectRow: { flexDirection: 'row', gap: 10 },
   actionTile: {
-    flexGrow: 1,
-    flexBasis: '46%',
-    gap: 12,
+    flex: 1,
+    alignItems: 'center',
+    gap: 8,
     backgroundColor: ds.card,
-    borderRadius: dsRadius.lg,
+    borderRadius: dsRadius.md,
     borderWidth: 1.5,
     borderColor: ds.line,
     borderBottomWidth: 4,
-    padding: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
   },
+  actionIconSm: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  actionTileLabel: { fontFamily: dsFont.semibold, fontSize: dsSize.xs, color: ds.ink, textAlign: 'center' },
   actionIcon: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   actionLabel: { fontFamily: dsFont.bold, fontSize: dsSize.base, color: ds.ink },
   actionHint: { fontFamily: dsFont.body, fontSize: dsSize.xs, color: ds.muted },
@@ -554,21 +561,4 @@ const s = StyleSheet.create({
     borderBottomWidth: 4,
     padding: 14,
   },
-  unreadBadge: {
-    position: 'absolute',
-    top: -7,
-    right: -7,
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    paddingHorizontal: 6,
-    backgroundColor: colors.danger,
-    borderWidth: 2,
-    borderColor: colors.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  unreadText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
-  pathTitle: { fontSize: 14, fontWeight: '700', color: colors.text },
-  pathSub: { fontSize: 12, color: colors.textSoft, marginTop: 2 },
 });

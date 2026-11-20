@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View, type StyleProp, type TextStyle } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewInstance } from 'react-native';
 import { Languages, Volume2, X } from 'lucide-react-native';
 import { colors } from '@/src/theme';
 import { useAuthStore } from '@/src/core/flows/authStore';
@@ -27,7 +27,7 @@ interface TranslatableTextProps {
 export const TranslatableText: React.FC<TranslatableTextProps> = ({ text, onSelectText, clearKey, textStyle, dark = false }) => {
   const tokens = useMemo(() => (text || '').split(/(\s+)/), [text]);
   const [range, setRange] = useState<[number, number] | null>(null);
-  const containerRef = useRef<View>(null);
+  const containerRef = useRef<ViewInstance>(null);
   const onSelectRef = useRef(onSelectText);
   onSelectRef.current = onSelectText;
 

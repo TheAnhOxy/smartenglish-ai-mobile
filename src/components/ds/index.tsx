@@ -26,13 +26,17 @@ type TapProps = Omit<PressableProps, 'style'> & {
   children?: React.ReactNode;
 };
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+// Kích thước + hiệu ứng nằm trên chính vùng bấm (Pressable) để vùng nhận chạm luôn đúng bằng nút
 export const Tap: React.FC<TapProps> = ({ style, scaleTo = 0.96, sound = 'tap', onPressIn, onPressOut, onPress, children, disabled, ...rest }) => {
   const scale = useRef(new Animated.Value(1)).current;
   const to = (v: number) =>
     Animated.spring(scale, { toValue: v, useNativeDriver: true, speed: 40, bounciness: v === 1 ? 8 : 0 }).start();
   return (
-    <Pressable
+    <AnimatedPressable
       {...rest}
+      style={[style, { transform: [{ scale }] }, disabled ? { opacity: 0.5 } : null]}
       disabled={disabled}
       onPressIn={(e) => {
         to(scaleTo);
@@ -43,13 +47,13 @@ export const Tap: React.FC<TapProps> = ({ style, scaleTo = 0.96, sound = 'tap', 
         onPressOut?.(e);
       }}
       onPress={(e) => {
+        onPress?.(e);
         if (sound === 'tap') feedback.tap();
         else if (sound === 'select') feedback.select();
-        onPress?.(e);
       }}
     >
-      <Animated.View style={[style, { transform: [{ scale }] }, disabled ? { opacity: 0.5 } : null]}>{children}</Animated.View>
-    </Pressable>
+      {children}
+    </AnimatedPressable>
   );
 };
 

@@ -163,19 +163,6 @@ export function ExamResultScreen() {
     <View style={styles.root}>
       {/* ─── HEADER ─── */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 14) + 6 }]}>
-        <Pressable
-          onPress={handleBackToCatalog}
-          hitSlop={10}
-          style={styles.headerBtn}
-        >
-          <ArrowLeft color={ds.ink} size={22} strokeWidth={2.2} />
-        </Pressable>
-
-        <Text style={styles.headerTitle}>Kết quả bài kiểm tra</Text>
-
-        <Pressable hitSlop={10} style={styles.headerBtn}>
-          <Share2 color={ds.muted} size={20} />
-        </Pressable>
         <BackButton onPress={handleBackToCatalog} />
 
         <Text style={styles.headerTitle}>Kết quả bài kiểm tra</Text>
