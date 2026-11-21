@@ -179,6 +179,19 @@ export const fetchLearningPathRoadmapApi = async (userId?: string, forceRefresh 
   return [];
 };
 
+/** Server từ chối vì bài thuộc khóa Premium mà tài khoản chưa có gói còn hạn. */
+export class PremiumLessonLockedError extends Error {
+  constructor(message?: string) {
+    super(message || 'Bài học này dành cho học viên Premium.');
+    this.name = 'PremiumLessonLockedError';
+  }
+}
+
+const premiumLockOf = (err: unknown): PremiumLessonLockedError | null => {
+  const res = (err as { response?: { status?: number; data?: { message?: string } } })?.response;
+  return res?.status === 403 ? new PremiumLessonLockedError(res.data?.message) : null;
+};
+
 export const fetchLessonDetailApi = async (lessonId: string, userId?: string): Promise<LessonDetailData | null> => {
   const uid = userId || getCurrentUserId();
   const cleanId = lessonId.replace(/^[^\d]*/, '') || lessonId;
@@ -195,6 +208,9 @@ export const fetchLessonDetailApi = async (lessonId: string, userId?: string): P
       return data;
     }
   } catch (err) {
+    // Bị khoá Premium thì báo ngay, không thử đường dự phòng (cũng sẽ bị từ chối)
+    const locked = premiumLockOf(err);
+    if (locked) throw locked;
     console.warn('[fetchLessonDetailApi] Learning path API error, fallback to content service:', err);
   }
 
@@ -271,6 +287,8 @@ export const fetchLessonDetailApi = async (lessonId: string, userId?: string): P
       }
     }
   } catch (cErr) {
+    const locked = premiumLockOf(cErr);
+    if (locked) throw locked;
     console.warn('[fetchLessonDetailApi] Content API fallback error:', cErr);
   }
 
