@@ -28,6 +28,7 @@ import {
 import { useAuthStore } from '@/src/core/flows/authStore';
 import {
   fetchLessonDetailApi,
+  PremiumLessonLockedError,
   completeLessonApi,
   LessonDetailData
 } from '@/src/features/learning-path/data/knowledgeGapApi';
@@ -65,6 +66,7 @@ export const LessonDetailScreen = () => {
   const { currentUser } = useAuthStore();
 
   const [lesson, setLesson] = useState<LessonDetailData | null>(null);
+  const [lockedMessage, setLockedMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -75,13 +77,17 @@ export const LessonDetailScreen = () => {
     let isMounted = true;
     const loadLesson = async () => {
       setLoading(true);
-      const data = await fetchLessonDetailApi(id || 'u-1', currentUser?.id?.toString());
-      if (isMounted) {
-        if (data) {
+      setLockedMessage(null);
+      try {
+        const data = await fetchLessonDetailApi(id || 'u-1', currentUser?.id?.toString());
+        if (isMounted && data) {
           setLesson(data);
           setIsCompleted(Boolean(data.isCompleted));
         }
-        setLoading(false);
+      } catch (err) {
+        if (isMounted && err instanceof PremiumLessonLockedError) setLockedMessage(err.message);
+      } finally {
+        if (isMounted) setLoading(false);
       }
     };
     loadLesson();
@@ -130,6 +136,23 @@ export const LessonDetailScreen = () => {
       <View style={s.centerContainer}>
         <ActivityIndicator size="small" color={palette.primary} />
         <Text style={s.loadingText}>Đang tải...</Text>
+      </View>
+    );
+  }
+
+  if (lockedMessage) {
+    return (
+      <View style={s.centerContainer}>
+        <Text style={s.errorText}>{lockedMessage}</Text>
+        <Pressable
+          onPress={() => router.replace({ pathname: '/(student)/profile/premium', params: { from: 'lesson' } } as never)}
+          style={s.backBtn}
+        >
+          <Text style={s.backBtnText}>Nâng cấp Premium</Text>
+        </Pressable>
+        <Pressable onPress={() => router.back()} style={{ marginTop: 12 }} hitSlop={8}>
+          <Text style={s.loadingText}>Quay lại</Text>
+        </Pressable>
       </View>
     );
   }
