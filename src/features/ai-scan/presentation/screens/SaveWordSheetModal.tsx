@@ -35,6 +35,7 @@ import {
   DeckItemDTO,
 } from '@/src/features/flashcard-srs/data/deckApi';
 import { font } from '@/src/theme';
+import { dk } from '@/src/theme/themeMode';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -272,14 +273,14 @@ export const SaveWordSheetModal: React.FC<SaveWordSheetModalProps> = ({
             </View>
 
             <Pressable onPress={onClose} style={s.closeBtn}>
-              <X color="#64748B" size={20} />
+              <X color={dk('#64748B', 'text')} size={20} />
             </Pressable>
           </View>
 
           {/* Success notice */}
           {successNotice && (
             <Animated.View entering={FadeIn.duration(150)} style={s.successBanner}>
-              <Check color="#059669" size={18} strokeWidth={2.5} />
+              <Check color={dk('#059669', 'text')} size={18} strokeWidth={2.5} />
               <Text style={s.successText}>{successNotice}</Text>
             </Animated.View>
           )}
@@ -311,7 +312,7 @@ export const SaveWordSheetModal: React.FC<SaveWordSheetModalProps> = ({
                 value={newDeckNameInput}
                 onChangeText={setNewDeckNameInput}
                 placeholder="Nhập tên bộ thẻ (VD: Từ vựng phòng ngủ...)"
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={dk('#94A3B8', 'text')}
                 style={s.createDeckInput}
                 autoFocus
                 returnKeyType="done"

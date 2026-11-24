@@ -1,6 +1,8 @@
+// Theme phải nạp ĐẦU TIÊN: đổi token + bọc StyleSheet.create trước khi màn hình nào được tạo
+import '@/src/theme/themeMode';
 import '../global.css';
-import { useEffect } from 'react';
-import { LogBox } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { LogBox, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -11,14 +13,18 @@ import { BeVietnamPro_400Regular } from '@expo-google-fonts/be-vietnam-pro/400Re
 import { BeVietnamPro_500Medium } from '@expo-google-fonts/be-vietnam-pro/500Medium';
 import { BeVietnamPro_600SemiBold } from '@expo-google-fonts/be-vietnam-pro/600SemiBold';
 import { BeVietnamPro_700Bold } from '@expo-google-fonts/be-vietnam-pro/700Bold';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter, useSegments } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider, usePathname, useRouter, useSegments } from 'expo-router';
+import { useThemeMode, useThemeSwitching } from '@/src/theme/useThemeMode';
+import { colors } from '@/src/theme/colors';
+import { BackgroundMusic } from '@/src/core/components/BackgroundMusic';
+import { Snowfall } from '@/src/components/xmas/Snowfall';
+import { ThemeFade } from '@/src/core/components/ThemeFade';
 import * as SplashScreen from 'expo-splash-screen';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/src/core/api/queryClient';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
-import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { useRoleGateStore } from '@/src/core/flows/roleGateStore';
 import { stopAllAudio } from '@/src/core/services/speechService';
@@ -108,8 +114,28 @@ export default function RootLayout() {
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
   const router = useRouter();
+  const { dark, version: themeVersion } = useThemeMode();
+  const themeSwitching = useThemeSwitching();
+  const pathname = usePathname();
+
+  // Đổi theme → vẽ lại toàn bộ cây giao diện (key mới) rồi quay về đúng màn đang mở
+  // Màu nền trước khi đổi theme → phủ lên rồi mờ dần
+  const bgBeforeTheme = useRef(colors.bg);
+  const [fadeFrom, setFadeFrom] = useState<string | null>(null);
+  const clearFade = useCallback(() => setFadeFrom(null), []);
+  const pathBeforeTheme = useRef(pathname);
+  const renderedThemeVersion = useRef(themeVersion);
+  if (renderedThemeVersion.current === themeVersion) pathBeforeTheme.current = pathname;
+  useEffect(() => {
+    if (renderedThemeVersion.current === themeVersion) return;
+    renderedThemeVersion.current = themeVersion;
+    setFadeFrom(bgBeforeTheme.current);
+    bgBeforeTheme.current = colors.bg;
+    const target = pathBeforeTheme.current;
+    const timer = setTimeout(() => router.replace(target as never), 0);
+    return () => clearTimeout(timer);
+  }, [themeVersion, router]);
   const segments = useSegments();
 
   const { currentUser, isHydrated } = useAuthStore();
@@ -185,9 +211,11 @@ function RootLayoutNav() {
   }, [currentUser, isHydrated, segments, guestMode]);
 
   return (
-    <ThemeProvider value={DefaultTheme}>
-      <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false, animation: 'fade', contentStyle: { backgroundColor: '#F8FAFC' } }}>
+    <ThemeProvider value={dark ? DarkTheme : DefaultTheme}>
+      <StatusBar style={dark ? 'light' : 'dark'} />
+      <BackgroundMusic />
+      <View key={themeVersion} style={{ flex: 1, backgroundColor: colors.bg }}>
+      <Stack screenOptions={{ headerShown: false, animation: themeSwitching ? 'none' : 'fade', contentStyle: { backgroundColor: colors.bg } }}>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(student)" options={{ headerShown: false }} />
         <Stack.Screen name="(teacher-companion)" options={{ headerShown: false }} />
@@ -195,6 +223,10 @@ function RootLayoutNav() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       </Stack>
+      {/* Tuyết rơi mùa Giáng sinh (không chặn chạm, tắt ở màn học) */}
+      <Snowfall />
+      </View>
+      {fadeFrom ? <ThemeFade color={fadeFrom} onDone={clearFade} /> : null}
     </ThemeProvider>
   );
 }

@@ -35,6 +35,7 @@ import { ResultCelebrationHero } from '../components/ResultCelebrationHero';
 import { BackButton } from '@/src/core/components/BackButton';
 import { PracticeFeedbackCard } from '@/src/features/practice-feedback/presentation/components/PracticeFeedbackCard';
 import type { PracticeSkill, SessionFeedbackInput } from '@/src/features/practice-feedback/data/practiceFeedbackApi';
+import { dk } from '@/src/theme/themeMode';
 
 export function ExamResultScreen() {
   const router = useRouter();
@@ -232,8 +233,8 @@ export function ExamResultScreen() {
           {/* Listening */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionCardHeader}>
-              <View style={[styles.sectionIconWrap, { backgroundColor: '#E0F2FE' }]}>
-                <Headphones color="#0284C7" size={18} />
+              <View style={[styles.sectionIconWrap, { backgroundColor: dk('#E0F2FE', 'bg') }]}>
+                <Headphones color={dk('#0284C7', 'text')} size={18} />
               </View>
               <Text style={styles.sectionTitle}>Listening</Text>
             </View>
@@ -255,8 +256,8 @@ export function ExamResultScreen() {
           {/* Reading */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionCardHeader}>
-              <View style={[styles.sectionIconWrap, { backgroundColor: '#E0F2FE' }]}>
-                <BookOpen color="#0369A1" size={18} />
+              <View style={[styles.sectionIconWrap, { backgroundColor: dk('#E0F2FE', 'bg') }]}>
+                <BookOpen color={dk('#0369A1', 'text')} size={18} />
               </View>
               <Text style={styles.sectionTitle}>Reading</Text>
             </View>
@@ -286,7 +287,7 @@ export function ExamResultScreen() {
           return (
             <View style={styles.metricsBox}>
               <View style={styles.metricItem}>
-                <CheckCircle2 color="#16A34A" size={18} />
+                <CheckCircle2 color={dk('#16A34A', 'text')} size={18} />
                 <Text style={styles.metricVal}>{result.correctAnswers}</Text>
                 <Text style={styles.metricLbl}>Đúng</Text>
               </View>
@@ -304,7 +305,7 @@ export function ExamResultScreen() {
               </View>
               <View style={styles.metricDivider} />
               <View style={styles.metricItem}>
-                <Target color="#0369A1" size={18} />
+                <Target color={dk('#0369A1', 'text')} size={18} />
                 <Text style={styles.metricVal}>
                   {accuracyPct}%
                 </Text>
@@ -422,7 +423,7 @@ export function ExamResultScreen() {
                         ]}
                       >
                         {isCorrect ? (
-                          <CheckCircle2 color="#16A34A" size={15} />
+                          <CheckCircle2 color={dk('#16A34A', 'text')} size={15} />
                         ) : (
                           <XCircle color="#DC2626" size={15} />
                         )}
@@ -500,7 +501,7 @@ export function ExamResultScreen() {
                                   <Text style={styles.expOptionSubLabel}>{opt.subLabel}</Text>
                                 ) : null}
                               </View>
-                              {isRight && <Check color="#16A34A" size={16} />}
+                              {isRight && <Check color={dk('#16A34A', 'text')} size={16} />}
                             </View>
                           );
                         })}

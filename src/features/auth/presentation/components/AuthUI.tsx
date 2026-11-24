@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Path } from 'react-native-svg';
+import { isDarkTheme } from '@/src/theme/themeMode';
 import { Eye, EyeOff, type LucideIcon } from 'lucide-react-native';
 import { AnimatedFoxMascot } from '@/src/core/components/AnimatedFoxMascot';
 import { BackButton } from '@/src/core/components/BackButton';
@@ -37,6 +39,8 @@ interface AuthLayoutProps {
   mascot?: React.ReactNode;
   /** Chế độ đêm: nền tối, trăng và sao. */
   night?: boolean;
+  /** Nút góc phải phần đầu (vd. chọn Sáng/Tối); mặc định là khoảng trống cùng kích thước. */
+  headerRight?: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
 }
@@ -48,6 +52,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
   showMascot = true,
   mascot,
   night = false,
+  headerRight,
   children,
   footer,
 }) => {
@@ -80,7 +85,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
         {/* Phần đầu: nằm trên thẻ form để chùm đèn của linh vật có thể chiếu xuống ô nhập */}
         <View style={[s.hero, { paddingTop: insets.top + 10 }, showMascot ? s.heroTall : s.heroCompact]}>
           <LinearGradient
-            colors={[ds.ink, ds.inkSoft, ds.btnEdge]}
+            colors={[ds.hero, ds.heroSoft, ds.btnEdge]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={[StyleSheet.absoluteFill, s.heroBg]}
@@ -99,7 +104,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
           <View style={s.heroTop}>
             {onBack ? <BackButton onPress={onBack} variant="onDark" /> : <View style={s.backSpacer} />}
             <Text style={s.brand}>Loxera English</Text>
-            <View style={s.backSpacer} />
+            {headerRight ?? <View style={s.backSpacer} />}
           </View>
 
           {showMascot ? (
@@ -207,6 +212,59 @@ export const AuthButton: React.FC<AuthButtonProps> = ({ label, onPress, loading,
   />
 );
 
+/** Logo Google 4 màu. */
+const GoogleLogo: React.FC = () => (
+  <Svg width={20} height={20} viewBox="0 0 48 48">
+    <Path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.6 13.3l7.9 6.1C12.4 13.7 17.7 9.5 24 9.5z" />
+    <Path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 2.9-2.2 5.4-4.7 7.1l7.6 5.9c4.4-4.1 6.9-10.1 6.9-17.5z" />
+    <Path fill="#FBBC05" d="M10.5 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C.9 16.6 0 20.2 0 24s.9 7.4 2.6 10.7l7.9-6.1z" />
+    <Path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.3 0-11.6-4.2-13.5-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z" />
+  </Svg>
+);
+
+/**
+ * Nút "Tiếp tục với Google": giao diện sáng giữ nguyên nút cũ;
+ * giao diện tối dùng nút kính tối viền sáng nhẹ + logo Google để hợp tông.
+ */
+export const AuthGoogleButton: React.FC<{ label: string; onPress: () => void; disabled?: boolean }> = ({ label, onPress, disabled }) => {
+  if (!isDarkTheme()) return <AuthButton label={label} variant="outline" onPress={onPress} disabled={disabled} />;
+  // Cùng cấu trúc với Button3D (mặt nút 52 + đế 4, lún xuống khi nhấn) để thẳng hàng với nút "Đăng nhập"
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={{ height: 52 + 4, opacity: disabled ? 0.5 : 1 }}
+    >
+      {({ pressed }) => (
+        <>
+          <View style={{ position: 'absolute', left: 0, right: 0, top: 4, height: 52, borderRadius: dsRadius.md, backgroundColor: '#0B1220' }} />
+          <View
+            style={{
+              height: 52,
+              borderRadius: dsRadius.md,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+              backgroundColor: pressed ? '#334155' : '#1E293B',
+              borderWidth: 1.5,
+              borderColor: 'rgba(226,232,240,0.3)',
+              transform: [{ translateY: pressed ? 3 : 0 }],
+            }}
+          >
+            <GoogleLogo />
+            <Text style={{ fontFamily: dsFont.bold, fontSize: dsSize.base, color: '#F1F5F9' }} numberOfLines={1}>
+              {label}
+            </Text>
+          </View>
+        </>
+      )}
+    </Pressable>
+  );
+};
+
 export const AuthErrorBanner: React.FC<{ message?: string | null; children?: React.ReactNode }> = ({ message, children }) =>
   message ? (
     <View style={s.errorBanner}>
@@ -241,9 +299,9 @@ export const AuthFooterLink: React.FC<{ text: string; link: string; onPress: () 
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: ds.bg },
-  nightBg: { backgroundColor: ds.ink },
+  nightBg: { backgroundColor: ds.hero },
   moonWrap: { position: 'absolute', right: 34 },
-  cardNight: { backgroundColor: ds.inkSoft, borderWidth: 1, borderColor: ds.onInkFaint },
+  cardNight: { backgroundColor: ds.heroSoft, borderWidth: 1, borderColor: ds.onInkFaint },
   inputBoxNight: { backgroundColor: ds.onInkFaint, borderColor: ds.onInkFaint },
   inputBoxNightFocused: { borderColor: ds.amber },
   hero: { zIndex: 10, alignItems: 'center', paddingHorizontal: 20 },

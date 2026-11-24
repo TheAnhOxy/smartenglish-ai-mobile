@@ -14,6 +14,7 @@ import {
 import type { ClassAssignmentDTO } from '../../data/classApi';
 import { AssignmentStatusBadge } from '../components/AssignmentStatusBadge';
 import { SubmitAssignmentSheet } from '../components/SubmitAssignmentSheet';
+import { isDarkTheme } from '@/src/theme/themeMode';
 
 interface StudentAssignmentsScreenProps {
   classId: string | number;
@@ -65,7 +66,7 @@ export const StudentAssignmentsScreen: React.FC<StudentAssignmentsScreenProps> =
       return (
         <Pressable
           onPress={() => handleOpen(item)}
-          className="bg-white dark:bg-darkCard p-4 rounded-2xl border border-gray-100 dark:border-gray-800 mb-3 active:bg-gray-50"
+          className={`bg-white dark:bg-darkCard p-4 rounded-2xl border border-gray-100 dark:border-gray-800 mb-3 ${isDarkTheme() ? 'active:bg-[#2B4C7E]' : 'active:bg-gray-50'}`}
         >
           <View className="flex-row items-start justify-between mb-2">
             <View className="flex-1 mr-3">
@@ -101,7 +102,7 @@ export const StudentAssignmentsScreen: React.FC<StudentAssignmentsScreenProps> =
           ) : null}
 
           {item.instructions ? (
-            <Text className="text-xs text-neutralGray mb-2 px-1" numberOfLines={2}>
+            <Text className="text-xs text-neutralGray mb-2 px-1 dark:text-darkMuted" numberOfLines={2}>
               {item.instructions}
             </Text>
           ) : null}
@@ -121,7 +122,7 @@ export const StudentAssignmentsScreen: React.FC<StudentAssignmentsScreenProps> =
               <Text
                 className={`text-[11px] font-medium ${
                   overdue && item.status === 'Chưa làm' ? 'text-error' : 'text-neutralGray'
-                }`}
+                } dark:text-darkMuted`}
               >
                 {item.dueDate ? new Date(item.dueDate).toLocaleString('vi-VN') : 'Không giới hạn'}
               </Text>
@@ -171,7 +172,7 @@ export const StudentAssignmentsScreen: React.FC<StudentAssignmentsScreenProps> =
     return (
       <View className="items-center py-14 bg-white dark:bg-darkCard rounded-2xl p-6 mx-1">
         <AlertCircle size={28} color={AppColors.error} />
-        <Text className="text-sm text-neutralGray text-center my-3 px-3">
+        <Text className="text-sm text-neutralGray text-center my-3 px-3 dark:text-darkMuted">
           {error instanceof Error ? error.message : 'Không thể tải danh sách bài tập'}
         </Text>
         <Pressable onPress={() => refetch()} className="bg-primary px-5 py-2.5 rounded-xl active:bg-primaryDark">

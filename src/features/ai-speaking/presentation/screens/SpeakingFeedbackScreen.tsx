@@ -38,6 +38,7 @@ import {
   fetchPronunciationLessonsApi,
 } from '../../data/speakingApi';
 import { readRecordingBase64 } from '../../data/readRecording';
+import { dk } from '@/src/theme/themeMode';
 
 export const SpeakingFeedbackScreen = () => {
   const router = useRouter();
@@ -341,7 +342,7 @@ export const SpeakingFeedbackScreen = () => {
           }}
           style={s.closeBtn}
         >
-          <X color="#475569" size={22} />
+          <X color={dk('#475569', 'text')} size={22} />
         </Pressable>
 
         <Text style={s.headerTitle}>Chi tiết phản hồi AI</Text>
@@ -355,7 +356,7 @@ export const SpeakingFeedbackScreen = () => {
       <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
         {noticeMessage && (
           <View style={s.noticeBox}>
-            <AlertCircle color="#D97706" size={16} />
+            <AlertCircle color={dk('#D97706', 'text')} size={16} />
             <Text style={s.noticeText}>{noticeMessage}</Text>
           </View>
         )}
@@ -441,7 +442,7 @@ export const SpeakingFeedbackScreen = () => {
             </Pressable>
 
             <View style={{ flex: 1 }}>
-              <Text style={[s.audioLabelUserText, !hasRecording && { color: '#94A3B8' }]}>
+              <Text style={[s.audioLabelUserText, !hasRecording && { color: dk('#94A3B8', 'text') }]}>
                 {hasRecording ? 'Your Voice (Bản ghi âm giọng của bạn)' : 'Your Voice (Chưa có bản ghi âm)'}
               </Text>
               <View style={s.waveformRow}>
@@ -460,7 +461,7 @@ export const SpeakingFeedbackScreen = () => {
         {/* Tips to Improve Card */}
         <View style={s.card}>
           <View style={s.cardTitleRow}>
-            <Lightbulb color="#D97706" size={18} />
+            <Lightbulb color={dk('#D97706', 'text')} size={18} />
             <Text style={s.cardTitleText}>Mẹo cải thiện phát âm</Text>
           </View>
 

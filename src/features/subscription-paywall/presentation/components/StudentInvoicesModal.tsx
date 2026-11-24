@@ -28,6 +28,7 @@ import {
 import { SepayInvoicePaper, SepayInvoiceOrder } from './SepayInvoicePaper';
 import { RefundRequestModal } from './RefundRequestModal';
 import { hasActivePremium } from '@/src/core/utils/plan';
+import { dk } from '@/src/theme/themeMode';
 
 export interface OrderItem extends SepayInvoiceOrder {
   expiresAt?: string;
@@ -143,22 +144,22 @@ export const StudentInvoicesModal: React.FC<StudentInvoicesModalProps> = ({
           <View style={styles.header}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={styles.iconBox}>
-                <FileCheck2 color="#0284C7" size={20} />
+                <FileCheck2 color={dk('#0284C7', 'text')} size={20} />
               </View>
               <View>
                 <Text style={styles.title}>Hóa đơn điện tử</Text>
               </View>
             </View>
             <Pressable onPress={onClose} style={styles.closeBtn}>
-              <X color="#64748B" size={18} />
+              <X color={dk('#64748B', 'text')} size={18} />
             </Pressable>
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
             {loading ? (
               <View style={{ paddingVertical: 40, alignItems: 'center', gap: 10 }}>
-                <ActivityIndicator size="large" color="#0284C7" />
-                <Text style={{ fontSize: 13, color: '#64748B' }}>Đang nạp danh sách giao dịch & hóa đơn...</Text>
+                <ActivityIndicator size="large" color={dk('#0284C7', 'text')} />
+                <Text style={{ fontSize: 13, color: dk('#64748B', 'text') }}>Đang nạp danh sách giao dịch & hóa đơn...</Text>
               </View>
             ) : selectedOrder ? (
               /* ========================================================================= */
@@ -170,7 +171,7 @@ export const StudentInvoicesModal: React.FC<StudentInvoicesModalProps> = ({
                   onPress={() => setSelectedOrder(null)}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}
                 >
-                  <Text style={{ fontSize: 13, color: '#0284C7', fontWeight: 'bold' }}>
+                  <Text style={{ fontSize: 13, color: dk('#0284C7', 'text'), fontWeight: 'bold' }}>
                     ← Quay lại danh sách hóa đơn
                   </Text>
                 </Pressable>
@@ -186,19 +187,19 @@ export const StudentInvoicesModal: React.FC<StudentInvoicesModalProps> = ({
                 <View style={{ marginTop: 18 }}>
                   {selectedOrder.status === 'refunded' || selectedOrder.refundStatus === 'APPROVED' ? (
                     <View style={styles.refundedNotice}>
-                      <CheckCircle2 color="#059669" size={18} />
-                      <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#065F46' }}>
+                      <CheckCircle2 color={dk('#059669', 'text')} size={18} />
+                      <Text style={{ fontSize: 12, fontWeight: 'bold', color: dk('#065F46', 'text') }}>
                         Giao dịch này đã được hoàn tiền thành công.
                       </Text>
                     </View>
                   ) : selectedOrder.refundStatus === 'PENDING_REVIEW' || selectedOrder.status === 'PROCESSING' ? (
                     <View style={styles.pendingRefundNotice}>
-                      <Clock color="#D97706" size={18} />
+                      <Clock color={dk('#D97706', 'text')} size={18} />
                       <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#92400E' }}>
+                        <Text style={{ fontSize: 12, fontWeight: 'bold', color: dk('#92400E', 'text') }}>
                           Đang chờ duyệt hoàn tiền
                         </Text>
-                        <Text style={{ fontSize: 11, color: '#B45309', marginTop: 2 }}>
+                        <Text style={{ fontSize: 11, color: dk('#B45309', 'text'), marginTop: 2 }}>
                           Yêu cầu hoàn tiền của bạn đang được Ban Quản Trị đối soát ngân hàng.
                         </Text>
                       </View>
@@ -229,7 +230,7 @@ export const StudentInvoicesModal: React.FC<StudentInvoicesModalProps> = ({
                       />
                     )
                   ) : (
-                    <Text style={{ fontSize: 11, color: '#94A3B8', textAlign: 'center', marginTop: 8 }}>
+                    <Text style={{ fontSize: 11, color: dk('#94A3B8', 'text'), textAlign: 'center', marginTop: 8 }}>
                       Đơn hàng đã qua thời hạn 7 ngày cam kết hoàn tiền.
                     </Text>
                   )}
@@ -242,17 +243,17 @@ export const StudentInvoicesModal: React.FC<StudentInvoicesModalProps> = ({
               <View style={{ paddingBottom: 24 }}>
                 {/* 2. Thanh Tìm Kiếm Đơn Hàng / Hóa Đơn */}
                 <View style={styles.searchBar}>
-                  <Search color="#64748B" size={16} />
+                  <Search color={dk('#64748B', 'text')} size={16} />
                   <TextInput
                     value={searchQuery}
                     onChangeText={setSearchQuery}
                     placeholder="Tìm theo mã đơn, mã hóa đơn (INV)..."
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={dk('#94A3B8', 'text')}
                     style={styles.searchInput}
                   />
                   {searchQuery.length > 0 && (
                     <Pressable onPress={() => setSearchQuery('')}>
-                      <X color="#94A3B8" size={14} />
+                      <X color={dk('#94A3B8', 'text')} size={14} />
                     </Pressable>
                   )}
                 </View>
@@ -284,7 +285,7 @@ export const StudentInvoicesModal: React.FC<StudentInvoicesModalProps> = ({
                 {filteredOrders.length === 0 ? (
                   <View style={styles.emptyState}>
                     <View style={styles.emptyIconBox}>
-                      <FileCheck2 color="#94A3B8" size={32} />
+                      <FileCheck2 color={dk('#94A3B8', 'text')} size={32} />
                     </View>
                     <Text style={styles.emptyTitle}>Chưa có hóa đơn nào</Text>
                     <Text style={styles.emptySubtitle}>
@@ -318,7 +319,7 @@ export const StudentInvoicesModal: React.FC<StudentInvoicesModalProps> = ({
                           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                               <View style={styles.sepayCardIcon}>
-                                <FileCheck2 color="#0284C7" size={17} />
+                                <FileCheck2 color={dk('#0284C7', 'text')} size={17} />
                               </View>
                               <View>
                                 <Text style={styles.sepayCardOrderCode}>
@@ -333,33 +334,33 @@ export const StudentInvoicesModal: React.FC<StudentInvoicesModalProps> = ({
                                 {(ord.amount || 0).toLocaleString('vi-VN')} đ
                               </Text>
                               {isRefunded ? (
-                                <View style={[styles.sepayCardBadge, { backgroundColor: '#FEE2E2', borderColor: '#FECACA' }]}>
+                                <View style={[styles.sepayCardBadge, { backgroundColor: dk('#FEE2E2', 'bg'), borderColor: dk('#FECACA', 'border') }]}>
                                   <RotateCcw color="#DC2626" size={10} />
-                                  <Text style={[styles.sepayCardBadgeText, { color: '#991B1B' }]}>
+                                  <Text style={[styles.sepayCardBadgeText, { color: dk('#991B1B', 'text') }]}>
                                     {ord.refundStatus === 'PENDING_REVIEW' ? 'ĐANG DUYỆT HOÀN' : 'ĐÃ HOÀN TIỀN'}
                                   </Text>
                                 </View>
                               ) : isPaid ? (
-                                <View style={[styles.sepayCardBadge, { backgroundColor: '#D1FAE5', borderColor: '#A7F3D0' }]}>
-                                  <Check color="#059669" size={11} strokeWidth={3} />
-                                  <Text style={[styles.sepayCardBadgeText, { color: '#065F46' }]}>ĐÃ THANH TOÁN</Text>
+                                <View style={[styles.sepayCardBadge, { backgroundColor: dk('#D1FAE5', 'bg'), borderColor: dk('#A7F3D0', 'border') }]}>
+                                  <Check color={dk('#059669', 'text')} size={11} strokeWidth={3} />
+                                  <Text style={[styles.sepayCardBadgeText, { color: dk('#065F46', 'text') }]}>ĐÃ THANH TOÁN</Text>
                                 </View>
                               ) : isUserActive && isPending ? (
-                                <View style={[styles.sepayCardBadge, { backgroundColor: '#F1F5F9', borderColor: '#E2E8F0' }]}>
-                                  <Text style={[styles.sepayCardBadgeText, { color: '#64748B' }]}>ĐÃ HỦY (ĐÃ CÓ GÓI)</Text>
+                                <View style={[styles.sepayCardBadge, { backgroundColor: dk('#F1F5F9', 'bg'), borderColor: dk('#E2E8F0', 'border') }]}>
+                                  <Text style={[styles.sepayCardBadgeText, { color: dk('#64748B', 'text') }]}>ĐÃ HỦY (ĐÃ CÓ GÓI)</Text>
                                 </View>
                               ) : isExpired ? (
-                                <View style={[styles.sepayCardBadge, { backgroundColor: '#F1F5F9', borderColor: '#E2E8F0' }]}>
-                                  <Text style={[styles.sepayCardBadgeText, { color: '#64748B' }]}>ĐÃ HẾT HẠN</Text>
+                                <View style={[styles.sepayCardBadge, { backgroundColor: dk('#F1F5F9', 'bg'), borderColor: dk('#E2E8F0', 'border') }]}>
+                                  <Text style={[styles.sepayCardBadgeText, { color: dk('#64748B', 'text') }]}>ĐÃ HẾT HẠN</Text>
                                 </View>
                               ) : isCancelled ? (
-                                <View style={[styles.sepayCardBadge, { backgroundColor: '#F1F5F9', borderColor: '#E2E8F0' }]}>
-                                  <Text style={[styles.sepayCardBadgeText, { color: '#64748B' }]}>ĐÃ HỦY</Text>
+                                <View style={[styles.sepayCardBadge, { backgroundColor: dk('#F1F5F9', 'bg'), borderColor: dk('#E2E8F0', 'border') }]}>
+                                  <Text style={[styles.sepayCardBadgeText, { color: dk('#64748B', 'text') }]}>ĐÃ HỦY</Text>
                                 </View>
                               ) : (
-                                <View style={[styles.sepayCardBadge, { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }]}>
-                                  <Clock color="#D97706" size={10} />
-                                  <Text style={[styles.sepayCardBadgeText, { color: '#92400E' }]}>CHỜ THANH TOÁN</Text>
+                                <View style={[styles.sepayCardBadge, { backgroundColor: dk('#FEF3C7', 'bg'), borderColor: '#FDE68A' }]}>
+                                  <Clock color={dk('#D97706', 'text')} size={10} />
+                                  <Text style={[styles.sepayCardBadgeText, { color: dk('#92400E', 'text') }]}>CHỜ THANH TOÁN</Text>
                                 </View>
                               )}
                             </View>
@@ -377,7 +378,7 @@ export const StudentInvoicesModal: React.FC<StudentInvoicesModalProps> = ({
                           {/* Footer Thẻ: Ngày giờ & CTA */}
                           <View style={styles.sepayCardFooter}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                              <Calendar color="#94A3B8" size={12} />
+                              <Calendar color={dk('#94A3B8', 'text')} size={12} />
                               <Text style={styles.sepayCardDate}>{formatDateStr(ord.createdAt)}</Text>
                             </View>
                             <Text style={styles.sepayCardCta}>

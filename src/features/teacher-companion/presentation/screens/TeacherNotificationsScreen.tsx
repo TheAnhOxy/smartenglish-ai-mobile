@@ -5,6 +5,7 @@ import { NotificationItem } from '@/src/core/types/schema';
 import { StudentInvoicesModal } from '@/src/features/subscription-paywall/presentation/components/StudentInvoicesModal';
 import { Inbox } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
+import { dk } from '@/src/theme/themeMode';
 
 export const TeacherNotificationsScreen = () => {
   const { data: notifications, isLoading, refetch } = useNotificationsQuery();
@@ -25,7 +26,7 @@ export const TeacherNotificationsScreen = () => {
   };
 
   return (
-    <View className="flex-1 bg-surface px-6 pt-14">
+    <View className="flex-1 bg-surface px-6 pt-14 dark:bg-darkBg">
       <View className="flex-row items-center justify-between mb-1">
         <Text className="text-2xl font-bold text-secondary">Thông Báo Giáo Viên</Text>
         <Pressable
@@ -35,14 +36,14 @@ export const TeacherNotificationsScreen = () => {
           <Text className="text-xs font-semibold text-secondary">Làm mới</Text>
         </Pressable>
       </View>
-      <Text className="text-xs text-neutralGray mb-6">
+      <Text className="text-xs text-neutralGray mb-6 dark:text-darkMuted">
         Biên lai thanh toán gói Pro, cập nhật tiến độ nộp bài & cảnh báo học viên
       </Text>
 
       {isLoading ? (
         <View className="py-20 items-center justify-center">
-          <ActivityIndicator color="#1B3A57" size="large" />
-          <Text className="text-xs text-neutralGray mt-2">Đang tải thông báo...</Text>
+          <ActivityIndicator color={dk('#1B3A57', 'text')} size="large" />
+          <Text className="text-xs text-neutralGray mt-2 dark:text-darkMuted">Đang tải thông báo...</Text>
         </View>
       ) : (
         <FlatList
@@ -52,8 +53,8 @@ export const TeacherNotificationsScreen = () => {
           ListEmptyComponent={
             <View className="py-20 items-center justify-center">
               <View className="mb-3"><Inbox size={36} color={AppColors.neutralGray} /></View>
-              <Text className="text-sm font-semibold text-neutralInk">Không có thông báo nào</Text>
-              <Text className="text-xs text-neutralGray mt-1 text-center">
+              <Text className="text-sm font-semibold text-neutralInk dark:text-darkInk">Không có thông báo nào</Text>
+              <Text className="text-xs text-neutralGray mt-1 text-center dark:text-darkMuted">
                 Bạn đã đọc hết mọi thông báo hoặc chưa có thông báo mới.
               </Text>
             </View>
@@ -73,16 +74,16 @@ export const TeacherNotificationsScreen = () => {
                     : item.is_read
                     ? 'bg-cardWhite border-gray-100 opacity-80'
                     : 'bg-secondary/5 border-secondary/20 shadow-sm'
-                }`}
+                } dark:bg-darkCard dark:border-darkLine`}
               >
                 <View className="flex-row items-center justify-between mb-1">
                   <View className="flex-row items-center gap-1.5 flex-1 pr-2">
-                    <Text className="text-sm font-bold text-neutralInk flex-1" numberOfLines={1}>
+                    <Text className="text-sm font-bold text-neutralInk flex-1 dark:text-darkInk" numberOfLines={1}>
                       {item.title}
                     </Text>
                   </View>
                   {isPayment && (
-                    <View className="bg-emerald-100 px-2 py-0.5 rounded-md">
+                    <View className="bg-emerald-100 px-2 py-0.5 rounded-md dark:bg-darkRaised">
                       <Text className="text-[10px] font-bold text-emerald-800">BIÊN LAI HĐĐT</Text>
                     </View>
                   )}
@@ -91,7 +92,7 @@ export const TeacherNotificationsScreen = () => {
                   )}
                 </View>
 
-                <Text className="text-xs text-neutralGray leading-5 mb-2">{item.body}</Text>
+                <Text className="text-xs text-neutralGray leading-5 mb-2 dark:text-darkMuted">{item.body}</Text>
 
                 {/* Nút Xem hóa đơn điện tử trực tiếp nếu là thông báo thanh toán */}
                 {isPayment && (
@@ -103,7 +104,7 @@ export const TeacherNotificationsScreen = () => {
                   </Pressable>
                 )}
 
-                <Text className="text-[10px] text-neutralGray text-right">
+                <Text className="text-[10px] text-neutralGray text-right dark:text-darkMuted">
                   {item.created_at ? new Date(item.created_at).toLocaleString('vi-VN') : 'Vừa xong'}
                 </Text>
               </Pressable>

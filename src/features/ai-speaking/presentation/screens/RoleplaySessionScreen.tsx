@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   type ScrollViewInstance,
 } from 'react-native';
-import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect, useIsFocused } from 'expo-router';
 import {
   Mic,
   Lightbulb,
@@ -43,8 +43,10 @@ import { speakText, stopSpeech } from '@/src/core/services/speechService';
 import { UserAvatar } from '@/src/core/components/UserAvatar';
 import { BackButton } from '@/src/core/components/BackButton';
 import { useTutorVoice } from '@/src/features/ai-chatbot/application/useTutorVoice';
+import { RecordingOverlay } from '../components/RecordingOverlay';
 import { PracticeFeedbackCard } from '@/src/features/practice-feedback/presentation/components/PracticeFeedbackCard';
 import { hasActivePremium } from '@/src/core/utils/plan';
+import { dk } from '@/src/theme/themeMode';
 
 interface ChatTurn {
   role: 'ai' | 'user';
@@ -103,10 +105,6 @@ export const RoleplaySessionScreen = () => {
       if (found) {
         setScenario(found);
         setTurns([{ role: 'ai', text: found.opening_line }]);
-        if (!isAiVoiceMuted && found.opening_line) {
-          const cleanSpeech = found.opening_line.split(/💡/)[0].trim();
-          void speakText(cleanSpeech || found.opening_line, { language: 'en-US' });
-        }
       } else {
         setSessionError('Không tìm thấy kịch bản luyện nói này.');
       }
@@ -118,6 +116,19 @@ export const RoleplaySessionScreen = () => {
       cancelVoiceRef.current();
     };
   }, [scenarioId]);
+
+  // Đọc câu chào đầu: CHỈ khi màn đang hiển thị và chỉ một lần mỗi kịch bản.
+  // (Màn là tab ẩn nên vẫn nằm trong bộ nhớ sau khi thoát; nạp lại ngầm — Fast Refresh, đổi theme —
+  //  từng làm nó tự đọc "Good afternoon…" dù người dùng không mở.)
+  const isFocused = useIsFocused();
+  const spokenOpeningFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isFocused || !scenario?.opening_line || spokenOpeningFor.current === scenario.id) return;
+    spokenOpeningFor.current = scenario.id;
+    if (isAiVoiceMuted) return;
+    const cleanSpeech = scenario.opening_line.split(/💡/)[0].trim();
+    void speakText(cleanSpeech || scenario.opening_line, { language: 'en-US' });
+  }, [isFocused, scenario, isAiVoiceMuted]);
 
   // Ngắt toàn bộ âm thanh và micro khi màn hình unmount hoặc mất focus (chuyển tab/back)
   useFocusEffect(
@@ -221,7 +232,7 @@ export const RoleplaySessionScreen = () => {
     return (
       <View style={[s.root, { alignItems: 'center', justifyContent: 'center', padding: 24 }]}>
         {sessionError ? (
-          <Text style={{ color: '#B91C1C', textAlign: 'center' }}>{sessionError}</Text>
+          <Text style={{ color: dk('#B91C1C', 'text'), textAlign: 'center' }}>{sessionError}</Text>
         ) : (
           <ActivityIndicator size="large" color="#4F46E5" />
         )}
@@ -408,7 +419,7 @@ export const RoleplaySessionScreen = () => {
             style={s.iconBtn}
           >
             {isAiVoiceMuted ? (
-              <VolumeX color="#94A3B8" size={16} />
+              <VolumeX color={dk('#94A3B8', 'text')} size={16} />
             ) : (
               <Volume2 color="#4F46E5" size={16} />
             )}
@@ -425,9 +436,9 @@ export const RoleplaySessionScreen = () => {
               {
                 width: 'auto',
                 paddingHorizontal: 9,
-                backgroundColor: '#EEF2FF',
+                backgroundColor: dk('#EEF2FF', 'bg'),
                 borderWidth: 1,
-                borderColor: '#C7D2FE',
+                borderColor: dk('#C7D2FE', 'border'),
               },
             ]}
             accessibilityLabel="Kết thúc phiên"
@@ -479,7 +490,7 @@ export const RoleplaySessionScreen = () => {
                       onPress={() => handleSpeakAiLine(mainText)}
                       style={s.speakerMiniBtn}
                     >
-                      <Volume2 color="#64748B" size={14} />
+                      <Volume2 color={dk('#64748B', 'text')} size={14} />
                     </Pressable>
                   )}
                 </View>
@@ -492,7 +503,7 @@ export const RoleplaySessionScreen = () => {
                 {isAi && feedbackText && (
                   <View style={s.inlineFeedbackCard}>
                     <View style={s.inlineFeedbackHeader}>
-                      <Lightbulb color="#D97706" size={13} />
+                      <Lightbulb color={dk('#D97706', 'text')} size={13} />
                       <Text style={s.inlineFeedbackTitle}>Góp ý tiếng Việt:</Text>
                     </View>
                     <Text style={s.inlineFeedbackText}>{feedbackText}</Text>
@@ -592,12 +603,25 @@ export const RoleplaySessionScreen = () => {
         </View>
       </View>
 
+      {/* ── MÀN GHI ÂM GIỮA MÀN HÌNH khi bật micro ─────────────────────── */}
+      <RecordingOverlay
+        listening={isRecording}
+        busy={voiceBusy}
+        liveText={isRecording ? inputText : ''}
+        level={voice.level}
+        onStop={() => void voice.stop()}
+        onCancel={() => {
+          voice.cancel();
+          setInputText('');
+        }}
+      />
+
       {/* ── MODAL TỔNG KẾT PHIÊN LUYỆN NÓI ───────────────────────────────── */}
       <Modal visible={showSummaryModal} transparent animationType="fade">
         <View style={s.modalOverlay}>
           <ScrollView style={s.summaryScroll} contentContainerStyle={s.modalCard}>
             <View style={s.modalSuccessIconWrap}>
-              <CheckCircle2 color="#16A34A" size={28} />
+              <CheckCircle2 color={dk('#16A34A', 'text')} size={28} />
             </View>
 
             <Text style={s.modalHeading}>Kết Quả Luyện Nói</Text>
@@ -619,7 +643,7 @@ export const RoleplaySessionScreen = () => {
               </View>
               <View style={s.scoreDivider} />
               <View style={s.scoreItem}>
-                <Text style={[s.scoreNumber, { color: '#059669' }]}>
+                <Text style={[s.scoreNumber, { color: dk('#059669', 'text') }]}>
                   {sessionEvaluation.level}
                 </Text>
                 <Text style={s.scoreLabel}>Trình độ</Text>
@@ -657,7 +681,7 @@ export const RoleplaySessionScreen = () => {
                 }}
                 style={s.btnSecondary}
               >
-                <RotateCcw color="#475569" size={16} />
+                <RotateCcw color={dk('#475569', 'text')} size={16} />
                 <Text style={s.btnSecondaryText}>Luyện lại</Text>
               </Pressable>
 

@@ -41,6 +41,7 @@ import {
 } from '../../data/speakingApi';
 import { hasActivePremium } from '@/src/core/utils/plan';
 import { isLevelMatch, normalizeCefr, sortByLevelCloseness } from '@/src/features/onboarding/application/learnerLevel';
+import { dk } from '@/src/theme/themeMode';
 
 const { width } = Dimensions.get('window');
 
@@ -257,7 +258,7 @@ export const SpeakingHomeScreen = ({ embedded = false }: { embedded?: boolean })
                         {sc.image_url ? (
                           <Image source={{ uri: sc.image_url }} style={s.cardCoverImage} resizeMode="cover" />
                         ) : (
-                          <View style={[s.cardCoverImage, { backgroundColor: '#E0F2FE', alignItems: 'center', justifyContent: 'center' }]}>
+                          <View style={[s.cardCoverImage, { backgroundColor: dk('#E0F2FE', 'bg'), alignItems: 'center', justifyContent: 'center' }]}>
                             <MessageCircle size={32} color={AppColors.primary} />
                           </View>
                         )}

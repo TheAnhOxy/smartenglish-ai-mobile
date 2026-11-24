@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, Activity, Sparkles, Volume2, HelpCircle } from 'lucide-react-native';
 import { MouthShapeGuideModal } from './MouthShapeGuideModal';
+import { dk } from '@/src/theme/themeMode';
 
 export const IpaAnalysisScreen = () => {
   const router = useRouter();
@@ -53,7 +54,7 @@ export const IpaAnalysisScreen = () => {
           <View className="w-[47%] bg-darkCard p-4 rounded-2xl border border-gray-800 shadow-sm">
             <View className="flex-row items-center justify-between mb-2">
               <Text className="text-xs text-gray-400 font-semibold">Ngữ Điệu</Text>
-              <Activity color="#0F7173" size={16} />
+              <Activity color={dk('#0F7173', 'text')} size={16} />
             </View>
             <Text className="text-2xl font-extrabold text-secondary">84%</Text>
             <View className="h-1.5 bg-gray-800 rounded-full mt-2 overflow-hidden">

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, Modal, StyleSheet, ScrollView } from 'react-native';
 import { X, Sparkles, CheckCircle2, Smile, Waves, Wind } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
+import { dk } from '@/src/theme/themeMode';
 
 export interface MouthShapeGuideModalProps {
   visible: boolean;
@@ -97,7 +98,7 @@ export const MouthShapeGuideModal: React.FC<MouthShapeGuideModalProps> = ({
               <Text style={s.title}>{displayTitle}</Text>
             </View>
             <Pressable onPress={onClose} style={s.closeBtn}>
-              <X color="#64748B" size={18} />
+              <X color={dk('#64748B', 'text')} size={18} />
             </Pressable>
           </View>
 

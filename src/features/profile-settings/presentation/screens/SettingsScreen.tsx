@@ -14,7 +14,10 @@ import {
   LogOut,
   CheckCircle2,
   Minus,
-  Plus
+  Plus,
+  Sun,
+  Moon,
+  Smartphone,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useAuthStore } from '@/src/core/flows/authStore';
@@ -22,6 +25,10 @@ import { palette } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
 import { UserAvatar } from '@/src/core/components/UserAvatar';
 import { BackButton } from '@/src/core/components/BackButton';
+import { SoundControl } from '@/src/core/components/SoundControl';
+import { useThemeMode } from '@/src/theme/useThemeMode';
+import { setThemePref } from '@/src/theme/themeMode';
+import { useXmasStore } from '@/src/core/services/xmas';
 
 export const SettingsScreen = () => {
   const router = useRouter();
@@ -34,7 +41,9 @@ export const SettingsScreen = () => {
   const [streakAlerts, setStreakAlerts] = useState(true);
   const [leaderboardNotifs, setLeaderboardNotifs] = useState(false);
 
-  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>('light');
+  const { pref: themeMode } = useThemeMode();
+  const xmasEnabled = useXmasStore((st) => st.enabled);
+  const setXmasEnabled = useXmasStore((st) => st.setEnabled);
 
   const handleLogout = () => {
     logout();
@@ -107,6 +116,28 @@ export const SettingsScreen = () => {
                 <Text style={styles.valueText}>{ttsVoice}</Text>
               </View>
             </View>
+
+            <View style={[styles.rowItem, styles.rowBorder]}>
+              <View style={{ flex: 1, paddingRight: 8 }}>
+                <Text style={styles.rowLabel}>Âm thanh</Text>
+                <Text style={styles.rowHint}>Nhạc nền & hiệu ứng · tự tắt khi học</Text>
+              </View>
+              <SoundControl />
+            </View>
+
+            <View style={[styles.rowItem, styles.rowBorder]}>
+              <View style={{ flex: 1, paddingRight: 8 }}>
+                <Text style={styles.rowLabel}>Trang trí Giáng sinh</Text>
+                <Text style={styles.rowHint}>Ở giao diện tối: tuyết rơi, cây thông, người tuyết, dây đèn</Text>
+              </View>
+              <Switch
+                value={xmasEnabled}
+                onValueChange={setXmasEnabled}
+                trackColor={{ false: palette.border, true: palette.primary }}
+                thumbColor="#FFFFFF"
+                accessibilityLabel="Bật tắt trang trí Giáng sinh"
+              />
+            </View>
           </View>
         </Animated.View>
 
@@ -155,12 +186,16 @@ export const SettingsScreen = () => {
             {(['light', 'dark', 'system'] as const).map((mode) => {
               const isSelected = themeMode === mode;
               const labels = { light: 'Sáng', dark: 'Tối', system: 'Hệ thống' };
+              const ThemeIcon = { light: Sun, dark: Moon, system: Smartphone }[mode];
               return (
                 <Pressable
                   key={mode}
-                  onPress={() => setThemeMode(mode)}
+                  onPress={() => setThemePref(mode)}
                   style={[styles.themeCard, isSelected && styles.themeCardSelected]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
                 >
+                  <ThemeIcon size={18} color={isSelected ? palette.primary : palette.textSoft} />
                   <Text style={[styles.themeLabel, isSelected && styles.themeLabelSelected]}>
                     {labels[mode]}
                   </Text>
@@ -174,7 +209,7 @@ export const SettingsScreen = () => {
         <Text style={styles.sectionTitle}>BẢO MẬT</Text>
         <Pressable
           onPress={() => router.push('/(student)/profile/sessions' as never)}
-          style={[styles.logoutBtn, { borderColor: palette.border, backgroundColor: '#FFFFFF', marginTop: 0, marginBottom: 16 }]}
+          style={[styles.logoutBtn, { borderColor: palette.border, backgroundColor: palette.surface, marginTop: 0, marginBottom: 16 }]}
         >
           <MonitorSmartphone color={palette.primary} size={18} />
           <Text style={[styles.logoutBtnText, { color: palette.text }]}>Thiết bị đăng nhập</Text>
@@ -302,6 +337,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: palette.text,
   },
+  rowHint: { fontSize: 12, color: palette.textSoft, marginTop: 2 },
   counterWrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -350,6 +386,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: palette.border,
     alignItems: 'center',
+    gap: 6,
   },
   themeCardSelected: {
     borderColor: palette.primary,

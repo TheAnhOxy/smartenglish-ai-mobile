@@ -8,6 +8,7 @@ import { QuickWordLookupModal } from '@/src/features/flashcard-srs/presentation/
 import { TranslatableText, TranslationPanel } from '@/src/core/components/TranslatableText';
 import { BookOpen } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
+import { isDarkTheme } from '@/src/theme/themeMode';
 
 export const ReadingPassageScreen = () => {
   const { passageId } = useLocalSearchParams<{ passageId?: string }>();
@@ -28,28 +29,28 @@ export const ReadingPassageScreen = () => {
 
   if (isLoading) {
     return (
-      <View className="flex-1 bg-surface justify-center items-center">
+      <View className="flex-1 bg-surface justify-center items-center dark:bg-darkBg">
         <ActivityIndicator color="#0EA5E9" size="large" />
-        <Text className="text-xs text-gray-500 mt-2 font-medium">Đang tải bài đọc...</Text>
+        <Text className="text-xs text-gray-500 mt-2 font-medium dark:text-darkMuted">Đang tải bài đọc...</Text>
       </View>
     );
   }
 
   if (!validId || isError || !passage) {
     return (
-      <View className="flex-1 bg-surface justify-center items-center px-6">
-        <View className="bg-white p-6 rounded-2xl border border-red-100 items-center shadow-sm w-full max-w-sm">
+      <View className="flex-1 bg-surface justify-center items-center px-6 dark:bg-darkBg">
+        <View className="bg-white p-6 rounded-2xl border border-red-100 items-center shadow-sm w-full max-w-sm dark:bg-darkCard">
           <View className="mb-3"><BookOpen size={36} color={AppColors.neutralGray} /></View>
-          <Text className="text-base font-bold text-gray-900 mb-1 text-center">Không Thể Tải Bài Đọc</Text>
-          <Text className="text-xs text-gray-500 text-center mb-5 leading-5">
+          <Text className="text-base font-bold text-gray-900 mb-1 text-center dark:text-darkInk">Không Thể Tải Bài Đọc</Text>
+          <Text className="text-xs text-gray-500 text-center mb-5 leading-5 dark:text-darkMuted">
             {error instanceof Error ? error.message : 'Bài đọc không tồn tại hoặc đã có lỗi xảy ra khi tải nội dung.'}
           </Text>
           <View className="flex-row gap-3">
             <Pressable
               onPress={() => router.back()}
-              className="flex-1 bg-gray-100 py-2.5 rounded-xl items-center active:bg-gray-200"
+              className={`flex-1 bg-gray-100 py-2.5 rounded-xl items-center dark:bg-darkBg ${isDarkTheme() ? 'active:bg-[#2B4C7E]' : 'active:bg-gray-200'}`}
             >
-              <Text className="text-xs font-bold text-gray-700">Quay lại</Text>
+              <Text className="text-xs font-bold text-gray-700 dark:text-darkMuted">Quay lại</Text>
             </Pressable>
             {validId ? (
               <Pressable
@@ -66,12 +67,12 @@ export const ReadingPassageScreen = () => {
   }
 
   return (
-    <View style={{ paddingTop: insets.top + 8 }} className="flex-1 bg-surface px-6 justify-between pb-6">
+    <View style={{ paddingTop: insets.top + 8 }} className="flex-1 bg-surface px-6 justify-between pb-6 dark:bg-darkBg">
       <View className="flex-1">
         <BackButton style={{ marginBottom: 16 }} />
 
         <View className="flex-row justify-between items-center mb-2">
-          <Text className="text-xl font-bold text-neutralInk flex-1 mr-2">{passage.title}</Text>
+          <Text className="text-xl font-bold text-neutralInk flex-1 mr-2 dark:text-darkInk">{passage.title}</Text>
           <View className="bg-secondary/20 px-2.5 py-1 rounded-full">
             <Text className="text-xs font-bold text-secondary">{passage.cefr_level}</Text>
           </View>
@@ -88,7 +89,7 @@ export const ReadingPassageScreen = () => {
         </Pressable>
 
         {/* Dual Split Reader */}
-        <ScrollView className="flex-1 bg-cardWhite p-5 rounded-2xl border border-gray-100 mb-4 shadow-sm" showsVerticalScrollIndicator={false}>
+        <ScrollView className="flex-1 bg-cardWhite p-5 rounded-2xl border border-gray-100 mb-4 shadow-sm dark:bg-darkCard dark:border-darkLine" showsVerticalScrollIndicator={false}>
           {/* Chạm từ (hoặc chạm 2 từ để chọn cụm) rồi bấm Dịch; trên web có thể bôi đen */}
           <View style={{ marginBottom: 16 }}>
             <TranslatableText
@@ -100,9 +101,9 @@ export const ReadingPassageScreen = () => {
           </View>
 
           {showTranslate && (
-            <View className="bg-surface p-4 rounded-xl border border-gray-200 border-dashed">
+            <View className="bg-surface p-4 rounded-xl border border-gray-200 border-dashed dark:bg-darkBg dark:border-darkLine">
               <Text className="text-xs font-bold text-secondary mb-1">Bản Dịch Tiếng Việt:</Text>
-              <Text className="text-xs text-neutralInk leading-5">{passage.content_vi}</Text>
+              <Text className="text-xs text-neutralInk leading-5 dark:text-darkInk">{passage.content_vi}</Text>
             </View>
           )}
         </ScrollView>

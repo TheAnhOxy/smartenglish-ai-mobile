@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
-import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
+import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import { File } from 'expo-file-system';
 import { TutorAudio } from '../data/chatbotApi';
 import { DictationSession, SpeechRecognizer, startBrowserDictation } from '../data/browserDictation';
@@ -17,12 +17,22 @@ const blobBase64 = (blob: Blob): Promise<string> => new Promise((resolve, reject
   reader.readAsDataURL(blob);
 });
 
+const RECORDING_OPTIONS = { ...RecordingPresets.HIGH_QUALITY, isMeteringEnabled: true };
+
+/** dB của micro (-160…0) → 0…1. Giọng nói thường khoảng -40…-5 dB; dưới -50 dB coi như im lặng. */
+export const meteringToLevel = (db: number | null | undefined): number => {
+  if (typeof db !== 'number' || !Number.isFinite(db)) return 0;
+  return Math.max(0, Math.min(1, (db + 50) / 45));
+};
+
 export const useTutorVoice = (callbacks: {
   onText: (text: string) => void;
   onAudio: (audio: TutorAudio) => void;
   onInterim: (text: string) => void;
 }) => {
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  // Bật đo âm lượng để giao diện vẽ sóng theo giọng nói to/nhỏ
+  const recorder = useAudioRecorder(RECORDING_OPTIONS);
+  const recorderState = useAudioRecorderState(recorder, 80);
   const handlers = useRef(callbacks); handlers.current = callbacks;
   const [listening, setListening] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -141,6 +151,8 @@ export const useTutorVoice = (callbacks: {
   }, [cancel, finish, language, recordAudio, recorder, stop]);
 
   useEffect(() => () => cancel(), [cancel]);
+  // Mức âm lượng 0…1 khi đang ghi (iOS/Android); null nếu không đo được (web)
+  const level = Platform.OS !== 'web' && listening ? meteringToLevel(recorderState.metering) : null;
   return { listening, processing, error, language, setLanguage, recordAudio, setRecordAudio,
-    cancel, stop, start };
+    cancel, stop, start, level };
 };

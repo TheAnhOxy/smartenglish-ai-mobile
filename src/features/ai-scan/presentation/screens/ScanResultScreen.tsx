@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ds } from '@/src/theme/ds';
 import {
   ArrowLeft,
   Volume2,
@@ -790,7 +791,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: colors.text,
+    backgroundColor: ds.hero,
     paddingHorizontal: 18,
     paddingVertical: 12,
     borderRadius: 24,

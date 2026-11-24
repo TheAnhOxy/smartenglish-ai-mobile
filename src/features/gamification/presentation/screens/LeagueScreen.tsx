@@ -29,7 +29,7 @@ export const LeagueScreen = () => {
             isMe ? 'bg-primary/10 border-primary/40' : 'bg-white dark:bg-darkCard border-gray-100 dark:border-gray-800'
           }`}
         >
-          <Text className={`w-8 text-sm font-bold ${isMe ? 'text-primary' : 'text-neutralGray'}`}>#{item.rank}</Text>
+          <Text className={`w-8 text-sm font-bold ${isMe ? 'text-primary' : 'text-neutralGray'} dark:text-darkMuted`}>#{item.rank}</Text>
           <UserAvatar uri={item.avatar_url} size={36} />
           <Text className={`flex-1 ml-3 text-sm font-semibold ${isMe ? 'text-primary' : 'text-neutralInk dark:text-white'}`} numberOfLines={1}>
             {item.display_name}
@@ -50,7 +50,7 @@ export const LeagueScreen = () => {
         const isFirst = idx === 0;
         return (
           <View key={m.user_id} className={`items-center w-24 ${isFirst ? '-mt-3' : ''}`}>
-            {isFirst ? <Trophy size={20} color={AppColors.warning} /> : <Text className="text-xs font-bold text-neutralGray">#{idx + 1}</Text>}
+            {isFirst ? <Trophy size={20} color={AppColors.warning} /> : <Text className="text-xs font-bold text-neutralGray dark:text-darkMuted">#{idx + 1}</Text>}
             <View className="mt-1 mb-1">
               <UserAvatar uri={m.avatar_url} size={isFirst ? 56 : 44} />
             </View>
@@ -84,7 +84,7 @@ export const LeagueScreen = () => {
       ) : isError ? (
         <View className="py-16 items-center">
           <AlertCircle size={28} color={AppColors.error} />
-          <Text className="text-sm text-neutralGray my-3">Không thể tải bảng xếp hạng</Text>
+          <Text className="text-sm text-neutralGray my-3 dark:text-darkMuted">Không thể tải bảng xếp hạng</Text>
           <Pressable onPress={() => refetch()} className="bg-primary px-5 py-2.5 rounded-xl">
             <Text className="text-white font-bold text-xs">Thử lại</Text>
           </Pressable>

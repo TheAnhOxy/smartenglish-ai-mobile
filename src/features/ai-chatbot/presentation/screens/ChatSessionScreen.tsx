@@ -9,6 +9,7 @@ import { clearChatHistory, getChatQuotaApi } from '../../data/chatbotApi';
 import { useSendMessageMutation } from '../../application/useAiChatbot';
 import { SentenceRefactorSheetModal } from './SentenceRefactorSheetModal';
 import { ChatMessage } from '@/src/core/types/schema';
+import { dk } from '@/src/theme/themeMode';
 
 export const ChatSessionScreen = () => {
   const router = useRouter();
@@ -80,12 +81,12 @@ export const ChatSessionScreen = () => {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
-      className="flex-1 bg-surface px-6 justify-between">
+      className="flex-1 bg-surface px-6 justify-between dark:bg-darkBg">
       {/* Header */}
       <View>
         <BackButton style={{ marginBottom: 8 }} />
-        <Text className="text-xl font-bold text-neutralInk mb-4">Loxera AI Tutor</Text>
-        {quota && <Text className="text-xs text-neutralGray mb-2">
+        <Text className="text-xl font-bold text-neutralInk mb-4 dark:text-darkInk">Loxera AI Tutor</Text>
+        {quota && <Text className="text-xs text-neutralGray mb-2 dark:text-darkMuted">
           {quota.limit === null ? 'Premium · Không giới hạn' : `Còn ${Math.max(0, quota.limit - quota.used)}/${quota.limit} tin nhắn hôm nay`}
         </Text>}
       </View>
@@ -100,12 +101,12 @@ export const ChatSessionScreen = () => {
                   m.role === 'user'
                     ? 'bg-primary self-end rounded-br-none'
                     : 'bg-cardWhite border border-gray-100 self-start rounded-bl-none shadow-sm'
-                }`}
+                } dark:bg-darkCard dark:border-darkLine`}
               >
                 <Text className={`text-xs font-bold mb-1 ${m.role === 'user' ? 'text-white/80' : 'text-secondary'}`}>
                   {m.role === 'user' ? 'Bạn' : 'Loxera AI'}
                 </Text>
-                <Text className={`text-sm font-medium leading-6 ${m.role === 'user' ? 'text-white' : 'text-neutralInk'}`}>
+                <Text className={`text-sm font-medium leading-6 ${m.role === 'user' ? 'text-white' : 'text-neutralInk'} dark:text-darkInk`}>
                   {m.content}
                 </Text>
               </View>
@@ -117,7 +118,7 @@ export const ChatSessionScreen = () => {
               {m.grammar_check && (
                 <View className="bg-secondary/10 p-3 rounded-xl border border-secondary/30 mt-2 self-start max-w-[85%]">
                   <Text className="text-xs font-bold text-secondary mb-1">Gợi Ý Diễn Đạt Tự Nhiên:</Text>
-                  <Text className="text-xs text-neutralInk mb-2">{m.grammar_check.rule_explanation_vi}</Text>
+                  <Text className="text-xs text-neutralInk mb-2 dark:text-darkInk">{m.grammar_check.rule_explanation_vi}</Text>
                   {m.grammar_check.natural_alternatives && (
                     <Pressable
                       onPress={() => setSelectedRefactorList(m.grammar_check?.natural_alternatives || [])}
@@ -131,9 +132,9 @@ export const ChatSessionScreen = () => {
             </View>
           ))}
           {isPending && (
-            <View className="bg-cardWhite p-3 rounded-2xl border border-gray-100 self-start shadow-sm flex-row items-center gap-2">
-              <ActivityIndicator color="#0F7173" size="small" />
-              <Text className="text-xs text-neutralGray">Loxera đang suy nghĩ…</Text>
+            <View className="bg-cardWhite p-3 rounded-2xl border border-gray-100 self-start shadow-sm flex-row items-center gap-2 dark:bg-darkCard dark:border-darkLine">
+              <ActivityIndicator color={dk('#0F7173', 'text')} size="small" />
+              <Text className="text-xs text-neutralGray dark:text-darkMuted">Loxera đang suy nghĩ…</Text>
             </View>
           )}
         </View>
@@ -146,7 +147,7 @@ export const ChatSessionScreen = () => {
           value={input}
           onChangeText={setInput}
           placeholder="Nhập câu tin nhắn tiếng Anh..."
-          className="flex-1 bg-cardWhite px-4 py-3 rounded-xl border border-gray-200 text-neutralInk text-sm"
+          className="flex-1 bg-cardWhite px-4 py-3 rounded-xl border border-gray-200 text-neutralInk text-sm dark:bg-darkCard dark:text-darkInk dark:border-darkLine"
         />
         <Pressable
           onPress={handleSend}

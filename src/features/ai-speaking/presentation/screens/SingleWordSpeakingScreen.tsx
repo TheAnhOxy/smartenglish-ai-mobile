@@ -738,7 +738,7 @@ const s = StyleSheet.create({
     lineHeight: 17,
   },
   wordCard: {
-    backgroundColor: ds.ink,
+    backgroundColor: ds.hero,
     paddingVertical: 26,
     paddingHorizontal: 22,
     borderRadius: dsRadius.xl,

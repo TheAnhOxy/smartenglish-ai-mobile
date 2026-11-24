@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -36,6 +36,17 @@ import { WordOfDayCard } from '../components/WordOfDayCard';
 import { LearningPlanCards } from '../components/LearningPlanCards';
 import { AiScanFeatureCard } from '../components/AiScanFeatureCard';
 import { ThinkingFox } from '../components/ThinkingFox';
+import { NEON, NeonText } from '@/src/components/neon/Neon';
+import { Garland } from '@/src/components/xmas/XmasArt';
+import { WinterHeroScene, XmasGreeting } from '../components/WinterHome';
+import { ThemeToggle } from '@/src/core/components/ThemeToggle';
+import RA, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
+import { WinterBackdrop } from '@/src/features/learning-path/presentation/winter/WinterBackdrop';
+import { Lantern, Reindeer, SantaHat } from '@/src/features/learning-path/presentation/winter/WinterArt';
+import { Snowman } from '@/src/components/xmas/XmasArt';
+import { PineBranch, ShimmerSweep, SnowCorner, SnowEdge, SparkleRing, XMAS, glassCard } from '@/src/components/xmas/WinterUI';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useXmasActive } from '@/src/core/services/xmas';
 import { TeacherCoursesShowcase } from '@/src/features/learning-path/presentation/components/TeacherCoursesShowcase';
 
 type IconType = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
@@ -54,6 +65,12 @@ interface QuickAction {
 const greetingOf = (hour: number) => (hour < 12 ? 'Chào buổi sáng' : hour < 18 ? 'Chào buổi chiều' : 'Chào buổi tối');
 
 export const HomeScreen = () => {
+  const xmas = useXmasActive();
+  const scrollY = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler((e) => {
+    scrollY.value = e.contentOffset.y;
+  });
+  const { width: windowWidth } = useWindowDimensions();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { currentUser, userStats, setUserStats } = useAuthStore();
@@ -205,17 +222,39 @@ export const HomeScreen = () => {
   };
 
   return (
-    <ScrollView
-      style={s.root}
+    <View style={[{ flex: 1 }, xmas && { backgroundColor: XMAS.midnight }]}>
+    {/* Nền đêm mùa đông: trời, cực quang, sao, núi + rừng thông (parallax khi cuộn) */}
+    {xmas ? <WinterBackdrop scrollY={scrollY} showMoon={false} /> : null}
+    <RA.ScrollView
+      style={[s.root, xmas && { backgroundColor: 'transparent' }]}
       contentContainerStyle={[s.content, { paddingTop: (insets.top || 16) + 8 }]}
       showsVerticalScrollIndicator={false}
+      onScroll={onScroll}
+      scrollEventThrottle={16}
     >
+      {/* Dây đèn Giáng sinh */}
+      {xmas ? (
+        <View style={{ marginTop: -6, marginBottom: 2 }}>
+          <Garland width={Math.min(windowWidth, 600) - 40} />
+          <PineBranch size={64} style={{ position: 'absolute', left: -22, top: -10 }} />
+          <PineBranch size={64} flip style={{ position: 'absolute', right: -22, top: -10 }} />
+        </View>
+      ) : null}
+
       {/* Header */}
       <Reveal delay={0}>
         <View style={s.header}>
           <Pressable onPress={() => (isLoggedIn ? go('/(student)/profile') : goLogin())} style={s.headerLeft}>
-            <View style={s.avatarRing}>
-              <UserAvatar uri={currentUser?.avatar_url} size={44} />
+            <View>
+              <View style={[s.avatarRing, xmas && { borderColor: XMAS.gold, shadowColor: XMAS.gold, shadowOpacity: 0.9, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } }]}>
+                <UserAvatar uri={currentUser?.avatar_url} size={44} />
+              </View>
+              {xmas ? (
+                <>
+                  <SparkleRing size={52} />
+                  <SantaHat size={26} style={{ position: 'absolute', top: -15, right: -9, transform: [{ rotate: '22deg' }] }} />
+                </>
+              ) : null}
             </View>
             <View style={{ flex: 1 }}>
               <Text style={s.greeting}>{greetingOf(new Date().getHours())}</Text>
@@ -225,11 +264,12 @@ export const HomeScreen = () => {
             </View>
           </Pressable>
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Tap onPress={() => setLookupOpen(true)} style={s.bellBtn} accessibilityLabel="Tra từ vựng">
+            <ThemeToggle style={{ width: 46, height: 46, borderRadius: 16 }} />
+            <Tap onPress={() => setLookupOpen(true)} style={[s.bellBtn, xmas && glassCard()]} accessibilityLabel="Tra từ vựng">
               <Search size={22} color={ds.ink} />
             </Tap>
             {isLoggedIn ? (
-              <Tap onPress={() => go('/(student)/notifications')} style={s.bellBtn} accessibilityLabel="Thông báo">
+              <Tap onPress={() => go('/(student)/notifications')} style={[s.bellBtn, xmas && glassCard()]} accessibilityLabel="Thông báo">
                 <Bell size={22} color={ds.ink} />
                 {unreadNotifications > 0 ? (
                   <View style={s.unreadBadge} accessibilityLabel={`${unreadNotifications} thông báo chưa đọc`}>
@@ -242,20 +282,26 @@ export const HomeScreen = () => {
         </View>
       </Reveal>
       <QuickWordLookupModal visible={lookupOpen} onClose={() => setLookupOpen(false)} />
+      {xmas ? <XmasGreeting /> : null}
 
       {/* Chỉ số học tập */}
       <Reveal delay={60}>
         {isLoggedIn ? (
           <View style={s.statsRow}>
-            <StatChip icon={<WobbleFlame />} tone={ds.amberSoft} value={`${stats?.streak_current ?? 0}`} label="ngày streak" />
+            <StatChip winter={xmas} glow="rgba(251,146,60,0.45)" icon={<WobbleFlame />} tone={ds.amberSoft} value={`${stats?.streak_current ?? 0}`} label="ngày streak" />
             <StatChip
-              icon={<Zap size={22} color={ds.btn} />}
+              winter={xmas}
+              glow="rgba(103,232,249,0.45)"
+              icon={<Zap size={22} color={xmas ? XMAS.cyan : ds.btn} />}
               tone={ds.skySoft}
               value={(stats?.xp_total ?? 0).toLocaleString('vi-VN')}
               label="tổng XP"
             />
             <StatChip
-              icon={<Coins size={22} color={ds.amberText} />}
+              winter={xmas}
+              glow="rgba(251,191,36,0.5)"
+              shimmer
+              icon={<Coins size={22} color={xmas ? XMAS.gold : ds.amberText} />}
               tone={ds.amberSoft}
               value={(stats?.coins ?? 0).toLocaleString('vi-VN')}
               label="xu"
@@ -292,10 +338,21 @@ export const HomeScreen = () => {
           scaleTo={0.98}
           accessibilityLabel={dueToday > 0 ? `Ôn ${dueToday} thẻ đến hạn hôm nay` : undefined}
         >
-          <View style={[s.heroDot, { width: 180, height: 180, right: -60, top: -70 }]} />
-          <View style={[s.heroDot, { width: 90, height: 90, right: 70, bottom: -50 }]} />
+          {xmas ? (
+            <>
+              <LinearGradient colors={['#0B1730', '#172554', '#1E1B4B']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+              <WinterHeroScene />
+            </>
+          ) : (
+            <>
+              <View style={[s.heroDot, { width: 180, height: 180, right: -60, top: -70 }]} />
+              <View style={[s.heroDot, { width: 90, height: 90, right: 70, bottom: -50 }]} />
+            </>
+          )}
           <View style={{ flex: 1, gap: 6 }}>
-            <Text style={s.heroTag}>{dueToday > 0 ? 'Ôn tập hôm nay' : continueDeck ? 'Tiếp tục học' : 'Bắt đầu hôm nay'}</Text>
+            <NeonText color={NEON.cyan} style={s.heroTag}>
+              {dueToday > 0 ? 'Ôn tập hôm nay' : continueDeck ? 'Tiếp tục học' : 'Bắt đầu hôm nay'}
+            </NeonText>
             <Text style={s.heroTitle} numberOfLines={2}>
               {dueToday > 0 ? `${dueToday} thẻ đến hạn ôn` : continueDeck ? continueDeck.name : 'Ôn từ vựng với Flashcard'}
             </Text>
@@ -308,13 +365,14 @@ export const HomeScreen = () => {
             </Text>
             <View style={s.heroCtaWrap}>
               <View style={s.heroCtaEdge} />
-              <View style={s.heroCta}>
+              <View style={[s.heroCta, xmas && { overflow: 'hidden', backgroundColor: XMAS.gold }]}>
+                {xmas ? <ShimmerSweep width={150} every={2800} /> : null}
                 <Play size={16} color={ds.ink} fill={ds.ink} />
                 <Text style={s.heroCtaText}>{dueToday > 0 ? 'Ôn ngay' : continueDeck ? 'Học tiếp' : 'Khám phá'}</Text>
               </View>
             </View>
           </View>
-          <ThinkingFox size={86} />
+          <ThinkingFox size={86} xmas={xmas} />
         </Tap>
       </Reveal>
 
@@ -324,7 +382,12 @@ export const HomeScreen = () => {
       {/* Lối tắt tính năng */}
       {actions.length > 0 ? (
         <Reveal delay={180} style={s.section}>
-          <Text style={dsText.h2}>Luyện tập</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+            <Text style={dsText.h2}>Luyện tập</Text>
+            {xmas ? (
+              <PineBranch size={96} flip style={{ marginRight: -20, marginBottom: -6 }} />
+            ) : null}
+          </View>
           {scanAction ? <AiScanFeatureCard onPress={() => go(scanAction.route)} /> : null}
           <View style={s.grid}>
             {practiceTiles.map((a) => {
@@ -345,6 +408,7 @@ export const HomeScreen = () => {
                   <Text style={s.practiceHint} numberOfLines={2}>
                     {a.hint}
                   </Text>
+                  {xmas ? <SnowEdge /> : null}
                 </Tap>
               );
             })}
@@ -355,12 +419,15 @@ export const HomeScreen = () => {
       {/* Lớp học & Cộng đồng */}
       {connectActions.length > 0 ? (
         <Reveal delay={210} style={s.section}>
-          <Text style={dsText.h2}>Lớp học & Cộng đồng</Text>
+          <View style={s.sectionRow}>
+            <Text style={dsText.h2}>Lớp học & Cộng đồng</Text>
+            {xmas ? <Reindeer size={40} style={{ marginBottom: -6 }} /> : null}
+          </View>
           <View style={s.grid}>
             {connectActions.map((a) => {
               const Icon = a.icon;
               return (
-                <Tap key={a.key} onPress={() => go(a.route)} style={s.actionTile}>
+                <Tap key={a.key} onPress={() => go(a.route)} style={[s.actionTile, xmas && glassCard()]}>
                   <View style={[s.actionIcon, { backgroundColor: a.tone }]}>
                     <Icon size={24} color={a.tint} />
                   </View>
@@ -388,7 +455,10 @@ export const HomeScreen = () => {
       {isLoggedIn ? (
         <Reveal delay={260} style={s.section}>
           <View style={s.sectionRow}>
-            <Text style={dsText.h2}>Nhiệm vụ hôm nay</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6 }}>
+              <Text style={dsText.h2}>Nhiệm vụ hôm nay</Text>
+              {xmas ? <Snowman size={26} /> : null}
+            </View>
             <Pressable onPress={() => go('/(student)/daily-challenge')} hitSlop={8}>
               <Text style={s.seeAll}>Xem tất cả</Text>
             </Pressable>
@@ -405,7 +475,7 @@ export const HomeScreen = () => {
       {/* Luyện viết với AI */}
       {isLoggedIn ? (
         <Reveal delay={320}>
-          <Tap onPress={() => go('/(student)/practice/writing')} style={s.pathRow} scaleTo={0.98}>
+          <Tap onPress={() => go('/(student)/practice/writing')} style={[s.pathRow, xmas && glassCard()]} scaleTo={0.98}>
             <View style={[s.actionIcon, { backgroundColor: ds.greenSoft }]}>
               <PenLine size={22} color={ds.green} />
             </View>
@@ -421,7 +491,7 @@ export const HomeScreen = () => {
       {/* Bài kiểm tra đầu vào: chưa làm thì mời làm để xếp lộ trình */}
       {needsPlacement && hasPermission('take_quiz_exam') ? (
         <Reveal delay={330}>
-          <Tap onPress={() => go('/(student)/placement')} style={s.pathRow} scaleTo={0.98} accessibilityLabel="Làm bài kiểm tra đầu vào">
+          <Tap onPress={() => go('/(student)/placement')} style={[s.pathRow, xmas && glassCard()]} scaleTo={0.98} accessibilityLabel="Làm bài kiểm tra đầu vào">
             <View style={[s.actionIcon, { backgroundColor: ds.amberSoft }]}>
               <ClipboardCheck size={22} color={ds.amberText} />
             </View>
@@ -435,8 +505,14 @@ export const HomeScreen = () => {
       ) : null}
 
       {/* Lộ trình */}
+      {xmas ? (
+        <View pointerEvents="none" style={{ flexDirection: 'row', justifyContent: 'space-between', marginVertical: -8, paddingHorizontal: 12 }}>
+          <Lantern size={30} delay={200} />
+          <Lantern size={30} delay={900} />
+        </View>
+      ) : null}
       <Reveal delay={340}>
-        <Tap onPress={() => go('/(student)/learn')} style={s.pathRow} scaleTo={0.98}>
+        <Tap onPress={() => go('/(student)/learn')} style={[s.pathRow, xmas && glassCard()]} scaleTo={0.98}>
           <View style={[s.actionIcon, { backgroundColor: ds.skySoft }]}>
             <BookOpen size={22} color={ds.btn} />
           </View>
@@ -456,7 +532,8 @@ export const HomeScreen = () => {
       <Reveal delay={360}>
         <TeacherCoursesShowcase />
       </Reveal>
-    </ScrollView>
+    </RA.ScrollView>
+    </View>
   );
 };
 
@@ -487,20 +564,28 @@ const WobbleFlame: React.FC = () => {
   );
 };
 
-const StatChip: React.FC<{ icon: React.ReactNode; tone: string; value: string; label: string; onPress?: () => void }> = ({
-  icon,
-  tone,
-  value,
-  label,
-  onPress,
-}) => (
+const StatChip: React.FC<{
+  icon: React.ReactNode;
+  tone: string;
+  value: string;
+  label: string;
+  onPress?: () => void;
+  /** Kiểu thẻ kính mùa đông (giao diện tối + Giáng sinh). */
+  winter?: boolean;
+  glow?: string;
+  /** Ánh kim chạy qua biểu tượng (đồng xu). */
+  shimmer?: boolean;
+}> = ({ icon, tone, value, label, onPress, winter, glow, shimmer }) => (
   <Pressable
-    style={s.statChip}
+    style={[s.statChip, winter && glassCard(glow)]}
     onPress={onPress}
     disabled={!onPress}
     accessibilityLabel={onPress ? `${label} - mở cửa hàng` : undefined}
   >
-    <View style={[s.statIcon, { backgroundColor: tone }]}>{icon}</View>
+    <View style={[s.statIcon, { backgroundColor: tone }, winter && { overflow: 'hidden' }]}>
+      {icon}
+      {winter && shimmer ? <ShimmerSweep width={40} every={2600} /> : null}
+    </View>
     <View style={{ flexShrink: 1 }}>
       <Text style={s.statValue} numberOfLines={1}>
         {value}
@@ -509,6 +594,7 @@ const StatChip: React.FC<{ icon: React.ReactNode; tone: string; value: string; l
         {label}
       </Text>
     </View>
+    {winter ? <SnowCorner size={30} /> : null}
   </Pressable>
 );
 
@@ -602,7 +688,7 @@ const s = StyleSheet.create({
     padding: 20,
     gap: 8,
     borderRadius: dsRadius.xl,
-    backgroundColor: ds.ink,
+    backgroundColor: ds.hero,
     overflow: 'hidden',
     ...dsShadow.lift,
   },

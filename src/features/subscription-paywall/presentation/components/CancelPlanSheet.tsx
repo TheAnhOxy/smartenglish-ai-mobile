@@ -82,7 +82,7 @@ export const CancelPlanSheet: React.FC<CancelPlanSheetProps> = ({ visible, onClo
 
           {fields.map(({ key, label, placeholder, numeric }) => (
             <View key={key} className="mb-3">
-              <Text className="text-xs font-semibold text-neutralGray mb-1">{label}</Text>
+              <Text className="text-xs font-semibold text-neutralGray mb-1 dark:text-darkMuted">{label}</Text>
               <TextInput
                 value={form[key]}
                 onChangeText={set(key)}

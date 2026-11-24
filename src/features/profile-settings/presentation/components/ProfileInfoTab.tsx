@@ -18,6 +18,7 @@ import {
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { UserAvatar } from '@/src/core/components/UserAvatar';
+import { dk, isDarkTheme } from '@/src/theme/themeMode';
 
 export const COUNTRY_OPTIONS = [
   { code: 'VN', label: 'Việt Nam' },
@@ -70,7 +71,7 @@ export const ProfileInfoTab: React.FC<ProfileInfoTabProps> = ({
   return (
     <Animated.View entering={FadeInDown.duration(300)}>
       {/* Avatar Hero Card */}
-      <View className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm items-center mb-4">
+      <View className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm items-center mb-4 dark:bg-darkCard dark:border-darkLine">
         <View className="relative">
           <UserAvatar uri={avatarUrl} size={96} style={{ borderWidth: 4, borderColor: 'rgba(13,59,115,0.2)' }} />
           {isUploadingAvatar && (
@@ -90,33 +91,33 @@ export const ProfileInfoTab: React.FC<ProfileInfoTabProps> = ({
         <Pressable
           onPress={handlePickAvatar}
           disabled={isUploadingAvatar}
-          className="mt-3 bg-gray-50 hover:bg-gray-100 active:bg-gray-100 px-4 py-1.5 rounded-full border border-gray-200 flex-row items-center gap-1.5"
+          className={`mt-3 bg-gray-50 hover:bg-gray-100 px-4 py-1.5 rounded-full border border-gray-200 flex-row items-center gap-1.5 dark:bg-darkBg dark:border-darkLine ${isDarkTheme() ? 'active:bg-[#2B4C7E]' : 'active:bg-gray-100'}`}
         >
-          <Camera color="#4B5563" size={13} />
-          <Text className="text-xs font-semibold text-gray-700">
+          <Camera color={dk('#4B5563', 'text')} size={13} />
+          <Text className="text-xs font-semibold text-gray-700 dark:text-darkMuted">
             {isUploadingAvatar ? 'Đang tải ảnh lên...' : 'Đổi ảnh đại diện'}
           </Text>
         </Pressable>
 
         {uploadSuccessNote && (
-          <View className="mt-2.5 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 flex-row items-center gap-1.5">
-            <Sparkles color="#059669" size={13} />
+          <View className="mt-2.5 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 flex-row items-center gap-1.5 dark:bg-darkRaised">
+            <Sparkles color={dk('#059669', 'text')} size={13} />
             <Text className="text-[11px] font-semibold text-emerald-700">{uploadSuccessNote}</Text>
           </View>
         )}
       </View>
 
       {/* Basic Info Fields Card */}
-      <View className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm mb-4">
-        <View className="flex-row items-center gap-2 mb-4 pb-2 border-b border-gray-100">
-          <UserIcon color="#0D3B73" size={18} />
-          <Text className="text-sm font-bold text-gray-800">Thông tin cơ bản</Text>
+      <View className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm mb-4 dark:bg-darkCard dark:border-darkLine">
+        <View className="flex-row items-center gap-2 mb-4 pb-2 border-b border-gray-100 dark:border-darkLine">
+          <UserIcon color={dk('#0D3B73', 'text')} size={18} />
+          <Text className="text-sm font-bold text-gray-800 dark:text-darkInk">Thông tin cơ bản</Text>
         </View>
 
         {/* Display Name */}
         <View className="mb-4">
           <View className="flex-row items-center gap-1 mb-1.5">
-            <Text className="text-xs font-semibold text-gray-600">Họ và tên / Tên hiển thị</Text>
+            <Text className="text-xs font-semibold text-gray-600 dark:text-darkMuted">Họ và tên / Tên hiển thị</Text>
             <Text className="text-xs font-bold text-red-500">*</Text>
           </View>
           <TextInput
@@ -124,14 +125,14 @@ export const ProfileInfoTab: React.FC<ProfileInfoTabProps> = ({
             onChangeText={setDisplayName}
             placeholder="Nhập tên hiển thị của bạn"
             placeholderTextColor="#9CA3AF"
-            className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2.5 text-sm text-gray-800 font-medium"
+            className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2.5 text-sm text-gray-800 font-medium dark:bg-darkBg dark:text-darkInk dark:border-darkLine"
           />
         </View>
 
         {/* Username */}
         <View className="mb-4">
-          <Text className="text-xs font-semibold text-gray-600 mb-1.5">Tên người dùng (Handle định danh)</Text>
-          <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-2xl px-4 py-1.5">
+          <Text className="text-xs font-semibold text-gray-600 mb-1.5 dark:text-darkMuted">Tên người dùng (Handle định danh)</Text>
+          <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-2xl px-4 py-1.5 dark:bg-darkBg dark:border-darkLine">
             <Text className="text-sm font-bold text-gray-400 mr-1">@</Text>
             <TextInput
               value={username}
@@ -139,19 +140,19 @@ export const ProfileInfoTab: React.FC<ProfileInfoTabProps> = ({
               placeholder="username"
               placeholderTextColor="#9CA3AF"
               autoCapitalize="none"
-              className="flex-1 py-1 text-sm text-gray-800 font-medium"
+              className="flex-1 py-1 text-sm text-gray-800 font-medium dark:text-darkInk"
             />
           </View>
         </View>
 
         {/* Email (Read-only) */}
         <View className="mb-4">
-          <Text className="text-xs font-semibold text-gray-600 mb-1.5">Địa chỉ Email</Text>
-          <View className="flex-row items-center bg-gray-100/70 border border-gray-200 rounded-2xl px-4 py-2.5">
+          <Text className="text-xs font-semibold text-gray-600 mb-1.5 dark:text-darkMuted">Địa chỉ Email</Text>
+          <View className="flex-row items-center bg-gray-100/70 border border-gray-200 rounded-2xl px-4 py-2.5 dark:bg-darkBg dark:border-darkLine">
             <Mail color="#9CA3AF" size={16} />
-            <Text className="text-sm text-gray-600 font-medium flex-1 ml-2">{email || 'chưa cập nhật'}</Text>
-            <View className="bg-emerald-100 px-2 py-0.5 rounded-full flex-row items-center gap-1">
-              <CheckCircle2 color="#059669" size={11} />
+            <Text className="text-sm text-gray-600 font-medium flex-1 ml-2 dark:text-darkMuted">{email || 'chưa cập nhật'}</Text>
+            <View className="bg-emerald-100 px-2 py-0.5 rounded-full flex-row items-center gap-1 dark:bg-darkRaised">
+              <CheckCircle2 color={dk('#059669', 'text')} size={11} />
               <Text className="text-[10px] font-bold text-emerald-700">Đã xác minh</Text>
             </View>
           </View>
@@ -159,8 +160,8 @@ export const ProfileInfoTab: React.FC<ProfileInfoTabProps> = ({
 
         {/* Phone */}
         <View className="mb-4">
-          <Text className="text-xs font-semibold text-gray-600 mb-1.5">Số điện thoại liên hệ</Text>
-          <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-2xl px-4 py-1.5">
+          <Text className="text-xs font-semibold text-gray-600 mb-1.5 dark:text-darkMuted">Số điện thoại liên hệ</Text>
+          <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-2xl px-4 py-1.5 dark:bg-darkBg dark:border-darkLine">
             <Phone color="#9CA3AF" size={16} />
             <TextInput
               value={phone}
@@ -168,14 +169,14 @@ export const ProfileInfoTab: React.FC<ProfileInfoTabProps> = ({
               placeholder="Ví dụ: 0901234567"
               placeholderTextColor="#9CA3AF"
               keyboardType="phone-pad"
-              className="flex-1 py-1 ml-2 text-sm text-gray-800 font-medium"
+              className="flex-1 py-1 ml-2 text-sm text-gray-800 font-medium dark:text-darkInk"
             />
           </View>
         </View>
 
         {/* Bio */}
         <View className="mb-4">
-          <Text className="text-xs font-semibold text-gray-600 mb-1.5">Tiểu sử ngắn</Text>
+          <Text className="text-xs font-semibold text-gray-600 mb-1.5 dark:text-darkMuted">Tiểu sử ngắn</Text>
           <TextInput
             value={bio}
             onChangeText={setBio}
@@ -184,13 +185,13 @@ export const ProfileInfoTab: React.FC<ProfileInfoTabProps> = ({
             multiline
             numberOfLines={3}
             textAlignVertical="top"
-            className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2.5 text-sm text-gray-800 font-medium h-20"
+            className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2.5 text-sm text-gray-800 font-medium h-20 dark:bg-darkBg dark:text-darkInk dark:border-darkLine"
           />
         </View>
 
         {/* Country Selection */}
         <View>
-          <Text className="text-xs font-semibold text-gray-600 mb-2">Quốc gia</Text>
+          <Text className="text-xs font-semibold text-gray-600 mb-2 dark:text-darkMuted">Quốc gia</Text>
           <View className="flex-row flex-wrap gap-2">
             {COUNTRY_OPTIONS.map((item) => {
               const isSelected = countryCode === item.code;
@@ -200,9 +201,9 @@ export const ProfileInfoTab: React.FC<ProfileInfoTabProps> = ({
                   onPress={() => setCountryCode(item.code)}
                   className={`px-3.5 py-2 rounded-2xl border ${
                     isSelected ? 'bg-[#0D3B73] border-[#0D3B73]' : 'bg-gray-50 border-gray-200'
-                  }`}
+                  } dark:bg-darkBg dark:border-darkLine`}
                 >
-                  <Text className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-gray-700'}`}>
+                  <Text className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-gray-700'} dark:text-darkMuted`}>
                     {item.label}
                   </Text>
                 </Pressable>

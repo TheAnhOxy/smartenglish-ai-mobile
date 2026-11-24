@@ -41,7 +41,7 @@ export const StudentClassDetailScreen = () => {
     return (
       <View className="flex-1 bg-surface dark:bg-darkBg justify-center items-center px-6">
         <AlertCircle size={28} color={AppColors.error} />
-        <Text className="text-sm text-neutralGray text-center my-3">
+        <Text className="text-sm text-neutralGray text-center my-3 dark:text-darkMuted">
           {error instanceof Error ? error.message : 'Không thể tải lớp học'}
         </Text>
         <View className="flex-row gap-3">
@@ -75,7 +75,7 @@ export const StudentClassDetailScreen = () => {
             </View>
           ) : null}
         </View>
-        <Text className="text-xs text-neutralGray mb-3">
+        <Text className="text-xs text-neutralGray mb-3 dark:text-darkMuted">
           {currentClass.teacherName || 'Giáo viên'} · {currentClass.joinCode}
         </Text>
 
@@ -88,7 +88,7 @@ export const StudentClassDetailScreen = () => {
                 onPress={() => setActiveTab(tab.key)}
                 className={`flex-1 py-2 rounded-lg items-center ${active ? 'bg-white dark:bg-darkCard' : ''}`}
               >
-                <Text className={`text-xs font-bold ${active ? 'text-primary' : 'text-neutralGray'}`}>{tab.label}</Text>
+                <Text className={`text-xs font-bold ${active ? 'text-primary' : 'text-neutralGray'} dark:text-darkMuted`}>{tab.label}</Text>
               </Pressable>
             );
           })}

@@ -4,6 +4,7 @@ import { useRouter, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Camera, ChevronRight, MessageCircle, Mic, PenLine } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
+import { isDarkTheme } from '@/src/theme/themeMode';
 
 const MODULES: { title: string; route: Href; Icon: typeof Camera }[] = [
   { title: 'Quét ảnh học từ vựng', route: '/(student)/practice/scan', Icon: Camera },
@@ -28,7 +29,7 @@ export const PracticeHubScreen = () => {
           <Pressable
             key={title}
             onPress={() => router.push(route)}
-            className="bg-white dark:bg-darkCard p-4 rounded-2xl border border-gray-100 dark:border-gray-800 flex-row items-center active:bg-gray-50"
+            className={`bg-white dark:bg-darkCard p-4 rounded-2xl border border-gray-100 dark:border-gray-800 flex-row items-center ${isDarkTheme() ? 'active:bg-[#2B4C7E]' : 'active:bg-gray-50'}`}
           >
             <View className="w-11 h-11 rounded-xl bg-primary/10 items-center justify-center mr-3">
               <Icon size={20} color={AppColors.primary} />

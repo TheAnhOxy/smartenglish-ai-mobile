@@ -37,7 +37,7 @@ export const PlacementResultScreen = () => {
     return (
       <View className="flex-1 bg-surface dark:bg-darkBg items-center justify-center px-8" style={{ paddingTop: insets.top }}>
         <ClipboardCheck size={28} color={AppColors.neutralGray} />
-        <Text className="text-sm text-neutralGray text-center my-4">Chưa có kết quả bài kiểm tra</Text>
+        <Text className="text-sm text-neutralGray text-center my-4 dark:text-darkMuted">Chưa có kết quả bài kiểm tra</Text>
         <View className="w-full">
           <AuthButton label="Làm bài kiểm tra" onPress={() => router.replace(routes.intro as any)} />
         </View>
@@ -56,7 +56,7 @@ export const PlacementResultScreen = () => {
           <Text className="text-3xl font-bold text-primary">{result.cefr_level}</Text>
         </View>
         <Text className="text-xl font-bold text-neutralInk dark:text-white">Trình độ {result.cefr_level}</Text>
-        <Text className="text-sm text-neutralGray mt-1">Đúng {result.score_pct}%</Text>
+        <Text className="text-sm text-neutralGray mt-1 dark:text-darkMuted">Đúng {result.score_pct}%</Text>
       </View>
 
       {result.skills ? (
@@ -84,7 +84,7 @@ export const PlacementResultScreen = () => {
           {result.recommendedGoal ? (
             <Text className="text-sm font-bold text-neutralInk dark:text-white mb-1">Lộ trình gợi ý: {result.recommendedGoal}</Text>
           ) : null}
-          {result.feedbackVi ? <Text className="text-sm text-neutralGray leading-5">{result.feedbackVi}</Text> : null}
+          {result.feedbackVi ? <Text className="text-sm text-neutralGray leading-5 dark:text-darkMuted">{result.feedbackVi}</Text> : null}
         </View>
       ) : null}
 

@@ -18,11 +18,11 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ visible, onClo
   return (
     <Modal visible={visible} transparent animationType="slide">
       <View className="flex-1 bg-black/60 justify-end">
-        <View className="bg-cardWhite p-6 rounded-t-3xl border-t border-gray-100">
+        <View className="bg-cardWhite p-6 rounded-t-3xl border-t border-gray-100 dark:bg-darkCard dark:border-darkLine">
           <View className="w-12 h-1 bg-gray-300 rounded-full self-center mb-4" />
 
-          <Text className="text-xl font-bold text-neutralInk mb-1">Chia Sẻ Cột Mốc Học Tập</Text>
-          <Text className="text-xs text-neutralGray mb-4">Đăng bài viết truyền cảm hứng cho cộng đồng SmartEnglish</Text>
+          <Text className="text-xl font-bold text-neutralInk mb-1 dark:text-darkInk">Chia Sẻ Cột Mốc Học Tập</Text>
+          <Text className="text-xs text-neutralGray mb-4 dark:text-darkMuted">Đăng bài viết truyền cảm hứng cho cộng đồng SmartEnglish</Text>
 
           <TextInput
             value={content}
@@ -30,12 +30,12 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ visible, onClo
             multiline
             numberOfLines={4}
             placeholder="Viết suy nghĩ hoặc trải nghiệm học tập của bạn tại đây..."
-            className="bg-surface p-4 rounded-xl border border-gray-200 text-neutralInk text-sm mb-6 h-28"
+            className="bg-surface p-4 rounded-xl border border-gray-200 text-neutralInk text-sm mb-6 h-28 dark:bg-darkBg dark:text-darkInk dark:border-darkLine"
           />
 
           <View className="flex-row gap-3">
-            <Pressable onPress={onClose} className="flex-1 py-3.5 rounded-xl border border-gray-200 items-center">
-              <Text className="font-semibold text-neutralInk">Hủy</Text>
+            <Pressable onPress={onClose} className="flex-1 py-3.5 rounded-xl border border-gray-200 items-center dark:border-darkLine">
+              <Text className="font-semibold text-neutralInk dark:text-darkInk">Hủy</Text>
             </Pressable>
 
             <Pressable

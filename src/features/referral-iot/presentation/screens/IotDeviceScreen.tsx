@@ -11,18 +11,18 @@ export const IotDeviceScreen = () => {
   const [lightMode, setLightMode] = useState<'breathing_fire' | 'solid_gold' | 'off'>('breathing_fire');
 
   return (
-    <ScrollView style={{ paddingTop: insets.top + 8 }} className="flex-1 bg-surface px-6 pb-10" showsVerticalScrollIndicator={false}>
+    <ScrollView style={{ paddingTop: insets.top + 8 }} className="flex-1 bg-surface px-6 pb-10 dark:bg-darkBg" showsVerticalScrollIndicator={false}>
       <BackButton style={{ marginBottom: 16 }} />
 
-      <Text className="text-2xl font-bold text-neutralInk mb-1">Kết Nối Đèn IoT SmartLamp</Text>
-      <Text className="text-xs text-neutralGray mb-6">Đồng bộ ánh sáng sinh học theo chuỗi Streak & thời gian học</Text>
+      <Text className="text-2xl font-bold text-neutralInk mb-1 dark:text-darkInk">Kết Nối Đèn IoT SmartLamp</Text>
+      <Text className="text-xs text-neutralGray mb-6 dark:text-darkMuted">Đồng bộ ánh sáng sinh học theo chuỗi Streak & thời gian học</Text>
 
-      <View className="bg-cardWhite p-5 rounded-2xl border border-gray-100 mb-6 shadow-sm">
+      <View className="bg-cardWhite p-5 rounded-2xl border border-gray-100 mb-6 shadow-sm dark:bg-darkCard dark:border-darkLine">
         <View className="flex-row justify-between items-center mb-4">
           <View className="flex-row items-center gap-3">
             <Lightbulb size={24} color={AppColors.primary} />
             <View>
-              <Text className="text-sm font-bold text-neutralInk">SmartLamp ESP32 BLE</Text>
+              <Text className="text-sm font-bold text-neutralInk dark:text-darkInk">SmartLamp ESP32 BLE</Text>
               <Text className={`text-[10px] font-bold ${isConnected ? 'text-success' : 'text-error'}`}>
                 {isConnected ? '● Đã Kết Nối Bluetooth' : '○ Ngắt Kết Nối'}
               </Text>
@@ -32,8 +32,8 @@ export const IotDeviceScreen = () => {
         </View>
 
         {isConnected && (
-          <View className="gap-2 border-t border-gray-100 pt-4">
-            <Text className="text-xs font-bold text-neutralInk mb-1">Hiệu Ứng Ánh Sáng Đèn Học:</Text>
+          <View className="gap-2 border-t border-gray-100 pt-4 dark:border-darkLine">
+            <Text className="text-xs font-bold text-neutralInk mb-1 dark:text-darkInk">Hiệu Ứng Ánh Sáng Đèn Học:</Text>
             {[
               { mode: 'breathing_fire', name: 'Ngọn Lửa Streak (Breathing Fire)' },
               { mode: 'solid_gold', name: 'Vàng Hoàng Kim Tập Trung (Solid Gold)' },
@@ -44,9 +44,9 @@ export const IotDeviceScreen = () => {
                 onPress={() => setLightMode(m.mode as any)}
                 className={`p-3 rounded-xl border flex-row justify-between items-center ${
                   lightMode === m.mode ? 'bg-primary/10 border-primary' : 'bg-surface border-gray-200'
-                }`}
+                } dark:bg-darkBg dark:border-darkLine`}
               >
-                <Text className={`text-xs font-bold ${lightMode === m.mode ? 'text-primary' : 'text-neutralInk'}`}>
+                <Text className={`text-xs font-bold ${lightMode === m.mode ? 'text-primary' : 'text-neutralInk'} dark:text-darkInk`}>
                   {m.name}
                 </Text>
                 {lightMode === m.mode && <Text className="text-primary font-bold text-xs">✓</Text>}

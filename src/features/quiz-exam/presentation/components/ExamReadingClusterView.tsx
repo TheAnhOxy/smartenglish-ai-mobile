@@ -25,6 +25,7 @@ import { colors } from '@/src/theme/colors';
 import { font } from '@/src/theme/typography';
 import { AnswerKey, ExamPassage, ExamQuestion } from '../../data/examAttemptApi';
 import { ds, dsFont } from '@/src/theme/ds';
+import { dk } from '@/src/theme/themeMode';
 
 export interface ExamReadingClusterViewProps {
   questions: ExamQuestion[];
@@ -93,7 +94,7 @@ export const ExamReadingClusterView: React.FC<ExamReadingClusterViewProps> = ({
           <View style={styles.passageHeaderRow}>
             <View style={styles.passageHeaderLeft}>
               <View style={styles.passageBadge}>
-                <FileText size={13} color="#166534" />
+                <FileText size={13} color={dk('#166534', 'text')} />
                 <Text style={styles.passageBadgeText}>
                   {passage.type ? passage.type.toUpperCase() : 'VĂN BẢN'} · {groupLabel}
                 </Text>
@@ -112,7 +113,7 @@ export const ExamReadingClusterView: React.FC<ExamReadingClusterViewProps> = ({
                 style={styles.iconBtn}
                 hitSlop={6}
               >
-                <Maximize2 size={16} color="#5B6B7F" />
+                <Maximize2 size={16} color={dk('#5B6B7F', 'text')} />
               </Pressable>
 
               {/* Thu gọn / Mở rộng */}
@@ -122,9 +123,9 @@ export const ExamReadingClusterView: React.FC<ExamReadingClusterViewProps> = ({
                 hitSlop={6}
               >
                 {isPassageExpanded ? (
-                  <ChevronUp size={18} color="#5B6B7F" />
+                  <ChevronUp size={18} color={dk('#5B6B7F', 'text')} />
                 ) : (
-                  <ChevronDown size={18} color="#5B6B7F" />
+                  <ChevronDown size={18} color={dk('#5B6B7F', 'text')} />
                 )}
               </Pressable>
             </View>
@@ -196,7 +197,7 @@ export const ExamReadingClusterView: React.FC<ExamReadingClusterViewProps> = ({
                 <Text style={styles.modalSubtitle}>{groupLabel}</Text>
               </View>
               <Pressable onPress={() => setIsModalOpen(false)} style={styles.closeModalBtn}>
-                <X size={20} color="#0F2A44" />
+                <X size={20} color={dk('#0F2A44', 'text')} />
               </Pressable>
             </View>
 
@@ -292,7 +293,7 @@ export const ExamReadingClusterView: React.FC<ExamReadingClusterViewProps> = ({
               {/* Inline Translation nếu có */}
               {isPracticeMode && isRevealed && showInlineTranslation && currentTranslations?.question ? (
                 <View style={styles.translationBox}>
-                  <Languages size={12} color="#0369A1" style={{ marginTop: 2 }} />
+                  <Languages size={12} color={dk('#0369A1', 'text')} style={{ marginTop: 2 }} />
                   <Text style={styles.translationText}>{currentTranslations.question}</Text>
                 </View>
               ) : null}
@@ -362,7 +363,7 @@ export const ExamReadingClusterView: React.FC<ExamReadingClusterViewProps> = ({
               {isPracticeMode && isRevealed && Boolean(q.explanationVi) && (
                 <View style={styles.explanationBox}>
                   <View style={styles.explanationHeaderRow}>
-                    <Sparkles size={14} color="#0284C7" />
+                    <Sparkles size={14} color={dk('#0284C7', 'text')} />
                     <Text style={styles.explanationHeaderTitle}>Giải thích chi tiết</Text>
                   </View>
                   <Text style={styles.explanationText}>{q.explanationVi}</Text>

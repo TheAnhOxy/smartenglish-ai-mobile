@@ -46,6 +46,7 @@ import {
 } from '../../data/speakingApi';
 import { BackButton } from '@/src/core/components/BackButton';
 import { hasActivePremium } from '@/src/core/utils/plan';
+import { dk } from '@/src/theme/themeMode';
 
 export const UnitSpeakingRoleplayScreen = () => {
   const { scenarioName } = useLocalSearchParams<{ scenarioName?: string }>();
@@ -285,7 +286,7 @@ export const UnitSpeakingRoleplayScreen = () => {
 
         {/* Hero Scenario Banner Image */}
         <View style={s.bannerBox}>
-          <View style={[s.bannerImg, { backgroundColor: '#E0F2FE' }]} />
+          <View style={[s.bannerImg, { backgroundColor: dk('#E0F2FE', 'bg') }]} />
           <View style={s.avatarOverlayWrap}>
             <UserAvatar uri={null} size={64} style={s.aiBaristaAvatar} />
           </View>
@@ -294,7 +295,7 @@ export const UnitSpeakingRoleplayScreen = () => {
         {/* AI Opening Speech Bubble */}
         <View style={s.aiBubbleRow}>
           <Pressable onPress={playAiVoice} style={s.aiAvatarCircle}>
-            <Bot color="#0891B2" size={20} />
+            <Bot color={dk('#0891B2', 'text')} size={20} />
           </Pressable>
           <View style={s.aiSpeechBox}>
             <Text style={s.aiSpeechText}>Welcome! What would you like to order today?</Text>

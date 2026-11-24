@@ -14,21 +14,21 @@ export default function ReadingPassageScreen() {
 
   if (isLoading || !passage) {
     return (
-      <View className="flex-1 bg-surface justify-center items-center">
+      <View className="flex-1 bg-surface justify-center items-center dark:bg-darkBg">
         <ActivityIndicator color="#0EA5E9" size="large" />
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-surface pt-14 px-6 justify-between pb-6">
+    <View className="flex-1 bg-surface pt-14 px-6 justify-between pb-6 dark:bg-darkBg">
       <View className="flex-1">
         <Pressable onPress={() => router.back()} className="mb-4">
           <Text className="text-primary font-bold text-sm">← Bài Tập Đọc Hiểu</Text>
         </Pressable>
 
         <View className="flex-row justify-between items-center mb-2">
-          <Text className="text-xl font-bold text-neutralInk flex-1 mr-2">{passage.title}</Text>
+          <Text className="text-xl font-bold text-neutralInk flex-1 mr-2 dark:text-darkInk">{passage.title}</Text>
           <View className="bg-secondary/20 px-2.5 py-1 rounded-full">
             <Text className="text-xs font-bold text-secondary">{passage.cefr_level}</Text>
           </View>
@@ -45,15 +45,15 @@ export default function ReadingPassageScreen() {
         </Pressable>
 
         {/* Dual Split Reader */}
-        <ScrollView className="flex-1 bg-cardWhite p-5 rounded-2xl border border-gray-100 mb-4 shadow-sm" showsVerticalScrollIndicator={false}>
-          <Text className="text-base text-neutralInk leading-7 mb-4 font-medium">
+        <ScrollView className="flex-1 bg-cardWhite p-5 rounded-2xl border border-gray-100 mb-4 shadow-sm dark:bg-darkCard dark:border-darkLine" showsVerticalScrollIndicator={false}>
+          <Text className="text-base text-neutralInk leading-7 mb-4 font-medium dark:text-darkInk">
             {passage.content_en}
           </Text>
 
           {showTranslate && (
-            <View className="bg-surface p-4 rounded-xl border border-gray-200 border-dashed">
+            <View className="bg-surface p-4 rounded-xl border border-gray-200 border-dashed dark:bg-darkBg dark:border-darkLine">
               <Text className="text-xs font-bold text-secondary mb-1">Bản Dịch Tiếng Việt:</Text>
-              <Text className="text-xs text-neutralInk leading-5">{passage.content_vi}</Text>
+              <Text className="text-xs text-neutralInk leading-5 dark:text-darkInk">{passage.content_vi}</Text>
             </View>
           )}
         </ScrollView>

@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cleanAvatarUrl } from '../utils/avatarHelper';
 import { addPostCommentApi, CommunityPostDto } from '../../data/socialApi';
 import { UserAvatar } from '@/src/core/components/UserAvatar';
+import { dk } from '@/src/theme/themeMode';
 
 interface PostCommentModalProps {
   visible: boolean;
@@ -116,13 +117,13 @@ export const PostCommentModal: React.FC<PostCommentModalProps> = ({
         {/* Header */}
         <View style={[styles.header, { paddingTop: Math.max(insets.top, 14) }]}>
           <View style={styles.headerTitleWrap}>
-            <MessageSquare color="#0F172A" size={18} />
+            <MessageSquare color={dk('#0F172A', 'text')} size={18} />
             <Text style={styles.headerTitle}>
               Bình luận ({comments.length})
             </Text>
           </View>
           <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={10}>
-            <X color="#64748B" size={20} />
+            <X color={dk('#64748B', 'text')} size={20} />
           </Pressable>
         </View>
 
@@ -165,7 +166,7 @@ export const PostCommentModal: React.FC<PostCommentModalProps> = ({
                       style={styles.commentAvatar}
                     />
                   ) : (
-                    <View style={[styles.commentAvatar, { backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#C7D2FE' }]}>
+                    <View style={[styles.commentAvatar, { backgroundColor: dk('#EEF2FF', 'bg'), justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: dk('#C7D2FE', 'border') }]}>
                       <Text style={{ fontSize: 13, fontWeight: '700', color: '#4F46E5' }}>{cInit}</Text>
                     </View>
                   )}
@@ -203,7 +204,7 @@ export const PostCommentModal: React.FC<PostCommentModalProps> = ({
             value={commentText}
             onChangeText={setCommentText}
             placeholder="Viết câu trả lời hoặc thảo luận..."
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={dk('#94A3B8', 'text')}
             style={styles.textInput}
             multiline
             maxLength={1000}

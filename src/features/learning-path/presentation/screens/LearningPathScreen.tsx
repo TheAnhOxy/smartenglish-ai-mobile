@@ -7,6 +7,7 @@ import Animated, {
   withSequence,
   withTiming,
   withSpring,
+  useAnimatedScrollHandler,
 } from 'react-native-reanimated';
 import Svg, { Path, Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -41,6 +42,13 @@ import { easings } from '@/src/theme/motion';
 import { usePulseRing } from '@/src/hooks/usePulseRing';
 import { TabLoadingState } from '@/src/components/ui/TabLoadingState';
 import { hasActivePremium } from '@/src/core/utils/plan';
+import { Garland, GiftBox, Snowman, XmasTree } from '@/src/components/xmas/XmasArt';
+import { useXmasActive } from '@/src/core/services/xmas';
+import { getWinterWorld, WINTER, type WinterDecor } from '../winter/winterWorlds';
+import { WinterBackdrop } from '../winter/WinterBackdrop';
+import { WinterDecorItem, SantaHat } from '../winter/WinterArt';
+import { GoldShimmer, IceCrystals, NodeGlow, OrbitSparkles, SnowCap, WinterBannerDeco, WinterBranch } from '../winter/WinterPath';
+import { dk } from '@/src/theme/themeMode';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONTENT_WIDTH = SCREEN_WIDTH - 48;
@@ -272,6 +280,8 @@ interface TactileNodeProps {
   onPress: (unit: UnitNode) => void;
   activePulseStyle: any;
   biomeCompletedColor: string;
+  /** Kiểu bản đồ mùa đông (giao diện tối + Giáng sinh). */
+  winter?: boolean;
 }
 
 const TactileDuolingoNode: React.FC<TactileNodeProps> = ({
@@ -283,6 +293,7 @@ const TactileDuolingoNode: React.FC<TactileNodeProps> = ({
   onPress,
   activePulseStyle,
   biomeCompletedColor,
+  winter = false,
 }) => {
   const pressDown = useSharedValue(0);
 
@@ -323,10 +334,24 @@ const TactileDuolingoNode: React.FC<TactileNodeProps> = ({
     ? '#CBD5E1'
     : colors.primarySoft;
 
+  // Bản đồ mùa đông: hoàn thành = emerald viền vàng; hiện tại = xanh sapphire viền cyan; khoá = băng giá
+  const w = winter
+    ? {
+        face: isCompleted ? '#059669' : isCurrent ? '#1D4ED8' : isLocked ? '#1E2B45' : '#172554',
+        base: isCompleted ? '#064E3B' : isCurrent ? '#172554' : isLocked ? '#0F172A' : '#0B1730',
+        border: unit.is_premium && !isCompleted ? WINTER.gold : isCompleted ? WINTER.gold : isCurrent ? WINTER.cyan : isLocked ? 'rgba(147,197,253,0.45)' : WINTER.ice,
+      }
+    : null;
+
   return (
     <View style={s.nodeWrapper}>
+      {winter && (isCurrent || isCompleted) ? (
+        <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0 }}>
+          <NodeGlow size={NODE_SIZE} color={isCurrent ? WINTER.cyan : WINTER.gold} strong={isCurrent} />
+        </View>
+      ) : null}
       {/* Lớp đế 3D tạo độ dày đáy nổi */}
-      <View style={[s.nodeBase3D, { backgroundColor: baseBg }]} />
+      <View style={[s.nodeBase3D, { backgroundColor: w ? w.base : baseBg }]} />
 
       {/* Lớp mặt nút bấm lún */}
       <AnimatedPressable
@@ -336,8 +361,8 @@ const TactileDuolingoNode: React.FC<TactileNodeProps> = ({
         style={[
           s.nodeFace3D,
           {
-            backgroundColor: faceBg,
-            borderColor: borderColor,
+            backgroundColor: w ? w.face : faceBg,
+            borderColor: w ? w.border : borderColor,
             borderWidth: isCurrent ? 5 : 3.5,
           },
           isCurrent && activePulseStyle,
@@ -349,12 +374,14 @@ const TactileDuolingoNode: React.FC<TactileNodeProps> = ({
         ) : isCurrent ? (
           <GraduationCap color="#FFFFFF" size={34} />
         ) : isLocked ? (
-          <Lock color="#94A3B8" size={24} />
+          <Lock color={winter ? WINTER.ice : '#94A3B8'} size={24} />
         ) : unit.icon_type === 'speech' ? (
           <MessageCircle color={colors.primary} size={28} />
         ) : (
           <BookOpen color={colors.primary} size={28} />
         )}
+
+        {winter && isLocked ? <IceCrystals size={NODE_SIZE} /> : null}
 
         {/* Checkmark Badge cho Node hoàn thành */}
         {isCompleted && (
@@ -370,11 +397,52 @@ const TactileDuolingoNode: React.FC<TactileNodeProps> = ({
           </View>
         )}
       </AnimatedPressable>
+
+      {winter && isCompleted ? <SnowCap size={NODE_SIZE} /> : null}
+      {winter && unit.is_premium && !isCompleted ? <GoldShimmer size={NODE_SIZE} /> : null}
+      {winter && isCurrent ? (
+        <>
+          <OrbitSparkles size={NODE_SIZE} />
+          <SantaHat size={30} style={{ position: 'absolute', top: -20, left: NODE_SIZE / 2 - 6, transform: [{ rotate: '18deg' }] }} />
+        </>
+      ) : null}
+    </View>
+  );
+};
+
+// ─── TRANG TRÍ GIÁNG SINH DỌC ĐƯỜNG ĐI ───
+// Đặt ở khoảng trống hai mép, phía đối diện nút bài học cùng hàng → không che nút / tên bài.
+const XmasPathDecor: React.FC<{ index: number; chapterNumber: number; kinds?: WinterDecor[] }> = ({ index, chapterNumber, kinds }) => {
+  const mod = index % 4;
+  const leftSide = mod === 1 ? true : mod === 3 ? false : (Math.floor(index / 2) + chapterNumber) % 2 === 0;
+  const kind = (index + chapterNumber) % 3;
+  const top = index * VERTICAL_GAP + 4;
+  const pos = leftSide ? { left: 0 } : { right: 0 };
+  return (
+    <View pointerEvents="none" style={[s.xmasDecor, { top }, pos]}>
+      {kinds && kinds.length ? (
+        <WinterDecorItem kind={kinds[(index + chapterNumber) % kinds.length]} delay={index * 350} />
+      ) : kind === 0 ? (
+        <XmasTree size={42} delay={index * 300} />
+      ) : kind === 1 ? (
+        <Snowman size={38} delay={index * 300} />
+      ) : (
+        <View style={{ alignItems: 'center', paddingTop: 18 }}>
+          <GiftBox size={30} color={index % 2 ? '#0EA5E9' : '#E11D48'} delay={index * 300} />
+        </View>
+      )}
     </View>
   );
 };
 
 export const LearningPathScreen = () => {
+  // Bản đồ "Christmas Winter Adventure": chỉ ở giao diện tối khi bật trang trí Giáng sinh
+  const xmas = useXmasActive();
+  const winter = xmas;
+  const scrollY = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler((e) => {
+    scrollY.value = e.contentOffset.y;
+  });
   const router = useRouter();
   const { currentUser } = useAuthStore();
   const isPremium = hasActivePremium(currentUser);
@@ -386,7 +454,7 @@ export const LearningPathScreen = () => {
   const [errorMessage, setErrorMessage] = useState('');
 
   // Trình độ dùng để lọc: kết quả bài đầu vào mà lộ trình trả về, sau đó tới hồ sơ học viên
-  const { level: profileLevel } = useLearnerLevel();
+  const { level: profileLevel, needsPlacement } = useLearnerLevel();
   const learnerLevel = useMemo(
     () => normalizeCefr(curriculum.find((c) => c.placement_level)?.placement_level) ?? profileLevel,
     [curriculum, profileLevel],
@@ -519,10 +587,15 @@ export const LearningPathScreen = () => {
   };
 
   return (
-    <View style={s.container}>
-      <DynamicPathBackground />
+    <View style={[s.container, winter && { backgroundColor: WINTER.midnight }]}>
+      {winter ? <WinterBackdrop scrollY={scrollY} /> : <DynamicPathBackground />}
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollContent}>
+      <Animated.ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={s.scrollContent}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+      >
         {/* Header Bar */}
         <View style={s.headerRow}>
           <View style={{ flex: 1, marginRight: 10 }}>
@@ -536,13 +609,33 @@ export const LearningPathScreen = () => {
           {!isPremium && (
             <Pressable
               onPress={() => router.push({ pathname: '/(student)/profile/premium', params: { from: 'learn' } } as any)}
-              style={s.premiumTag}
+              style={[s.premiumTag, winter && s.winterPro]}
             >
-              <Crown color={colors.warning} size={14} />
-              <Text style={s.premiumTagText}>Mở khóa Pro</Text>
+              <Crown color={winter ? WINTER.midnight : colors.warning} size={14} />
+              <Text style={[s.premiumTagText, winter && { color: WINTER.midnight }]}>Mở khóa Pro</Text>
             </Pressable>
           )}
         </View>
+
+        {xmas ? <Garland width={CONTENT_WIDTH} style={{ marginTop: -4, marginBottom: 6 }} /> : null}
+
+        {/* Chưa làm test đầu vào: mời làm trước để lộ trình bắt đầu đúng trình độ */}
+        {needsPlacement ? (
+          <Pressable
+            onPress={() => router.push('/(student)/placement' as never)}
+            style={s.placementCta}
+            accessibilityRole="button"
+            accessibilityLabel="Làm bài kiểm tra đầu vào"
+          >
+            <View style={s.placementCtaIcon}>
+              <Compass color="#FFFFFF" size={22} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.placementCtaTitle}>Làm bài kiểm tra đầu vào</Text>
+              <Text style={s.placementCtaSub}>Khoảng 3 phút để AI xác định trình độ và xếp lộ trình phù hợp cho bạn</Text>
+            </View>
+          </Pressable>
+        ) : null}
 
         {!isLoading && !isError && curriculum.length > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.levelChips}>
@@ -553,11 +646,11 @@ export const LearningPathScreen = () => {
                 <Pressable
                   key={f}
                   onPress={() => pickLevel(f)}
-                  style={[s.levelChip, active && s.levelChipActive]}
+                  style={[s.levelChip, active && s.levelChipActive, winter && (active ? s.winterChipActive : s.winterChip)]}
                   accessibilityState={{ selected: active }}
                   accessibilityLabel={f === 'ALL' ? 'Xem lộ trình mọi trình độ' : `Lộ trình trình độ ${f}`}
                 >
-                  <Text style={[s.levelChipText, active && s.levelChipTextActive]}>{label}</Text>
+                  <Text style={[s.levelChipText, active && s.levelChipTextActive, winter && { color: active ? WINTER.midnight : WINTER.ice }]}>{label}</Text>
                 </Pressable>
               );
             })}
@@ -567,14 +660,14 @@ export const LearningPathScreen = () => {
         {isLoading ? (
           <TabLoadingState message="Đang tải lộ trình học..." />
         ) : isError ? (
-          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 24, marginHorizontal: 4, marginTop: 24, alignItems: 'center', borderWidth: 1, borderColor: '#FEE2E2', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 }}>
-            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#FEF2F2', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+          <View style={{ backgroundColor: dk('#FFFFFF', 'bg'), borderRadius: 20, padding: 24, marginHorizontal: 4, marginTop: 24, alignItems: 'center', borderWidth: 1, borderColor: dk('#FEE2E2', 'border'), shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 }}>
+            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: dk('#FEF2F2', 'bg'), alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
               <AlertCircle color="#EF4444" size={28} />
             </View>
-            <Text style={{ fontSize: 17, fontWeight: '700', color: '#1E293B', marginBottom: 6, textAlign: 'center' }}>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: dk('#1E293B', 'text'), marginBottom: 6, textAlign: 'center' }}>
               Không thể tải lộ trình học
             </Text>
-            <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center', lineHeight: 20, marginBottom: 20, paddingHorizontal: 12 }}>
+            <Text style={{ fontSize: 13, color: dk('#64748B', 'text'), textAlign: 'center', lineHeight: 20, marginBottom: 20, paddingHorizontal: 12 }}>
               {errorMessage || 'Đã có lỗi xảy ra khi kết nối đến dịch vụ học tập. Vui lòng kiểm tra lại kết nối mạng.'}
             </Text>
             <Pressable
@@ -586,14 +679,14 @@ export const LearningPathScreen = () => {
             </Pressable>
           </View>
         ) : curriculum.length === 0 ? (
-          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 28, marginHorizontal: 4, marginTop: 24, alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 }}>
-            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+          <View style={{ backgroundColor: dk('#FFFFFF', 'bg'), borderRadius: 20, padding: 28, marginHorizontal: 4, marginTop: 24, alignItems: 'center', borderWidth: 1, borderColor: dk('#E2E8F0', 'border'), shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 }}>
+            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: dk('#EFF6FF', 'bg'), alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
               <Compass color="#3B82F6" size={28} />
             </View>
-            <Text style={{ fontSize: 17, fontWeight: '700', color: '#1E293B', marginBottom: 6, textAlign: 'center' }}>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: dk('#1E293B', 'text'), marginBottom: 6, textAlign: 'center' }}>
               Chưa có dữ liệu lộ trình học
             </Text>
-            <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center', lineHeight: 20, marginBottom: 20, paddingHorizontal: 8 }}>
+            <Text style={{ fontSize: 13, color: dk('#64748B', 'text'), textAlign: 'center', lineHeight: 20, marginBottom: 20, paddingHorizontal: 8 }}>
               Hệ thống chưa có khóa học tiêu chuẩn hoặc đang được cập nhật. Bạn có thể làm bài kiểm tra đầu vào để hệ thống sắp xếp bài học phù hợp.
             </Text>
             <Pressable
@@ -621,6 +714,7 @@ export const LearningPathScreen = () => {
         ) : (
           visibleChapters.map((chapter) => {
           const biome = getBiomeForChapter(chapter.chapter_number);
+          const world = getWinterWorld(chapter.chapter_number);
           const totalUnits = chapter.units.length;
           const chapterHeight = (totalUnits - 1) * VERTICAL_GAP + NODE_SIZE + 40;
           const isChapterAllDone =
@@ -635,19 +729,27 @@ export const LearningPathScreen = () => {
                   backgroundColor: biome.islandBg,
                   borderColor: biome.islandBorder,
                 },
+                winter && s.winterIsland,
               ]}
             >
               {/* Chapter Header Banner */}
               <LinearGradient
-                colors={biome.gradient}
+                colors={winter ? world.banner : biome.gradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0.8 }}
-                style={s.chapterBanner}
+                style={[s.chapterBanner, xmas && s.chapterBannerXmas, winter && [s.winterBanner, { borderColor: `${world.accent}77`, shadowColor: world.accent }]]}
               >
+                {winter ? <WinterBannerDeco width={CONTENT_WIDTH} accent={world.accent} /> : null}
+                {xmas ? (
+                  <View pointerEvents="none" style={s.bannerXmas}>
+                    <Snowman size={40} delay={chapter.chapter_number * 200} />
+                    <XmasTree size={50} delay={chapter.chapter_number * 350} />
+                  </View>
+                ) : null}
                 <View style={s.chapterBannerTop}>
-                  <View style={[s.biomeBadge, { backgroundColor: biome.badgeBg }]}>
-                    <Text style={[s.biomeBadgeText, { color: biome.badgeText }]}>
-                      {biome.name}
+                  <View style={[s.biomeBadge, { backgroundColor: winter ? 'rgba(255,255,255,0.12)' : biome.badgeBg }]}>
+                    <Text style={[s.biomeBadgeText, { color: winter ? world.accent : biome.badgeText }]}>
+                      {winter ? world.name : biome.name}
                     </Text>
                   </View>
 
@@ -690,6 +792,19 @@ export const LearningPathScreen = () => {
                     const isUpcoming =
                       unit.status === 'completed' || unit.status === 'current';
 
+                    if (winter) {
+                      return (
+                        <WinterBranch
+                          key={`branch-${unit.id}-${nextUnit.id}`}
+                          fromX={fromX}
+                          fromY={fromY}
+                          toX={toX}
+                          toY={toY}
+                          isCompleted={isCompleted}
+                          isUpcoming={isUpcoming}
+                        />
+                      );
+                    }
                     return (
                       <DuolingoBranch
                         key={`branch-${unit.id}-${nextUnit.id}`}
@@ -704,6 +819,13 @@ export const LearningPathScreen = () => {
                     );
                   })}
                 </Svg>
+
+                {/* Trang trí Giáng sinh hai bên đường đi */}
+                {xmas
+                  ? chapter.units.map((unit, index) => (
+                      <XmasPathDecor key={`xmas-${unit.id}`} index={index} chapterNumber={chapter.chapter_number} kinds={winter ? world.decor : undefined} />
+                    ))
+                  : null}
 
                 {/* Unit Nodes Layer */}
                 {chapter.units.map((unit, index) => {
@@ -726,12 +848,12 @@ export const LearningPathScreen = () => {
                     >
                       {/* Floating Tooltip "Bắt đầu ở đây!" cho Unit hiện tại */}
                       {isCurrent && (
-                        <Animated.View style={[s.startTooltip, activePulseStyle]}>
-                          <View style={s.startTooltipBox}>
+                        <Animated.View style={[s.startTooltip, winter && s.winterTooltipWrap, activePulseStyle]}>
+                          <View style={[s.startTooltipBox, winter && s.winterTooltip]}>
                             <Flame color="#FFFFFF" size={13} fill="#FFFFFF" />
-                            <Text style={s.startTooltipText}>Bắt đầu ở đây!</Text>
+                            <Text style={s.startTooltipText} numberOfLines={1}>Bắt đầu ở đây!</Text>
                           </View>
-                          <View style={s.tooltipArrow} />
+                          <View style={[s.tooltipArrow, winter && { borderTopColor: WINTER.red }]} />
                         </Animated.View>
                       )}
 
@@ -745,6 +867,7 @@ export const LearningPathScreen = () => {
                         onPress={handleNodePress}
                         activePulseStyle={activePulseStyle}
                         biomeCompletedColor={biome.pathCompleted}
+                        winter={winter}
                       />
 
                       {/* Tên bài học bên dưới node */}
@@ -753,6 +876,9 @@ export const LearningPathScreen = () => {
                           s.nodeLabel,
                           isCurrent && s.nodeLabelCurrent,
                           isCompleted && { color: biome.pathCompleted, fontWeight: '800' },
+                          winter && s.winterLabel,
+                          winter && isCompleted && { color: WINTER.gold },
+                          winter && isCurrent && { color: WINTER.cyan },
                         ]}
                         numberOfLines={1}
                       >
@@ -764,7 +890,7 @@ export const LearningPathScreen = () => {
               </View>
 
               {/* End of Chapter Milestone: Rương kho báu mở khóa XP */}
-              <View style={s.chestMilestoneRow}>
+              <View style={[s.chestMilestoneRow, winter && [s.winterChest, { borderColor: `${WINTER.gold}55` }]]}>
                 <View style={[s.chestIconBox, { backgroundColor: biome.badgeBg }]}>
                   {isChapterAllDone ? (
                     <Sparkles color={biome.chestAccent} size={24} />
@@ -802,7 +928,7 @@ export const LearningPathScreen = () => {
             <TeacherCoursesShowcase />
           </View>
         ) : null}
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Unit Detail Modal */}
       <Modal visible={!!selectedUnit} transparent animationType="fade">
@@ -1078,6 +1204,35 @@ const s = StyleSheet.create({
     position: 'relative',
     alignSelf: 'center',
   },
+  placementCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    marginBottom: 16,
+    borderRadius: 18,
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  placementCtaIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
+  placementCtaTitle: { fontSize: 15, fontFamily: font.family, fontWeight: '800', color: '#FFFFFF' },
+  placementCtaSub: { fontSize: 12, fontFamily: font.family, color: 'rgba(255,255,255,0.85)', marginTop: 2, lineHeight: 17 },
+  xmasDecor: { position: 'absolute', width: 56, alignItems: 'center' },
+  winterIsland: { backgroundColor: 'transparent', borderColor: 'transparent', shadowOpacity: 0, elevation: 0 },
+  winterBanner: { marginBottom: 40, borderWidth: 1, overflow: 'hidden', shadowOpacity: 0.45, shadowRadius: 16, shadowOffset: { width: 0, height: 0 } },
+  winterChip: { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(147,197,253,0.28)' },
+  winterChipActive: { backgroundColor: '#67E8F9', borderColor: '#93C5FD' },
+  winterPro: { backgroundColor: '#FBBF24', borderColor: '#FDE68A' },
+  winterTooltip: { backgroundColor: '#DC2626', borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)', shadowColor: '#EF4444' },
+  winterTooltipWrap: { width: 170, left: (NODE_SIZE - 170) / 2, top: -48 },
+  winterLabel: { color: '#C9D7E8', textShadowColor: 'rgba(6,13,31,0.9)', textShadowRadius: 6, textShadowOffset: { width: 0, height: 1 } },
+  winterChest: { backgroundColor: 'rgba(19,31,53,0.85)' },
+  chapterBannerXmas: { paddingRight: 104 },
+  bannerXmas: { position: 'absolute', right: 8, bottom: 6, flexDirection: 'row', alignItems: 'flex-end', gap: 2 },
   unitPositioner: {
     position: 'absolute',
     width: NODE_SIZE,

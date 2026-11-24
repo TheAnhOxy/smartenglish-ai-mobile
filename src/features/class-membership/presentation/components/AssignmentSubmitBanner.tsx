@@ -60,7 +60,7 @@ export const AssignmentSubmitBanner: React.FC<AssignmentSubmitBannerProps> = ({ 
 
   return (
     <View className="bg-white dark:bg-darkCard border border-gray-100 dark:border-gray-800 rounded-2xl px-4 py-3 mx-4 mb-3">
-      <Text className="text-xs text-neutralGray mb-2" numberOfLines={1}>
+      <Text className="text-xs text-neutralGray mb-2 dark:text-darkMuted" numberOfLines={1}>
         {active?.title}
         {score != null ? ` · ${score.toFixed(1)}/10` : ''}
       </Text>

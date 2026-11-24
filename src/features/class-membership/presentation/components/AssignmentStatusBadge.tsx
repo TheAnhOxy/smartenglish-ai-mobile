@@ -40,7 +40,7 @@ export const AssignmentStatusBadge: React.FC<AssignmentStatusBadgeProps> = ({ it
 
   return (
     <View className="px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800">
-      <Text className="text-[11px] font-bold text-neutralGray">Chưa nộp</Text>
+      <Text className="text-[11px] font-bold text-neutralGray dark:text-darkMuted">Chưa nộp</Text>
     </View>
   );
 };

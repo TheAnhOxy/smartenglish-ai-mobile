@@ -100,7 +100,7 @@ export const PracticeFeedbackOverview: React.FC = () => {
     <View style={{ gap: 14 }}>
       {data.coach ? (
         <View style={s.coach}>
-          <LinearGradient colors={[ds.ink, ds.btnEdge]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={[ds.hero, ds.btnEdge]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
           <View style={s.coachHead}>
             <Sparkles size={18} color={ds.amber} />
             <Text style={s.coachKicker}>Tổng quan từ {data.totalSessions} buổi luyện</Text>

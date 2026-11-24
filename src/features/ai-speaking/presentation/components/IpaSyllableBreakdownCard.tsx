@@ -4,6 +4,7 @@ import { AlertCircle, CheckCircle2, HelpCircle, Sparkles } from '@/src/component
 import { SyllableEvaluation } from '../../data/speakingApi';
 import { MouthShapeGuideModal } from '../screens/MouthShapeGuideModal';
 import { dsFont } from '@/src/theme/ds';
+import { dk } from '@/src/theme/themeMode';
 
 interface IpaSyllableBreakdownCardProps {
   syllables?: SyllableEvaluation[];
@@ -39,11 +40,11 @@ export const IpaSyllableBreakdownCard: React.FC<IpaSyllableBreakdownCardProps> =
       {/* Header */}
       <View style={styles.headerRow}>
         <View style={styles.titleWrap}>
-          <Sparkles color="#0369A1" size={18} />
+          <Sparkles color={dk('#0369A1', 'text')} size={18} />
           <Text style={styles.cardTitle}>Phân tích âm tiết IPA (AI Phonemes)</Text>
         </View>
         <Pressable onPress={handleOpenGuide} style={styles.guideBadge}>
-          <HelpCircle color="#0369A1" size={13} />
+          <HelpCircle color={dk('#0369A1', 'text')} size={13} />
           <Text style={styles.guideBadgeText}>Khẩu hình</Text>
         </Pressable>
       </View>
@@ -111,7 +112,7 @@ export const IpaSyllableBreakdownCard: React.FC<IpaSyllableBreakdownCardProps> =
       ) : (
         <View style={styles.feedbackSuccessBox}>
           <View style={styles.alertHeader}>
-            <CheckCircle2 color="#16A34A" size={16} />
+            <CheckCircle2 color={dk('#16A34A', 'text')} size={16} />
             <Text style={styles.successTitle}>Phát âm chuẩn xác 100%!</Text>
           </View>
           <Text style={styles.successDesc}>

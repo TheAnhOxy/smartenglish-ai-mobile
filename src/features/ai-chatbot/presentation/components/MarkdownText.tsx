@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { CheckCircle2, Lightbulb, Volume2, XCircle } from 'lucide-react-native';
 import { speakText } from '@/src/core/services/speechService';
+import { dk } from '@/src/theme/themeMode';
 
 interface MarkdownTextProps {
   content: string;
@@ -118,7 +119,7 @@ export const MarkdownText: React.FC<MarkdownTextProps> = ({
           const textWithoutIcon = trimmed.replace('✅', '').trim();
           return (
             <View key={idx} style={styles.correctBox}>
-              <CheckCircle2 size={16} color="#16A34A" style={styles.correctIcon} />
+              <CheckCircle2 size={16} color={dk('#16A34A', 'text')} style={styles.correctIcon} />
               <Text style={styles.correctText}>
                 {parseFormattedInline(textWithoutIcon, `cor-${idx}`)}
               </Text>
@@ -127,7 +128,7 @@ export const MarkdownText: React.FC<MarkdownTextProps> = ({
                 style={styles.ttsBtnInline}
                 hitSlop={8}
               >
-                <Volume2 size={15} color="#16A34A" />
+                <Volume2 size={15} color={dk('#16A34A', 'text')} />
               </Pressable>
             </View>
           );
@@ -151,7 +152,7 @@ export const MarkdownText: React.FC<MarkdownTextProps> = ({
           const rest = trimmed.slice(2).trim();
           return (
             <View key={idx} style={styles.featureBox}>
-              <Lightbulb size={16} color="#1F4E79" style={styles.featureIcon} />
+              <Lightbulb size={16} color={dk('#1F4E79', 'text')} style={styles.featureIcon} />
               <Text style={[styles.bodyText, { color: textColor }]}>
                 {parseFormattedInline(rest, `f-${idx}`)}
               </Text>

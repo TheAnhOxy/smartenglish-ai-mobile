@@ -27,6 +27,7 @@ import { font } from '@/src/theme/typography';
 import { AnswerKey, ExamQuestion } from '../../data/examAttemptApi';
 import { ds, dsFont } from '@/src/theme/ds';
 import { SeekBar } from '@/src/features/reading-listening/presentation/components/SeekBar';
+import { dk } from '@/src/theme/themeMode';
 
 export interface ExamListeningClusterViewProps {
   questions: ExamQuestion[];
@@ -107,7 +108,7 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
         {/* Header Badges */}
         <View style={styles.audioBadgeRow}>
           <View style={styles.dialogBadge}>
-            <Headphones size={13} color="#1E40AF" />
+            <Headphones size={13} color={dk('#1E40AF', 'text')} />
             <Text style={styles.dialogBadgeText}>
               {firstQ.audioTitle || firstQ.groupTag || (isMultiQuestion ? `Hội thoại câu ${questions[0]?.questionNumber}–${questions[questions.length - 1]?.questionNumber}` : `Phần nghe Part ${part.replace('PART_', '')}`)}
             </Text>
@@ -122,7 +123,7 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
                 </>
               ) : audioHasEnded ? (
                 <>
-                  <CheckCircle2 size={12} color="#16A34A" />
+                  <CheckCircle2 size={12} color={dk('#16A34A', 'text')} />
                   <Text style={styles.statusBadgeTextEnded}>Đã nghe (1 lần duy nhất)</Text>
                 </>
               ) : isPlayingAudio ? (
@@ -132,7 +133,7 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
                 </>
               ) : (
                 <>
-                  <Lock size={12} color="#5B6B7F" />
+                  <Lock size={12} color={dk('#5B6B7F', 'text')} />
                   <Text style={styles.statusBadgeTextLocked}>Tự phát khi bắt đầu</Text>
                 </>
               )}
@@ -172,7 +173,7 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
             ) : isExamMode ? (
               <View style={[styles.playPauseBtn, styles.playPauseBtnDisabled]}>
                 {audioHasEnded ? (
-                  <CheckCircle2 size={20} color="#8597AB" />
+                  <CheckCircle2 size={20} color={dk('#8597AB', 'text')} />
                 ) : isPlayingAudio ? (
                   <Volume2 size={20} color="#FFFFFF" />
                 ) : (
@@ -244,7 +245,7 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
 
           {/* ETS Note */}
           <View style={styles.audioInfoRow}>
-            <HelpCircle size={13} color="#5B6B7F" />
+            <HelpCircle size={13} color={dk('#5B6B7F', 'text')} />
             <Text style={styles.audioInfoText}>
               {isExamMode
                 ? autoplayBlocked
@@ -322,7 +323,7 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
               {/* Inline Translation nếu có */}
               {isPracticeMode && isRevealed && showInlineTranslation && currentTranslations?.question ? (
                 <View style={styles.translationBox}>
-                  <Languages size={12} color="#0369A1" style={{ marginTop: 2 }} />
+                  <Languages size={12} color={dk('#0369A1', 'text')} style={{ marginTop: 2 }} />
                   <Text style={styles.translationText}>{currentTranslations.question}</Text>
                 </View>
               ) : null}
@@ -395,7 +396,7 @@ export const ExamListeningClusterView: React.FC<ExamListeningClusterViewProps> =
               {isPracticeMode && isRevealed && Boolean(q.explanationVi) && (
                 <View style={styles.explanationBox}>
                   <View style={styles.explanationHeaderRow}>
-                    <Sparkles size={14} color="#0284C7" />
+                    <Sparkles size={14} color={dk('#0284C7', 'text')} />
                     <Text style={styles.explanationHeaderTitle}>Giải thích chi tiết</Text>
                   </View>
                   <Text style={styles.explanationText}>{q.explanationVi}</Text>

@@ -18,6 +18,7 @@ import {
   ArrowRight,
 } from 'lucide-react-native';
 import { colors } from '../../../../theme/colors';
+import { dk } from '@/src/theme/themeMode';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -55,12 +56,12 @@ export function SubmitConfirmModal({
         <View style={styles.dialogCard}>
           {/* Close X Button */}
           <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={8}>
-            <X size={18} color="#64748B" />
+            <X size={18} color={dk('#64748B', 'text')} />
           </Pressable>
 
           {/* Central Document Icon Badge */}
           <View style={styles.iconCircle}>
-            <FileCheck size={32} color="#1A4B84" strokeWidth={2} />
+            <FileCheck size={32} color={dk('#1A4B84', 'text')} strokeWidth={2} />
           </View>
 
           {/* Title & Subtitle */}
@@ -77,7 +78,7 @@ export function SubmitConfirmModal({
                 {answeredCount}/{totalQuestions}
               </Text>
               <View style={styles.statLabelRow}>
-                <Check size={13} color="#15803D" strokeWidth={2.5} />
+                <Check size={13} color={dk('#15803D', 'text')} strokeWidth={2.5} />
                 <Text style={styles.statLabel}>Đã làm</Text>
               </View>
             </View>
@@ -88,7 +89,7 @@ export function SubmitConfirmModal({
                 {unansweredCount}
               </Text>
               <View style={styles.statLabelRow}>
-                <Circle size={12} color="#D97706" strokeWidth={2.5} />
+                <Circle size={12} color={dk('#D97706', 'text')} strokeWidth={2.5} />
                 <Text style={styles.statLabel}>Bỏ trống</Text>
               </View>
             </View>
@@ -106,7 +107,7 @@ export function SubmitConfirmModal({
           {/* Warning Banner (if unanswered > 0) */}
           {unansweredCount > 0 && (
             <View style={styles.warningBanner}>
-              <AlertTriangle size={18} color="#B45309" style={styles.warningIcon} />
+              <AlertTriangle size={18} color={dk('#B45309', 'text')} style={styles.warningIcon} />
               <Text style={styles.warningText}>
                 Bạn vẫn còn <Text style={styles.warningBold}>{unansweredCount} câu chưa trả lời</Text>. Điểm số sẽ tính trên toàn bộ {totalQuestions} câu hỏi.
               </Text>
@@ -142,7 +143,7 @@ export function SubmitConfirmModal({
                 style={({ pressed }) => [styles.viewUnansweredBtn, pressed && styles.pressed]}
               >
                 <Text style={styles.viewUnansweredText}>Xem các câu chưa trả lời</Text>
-                <ArrowRight size={14} color="#144173" />
+                <ArrowRight size={14} color={dk('#144173', 'text')} />
               </Pressable>
             )}
           </View>
