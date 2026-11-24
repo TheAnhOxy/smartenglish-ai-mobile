@@ -93,14 +93,17 @@ export const PaywallScreen = () => {
     loadPlans();
   }, []);
 
+  // Gói hiệu lực: gói đã hết hạn tính như chưa có gói, để học viên gia hạn được đúng gói cũ
+  const effectivePlan = hasActivePremium(currentUser) ? currentUser?.plan : null;
+
   // Gói đang dùng hoặc thấp hơn gói đang dùng → không cho đăng ký (tránh hạ cấp từ gói VIP)
-  const isPlanLocked = (planId: string) => isPlanCurrent(planId) || isLowerThanCurrent(planId, currentUser?.plan);
+  const isPlanLocked = (planId: string) => isPlanCurrent(planId) || isLowerThanCurrent(planId, effectivePlan);
 
   const isPlanCurrent = (planId: string) => {
-    if (!currentUser?.plan) return false;
-    if (currentUser.plan === 'premium_monthly' && planId.includes('MONTHLY')) return true;
-    if (currentUser.plan === 'premium_yearly' && planId.includes('YEARLY')) return true;
-    if (currentUser.plan === 'lifetime' && planId.includes('LIFETIME')) return true;
+    if (!effectivePlan) return false;
+    if (effectivePlan === 'premium_monthly' && planId.includes('MONTHLY')) return true;
+    if (effectivePlan === 'premium_yearly' && planId.includes('YEARLY')) return true;
+    if (effectivePlan === 'lifetime' && planId.includes('LIFETIME')) return true;
     return false;
   };
 

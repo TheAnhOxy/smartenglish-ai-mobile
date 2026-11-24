@@ -1,31 +1,26 @@
-import { useRef } from 'react';
-import { Animated } from 'react-native';
+import { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
-// Phản hồi tức thì khi ngón tay chạm, dùng Animated native driver mượt mà 60fps trên mọi thiết bị
+const SPRING = { damping: 15, stiffness: 400, mass: 0.6 } as const;
+
+/**
+ * Phản hồi co nhẹ khi chạm. Dùng Reanimated vì mọi nơi gọi đều gắn style vào
+ * `Animated.createAnimatedComponent(Pressable)` của Reanimated; trả Animated.Value của RN
+ * cho component đó sẽ làm app crash "Transform with key of scale must be a number".
+ */
 export function usePressSpring(scaleTo = 0.97) {
-  const scale = useRef(new Animated.Value(1)).current;
+  const scale = useSharedValue(1);
 
   const onPressIn = () => {
-    Animated.spring(scale, {
-      toValue: scaleTo,
-      useNativeDriver: true,
-      speed: 24,
-      bounciness: 4,
-    }).start();
+    scale.value = withSpring(scaleTo, SPRING);
   };
 
   const onPressOut = () => {
-    Animated.spring(scale, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 24,
-      bounciness: 4,
-    }).start();
+    scale.value = withSpring(1, SPRING);
   };
 
-  const animatedStyle = {
-    transform: [{ scale }],
-  };
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   return {
     animatedStyle,
@@ -33,4 +28,3 @@ export function usePressSpring(scaleTo = 0.97) {
     onPressOut,
   };
 }
-

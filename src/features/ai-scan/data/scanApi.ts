@@ -1,10 +1,11 @@
 import { apiClient, getCurrentUserId } from '@/src/core/api/client';
 import { analyzeImageWithGemini } from '@/src/features/ai-chatbot/data/geminiService';
 
+/** Lượt quét ảnh trong ngày do server tính; gói Premium không giới hạn (limit = null). */
 export interface ScanQuota {
-  scans_used_today: number;
-  scans_limit: number; // 5 for Free, 999 for Premium
-  is_premium: boolean;
+  used: number;
+  limit: number | null;
+  isPremium: boolean;
 }
 
 export interface DetectedObjectItem {
@@ -23,12 +24,15 @@ export interface DetectedObjectItem {
   };
 }
 
-export const fetchScanQuotaApi = async (isPremium: boolean): Promise<ScanQuota> => {
-  return {
-    scans_used_today: 3,
-    scans_limit: isPremium ? 999 : 5,
-    is_premium: isPremium
-  };
+export const toScanQuota = (data: { quota_used?: number | null; quota_limit?: number | null; is_premium?: boolean } | null | undefined): ScanQuota => ({
+  used: Number(data?.quota_used ?? 0) || 0,
+  limit: data?.quota_limit == null ? null : Number(data.quota_limit),
+  isPremium: Boolean(data?.is_premium),
+});
+
+export const fetchScanQuotaApi = async (): Promise<ScanQuota> => {
+  const response = await apiClient.get('/api/v1/ai-practice/image-scan/quota');
+  return toScanQuota(response.data?.data ?? response.data);
 };
 
 export const submitScanImageApi = async (

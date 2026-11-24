@@ -1,10 +1,16 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { fetchScanQuotaApi, submitScanImageApi } from '../data/scanApi';
 
-export const useScanQuotaQuery = (isPremium: boolean) => {
+export const SCAN_QUOTA_KEY = ['scan-quota'] as const;
+
+/** Lượt quét còn lại hôm nay (server là nguồn chính xác; lỗi thì ẩn, server vẫn chặn khi hết lượt). */
+export const useScanQuotaQuery = (enabled = true) => {
   return useQuery({
-    queryKey: ['scan-quota', isPremium],
-    queryFn: () => fetchScanQuotaApi(isPremium)
+    queryKey: SCAN_QUOTA_KEY,
+    queryFn: fetchScanQuotaApi,
+    enabled,
+    retry: 0,
+    staleTime: 30_000,
   });
 };
 

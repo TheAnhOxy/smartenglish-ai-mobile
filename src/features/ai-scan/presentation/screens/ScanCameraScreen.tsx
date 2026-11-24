@@ -32,6 +32,9 @@ import Animated, {
   FadeOut,
 } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
+import { prepareScanImage } from '../../application/prepareScanImage';
+import { SCAN_QUOTA_KEY, useScanQuotaQuery } from '../../application/useAiScan';
+import { useQueryClient } from '@tanstack/react-query';
 import { submitScanImageApi } from '../../data/scanApi';
 import { colors, font } from '@/src/theme';
 import { usePressSpring } from '@/src/hooks/usePressSpring';
@@ -93,6 +96,13 @@ export const ScanCameraScreen = () => {
   const flashSpring = usePressSpring(0.92);
   const gallerySpring = usePressSpring(0.92);
   const backSpring = usePressSpring(0.92);
+
+  // Lượt quét miễn phí trong ngày (Premium: limit = null → không hiện)
+  const queryClient = useQueryClient();
+  const { data: scanQuota } = useScanQuotaQuery();
+  const scansLeft = scanQuota && scanQuota.limit != null ? Math.max(0, scanQuota.limit - scanQuota.used) : null;
+  const outOfScans = scansLeft === 0;
+  const goUpgrade = () => router.push({ pathname: '/(student)/profile/premium', params: { from: 'scan' } } as never);
 
   // ─── Viewfinder Breathing Animation (Scale 1.03 -> 1 with smooth sine, cycle 2.2s) ───
   const breatheScale = useSharedValue(1);
@@ -161,7 +171,8 @@ export const ScanCameraScreen = () => {
     opacity: shutterRingOpacity.value,
   }));
 
-  const processAndNavigate = async (uri: string, base64?: string | null) => {
+  const processAndNavigate = async (asset: ImagePicker.ImagePickerAsset) => {
+    const uri = asset.uri;
     setIsScanning(true);
     setCapturedImageUri(uri);
     setProcessingStage(0);
@@ -171,7 +182,10 @@ export const ScanCameraScreen = () => {
     const stage2Timer = setTimeout(() => setProcessingStage(2), 1400);
 
     try {
-      const scanResult = await submitScanImageApi(base64 || undefined, 'object');
+      // Thu nhỏ + chuyển JPEG trước khi gửi (ảnh iPhone gốc quá nặng / định dạng HEIC)
+      const prepared = await prepareScanImage(uri, asset.width, asset.height);
+      const scanResult = await submitScanImageApi(prepared.base64, 'object');
+      void queryClient.invalidateQueries({ queryKey: SCAN_QUOTA_KEY });
 
       // Finish & transition smoothly to results
       setTimeout(() => {
@@ -188,11 +202,21 @@ export const ScanCameraScreen = () => {
       clearTimeout(stage1Timer);
       clearTimeout(stage2Timer);
       setIsScanning(false);
-      Alert.alert('Lỗi Quét AI', 'Không thể phân tích ảnh lúc này. Vui lòng thử lại.');
+      void queryClient.invalidateQueries({ queryKey: SCAN_QUOTA_KEY });
+      console.warn('[Scan] analyze failed:', err);
+      const serverMessage = (err as { response?: { data?: { message?: string; detail?: string } } })?.response?.data;
+      Alert.alert(
+        'Lỗi Quét AI',
+        serverMessage?.message || serverMessage?.detail || 'Không thể phân tích ảnh lúc này. Vui lòng thử lại.',
+      );
     }
   };
 
   const handleCaptureCamera = async () => {
+    if (outOfScans) {
+      goUpgrade();
+      return;
+    }
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
@@ -202,14 +226,13 @@ export const ScanCameraScreen = () => {
 
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['images'],
-        quality: 0.5,
-        base64: true,
+        quality: 0.8,
+        base64: false,
         allowsEditing: false,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        await processAndNavigate(asset.uri, asset.base64);
+        await processAndNavigate(result.assets[0]);
       }
     } catch (error) {
       console.error('Camera capture error:', error);
@@ -218,6 +241,10 @@ export const ScanCameraScreen = () => {
   };
 
   const handlePickLibrary = async () => {
+    if (outOfScans) {
+      goUpgrade();
+      return;
+    }
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
@@ -227,14 +254,13 @@ export const ScanCameraScreen = () => {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        quality: 0.5,
-        base64: true,
+        quality: 0.8,
+        base64: false,
         allowsEditing: false,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        await processAndNavigate(asset.uri, asset.base64);
+        await processAndNavigate(result.assets[0]);
       }
     } catch (error) {
       console.error('Library pick error:', error);
@@ -275,6 +301,20 @@ export const ScanCameraScreen = () => {
           <HelpCircle color="#FFFFFF" size={20} />
         </Pressable>
       </View>
+
+      {scansLeft != null ? (
+        <Pressable
+          onPress={outOfScans ? goUpgrade : undefined}
+          style={[s.quotaPill, outOfScans && s.quotaPillEmpty]}
+          accessibilityLabel={outOfScans ? 'Hết lượt quét miễn phí, nâng cấp Premium' : `Còn ${scansLeft} lượt quét miễn phí hôm nay`}
+        >
+          <Text style={s.quotaPillText}>
+            {outOfScans
+              ? 'Hết lượt quét miễn phí hôm nay · Nâng cấp Premium'
+              : `Còn ${scansLeft}/${scanQuota?.limit} lượt quét miễn phí hôm nay`}
+          </Text>
+        </Pressable>
+      ) : null}
 
       {/* ─── Central Viewfinder Area ─── */}
       <View style={s.viewfinderWrapper}>
@@ -430,6 +470,19 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.16)',
   },
+  quotaPill: {
+    alignSelf: 'center',
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    zIndex: 30,
+  },
+  quotaPillEmpty: { backgroundColor: 'rgba(220, 38, 38, 0.85)', borderColor: 'rgba(255, 255, 255, 0.3)' },
+  quotaPillText: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
   titleBadge: {
     flexDirection: 'row',
     alignItems: 'center',
