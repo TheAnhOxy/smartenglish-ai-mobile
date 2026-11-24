@@ -21,6 +21,7 @@ import {
 } from 'lucide-react-native';
 import { colors } from '../../../../theme/colors';
 import { BackButton } from '@/src/core/components/BackButton';
+import { PracticeFeedbackCard } from '@/src/features/practice-feedback/presentation/components/PracticeFeedbackCard';
 
 export interface InlineQuestionReviewItem {
   id: number;
@@ -314,6 +315,17 @@ export const QuizResultScreen: React.FC = () => {
             <Text style={styles.btnBackListText}>Về danh sách Quiz</Text>
           </Pressable>
         </View>
+
+        <PracticeFeedbackCard
+          style={{ marginTop: 16 }}
+          input={{
+            skill: 'QUIZ',
+            title: quizTitle,
+            score: Math.round((correctCount / Math.max(totalQuestions, 1)) * 100),
+            sourceId: `quiz-${quizTitle}-${correctCount}-${incorrectCount}-${durationText}`.slice(0, 80),
+            details: `Bài quiz "${quizTitle}" (${levelText}): ${totalQuestions} câu, đúng ${correctCount}, sai ${incorrectCount}, bỏ qua ${skippedCount}, thời gian ${durationText}.`,
+          }}
+        />
       </ScrollView>
     </SafeAreaView>
   );

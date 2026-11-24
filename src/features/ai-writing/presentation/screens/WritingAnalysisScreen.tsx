@@ -8,6 +8,7 @@ import type { WritingError } from '@/src/core/types/schema';
 import { applyCorrections, useWritingSession } from '../../application/useAiWriting';
 import type { WritingResult } from '../../data/writingApi';
 import { BackButton } from '@/src/core/components/BackButton';
+import { PracticeFeedbackCard } from '@/src/features/practice-feedback/presentation/components/PracticeFeedbackCard';
 
 const TYPE_LABEL: Record<WritingError['type'], string> = {
   spelling: 'Chính tả',
@@ -131,6 +132,22 @@ export const WritingAnalysisScreen = () => {
             </View>
           );
         })}
+
+        <PracticeFeedbackCard
+          input={{
+            skill: 'WRITING',
+            title: 'Luyện viết với AI',
+            // Band IELTS 0–9 quy về thang 100
+            score: Math.round((result.overall_band / 9) * 100),
+            sourceId: `writing-${text.length}-${result.overall_band}-${errors.length}`,
+            details: [
+              `Bài viết (${text.split(/\s+/).filter(Boolean).length} từ), band ${result.overall_band}: nội dung ${result.scoring_detail.task_achievement}, mạch lạc ${result.scoring_detail.coherence_cohesion}, từ vựng ${result.scoring_detail.lexical_resource}, ngữ pháp ${result.scoring_detail.grammatical_range}.`,
+              `Nhận xét chấm bài: ${result.summary_vi}`,
+              ...errors.slice(0, 12).map((e, i) => `${i + 1}. [${e.type}] "${e.original}" → "${e.suggestion}"`),
+              `Bài viết: ${text.slice(0, 2500)}`,
+            ].join('\n'),
+          }}
+        />
       </ScrollView>
 
       <View style={[s.footer, { paddingBottom: insets.bottom + 12 }]}>

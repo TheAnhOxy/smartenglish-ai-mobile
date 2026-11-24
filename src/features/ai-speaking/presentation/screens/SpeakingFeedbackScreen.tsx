@@ -31,6 +31,7 @@ import { CircularAccuracyRing } from '../components/CircularAccuracyRing';
 import { IpaSyllableBreakdownCard } from '../components/IpaSyllableBreakdownCard';
 import { SpeakingMetricsGrid } from '../components/SpeakingMetricsGrid';
 import { AppColors } from '@/src/core/theme/colors';
+import { PracticeFeedbackCard } from '@/src/features/practice-feedback/presentation/components/PracticeFeedbackCard';
 import {
   extractAndEvaluateSyllables,
   evaluatePronunciationApi,
@@ -507,6 +508,21 @@ export const SpeakingFeedbackScreen = () => {
             </View>
           </View>
         </View>
+
+        <PracticeFeedbackCard
+          style={{ marginHorizontal: 20, marginTop: 8 }}
+          input={{
+            skill: 'SPEAKING',
+            title: `Phát âm: ${targetWord}`,
+            score: currentScore,
+            sourceId: `speak-${targetWord}-${currentScore}-${accuracy}-${fluency}`.slice(0, 80),
+            details: [
+              `Từ/cụm luyện phát âm: "${targetWord}" ${targetIpa}.`,
+              `Điểm tổng ${currentScore}/100; độ chính xác âm ${accuracy}; trọng âm ${stress}; ngữ điệu ${intonation}; độ trôi chảy ${fluency}.`,
+              'Hãy nhận xét phát âm (âm nào dễ sai với người Việt), kỹ năng nói và từ vựng liên quan.',
+            ].join('\n'),
+          }}
+        />
 
         <View style={{ height: 20 }} />
       </ScrollView>

@@ -41,6 +41,7 @@ import { useAuthStore } from '@/src/core/flows/authStore';
 import { speakText, stopSpeech } from '@/src/core/services/speechService';
 import { UserAvatar } from '@/src/core/components/UserAvatar';
 import { BackButton } from '@/src/core/components/BackButton';
+import { PracticeFeedbackCard } from '@/src/features/practice-feedback/presentation/components/PracticeFeedbackCard';
 import { hasActivePremium } from '@/src/core/utils/plan';
 
 interface ChatTurn {
@@ -635,7 +636,7 @@ export const RoleplaySessionScreen = () => {
       {/* ── MODAL TỔNG KẾT PHIÊN LUYỆN NÓI ───────────────────────────────── */}
       <Modal visible={showSummaryModal} transparent animationType="fade">
         <View style={s.modalOverlay}>
-          <View style={s.modalCard}>
+          <ScrollView style={s.summaryScroll} contentContainerStyle={s.modalCard}>
             <View style={s.modalSuccessIconWrap}>
               <CheckCircle2 color="#16A34A" size={28} />
             </View>
@@ -666,10 +667,26 @@ export const RoleplaySessionScreen = () => {
               </View>
             </View>
 
-            <View style={s.feedbackCard}>
-              <Text style={s.feedbackTitle}>Nhận xét của AI:</Text>
-              <Text style={s.feedbackText}>{sessionEvaluation.feedback}</Text>
-            </View>
+            {/* AI thật nhận xét cả đoạn hội thoại: từ vựng, ngữ pháp, kỹ năng nói và lời khuyên */}
+            <PracticeFeedbackCard
+              style={{ width: '100%', marginBottom: 18 }}
+              input={
+                showSummaryModal && turns.some((t) => t.role === 'user')
+                  ? {
+                      skill: 'ROLEPLAY',
+                      title: `Hội thoại: ${scenario.title || 'tình huống thực tế'}`,
+                      score: sessionEvaluation.fluency,
+                      cefrLevel: scenario.cefr_level ?? null,
+                      sourceId: `roleplay-${scenario.id}-${turns.length}-${turns[turns.length - 1]?.text.length ?? 0}`,
+                      details: [
+                        `Tình huống: ${scenario.title}. Học viên nói chuyện với ${scenario.ai_persona}.`,
+                        'Hội thoại (AI = đối tác, HV = học viên):',
+                        ...turns.slice(-30).map((t) => `${t.role === 'ai' ? 'AI' : 'HV'}: ${t.text}`),
+                      ].join('\n'),
+                    }
+                  : null
+              }
+            />
 
             <View style={s.modalActions}>
               <Pressable
@@ -698,7 +715,7 @@ export const RoleplaySessionScreen = () => {
                 <ArrowRight color="#FFFFFF" size={16} />
               </Pressable>
             </View>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
 
@@ -720,10 +737,10 @@ export const RoleplaySessionScreen = () => {
             </Text>
 
             <Pressable
+              // Nâng cấp phải qua trang thanh toán; không tự đổi gói trên máy
               onPress={() => {
-                useAuthStore.getState().updateCurrentUser({ plan: 'premium_yearly' });
                 setShowQuotaModal(false);
-                alert('Nâng cấp Premium thành công. Bạn có thể tiếp tục luyện nói không giới hạn.');
+                router.push({ pathname: '/(student)/profile/premium', params: { from: 'speaking' } } as never);
               }}
               style={s.btnUpgrade}
             >
@@ -1142,6 +1159,12 @@ const s = StyleSheet.create({
   },
 
   // Modal Common
+  summaryScroll: {
+    width: '100%',
+    maxWidth: 420,
+    maxHeight: '88%',
+    flexGrow: 0,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.65)',

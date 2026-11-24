@@ -33,6 +33,8 @@ import { font } from '@/src/theme/typography';
 import { ds, dsFont } from '@/src/theme/ds';
 import { ResultCelebrationHero } from '../components/ResultCelebrationHero';
 import { BackButton } from '@/src/core/components/BackButton';
+import { PracticeFeedbackCard } from '@/src/features/practice-feedback/presentation/components/PracticeFeedbackCard';
+import type { PracticeSkill, SessionFeedbackInput } from '@/src/features/practice-feedback/data/practiceFeedbackApi';
 
 export function ExamResultScreen() {
   const router = useRouter();
@@ -48,6 +50,39 @@ export function ExamResultScreen() {
   const userAnswers = useMemo(() => Object.fromEntries(
     questions.filter((q) => q.selectedAnswer).map((q) => [q.id, q.selectedAnswer])
   ), [questions]);
+
+  const NL = '\n';
+  // Dữ liệu buổi làm đề gửi cho AI nhận xét: điểm, các câu sai (đề, đáp án chọn, đáp án đúng)
+  const feedbackInput = useMemo<SessionFeedbackInput | null>(() => {
+    if (!result || !attemptId || questions.length === 0) return null;
+    const cat = String(result.category || '').toUpperCase();
+    const listeningCount = questions.filter((q) => ['PART_1', 'PART_2', 'PART_3', 'PART_4'].includes(q.part)).length;
+    const skill: PracticeSkill = cat.includes('LISTEN')
+      ? 'LISTENING'
+      : cat.includes('READ')
+        ? 'READING'
+        : cat.includes('VOCAB')
+          ? 'VOCABULARY'
+          : cat.startsWith('TOEIC')
+            ? listeningCount * 2 >= questions.length ? 'LISTENING' : 'READING'
+            : 'GRAMMAR';
+    const wrong = questions.filter((q) => q.selectedAnswer && q.selectedAnswer !== q.correctAnswer);
+    const skipped = questions.filter((q) => !q.selectedAnswer).length;
+    const lines = wrong.slice(0, 15).map(
+      (q, i) => `${i + 1}. [${q.partLabel || q.part}] ${String(q.questionText || '').slice(0, 220)} | chọn: ${q.selectedAnswer} | đúng: ${q.correctAnswer}`,
+    );
+    return {
+      skill,
+      title: result.title || 'Bài luyện đề',
+      score: result.scorePercentage ?? null,
+      cefrLevel: result.cefrLevel || null,
+      sourceId: `exam-${attemptId}`,
+      details: [
+        `Loại đề: ${cat || 'không rõ'}. Tổng ${questions.length} câu, đúng ${result.correctAnswers ?? 0}, sai ${wrong.length}, bỏ trống ${skipped}.`,
+        wrong.length ? ['Các câu sai:', ...lines].join(NL) : 'Không có câu sai.',
+      ].join(NL),
+    };
+  }, [result, attemptId, questions]);
 
   const [expandedQId, setExpandedQId] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<'ALL' | 'CORRECT' | 'WRONG'>('ALL');
@@ -486,6 +521,8 @@ export function ExamResultScreen() {
             })}
           </View>
         </View>
+
+        <PracticeFeedbackCard input={feedbackInput} style={{ marginHorizontal: 20, marginTop: 8 }} />
       </ScrollView>
 
       {/* ─── BOTTOM CTA ACTIONS ─── */}

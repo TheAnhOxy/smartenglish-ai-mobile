@@ -53,6 +53,7 @@ import { useAuthStore } from "@/src/core/flows/authStore";
 import { UserAvatar } from "@/src/core/components/UserAvatar";
 import { AnimatedFoxMascot } from "@/src/core/components/AnimatedFoxMascot";
 import { TabLoadingState } from "@/src/components/ui/TabLoadingState";
+import { FoxRunLoader } from "@/src/core/components/FoxRunLoader";
 import {
   fetchProgressStatsApi,
   fetchAiAssessmentApi,
@@ -63,6 +64,7 @@ import {
   LeaderboardMember,
   RemedialQuiz,
 } from "../../data/analyticsApi";
+import { PracticeFeedbackOverview } from '@/src/features/practice-feedback/presentation/components/PracticeFeedbackOverview';
 
 type TabKey = "progress" | "analytics" | "ranking";
 
@@ -339,6 +341,7 @@ export const AnalyticsScreen = () => {
   );
   const [assessmentData, setAssessmentData] =
     useState<StudentAssessmentData | null>(null);
+  const [assessmentFailed, setAssessmentFailed] = useState(false);
   const [leaderboardData, setLeaderboardData] =
     useState<LeaderboardData | null>(null);
 
@@ -351,13 +354,20 @@ export const AnalyticsScreen = () => {
   const loadData = useCallback(async () => {
     try {
       const uid = currentUser?.id ? String(currentUser.id) : undefined;
-      const [prog, assess, lb] = await Promise.all([
+      // Đánh giá AI gọi Gemini nên chậm (10–50s): tải riêng để Tiến độ/Xếp hạng hiện ngay
+      // và lỗi của nó không làm hỏng cả màn.
+      setAssessmentFailed(false);
+      fetchAiAssessmentApi(uid)
+        .then(setAssessmentData)
+        .catch((err) => {
+          console.warn("[AnalyticsScreen] AI assessment failed:", err);
+          setAssessmentFailed(true);
+        });
+      const [prog, lb] = await Promise.all([
         fetchProgressStatsApi(uid),
-        fetchAiAssessmentApi(uid),
         fetchLeaderboardApi(rankingSubTab, uid),
       ]);
       setProgressData(prog);
-      setAssessmentData(assess);
       setLeaderboardData(lb);
       setLoadFailed(false);
     } catch (err) {
@@ -686,6 +696,12 @@ export const AnalyticsScreen = () => {
         ) : null}
 
         {/* ═══════════ TAB 2: ĐÁNH GIÁ ═══════════ */}
+        {/* Tổng quan AI chấm từ các buổi luyện: tải riêng, không chờ API đánh giá lịch sử học */}
+        {activeTab === "analytics" ? (
+          <View style={{ marginBottom: 14 }}>
+            <PracticeFeedbackOverview />
+          </View>
+        ) : null}
         {activeTab === "analytics" && assessmentData ? (
           <View style={s.stack}>
             <Reveal>
@@ -1007,6 +1023,20 @@ export const AnalyticsScreen = () => {
                 </Card>
               </Reveal>
             ) : null}
+          </View>
+        ) : null}
+        {activeTab === "analytics" && !assessmentData ? (
+          <View style={[s.card, { alignItems: "center", gap: 10 }]}>
+            {assessmentFailed ? (
+              <>
+                <Text style={s.cardSub}>Chưa tải được đánh giá lịch sử học.</Text>
+                <Pressable onPress={onRefresh} style={s.retryBtn}>
+                  <Text style={s.retryText}>Thử lại</Text>
+                </Pressable>
+              </>
+            ) : (
+              <FoxRunLoader message="AI đang phân tích lịch sử học của bạn..." size={56} />
+            )}
           </View>
         ) : null}
 

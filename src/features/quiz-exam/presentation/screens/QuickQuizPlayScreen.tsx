@@ -7,6 +7,7 @@ import { AlertCircle, CheckCircle2, RotateCcw, X, XCircle } from 'lucide-react-n
 import { colors } from '@/src/theme';
 import { exploreWordsApi } from '@/src/features/flashcard-srs/data/vocabularyApi';
 import { generateQuickQuiz, QuickQuestionType, QuickQuizQuestion } from '../../application/quickQuizGenerator';
+import { PracticeFeedbackCard } from '@/src/features/practice-feedback/presentation/components/PracticeFeedbackCard';
 
 /** Làm Quiz nhanh: tải từ vựng thật → sinh câu hỏi → chấm ngay từng câu → tổng kết. */
 export const QuickQuizPlayScreen = () => {
@@ -110,6 +111,21 @@ export const QuickQuizPlayScreen = () => {
               ))}
             </View>
           ) : null}
+          <PracticeFeedbackCard
+            input={{
+              skill: 'VOCABULARY',
+              title: 'Quiz nhanh từ vựng',
+              score: Math.round((correct / Math.max(questions.length, 1)) * 100),
+              sourceId: `quick-${questions.map((q) => q.id).join('.').slice(0, 70)}`,
+              details: [
+                `Quiz từ vựng ${questions.length} câu, đúng ${correct}.`,
+                ...wrong.map(
+                  ({ q, chosen }, i) =>
+                    `${i + 1}. Từ "${q.word}" (${q.type}) — câu hỏi: ${q.sentence ?? q.prompt} | chọn: ${chosen} | đúng: ${q.answer}`,
+                ),
+              ].join('\n'),
+            }}
+          />
           <Pressable onPress={restart} style={s.primaryBtn}>
             <RotateCcw size={16} color="#FFFFFF" />
             <Text style={s.primaryText}>Làm bộ câu mới</Text>
