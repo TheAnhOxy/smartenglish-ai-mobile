@@ -43,10 +43,17 @@ import { getTopicsApi } from '../../data/vocabularyApi';
 import { colors, palette, font } from '@/src/theme';
 import { usePressSpring } from '@/src/hooks/usePressSpring';
 import { TabLoadingState } from '@/src/components/ui/TabLoadingState';
+import { BackButton } from '@/src/core/components/BackButton';
 import { UserAvatar } from '@/src/core/components/UserAvatar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { hasActivePremium } from '@/src/core/utils/plan';
+import { ChristmasScene } from '@/src/components/xmas/ChristmasScenes';
+import { useXmasActive } from '@/src/core/services/xmas';
+import { DeckArt, getDeckXmas } from '@/src/components/xmas/DeckArt';
+import { PineBranch, ShimmerSweep, SnowEdge } from '@/src/components/xmas/WinterUI';
 import { ds, dsFont } from '@/src/theme/ds';
 import { isLevelMatch, sortByLevelCloseness } from '@/src/features/onboarding/application/learnerLevel';
+import { dk } from '@/src/theme/themeMode';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - 48 - 14) / 2;
@@ -114,6 +121,16 @@ const getDeckTheme = (name: string, index: number): DeckThemeConfig => {
   return fallbacks[index % fallbacks.length];
 };
 
+/** Tab đang chọn kiểu thư viện phép thuật: nền xanh thông, viền vàng ấm. */
+const XMAS_SEGMENT_ACTIVE = {
+  backgroundColor: '#14532D',
+  borderWidth: 1,
+  borderColor: 'rgba(251,191,36,0.55)',
+  shadowColor: '#FBBF24',
+  shadowOpacity: 0.5,
+  shadowRadius: 8,
+} as const;
+
 interface DeckCardItemProps {
   deck: DeckItemDTO;
   index: number;
@@ -121,6 +138,8 @@ interface DeckCardItemProps {
   /** Bộ thẻ hệ thống gần trình độ của học viên. */
   levelMatch?: boolean;
   onPress: (deck: DeckItemDTO) => void;
+  /** Thư viện phép thuật Giáng sinh (giao diện tối). */
+  xmas?: boolean;
 }
 
 const FlashcardDeckCard: React.FC<DeckCardItemProps> = ({
@@ -129,9 +148,11 @@ const FlashcardDeckCard: React.FC<DeckCardItemProps> = ({
   isUserPremium,
   levelMatch,
   onPress,
+  xmas = false,
 }) => {
   const cardSpring = usePressSpring(0.96);
   const theme = getDeckTheme(deck.name, index);
+  const magic = getDeckXmas(deck.name);
 
   const getDeckIconComp = (name: string) => {
     const lower = name.toLowerCase();
@@ -154,6 +175,7 @@ const FlashcardDeckCard: React.FC<DeckCardItemProps> = ({
           {
             transform: [{ rotate: index % 2 === 0 ? '-2.5deg' : '2.5deg' }],
           },
+          xmas && { backgroundColor: 'rgba(63,42,22,0.75)' },
         ]}
       />
 
@@ -162,8 +184,27 @@ const FlashcardDeckCard: React.FC<DeckCardItemProps> = ({
         onPress={() => onPress(deck)}
         onPressIn={cardSpring.onPressIn}
         onPressOut={cardSpring.onPressOut}
-        style={[styles.deckCardMain, cardSpring.animatedStyle]}
+        style={[
+          styles.deckCardMain,
+          xmas && {
+            backgroundColor: 'rgba(16,30,34,0.92)',
+            borderColor: deck.isPremium ? '#FBBF24' : `${magic.glow}66`,
+            borderWidth: deck.isPremium ? 1.5 : 1,
+            overflow: 'hidden',
+          },
+          cardSpring.animatedStyle,
+        ]}
       >
+        {xmas ? (
+          <>
+            <LinearGradient colors={magic.tint} style={StyleSheet.absoluteFill} />
+            <SnowEdge />
+            {deck.isPremium ? <ShimmerSweep width={180} every={3400} delay={index * 500} color="rgba(251,191,36,0.35)" /> : null}
+            <View pointerEvents="none" style={{ position: 'absolute', right: 8, bottom: 8, opacity: 0.95 }}>
+              <DeckArt topic={magic.topic} size={46} />
+            </View>
+          </>
+        ) : null}
         {/* Top Header Card */}
         <View style={styles.cardTopRow}>
           <LinearGradient
@@ -179,9 +220,9 @@ const FlashcardDeckCard: React.FC<DeckCardItemProps> = ({
             {deck.isPremium && (
               <View style={[styles.proBadge, !isUserPremium && styles.proBadgeLocked]}>
                 {isUserPremium ? (
-                  <Crown color="#B45309" size={10} />
+                  <Crown color={dk('#B45309', 'text')} size={10} />
                 ) : (
-                  <Lock color="#B45309" size={10} />
+                  <Lock color={dk('#B45309', 'text')} size={10} />
                 )}
                 <Text style={styles.proBadgeText}>PRO</Text>
               </View>
@@ -194,7 +235,7 @@ const FlashcardDeckCard: React.FC<DeckCardItemProps> = ({
         </View>
 
         {/* Card Title & Desc */}
-        <View style={styles.cardMiddleWrap}>
+        <View style={[styles.cardMiddleWrap, xmas && { paddingRight: 42 }]}>
           <Text style={styles.deckCardName} numberOfLines={2}>
             {deck.name}
           </Text>
@@ -212,8 +253,11 @@ const FlashcardDeckCard: React.FC<DeckCardItemProps> = ({
   );
 };
 
-export const DecksScreen = () => {
+/** `embedded`: nằm trong tab Lộ trình → không nút quay lại, không cộng vùng an toàn lần nữa. */
+export const DecksScreen = ({ embedded = false }: { embedded?: boolean }) => {
+  const xmas = useXmasActive();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { currentUser } = useAuthStore();
 
   const [activeTab, setActiveTab] = useState<'SYSTEM' | 'MY_DECKS'>('SYSTEM');
@@ -338,39 +382,52 @@ export const DecksScreen = () => {
   };
 
   return (
+    <View style={{ flex: 1 }}>
+    {/* Giáng sinh (giao diện tối): Thư viện phép thuật */}
+    {xmas ? <ChristmasScene scene="library" /> : null}
     <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.scrollContent}
+      style={[styles.container, xmas && { backgroundColor: 'transparent' }]}
+      contentContainerStyle={[styles.scrollContent, !embedded && { paddingTop: insets.top + 10 }]}
       showsVerticalScrollIndicator={false}
     >
       {/* Top Header Bar */}
       <View style={styles.headerRow}>
-        <UserAvatar uri={currentUser?.avatar_url} size={40} style={styles.avatar} />
+        {embedded ? <UserAvatar uri={currentUser?.avatar_url} size={40} /> : <BackButton />}
 
         <View style={styles.headerCenter}>
           <Text style={styles.headerBrand}>SMARTENGLISH AI</Text>
-          <Text style={styles.headerTitle}>Kho Thẻ Ghi Nhớ</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {xmas ? <BookOpen size={18} color="#FBBF24" /> : null}
+            <Text style={[styles.headerTitle, xmas && { color: '#FDE7BD', textShadowColor: 'rgba(251,191,36,0.7)', textShadowRadius: 10, textShadowOffset: { width: 0, height: 0 } }]}>
+              Kho Thẻ Ghi Nhớ
+            </Text>
+          </View>
         </View>
 
-        <Pressable onPress={handleOpenPremium} style={styles.proBtn}>
-          <Crown color="#D97706" size={19} fill="#F59E0B" />
+        <Pressable
+          onPress={handleOpenPremium}
+          style={[styles.proBtn, xmas && { backgroundColor: '#FBBF24', overflow: 'hidden', shadowColor: '#FBBF24', shadowOpacity: 0.9, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } }]}
+        >
+          {xmas ? <ShimmerSweep width={40} every={2600} /> : null}
+          <Crown color={xmas ? '#78350F' : '#D97706'} size={19} fill={xmas ? '#FDE68A' : '#F59E0B'} />
         </Pressable>
       </View>
 
       {/* 2 Segmented Tabs: Hệ thống vs Của tôi */}
-      <View style={styles.segmentedContainer}>
+      <View style={[styles.segmentedContainer, xmas && { backgroundColor: 'rgba(16,30,34,0.85)', borderWidth: 1, borderColor: 'rgba(251,191,36,0.25)' }]}>
         <Pressable
           onPress={() => setActiveTab('SYSTEM')}
-          style={[styles.segmentBtn, activeTab === 'SYSTEM' && styles.segmentBtnActive]}
+          style={[styles.segmentBtn, activeTab === 'SYSTEM' && styles.segmentBtnActive, xmas && activeTab === 'SYSTEM' && XMAS_SEGMENT_ACTIVE]}
         >
           <Layers
-            color={activeTab === 'SYSTEM' ? colors.primary : colors.textSoft}
+            color={activeTab === 'SYSTEM' ? (xmas ? '#FDE68A' : colors.primary) : colors.textSoft}
             size={16}
           />
           <Text
             style={[
               styles.segmentBtnText,
               activeTab === 'SYSTEM' && styles.segmentBtnTextActive,
+              xmas && activeTab === 'SYSTEM' && { color: '#FDE68A' },
             ]}
           >
             Hệ thống
@@ -379,21 +436,23 @@ export const DecksScreen = () => {
 
         <Pressable
           onPress={() => setActiveTab('MY_DECKS')}
-          style={[styles.segmentBtn, activeTab === 'MY_DECKS' && styles.segmentBtnActive]}
+          style={[styles.segmentBtn, activeTab === 'MY_DECKS' && styles.segmentBtnActive, xmas && activeTab === 'MY_DECKS' && XMAS_SEGMENT_ACTIVE]}
         >
           <BookOpen
-            color={activeTab === 'MY_DECKS' ? colors.primary : colors.textSoft}
+            color={activeTab === 'MY_DECKS' ? (xmas ? '#FDE68A' : colors.primary) : colors.textSoft}
             size={16}
           />
           <Text
             style={[
               styles.segmentBtnText,
               activeTab === 'MY_DECKS' && styles.segmentBtnTextActive,
+              xmas && activeTab === 'MY_DECKS' && { color: '#FDE68A' },
             ]}
           >
             Của tôi
           </Text>
         </Pressable>
+        {xmas ? <PineBranch size={60} flip style={{ position: 'absolute', right: -10, top: -16 }} /> : null}
       </View>
 
       {/* Loading state */}
@@ -422,7 +481,7 @@ export const DecksScreen = () => {
       {/* Empty state khi không có thẻ */}
       {!loading && !error && currentList.length === 0 && activeTab === 'SYSTEM' && (
         <View style={styles.emptyContainer}>
-          <BookOpen size={40} color="#94A3B8" />
+          <BookOpen size={40} color={dk('#94A3B8', 'text')} />
           <Text style={styles.emptyTitle}>Chưa có bộ thẻ hệ thống nào</Text>
           <Text style={styles.emptySubtitle}>Các chủ đề từ vựng chuẩn sẽ sớm được xuất bản.</Text>
         </View>
@@ -430,7 +489,7 @@ export const DecksScreen = () => {
 
       {!loading && !error && !!currentUser && currentList.length === 0 && activeTab === 'MY_DECKS' && (
         <View style={styles.emptyContainer}>
-          <BookOpen size={40} color="#94A3B8" />
+          <BookOpen size={40} color={dk('#94A3B8', 'text')} />
           <Text style={styles.emptyTitle}>Chưa có bộ thẻ</Text>
           <Text style={styles.emptySubtitle}>Bạn chưa có bộ thẻ cá nhân nào. Hãy bấm nút bên dưới để tạo bộ thẻ từ vựng đầu tiên!</Text>
         </View>
@@ -447,6 +506,7 @@ export const DecksScreen = () => {
               isUserPremium={isUserPremium}
               levelMatch={activeTab === 'SYSTEM' && deck.source === 'SYSTEM_TOPIC' && isLevelMatch(learnerLevel, deck.targetExam)}
               onPress={handleOpenStudy}
+              xmas={xmas}
             />
           ))}
 
@@ -481,7 +541,7 @@ export const DecksScreen = () => {
               value={newDeckName}
               onChangeText={setNewDeckName}
               placeholder="Tên bộ thẻ (VD: Từ vựng IELTS Writing...)"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={dk('#94A3B8', 'text')}
               style={styles.modalInput}
               autoFocus
             />
@@ -490,7 +550,7 @@ export const DecksScreen = () => {
               value={newDeckDesc}
               onChangeText={setNewDeckDesc}
               placeholder="Mô tả bộ thẻ (tùy chọn)"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={dk('#94A3B8', 'text')}
               style={[styles.modalInput, { marginBottom: 20 }]}
             />
 
@@ -516,6 +576,7 @@ export const DecksScreen = () => {
         </View>
       </Modal>
     </ScrollView>
+    </View>
   );
 };
 
@@ -534,13 +595,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: colors.border,
   },
   headerCenter: {
     alignItems: 'center',

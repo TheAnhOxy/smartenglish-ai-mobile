@@ -50,6 +50,7 @@ import { CancelPlanSheet } from '../components/CancelPlanSheet';
 import { isLowerThanCurrent } from '../../application/planRank';
 import { AppColors } from '@/src/core/theme/colors';
 import { hasActivePremium } from '@/src/core/utils/plan';
+import { dk } from '@/src/theme/themeMode';
 
 export const PaywallScreen = () => {
   const router = useRouter();
@@ -93,14 +94,17 @@ export const PaywallScreen = () => {
     loadPlans();
   }, []);
 
+  // Gói hiệu lực: gói đã hết hạn tính như chưa có gói, để học viên gia hạn được đúng gói cũ
+  const effectivePlan = hasActivePremium(currentUser) ? currentUser?.plan : null;
+
   // Gói đang dùng hoặc thấp hơn gói đang dùng → không cho đăng ký (tránh hạ cấp từ gói VIP)
-  const isPlanLocked = (planId: string) => isPlanCurrent(planId) || isLowerThanCurrent(planId, currentUser?.plan);
+  const isPlanLocked = (planId: string) => isPlanCurrent(planId) || isLowerThanCurrent(planId, effectivePlan);
 
   const isPlanCurrent = (planId: string) => {
-    if (!currentUser?.plan) return false;
-    if (currentUser.plan === 'premium_monthly' && planId.includes('MONTHLY')) return true;
-    if (currentUser.plan === 'premium_yearly' && planId.includes('YEARLY')) return true;
-    if (currentUser.plan === 'lifetime' && planId.includes('LIFETIME')) return true;
+    if (!effectivePlan) return false;
+    if (effectivePlan === 'premium_monthly' && planId.includes('MONTHLY')) return true;
+    if (effectivePlan === 'premium_yearly' && planId.includes('YEARLY')) return true;
+    if (effectivePlan === 'lifetime' && planId.includes('LIFETIME')) return true;
     return false;
   };
 
@@ -305,30 +309,30 @@ export const PaywallScreen = () => {
   // 4 Trọng tâm quyền lợi mà người dùng nhận được khi nâng cấp PRO
   const CORE_PRO_BENEFITS = [
     {
-      icon: <Bot color="#D97706" size={20} strokeWidth={2.2} />,
+      icon: <Bot color={dk('#D97706', 'text')} size={20} strokeWidth={2.2} />,
       bg: '#FEF3C7',
       borderColor: '#FDE68A',
       title: 'AI Gia sư 1-1 Không Giới Hạn',
       desc: 'Luyện đàm thoại phản xạ tự nhiên & sửa ngữ pháp tức thì 24/7.',
     },
     {
-      icon: <Mic color="#0284C7" size={20} strokeWidth={2.2} />,
+      icon: <Mic color={dk('#0284C7', 'text')} size={20} strokeWidth={2.2} />,
       bg: '#E0F2FE',
-      borderColor: '#BAE6FD',
+      borderColor: dk('#BAE6FD', 'border'),
       title: 'Chấm Điểm & Sửa Phát Âm Chi Tiết',
       desc: 'Nhận diện lỗi sai từng âm vị, nối âm & ngữ điệu chuẩn bản xứ.',
     },
     {
-      icon: <FileText color="#16A34A" size={20} strokeWidth={2.2} />,
+      icon: <FileText color={dk('#16A34A', 'text')} size={20} strokeWidth={2.2} />,
       bg: '#DCFCE7',
-      borderColor: '#BBF7D0',
+      borderColor: dk('#BBF7D0', 'border'),
       title: 'Chấm Viết Luận & Đề Thi TOEIC VIP',
       desc: 'Phân tích bẫy đề thi thực tế, viết lại bài mẫu Band 8.0+ không giới hạn.',
     },
     {
       icon: <Zap color="#9333EA" size={20} strokeWidth={2.2} />,
       bg: '#F3E8FF',
-      borderColor: '#E9D5FF',
+      borderColor: dk('#E9D5FF', 'border'),
       title: 'Mô Hình AI Cao Cấp • 100% Không Quảng Cáo',
       desc: 'Ưu tiên kết nối máy chủ AI tốc độ cao, học liền mạch không gián đoạn.',
     },
@@ -342,7 +346,7 @@ export const PaywallScreen = () => {
       const price = plan.priceYearly || 1490000;
       const monthlyEquiv = Math.round(price / 12);
       return {
-        icon: <Crown color="#D97706" size={22} strokeWidth={2.3} />,
+        icon: <Crown color={dk('#D97706', 'text')} size={22} strokeWidth={2.3} />,
         iconBg: '#FEF3C7',
         iconBorder: '#FDE68A',
         badgeTag: 'Bán chạy nhất',
@@ -387,7 +391,7 @@ export const PaywallScreen = () => {
 
     const price = plan.priceMonthly || 20000;
     return {
-      icon: <Zap color="#0284C7" size={22} strokeWidth={2.3} />,
+      icon: <Zap color={dk('#0284C7', 'text')} size={22} strokeWidth={2.3} />,
       iconBg: '#E0F2FE',
       iconBorder: '#BAE6FD',
       badgeTag: 'Ưu đãi 20k',
@@ -424,7 +428,7 @@ export const PaywallScreen = () => {
             onPress={() => router.push('/(student)/profile/invoices' as any)}
             style={s.invoiceHeaderBtn}
           >
-            <Receipt color="#0284C7" size={14} />
+            <Receipt color={dk('#0284C7', 'text')} size={14} />
             <Text style={s.invoiceHeaderBtnText}>Hóa đơn</Text>
           </TouchableOpacity>
 
@@ -442,7 +446,7 @@ export const PaywallScreen = () => {
             style={s.closeBtn}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <X color="#475569" size={18} />
+            <X color={dk('#475569', 'text')} size={18} />
           </TouchableOpacity>
         </View>
       </View>
@@ -465,7 +469,7 @@ export const PaywallScreen = () => {
         {/* Trạng thái hiện tại nếu đã là Pro */}
         {isCurrentPremium && (
           <View style={s.currentPlanNotice}>
-            <ShieldCheck color="#10B981" size={16} />
+            <ShieldCheck color={dk('#10B981', 'text')} size={16} />
             <Text style={s.currentPlanNoticeText}>Bạn đang dùng gói PRO</Text>
             <Pressable onPress={() => setShowCancelPlan(true)} hitSlop={8}>
               <Text style={{ color: AppColors.error, fontSize: 12, fontWeight: '600', textDecorationLine: 'underline' }}>
@@ -582,7 +586,7 @@ export const PaywallScreen = () => {
                         <View style={{ justifyContent: 'center' }}>
                           {isCurrentPlan ? (
                             <View style={s.currentPlanBadge}>
-                              <Check color="#059669" size={12} strokeWidth={3} />
+                              <Check color={dk('#059669', 'text')} size={12} strokeWidth={3} />
                               <Text style={s.currentPlanBadgeText}>Đang dùng</Text>
                             </View>
                           ) : isSelected ? (
@@ -620,7 +624,7 @@ export const PaywallScreen = () => {
                       {/* Thông báo nếu là gói đang dùng */}
                       {isCurrentPlan ? (
                         <View style={s.currentPlanNoticeBox}>
-                          <ShieldCheck color="#059669" size={14} />
+                          <ShieldCheck color={dk('#059669', 'text')} size={14} />
                           <Text style={s.currentPlanNoticeBoxText}>
                             Gói cước đang có hiệu lực trên tài khoản. Bạn có thể gia hạn khi gói kết thúc.
                           </Text>
@@ -658,7 +662,7 @@ export const PaywallScreen = () => {
         <View style={s.voucherSection}>
           <View style={s.voucherHeaderRow}>
             <View style={s.voucherIconPill}>
-              <Gift color="#0284C7" size={16} strokeWidth={2.2} />
+              <Gift color={dk('#0284C7', 'text')} size={16} strokeWidth={2.2} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={s.voucherHeaderTitle}>Mã ưu đãi / Voucher</Text>
@@ -671,7 +675,7 @@ export const PaywallScreen = () => {
           {appliedVoucher ? (
             <View style={s.appliedVoucherBox}>
               <View style={s.appliedVoucherLeft}>
-                <CheckCircle2 color="#059669" size={18} strokeWidth={2.3} />
+                <CheckCircle2 color={dk('#059669', 'text')} size={18} strokeWidth={2.3} />
                 <View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <Text style={s.appliedVoucherCode}>{appliedVoucher.code}</Text>
@@ -691,14 +695,14 @@ export const PaywallScreen = () => {
                 style={s.removeVoucherBtn}
                 activeOpacity={0.7}
               >
-                <X color="#64748B" size={14} />
+                <X color={dk('#64748B', 'text')} size={14} />
                 <Text style={s.removeVoucherBtnText}>Hủy</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <View style={s.voucherInputGroup}>
               <View style={s.voucherInputWrapper}>
-                <Tag color="#94A3B8" size={16} />
+                <Tag color={dk('#94A3B8', 'text')} size={16} />
                 <TextInput
                   value={voucherCodeInput}
                   onChangeText={(txt) => {
@@ -708,7 +712,7 @@ export const PaywallScreen = () => {
                   autoCapitalize="characters"
                   autoCorrect={false}
                   placeholder="Nhập mã (VD: VIP99, TEST90...)"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={dk('#94A3B8', 'text')}
                   style={s.voucherTextInput}
                 />
               </View>
@@ -749,7 +753,7 @@ export const PaywallScreen = () => {
                 <Text style={[s.tableTh, { width: 140 }]}>Tính năng / Quyền lợi</Text>
                 <Text style={[s.tableTh, { width: 100, textAlign: 'center' }]}>Gói Miễn Phí</Text>
                 <Text style={[s.tableTh, { width: 110, textAlign: 'center', color: '#DC2626' }]}>Pro Tháng (20k)</Text>
-                <Text style={[s.tableTh, { width: 110, textAlign: 'center', color: '#D97706' }]}>Pro Năm (1.490k)</Text>
+                <Text style={[s.tableTh, { width: 110, textAlign: 'center', color: dk('#D97706', 'text') }]}>Pro Năm (1.490k)</Text>
                 <Text style={[s.tableTh, { width: 115, textAlign: 'center', color: '#7C3AED' }]}>Trọn Đời (Lifetime)</Text>
               </View>
 
@@ -765,10 +769,10 @@ export const PaywallScreen = () => {
               ].map((row, rIdx) => (
                 <View key={rIdx} style={[s.tableRow, rIdx % 2 === 1 && s.tableRowAlt]}>
                   <Text style={[s.tableTdName, { width: 140 }]}>{row.name}</Text>
-                  <Text style={[s.tableTd, { width: 100, color: '#64748B' }]}>{row.free}</Text>
-                  <Text style={[s.tableTd, { width: 110, color: '#059669', fontWeight: '700' }]}>{row.pro}</Text>
-                  <Text style={[s.tableTd, { width: 110, color: '#059669', fontWeight: '700' }]}>{row.pro}</Text>
-                  <Text style={[s.tableTd, { width: 115, color: '#059669', fontWeight: '700' }]}>{row.pro}</Text>
+                  <Text style={[s.tableTd, { width: 100, color: dk('#64748B', 'text') }]}>{row.free}</Text>
+                  <Text style={[s.tableTd, { width: 110, color: dk('#059669', 'text'), fontWeight: '700' }]}>{row.pro}</Text>
+                  <Text style={[s.tableTd, { width: 110, color: dk('#059669', 'text'), fontWeight: '700' }]}>{row.pro}</Text>
+                  <Text style={[s.tableTd, { width: 115, color: dk('#059669', 'text'), fontWeight: '700' }]}>{row.pro}</Text>
                 </View>
               ))}
             </View>
@@ -778,11 +782,11 @@ export const PaywallScreen = () => {
         {/* Cam kết tin cậy */}
         <View style={s.trustFooterRow}>
           <View style={s.trustTag}>
-            <ShieldCheck color="#10B981" size={15} />
+            <ShieldCheck color={dk('#10B981', 'text')} size={15} />
             <Text style={s.trustTagText}>Kích hoạt ngay lập tức</Text>
           </View>
           <View style={s.trustTag}>
-            <Lock color="#0284C7" size={14} />
+            <Lock color={dk('#0284C7', 'text')} size={14} />
             <Text style={s.trustTagText}>Bảo mật qua VietQR Napas 24/7</Text>
           </View>
         </View>
@@ -824,8 +828,8 @@ export const PaywallScreen = () => {
                 </View>
                 <Text style={s.ctaSubtitleText}>Chỉ có thể nâng cấp lên gói cao hơn</Text>
               </View>
-              <View style={[s.ctaArrowCircle, { backgroundColor: '#E2E8F0' }]}>
-                <Check color="#059669" size={18} strokeWidth={2.5} />
+              <View style={[s.ctaArrowCircle, { backgroundColor: dk('#E2E8F0', 'bg') }]}>
+                <Check color={dk('#059669', 'text')} size={18} strokeWidth={2.5} />
               </View>
             </View>
           ) : (
@@ -855,7 +859,7 @@ export const PaywallScreen = () => {
                 </Text>
               </View>
               <View style={s.ctaArrowCircle}>
-                <ArrowRight color="#0284C7" size={18} strokeWidth={2.5} />
+                <ArrowRight color={dk('#0284C7', 'text')} size={18} strokeWidth={2.5} />
               </View>
             </View>
           )}

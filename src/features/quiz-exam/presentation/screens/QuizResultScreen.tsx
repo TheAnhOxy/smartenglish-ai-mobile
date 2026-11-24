@@ -21,6 +21,8 @@ import {
 } from 'lucide-react-native';
 import { colors } from '../../../../theme/colors';
 import { BackButton } from '@/src/core/components/BackButton';
+import { PracticeFeedbackCard } from '@/src/features/practice-feedback/presentation/components/PracticeFeedbackCard';
+import { dk } from '@/src/theme/themeMode';
 
 export interface InlineQuestionReviewItem {
   id: number;
@@ -126,7 +128,7 @@ export const QuizResultScreen: React.FC = () => {
             <Text style={styles.levelBadgeText}>{levelText}</Text>
           </View>
           <View style={styles.xpBadge}>
-            <Zap size={14} color="#0284C7" fill="#0284C7" />
+            <Zap size={14} color={dk('#0284C7', 'text')} fill="#0284C7" />
             <Text style={styles.xpBadgeText}>{xpEarned}</Text>
           </View>
         </View>
@@ -175,7 +177,7 @@ export const QuizResultScreen: React.FC = () => {
 
           <View style={styles.statCol}>
             <View style={styles.timeLabelRow}>
-              <Clock size={12} color="#64748B" />
+              <Clock size={12} color={dk('#64748B', 'text')} />
               <Text style={styles.statLabel}>Thời gian</Text>
             </View>
             <Text style={[styles.statValue, styles.statValueDark]}>{durationText}</Text>
@@ -231,7 +233,7 @@ export const QuizResultScreen: React.FC = () => {
                 <View style={styles.cardBadgeRow}>
                   {isCorrect && (
                     <View style={styles.badgeCorrect}>
-                      <Check size={13} color="#0284C7" />
+                      <Check size={13} color={dk('#0284C7', 'text')} />
                       <Text style={styles.badgeCorrectText}>Câu {q.questionNumber} · Đúng</Text>
                     </View>
                   )}
@@ -243,7 +245,7 @@ export const QuizResultScreen: React.FC = () => {
                   )}
                   {isSkipped && (
                     <View style={styles.badgeSkipped}>
-                      <Minus size={13} color="#64748B" />
+                      <Minus size={13} color={dk('#64748B', 'text')} />
                       <Text style={styles.badgeSkippedText}>Câu {q.questionNumber} · Chưa trả lời</Text>
                     </View>
                   )}
@@ -256,7 +258,7 @@ export const QuizResultScreen: React.FC = () => {
                 <View style={styles.pillsWrap}>
                   {isCorrect && (
                     <View style={styles.pillAnswerCorrect}>
-                      <Check size={14} color="#0F172A" />
+                      <Check size={14} color={dk('#0F172A', 'text')} />
                       <Text style={styles.pillAnswerCorrectText}>{q.userAnswer}</Text>
                     </View>
                   )}
@@ -268,7 +270,7 @@ export const QuizResultScreen: React.FC = () => {
                         <Text style={styles.pillAnswerWrongText}>{q.userAnswer}</Text>
                       </View>
                       <View style={styles.pillAnswerCorrectAlt}>
-                        <Check size={14} color="#0F172A" />
+                        <Check size={14} color={dk('#0F172A', 'text')} />
                         <Text style={styles.pillAnswerCorrectAltText}>{q.correctAnswer}</Text>
                       </View>
                     </>
@@ -286,7 +288,7 @@ export const QuizResultScreen: React.FC = () => {
                 {q.explanation && (
                   <View style={styles.explanationBox}>
                     <View style={styles.explanationTitleRow}>
-                      <Info size={13} color="#1E40AF" />
+                      <Info size={13} color={dk('#1E40AF', 'text')} />
                       <Text style={styles.explanationTitle}>Giải thích</Text>
                     </View>
                     <Text style={styles.explanationContent}>{q.explanation}</Text>
@@ -314,6 +316,17 @@ export const QuizResultScreen: React.FC = () => {
             <Text style={styles.btnBackListText}>Về danh sách Quiz</Text>
           </Pressable>
         </View>
+
+        <PracticeFeedbackCard
+          style={{ marginTop: 16 }}
+          input={{
+            skill: 'QUIZ',
+            title: quizTitle,
+            score: Math.round((correctCount / Math.max(totalQuestions, 1)) * 100),
+            sourceId: `quiz-${quizTitle}-${correctCount}-${incorrectCount}-${durationText}`.slice(0, 80),
+            details: `Bài quiz "${quizTitle}" (${levelText}): ${totalQuestions} câu, đúng ${correctCount}, sai ${incorrectCount}, bỏ qua ${skippedCount}, thời gian ${durationText}.`,
+          }}
+        />
       </ScrollView>
     </SafeAreaView>
   );

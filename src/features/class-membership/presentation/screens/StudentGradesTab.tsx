@@ -7,6 +7,7 @@ import { useStudentAssignments } from '../../application/useClassMembership';
 import { getAssignmentRoute } from '../../application/assignmentNavigation';
 import type { ClassAssignmentDTO } from '../../data/classApi';
 import { AssignmentStatusBadge } from '../components/AssignmentStatusBadge';
+import { isDarkTheme } from '@/src/theme/themeMode';
 
 interface StudentGradesTabProps {
   classId: string | number;
@@ -47,14 +48,14 @@ export const StudentGradesTab: React.FC<StudentGradesTabProps> = ({ classId, cla
         <Pressable
           onPress={() => route && router.push(route)}
           disabled={!route}
-          className="bg-white dark:bg-darkCard p-4 rounded-2xl border border-gray-100 dark:border-gray-800 mb-3 active:bg-gray-50"
+          className={`bg-white dark:bg-darkCard p-4 rounded-2xl border border-gray-100 dark:border-gray-800 mb-3 ${isDarkTheme() ? 'active:bg-[#2B4C7E]' : 'active:bg-gray-50'}`}
         >
           <View className="flex-row items-start justify-between">
             <View className="flex-1 mr-3">
               <Text className="text-sm font-bold text-neutralInk dark:text-white" numberOfLines={1}>
                 {item.title}
               </Text>
-              <Text className="text-[11px] text-neutralGray mt-0.5">
+              <Text className="text-[11px] text-neutralGray mt-0.5 dark:text-darkMuted">
                 Hạn nộp: {item.dueDate ? new Date(item.dueDate).toLocaleDateString('vi-VN') : 'Không hạn'}
               </Text>
             </View>
@@ -87,7 +88,7 @@ export const StudentGradesTab: React.FC<StudentGradesTabProps> = ({ classId, cla
     return (
       <View className="items-center py-14 bg-white dark:bg-darkCard rounded-2xl p-6">
         <AlertCircle size={28} color={AppColors.error} />
-        <Text className="text-sm text-neutralGray my-3">Không thể tải bảng điểm</Text>
+        <Text className="text-sm text-neutralGray my-3 dark:text-darkMuted">Không thể tải bảng điểm</Text>
         <Pressable onPress={() => refetch()} className="bg-primary px-5 py-2.5 rounded-xl active:bg-primaryDark">
           <Text className="text-white font-bold text-xs">Thử lại</Text>
         </Pressable>
@@ -117,19 +118,19 @@ export const StudentGradesTab: React.FC<StudentGradesTabProps> = ({ classId, cla
 
           <View className="flex-row bg-surface dark:bg-darkBg p-3 rounded-2xl">
             <View className="flex-1 items-center">
-              <Text className="text-[11px] font-semibold text-neutralGray mb-1">Điểm TB</Text>
+              <Text className="text-[11px] font-semibold text-neutralGray mb-1 dark:text-darkMuted">Điểm TB</Text>
               <Text className="text-2xl font-extrabold text-primary">
                 {stats.avg != null ? stats.avg.toFixed(1) : '—'}
               </Text>
             </View>
             <View className="flex-1 items-center">
-              <Text className="text-[11px] font-semibold text-neutralGray mb-1">Đã nộp</Text>
+              <Text className="text-[11px] font-semibold text-neutralGray mb-1 dark:text-darkMuted">Đã nộp</Text>
               <Text className="text-2xl font-extrabold text-secondary dark:text-white">
                 {stats.submitted}/{stats.total}
               </Text>
             </View>
             <View className="flex-1 items-center">
-              <Text className="text-[11px] font-semibold text-neutralGray mb-1">Hoàn thành</Text>
+              <Text className="text-[11px] font-semibold text-neutralGray mb-1 dark:text-darkMuted">Hoàn thành</Text>
               <Text className="text-2xl font-extrabold text-success">{stats.completionRate}%</Text>
             </View>
           </View>

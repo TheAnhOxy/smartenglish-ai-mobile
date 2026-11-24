@@ -35,6 +35,10 @@ export const ds = {
   redSoft: '#FEE2E2',
   redText: '#991B1B',
 
+  /** Nền đậm cho header / thẻ nổi bật (giữ tối ở cả hai theme). */
+  hero: '#0F2A44',
+  heroSoft: '#1B3A5C',
+
   white: '#FFFFFF',
   onInk: 'rgba(255,255,255,0.72)',
   onInkFaint: 'rgba(255,255,255,0.14)',

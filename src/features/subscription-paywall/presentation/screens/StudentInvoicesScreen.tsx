@@ -26,6 +26,7 @@ import { apiClient } from '@/src/core/api/client';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { SepayInvoicePaper } from '../components/SepayInvoicePaper';
 import { BackButton } from '@/src/core/components/BackButton';
+import { dk } from '@/src/theme/themeMode';
 
 export interface OrderItem {
   id: number | string;
@@ -191,9 +192,9 @@ export const StudentInvoicesScreen: React.FC = () => {
           activeOpacity={0.7}
         >
           {loading ? (
-            <ActivityIndicator size="small" color="#0284C7" />
+            <ActivityIndicator size="small" color={dk('#0284C7', 'text')} />
           ) : (
-            <RotateCcw size={18} color="#64748B" />
+            <RotateCcw size={18} color={dk('#64748B', 'text')} />
           )}
         </TouchableOpacity>
       </View>
@@ -207,7 +208,7 @@ export const StudentInvoicesScreen: React.FC = () => {
             style={styles.backToListBtn}
             activeOpacity={0.7}
           >
-            <ArrowLeft size={16} color="#0284C7" />
+            <ArrowLeft size={16} color={dk('#0284C7', 'text')} />
             <Text style={styles.backToListText}>Danh sách hóa đơn</Text>
           </TouchableOpacity>
 
@@ -226,17 +227,17 @@ export const StudentInvoicesScreen: React.FC = () => {
           {/* Thanh tìm kiếm */}
           <View style={styles.searchContainer}>
             <View style={styles.searchBar}>
-              <Search color="#94A3B8" size={18} />
+              <Search color={dk('#94A3B8', 'text')} size={18} />
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholder="Tìm theo mã đơn, mã hóa đơn..."
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={dk('#94A3B8', 'text')}
                 style={styles.searchInput}
               />
               {searchQuery.length > 0 && (
                 <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
-                  <X color="#94A3B8" size={16} />
+                  <X color={dk('#94A3B8', 'text')} size={16} />
                 </Pressable>
               )}
             </View>
@@ -273,12 +274,12 @@ export const StudentInvoicesScreen: React.FC = () => {
           >
             {loading && orders.length === 0 ? (
               <View style={styles.centerLoading}>
-                <ActivityIndicator size="large" color="#0284C7" />
+                <ActivityIndicator size="large" color={dk('#0284C7', 'text')} />
               </View>
             ) : filteredOrders.length === 0 ? (
               <View style={styles.emptyState}>
                 <View style={styles.emptyIconBox}>
-                  <FileText color="#94A3B8" size={32} />
+                  <FileText color={dk('#94A3B8', 'text')} size={32} />
                 </View>
                 <Text style={styles.emptyTitle}>Chưa có hóa đơn nào</Text>
               </View>
@@ -303,7 +304,7 @@ export const StudentInvoicesScreen: React.FC = () => {
                     <View style={styles.orderHeaderRow}>
                       <View style={styles.orderCodeGroup}>
                         <View style={styles.orderIconBox}>
-                          <FileCheck2 color="#0284C7" size={16} />
+                          <FileCheck2 color={dk('#0284C7', 'text')} size={16} />
                         </View>
                         <View>
                           <Text style={styles.orderCodeText}>
@@ -325,14 +326,14 @@ export const StudentInvoicesScreen: React.FC = () => {
                           </View>
                         ) : isPaid ? (
                           <View style={[styles.statusBadge, styles.badgePaid]}>
-                            <Check color="#059669" size={11} strokeWidth={3} />
+                            <Check color={dk('#059669', 'text')} size={11} strokeWidth={3} />
                             <Text style={[styles.statusBadgeText, styles.textPaid]}>
                               ĐÃ THANH TOÁN
                             </Text>
                           </View>
                         ) : isPending ? (
                           <View style={[styles.statusBadge, styles.badgePending]}>
-                            <Clock color="#D97706" size={11} />
+                            <Clock color={dk('#D97706', 'text')} size={11} />
                             <Text style={[styles.statusBadgeText, styles.textPending]}>
                               CHỜ QUÉT QR
                             </Text>

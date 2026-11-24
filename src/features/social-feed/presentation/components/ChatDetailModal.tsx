@@ -48,6 +48,11 @@ import {
   fetchTypingApi,
   getCachedMessages,
 } from '../../data/socialApi';
+import { dk } from '@/src/theme/themeMode';
+import { SocialScene } from '@/src/components/xmas/SocialScenes';
+import { useXmasActive } from '@/src/core/services/xmas';
+import { isDarkTheme } from '@/src/theme/themeMode';
+import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 
 interface ChatDetailModalProps {
   visible: boolean;
@@ -85,6 +90,8 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
   onViewImage,
   isOnline = false,
 }) => {
+  // Giáng sinh (giao diện tối): quán cà phê Giáng sinh làm nền khung chat
+  const xmas = useXmasActive();
   const insets = useSafeAreaInsets();
   const flatListRef = useRef<FlatList<ChatMessageDto>>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -639,12 +646,15 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.container}
+        style={[styles.container, xmas && { backgroundColor: '#0B1420' }]}
       >
+        {/* Modal có thanh trạng thái riêng: chữ sáng khi giao diện tối */}
+        <ExpoStatusBar style={isDarkTheme() ? 'light' : 'dark'} />
+        {xmas ? <SocialScene scene="cafe" /> : null}
         {/* Header */}
-        <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
-          <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={10}>
-            <X color="#0F172A" size={22} />
+        <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 4 }, xmas && XMAS_HEADER]}>
+          <Pressable onPress={onClose} style={[styles.closeBtn, xmas && { backgroundColor: 'rgba(241,245,249,0.12)', borderRadius: 12 }]} hitSlop={10}>
+            <X color={xmas ? '#F1F5F9' : dk('#0F172A', 'text')} size={22} />
           </Pressable>
 
           <View style={styles.headerInfo}>
@@ -704,7 +714,7 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
                   borderRadius: 9999,
                   backgroundColor: '#10B981',
                   borderWidth: 2,
-                  borderColor: '#FFFFFF',
+                  borderColor: dk('#FFFFFF', 'border'),
                   zIndex: 2,
                 }}
               />
@@ -714,8 +724,8 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
 
         {/* Pinned Message Sticky Banner */}
         {pinnedMessage && (
-          <View style={styles.pinnedBanner}>
-            <Pin size={13} color="#D97706" style={{ marginRight: 6 }} />
+          <View style={[styles.pinnedBanner, xmas && XMAS_PINNED]}>
+            <Pin size={13} color={xmas ? '#FBBF24' : dk('#D97706', 'text')} style={{ marginRight: 6 }} />
             <Text style={styles.pinnedBannerText} numberOfLines={1}>
               <Text style={{ fontWeight: '700' }}>Đã ghim: </Text>
               {pinnedMessage.type === 'IMAGE'
@@ -787,7 +797,7 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
               return (
                 <View key={msg.id || `msg-${index}`}>
                   {dateLabel && (
-                    <View style={styles.dateSeparatorWrap}>
+                    <View style={[styles.dateSeparatorWrap, xmas && XMAS_DATE]}>
                       <Text style={styles.dateSeparatorText}>{dateLabel}</Text>
                     </View>
                   )}
@@ -822,11 +832,11 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
                               style={[
                                 styles.senderAvatar,
                                 {
-                                  backgroundColor: '#EEF2FF',
+                                  backgroundColor: dk('#EEF2FF', 'bg'),
                                   justifyContent: 'center',
                                   alignItems: 'center',
                                   borderWidth: 1,
-                                  borderColor: '#C7D2FE',
+                                  borderColor: dk('#C7D2FE', 'border'),
                                 },
                               ]}
                             >
@@ -881,6 +891,7 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
                           style={[
                             styles.bubble,
                             isMe ? styles.bubbleMe : styles.bubbleOther,
+                            xmas && (isMe ? XMAS_BUBBLE_ME : XMAS_BUBBLE_OTHER),
                           ]}
                         >
                           {/* Reply Quote Preview inside bubble */}
@@ -1034,7 +1045,7 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
                 </View>
               ) : hasMoreOlder && messages.length >= 30 ? (
                 <Pressable onPress={loadOlderMessages} style={styles.loadOlderBtn}>
-                  <Clock color="#64748B" size={13} />
+                  <Clock color={dk('#64748B', 'text')} size={13} />
                   <Text style={styles.loadOlderText}>Tải thêm tin nhắn cũ</Text>
                 </Pressable>
               ) : undefined
@@ -1073,27 +1084,28 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
               </Text>
             </View>
             <Pressable onPress={() => setReplyingTo(null)} hitSlop={10}>
-              <X size={16} color="#64748B" />
+              <X size={16} color={dk('#64748B', 'text')} />
             </Pressable>
           </View>
         )}
 
         {/* Input Bar */}
-        <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 12) }, xmas && XMAS_COMPOSER]}>
           <Pressable onPress={handlePickImage} style={styles.attachBtn} hitSlop={6}>
-            <ImageIcon color="#64748B" size={21} />
+            <ImageIcon color={dk('#64748B', 'text')} size={21} />
           </Pressable>
 
           <Pressable onPress={handlePickDocument} style={styles.attachBtn} hitSlop={6}>
-            <Paperclip color="#64748B" size={21} />
+            <Paperclip color={dk('#64748B', 'text')} size={21} />
           </Pressable>
 
           <TextInput
             value={inputText}
             onChangeText={handleInputChange}
             placeholder="Nhập tin nhắn..."
-            placeholderTextColor="#94A3B8"
-            style={styles.textInput}
+            placeholderTextColor={dk('#94A3B8', 'text')}
+            style={[styles.textInput, xmas && XMAS_INPUT]}
+            selectionColor={xmas ? '#67E8F9' : undefined}
             multiline
             maxLength={1000}
             onSubmitEditing={handleSendText}
@@ -1104,7 +1116,9 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
             disabled={!inputText.trim() || isSending}
             style={[
               styles.sendBtn,
+              xmas && XMAS_SEND,
               (!inputText.trim() || isSending) && styles.sendBtnDisabled,
+              xmas && (!inputText.trim() || isSending) && { backgroundColor: 'rgba(71,85,105,0.6)', borderColor: 'rgba(148,163,184,0.3)' },
             ]}
           >
             {isSending ? (
@@ -1206,6 +1220,16 @@ export const ChatDetailModal: React.FC<ChatDetailModalProps> = ({
     </Modal>
   );
 };
+
+// Quán cà phê Giáng sinh (style inline để giữ đúng màu ở giao diện tối)
+const XMAS_HEADER = { backgroundColor: 'rgba(11,20,32,0.88)', borderBottomColor: 'rgba(251,191,36,0.3)' };
+const XMAS_PINNED = { backgroundColor: 'rgba(120,74,8,0.55)', borderColor: 'rgba(253,230,138,0.45)', borderWidth: 1 };
+const XMAS_BUBBLE_ME = { backgroundColor: '#047857', borderWidth: 1, borderColor: 'rgba(167,243,208,0.55)' };
+const XMAS_BUBBLE_OTHER = { backgroundColor: 'rgba(15,29,46,0.94)', borderWidth: 1, borderColor: 'rgba(186,230,253,0.3)' };
+const XMAS_COMPOSER = { backgroundColor: 'rgba(11,20,32,0.95)', borderTopColor: 'rgba(186,230,253,0.2)' };
+const XMAS_INPUT = { backgroundColor: 'rgba(23,36,58,0.95)', borderWidth: 1, borderColor: 'rgba(186,230,253,0.3)', color: '#F1F5F9' };
+const XMAS_SEND = { backgroundColor: '#047857', borderWidth: 1.5, borderColor: '#A7F3D0' };
+const XMAS_DATE = { backgroundColor: 'rgba(15,29,46,0.85)', borderColor: 'rgba(186,230,253,0.3)', borderWidth: 1 };
 
 const styles = StyleSheet.create({
   container: {

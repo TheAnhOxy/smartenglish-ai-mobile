@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   type ScrollViewInstance,
 } from 'react-native';
-import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect, useIsFocused } from 'expo-router';
 import {
   Mic,
   Lightbulb,
@@ -36,12 +36,17 @@ import {
   RoleplayScenario,
   useSpeakingQuotaStore,
   FREE_SPEAKING_DAILY_LIMIT,
+  transcribeSpeechApi,
 } from '../../data/speakingApi';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { speakText, stopSpeech } from '@/src/core/services/speechService';
 import { UserAvatar } from '@/src/core/components/UserAvatar';
 import { BackButton } from '@/src/core/components/BackButton';
+import { useTutorVoice } from '@/src/features/ai-chatbot/application/useTutorVoice';
+import { RecordingOverlay } from '../components/RecordingOverlay';
+import { PracticeFeedbackCard } from '@/src/features/practice-feedback/presentation/components/PracticeFeedbackCard';
 import { hasActivePremium } from '@/src/core/utils/plan';
+import { dk } from '@/src/theme/themeMode';
 
 interface ChatTurn {
   role: 'ai' | 'user';
@@ -62,7 +67,6 @@ export const RoleplaySessionScreen = () => {
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   
   // Trạng thái thu âm và xử lý
-  const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [inputText, setInputText] = useState('');
 
@@ -70,9 +74,27 @@ export const RoleplaySessionScreen = () => {
   const [showQuotaModal, setShowQuotaModal] = useState(false);
   const [isAiVoiceMuted, setIsAiVoiceMuted] = useState(false);
 
-  // Web SpeechRecognition ref & auto-scroll ref
-  const recognitionRef = useRef<any>(null);
-  const isRecordingRef = useRef(false);
+  // Micro: web nhận dạng trực tiếp; iOS/Android ghi âm rồi gửi AI chuyển thành chữ
+  const [transcribing, setTranscribing] = useState(false);
+  const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
+  const voice = useTutorVoice({
+    onText: (text) => setInputText(text.trim()),
+    onInterim: (text) => setInputText(text.trim()),
+    onAudio: async ({ base64, mimeType }) => {
+      setTranscribing(true);
+      try {
+        setInputText(await transcribeSpeechApi(base64, mimeType));
+      } catch (err) {
+        setVoiceNotice(err instanceof Error ? err.message : 'Chưa nhận dạng được giọng nói. Hãy thử lại.');
+      } finally {
+        setTranscribing(false);
+      }
+    },
+  });
+  const isRecording = voice.listening;
+  const voiceBusy = voice.processing || transcribing;
+  const cancelVoiceRef = useRef(voice.cancel);
+  cancelVoiceRef.current = voice.cancel;
   const scrollRef = useRef<ScrollViewInstance>(null);
 
   // Tải thông tin kịch bản từ backend
@@ -83,10 +105,6 @@ export const RoleplaySessionScreen = () => {
       if (found) {
         setScenario(found);
         setTurns([{ role: 'ai', text: found.opening_line }]);
-        if (!isAiVoiceMuted && found.opening_line) {
-          const cleanSpeech = found.opening_line.split(/💡/)[0].trim();
-          void speakText(cleanSpeech || found.opening_line, { language: 'en-US' });
-        }
       } else {
         setSessionError('Không tìm thấy kịch bản luyện nói này.');
       }
@@ -95,14 +113,22 @@ export const RoleplaySessionScreen = () => {
     return () => {
       stopSpeech();
       Speech.stop();
-      isRecordingRef.current = false;
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch (_) {}
-      }
+      cancelVoiceRef.current();
     };
   }, [scenarioId]);
+
+  // Đọc câu chào đầu: CHỈ khi màn đang hiển thị và chỉ một lần mỗi kịch bản.
+  // (Màn là tab ẩn nên vẫn nằm trong bộ nhớ sau khi thoát; nạp lại ngầm — Fast Refresh, đổi theme —
+  //  từng làm nó tự đọc "Good afternoon…" dù người dùng không mở.)
+  const isFocused = useIsFocused();
+  const spokenOpeningFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isFocused || !scenario?.opening_line || spokenOpeningFor.current === scenario.id) return;
+    spokenOpeningFor.current = scenario.id;
+    if (isAiVoiceMuted) return;
+    const cleanSpeech = scenario.opening_line.split(/💡/)[0].trim();
+    void speakText(cleanSpeech || scenario.opening_line, { language: 'en-US' });
+  }, [isFocused, scenario, isAiVoiceMuted]);
 
   // Ngắt toàn bộ âm thanh và micro khi màn hình unmount hoặc mất focus (chuyển tab/back)
   useFocusEffect(
@@ -110,12 +136,7 @@ export const RoleplaySessionScreen = () => {
       return () => {
         stopSpeech();
         Speech.stop();
-        isRecordingRef.current = false;
-        if (recognitionRef.current) {
-          try {
-            recognitionRef.current.stop();
-          } catch (_) {}
-        }
+        cancelVoiceRef.current();
       };
     }, [])
   );
@@ -211,7 +232,7 @@ export const RoleplaySessionScreen = () => {
     return (
       <View style={[s.root, { alignItems: 'center', justifyContent: 'center', padding: 24 }]}>
         {sessionError ? (
-          <Text style={{ color: '#B91C1C', textAlign: 'center' }}>{sessionError}</Text>
+          <Text style={{ color: dk('#B91C1C', 'text'), textAlign: 'center' }}>{sessionError}</Text>
         ) : (
           <ActivityIndicator size="large" color="#4F46E5" />
         )}
@@ -222,80 +243,28 @@ export const RoleplaySessionScreen = () => {
   // Bật / Tắt thu âm micro và nhận diện giọng nói trực tiếp vào ô text:
   // Nhấn 1 lần để nói, nhấn lại lần nữa để kết thúc (không tự ngắt khi ngừng nghỉ)
   const toggleRecording = () => {
-    if (isRecordingRef.current) {
-      isRecordingRef.current = false;
-      setIsRecording(false);
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch (_) {}
-        recognitionRef.current = null;
-      }
-    } else {
-      if (!canChat(isPremium)) {
-        setShowQuotaModal(true);
-        return;
-      }
-      isRecordingRef.current = true;
-      setIsRecording(true);
-
-      if (typeof window !== 'undefined') {
-        const SpeechRecognitionClass =
-          (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (SpeechRecognitionClass) {
-          try {
-            const rec = new SpeechRecognitionClass();
-            rec.continuous = true;
-            rec.interimResults = true;
-            rec.lang = 'en-US';
-            rec.onresult = (event: any) => {
-              let transcript = '';
-              for (let i = 0; i < event.results.length; i++) {
-                transcript += event.results[i][0].transcript;
-              }
-              if (transcript) {
-                setInputText(transcript.trim());
-              }
-            };
-            rec.onerror = (e: any) => {
-              console.log('[Roleplay SpeechRecognition] error:', e);
-              if (e.error === 'not-allowed') {
-                isRecordingRef.current = false;
-                setIsRecording(false);
-              }
-            };
-            rec.onend = () => {
-              // Tiếp tục nghe nếu người dùng chưa bấm tắt
-              if (isRecordingRef.current) {
-                try {
-                  rec.start();
-                } catch (_) {}
-              } else {
-                setIsRecording(false);
-              }
-            };
-            rec.start();
-            recognitionRef.current = rec;
-          } catch (e) {
-            console.log('[Roleplay SpeechRecognition] start error:', e);
-            isRecordingRef.current = false;
-            setIsRecording(false);
-          }
-        }
-      }
+    if (voiceBusy) return;
+    if (isRecording) {
+      void voice.stop();
+      return;
     }
+    if (!canChat(isPremium)) {
+      setShowQuotaModal(true);
+      return;
+    }
+    setVoiceNotice(null);
+    setInputText('');
+    void voice.start();
   };
 
   // Gửi tin nhắn từ ô nhập text (hoặc sau khi nói qua micro)
   const handleSendMessage = () => {
-    isRecordingRef.current = false;
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (_) {}
-      recognitionRef.current = null;
+    // Đang nói thì bấm gửi = dừng ghi âm; chữ nhận dạng xong sẽ hiện trong ô để kiểm tra rồi gửi
+    if (isRecording) {
+      void voice.stop();
+      return;
     }
-    setIsRecording(false);
+    if (voiceBusy) return;
 
     const textToSend =
       inputText.trim() ||
@@ -396,11 +365,7 @@ export const RoleplaySessionScreen = () => {
         <BackButton onPress={() => {
             stopSpeech();
             Speech.stop();
-            if (recognitionRef.current) {
-              try {
-                recognitionRef.current.stop();
-              } catch (_) {}
-            }
+            voice.cancel();
             const userTurnsCount = turns.filter((t) => t.role === 'user').length;
             if (userTurnsCount < 2) {
               router.back();
@@ -454,7 +419,7 @@ export const RoleplaySessionScreen = () => {
             style={s.iconBtn}
           >
             {isAiVoiceMuted ? (
-              <VolumeX color="#94A3B8" size={16} />
+              <VolumeX color={dk('#94A3B8', 'text')} size={16} />
             ) : (
               <Volume2 color="#4F46E5" size={16} />
             )}
@@ -471,9 +436,9 @@ export const RoleplaySessionScreen = () => {
               {
                 width: 'auto',
                 paddingHorizontal: 9,
-                backgroundColor: '#EEF2FF',
+                backgroundColor: dk('#EEF2FF', 'bg'),
                 borderWidth: 1,
-                borderColor: '#C7D2FE',
+                borderColor: dk('#C7D2FE', 'border'),
               },
             ]}
             accessibilityLabel="Kết thúc phiên"
@@ -525,7 +490,7 @@ export const RoleplaySessionScreen = () => {
                       onPress={() => handleSpeakAiLine(mainText)}
                       style={s.speakerMiniBtn}
                     >
-                      <Volume2 color="#64748B" size={14} />
+                      <Volume2 color={dk('#64748B', 'text')} size={14} />
                     </Pressable>
                   )}
                 </View>
@@ -538,7 +503,7 @@ export const RoleplaySessionScreen = () => {
                 {isAi && feedbackText && (
                   <View style={s.inlineFeedbackCard}>
                     <View style={s.inlineFeedbackHeader}>
-                      <Lightbulb color="#D97706" size={13} />
+                      <Lightbulb color={dk('#D97706', 'text')} size={13} />
                       <Text style={s.inlineFeedbackTitle}>Góp ý tiếng Việt:</Text>
                     </View>
                     <Text style={s.inlineFeedbackText}>{feedbackText}</Text>
@@ -577,7 +542,8 @@ export const RoleplaySessionScreen = () => {
           {/* Nút Micro bên trái: Bấm để bật/tắt thu âm và nhận diện giọng nói */}
           <Pressable
             onPress={toggleRecording}
-            disabled={isProcessing}
+            disabled={isProcessing || voiceBusy}
+            accessibilityLabel={isRecording ? 'Dừng ghi âm' : 'Nói bằng giọng'}
             style={({ pressed }) => [
               s.micBtnInBar,
               isRecording ? s.micBtnRecording : s.micBtnIdle,
@@ -590,9 +556,11 @@ export const RoleplaySessionScreen = () => {
           {/* Ô nhập văn bản / hiển thị trực tiếp giọng nói khi đang nói */}
           <TextInput
             placeholder={
-              isRecording
-                ? 'Đang lắng nghe... Hãy nói câu tiếng Anh của bạn'
-                : 'Nhập câu trả lời bằng tiếng Anh...'
+              voiceBusy
+                ? 'Đang nhận dạng giọng nói...'
+                : isRecording
+                  ? 'Đang ghi âm... bấm micro lần nữa khi nói xong'
+                  : 'Nhập câu trả lời bằng tiếng Anh...'
             }
             placeholderTextColor={isRecording ? '#EA580C' : '#94A3B8'}
             value={inputText}
@@ -600,7 +568,7 @@ export const RoleplaySessionScreen = () => {
             onSubmitEditing={handleSendMessage}
             returnKeyType="send"
             style={[s.textInputField, isRecording && s.textInputFieldRecording]}
-            editable={!isProcessing}
+            editable={!isProcessing && !voiceBusy}
           />
 
           {/* Nút Gửi bên phải: Xoay vòng tròn ActivityIndicator khi AI đang xử lý phản hồi */}
@@ -623,6 +591,9 @@ export const RoleplaySessionScreen = () => {
         </View>
 
         {/* Hàng thông tin bên dưới: Trạng thái & số lượt còn lại */}
+        {voice.error || voiceNotice ? (
+          <Text style={s.voiceNotice}>{voice.error || voiceNotice}</Text>
+        ) : null}
         <View style={s.textHelpRow}>
           {!isPremium && (
             <Text style={s.quotaDescText}>
@@ -632,12 +603,25 @@ export const RoleplaySessionScreen = () => {
         </View>
       </View>
 
+      {/* ── MÀN GHI ÂM GIỮA MÀN HÌNH khi bật micro ─────────────────────── */}
+      <RecordingOverlay
+        listening={isRecording}
+        busy={voiceBusy}
+        liveText={isRecording ? inputText : ''}
+        level={voice.level}
+        onStop={() => void voice.stop()}
+        onCancel={() => {
+          voice.cancel();
+          setInputText('');
+        }}
+      />
+
       {/* ── MODAL TỔNG KẾT PHIÊN LUYỆN NÓI ───────────────────────────────── */}
       <Modal visible={showSummaryModal} transparent animationType="fade">
         <View style={s.modalOverlay}>
-          <View style={s.modalCard}>
+          <ScrollView style={s.summaryScroll} contentContainerStyle={s.modalCard}>
             <View style={s.modalSuccessIconWrap}>
-              <CheckCircle2 color="#16A34A" size={28} />
+              <CheckCircle2 color={dk('#16A34A', 'text')} size={28} />
             </View>
 
             <Text style={s.modalHeading}>Kết Quả Luyện Nói</Text>
@@ -659,17 +643,33 @@ export const RoleplaySessionScreen = () => {
               </View>
               <View style={s.scoreDivider} />
               <View style={s.scoreItem}>
-                <Text style={[s.scoreNumber, { color: '#059669' }]}>
+                <Text style={[s.scoreNumber, { color: dk('#059669', 'text') }]}>
                   {sessionEvaluation.level}
                 </Text>
                 <Text style={s.scoreLabel}>Trình độ</Text>
               </View>
             </View>
 
-            <View style={s.feedbackCard}>
-              <Text style={s.feedbackTitle}>Nhận xét của AI:</Text>
-              <Text style={s.feedbackText}>{sessionEvaluation.feedback}</Text>
-            </View>
+            {/* AI thật nhận xét cả đoạn hội thoại: từ vựng, ngữ pháp, kỹ năng nói và lời khuyên */}
+            <PracticeFeedbackCard
+              style={{ width: '100%', marginBottom: 18 }}
+              input={
+                showSummaryModal && turns.some((t) => t.role === 'user')
+                  ? {
+                      skill: 'ROLEPLAY',
+                      title: `Hội thoại: ${scenario.title || 'tình huống thực tế'}`,
+                      score: sessionEvaluation.fluency,
+                      cefrLevel: scenario.cefr_level ?? null,
+                      sourceId: `roleplay-${scenario.id}-${turns.length}-${turns[turns.length - 1]?.text.length ?? 0}`,
+                      details: [
+                        `Tình huống: ${scenario.title}. Học viên nói chuyện với ${scenario.ai_persona}.`,
+                        'Hội thoại (AI = đối tác, HV = học viên):',
+                        ...turns.slice(-30).map((t) => `${t.role === 'ai' ? 'AI' : 'HV'}: ${t.text}`),
+                      ].join('\n'),
+                    }
+                  : null
+              }
+            />
 
             <View style={s.modalActions}>
               <Pressable
@@ -681,7 +681,7 @@ export const RoleplaySessionScreen = () => {
                 }}
                 style={s.btnSecondary}
               >
-                <RotateCcw color="#475569" size={16} />
+                <RotateCcw color={dk('#475569', 'text')} size={16} />
                 <Text style={s.btnSecondaryText}>Luyện lại</Text>
               </Pressable>
 
@@ -698,7 +698,7 @@ export const RoleplaySessionScreen = () => {
                 <ArrowRight color="#FFFFFF" size={16} />
               </Pressable>
             </View>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
 
@@ -720,10 +720,10 @@ export const RoleplaySessionScreen = () => {
             </Text>
 
             <Pressable
+              // Nâng cấp phải qua trang thanh toán; không tự đổi gói trên máy
               onPress={() => {
-                useAuthStore.getState().updateCurrentUser({ plan: 'premium_yearly' });
                 setShowQuotaModal(false);
-                alert('Nâng cấp Premium thành công. Bạn có thể tiếp tục luyện nói không giới hạn.');
+                router.push({ pathname: '/(student)/profile/premium', params: { from: 'speaking' } } as never);
               }}
               style={s.btnUpgrade}
             >
@@ -1055,6 +1055,7 @@ const s = StyleSheet.create({
 
   // Bottom Control
   // Unified Bottom Control
+  voiceNotice: { fontSize: 12, color: '#DC2626', marginTop: 6, paddingHorizontal: 4 },
   bottomControl: {
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
@@ -1142,6 +1143,12 @@ const s = StyleSheet.create({
   },
 
   // Modal Common
+  summaryScroll: {
+    width: '100%',
+    maxWidth: 420,
+    maxHeight: '88%',
+    flexGrow: 0,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.65)',

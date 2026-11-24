@@ -34,6 +34,7 @@ import {
 } from '@/src/features/learning-path/data/knowledgeGapApi';
 import { palette } from '@/src/theme';
 import { BackButton } from '@/src/core/components/BackButton';
+import { dk } from '@/src/theme/themeMode';
 
 const flattenDialogues = (dialogues: any[]): Array<{ speaker: string; textEn: string; textVi: string }> => {
   if (!Array.isArray(dialogues)) return [];
@@ -192,12 +193,12 @@ export const LessonDetailScreen = () => {
             </View>
             <View style={s.metaDivider} />
             <View style={s.metaItem}>
-              <Clock size={18} color="#0284C7" />
+              <Clock size={18} color={dk('#0284C7', 'text')} />
               <Text style={s.metaVal}>{lesson.estimatedMin || 10} phút</Text>
             </View>
             <View style={s.metaDivider} />
             <View style={s.metaItem}>
-              <BookOpen size={18} color="#10B981" />
+              <BookOpen size={18} color={dk('#10B981', 'text')} />
               <Text style={s.metaVal}>{isCompleted ? 'Đã học' : 'Chưa học'}</Text>
             </View>
           </View>
@@ -210,7 +211,7 @@ export const LessonDetailScreen = () => {
         {lesson.videos && lesson.videos.length > 0 && (
           <View style={s.section}>
             <View style={s.sectionHeader}>
-              <View style={[s.sectionTag, { backgroundColor: '#FEE2E2' }]}>
+              <View style={[s.sectionTag, { backgroundColor: dk('#FEE2E2', 'bg') }]}>
                 <Video size={16} color="#DC2626" />
               </View>
               <Text style={s.sectionTitle}>Video Bài Giảng Thực Tế</Text>
@@ -247,7 +248,7 @@ export const LessonDetailScreen = () => {
         {lesson.grammarNotes && lesson.grammarNotes.length > 0 && (
           <View style={s.section}>
             <View style={s.sectionHeader}>
-              <View style={[s.sectionTag, { backgroundColor: '#EEF2FF' }]}>
+              <View style={[s.sectionTag, { backgroundColor: dk('#EEF2FF', 'bg') }]}>
                 <BookOpen size={16} color={palette.primary} />
               </View>
               <Text style={s.sectionTitle}>1. Lý Thuyết & Công Thức Trọng Điểm</Text>
@@ -284,8 +285,8 @@ export const LessonDetailScreen = () => {
         {lesson.vocabularyList && lesson.vocabularyList.length > 0 && (
           <View style={s.section}>
             <View style={s.sectionHeader}>
-              <View style={[s.sectionTag, { backgroundColor: '#ECFDF5' }]}>
-                <Sparkles size={16} color="#10B981" />
+              <View style={[s.sectionTag, { backgroundColor: dk('#ECFDF5', 'bg') }]}>
+                <Sparkles size={16} color={dk('#10B981', 'text')} />
               </View>
               <Text style={s.sectionTitle}>2. Từ Vựng Quan Trọng Trong Bài</Text>
             </View>
@@ -319,8 +320,8 @@ export const LessonDetailScreen = () => {
         {lesson.dialogues && lesson.dialogues.length > 0 && (
           <View style={s.section}>
             <View style={s.sectionHeader}>
-              <View style={[s.sectionTag, { backgroundColor: '#FEF3C7' }]}>
-                <Volume2 size={16} color="#D97706" />
+              <View style={[s.sectionTag, { backgroundColor: dk('#FEF3C7', 'bg') }]}>
+                <Volume2 size={16} color={dk('#D97706', 'text')} />
               </View>
               <Text style={s.sectionTitle}>3. Đoạn Hội Thoại Thực Tế</Text>
             </View>
@@ -350,7 +351,7 @@ export const LessonDetailScreen = () => {
         {lesson.practiceQuestions && lesson.practiceQuestions.length > 0 && (
           <View style={s.section}>
             <View style={s.sectionHeader}>
-              <View style={[s.sectionTag, { backgroundColor: '#F3E8FF' }]}>
+              <View style={[s.sectionTag, { backgroundColor: dk('#F3E8FF', 'bg') }]}>
                 <HelpCircle size={16} color="#9333EA" />
               </View>
               <Text style={s.sectionTitle}>4. Bài Tập Vận Dụng Nhanh</Text>
@@ -389,7 +390,7 @@ export const LessonDetailScreen = () => {
                         >
                           <Text style={s.optionLetter}>{String.fromCharCode(65 + oIdx)}.</Text>
                           <Text style={s.optionText}>{opt}</Text>
-                          {isAnswered && isOptionCorrect && <Check size={18} color="#10B981" />}
+                          {isAnswered && isOptionCorrect && <Check size={18} color={dk('#10B981', 'text')} />}
                           {isAnswered && isSelected && !isCorrect && <X size={18} color="#EF4444" />}
                         </Pressable>
                       );
@@ -439,9 +440,9 @@ export const LessonDetailScreen = () => {
       {earnedModal && (
         <View style={s.modalOverlay}>
           <View style={s.modalContent}>
-            <View style={[s.celebrateIconWrap, earnedModal.xp === 0 && { backgroundColor: '#ECFDF5' }]}>
+            <View style={[s.celebrateIconWrap, earnedModal.xp === 0 && { backgroundColor: dk('#ECFDF5', 'bg') }]}>
               {earnedModal.xp === 0 ? (
-                <CheckCircle2 size={48} color="#10B981" />
+                <CheckCircle2 size={48} color={dk('#10B981', 'text')} />
               ) : (
                 <Award size={48} color="#F59E0B" />
               )}
@@ -452,7 +453,7 @@ export const LessonDetailScreen = () => {
             <Text style={s.modalMessage}>{earnedModal.message}</Text>
             <View style={s.rewardsRow}>
               <View style={s.rewardItem}>
-                <Text style={[s.rewardVal, earnedModal.xp === 0 && { color: '#64748B' }]}>
+                <Text style={[s.rewardVal, earnedModal.xp === 0 && { color: dk('#64748B', 'text') }]}>
                   +{earnedModal.xp}
                 </Text>
                 <Text style={s.rewardLbl}>
@@ -460,7 +461,7 @@ export const LessonDetailScreen = () => {
                 </Text>
               </View>
               <View style={s.rewardItem}>
-                <Text style={[s.rewardVal, earnedModal.coins === 0 && { color: '#64748B' }]}>
+                <Text style={[s.rewardVal, earnedModal.coins === 0 && { color: dk('#64748B', 'text') }]}>
                   +{earnedModal.coins}
                 </Text>
                 <Text style={s.rewardLbl}>

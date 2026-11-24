@@ -21,6 +21,7 @@ import {
   ChatConversationDto,
   sharePostToConversationApi,
 } from '../../data/socialApi';
+import { dk } from '@/src/theme/themeMode';
 
 interface SharePostModalProps {
   visible: boolean;
@@ -140,7 +141,7 @@ export const SharePostModal: React.FC<SharePostModalProps> = ({
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Chia sẻ bài viết</Text>
           <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={10}>
-            <X color="#64748B" size={20} />
+            <X color={dk('#64748B', 'text')} size={20} />
           </Pressable>
         </View>
 
@@ -158,7 +159,7 @@ export const SharePostModal: React.FC<SharePostModalProps> = ({
                   style={styles.previewAvatar}
                 />
               ) : (
-                <View style={[styles.previewAvatar, { backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center' }]}>
+                <View style={[styles.previewAvatar, { backgroundColor: dk('#EEF2FF', 'bg'), justifyContent: 'center', alignItems: 'center' }]}>
                   <Text style={{ fontSize: 13, fontWeight: '700', color: '#4F46E5' }}>
                     {(post.authorName || 'U').trim().charAt(0).toUpperCase()}
                   </Text>
@@ -190,8 +191,8 @@ export const SharePostModal: React.FC<SharePostModalProps> = ({
               </Text>
             </View>
             <Pressable onPress={handleCopyLink} style={styles.copyBtn}>
-              {copied ? <Check color="#16A34A" size={15} /> : <Link2 color="#2563EB" size={15} />}
-              <Text style={[styles.copyBtnText, copied && { color: '#16A34A' }]}>
+              {copied ? <Check color={dk('#16A34A', 'text')} size={15} /> : <Link2 color="#2563EB" size={15} />}
+              <Text style={[styles.copyBtnText, copied && { color: dk('#16A34A', 'text') }]}>
                 {copied ? 'Đã chép' : 'Sao chép link'}
               </Text>
             </Pressable>
@@ -204,12 +205,12 @@ export const SharePostModal: React.FC<SharePostModalProps> = ({
 
           {/* Search Bar */}
           <View style={styles.searchBox}>
-            <Search color="#94A3B8" size={16} />
+            <Search color={dk('#94A3B8', 'text')} size={16} />
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Tìm theo tên bạn bè hoặc nhóm..."
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={dk('#94A3B8', 'text')}
               style={styles.searchInput}
             />
           </View>

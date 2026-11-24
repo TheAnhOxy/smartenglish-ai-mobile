@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Image, Platform, StyleSheet, View, type ImageStyle, type StyleProp } from 'react-native';
 import { User } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
+import { dk } from '@/src/theme/themeMode';
 
 // Ảnh stock / ảnh người thật dùng làm avatar giả trước đây — không bao giờ hiển thị
 const STOCK_HOSTS = ['images.unsplash.com', 'i.pravatar.cc', 'randomuser.me', 'api.dicebear.com', 'ui-avatars.com'];
@@ -40,7 +41,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({ uri, size: sizeProp = 40
   }
   return (
     <View
-      style={[shape, { backgroundColor: '#E0F2FE', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }, style as object]}
+      style={[shape, { backgroundColor: dk('#E0F2FE', 'bg'), alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }, style as object]}
       accessibilityLabel="Ảnh đại diện mặc định"
     >
       <User size={Math.round(size * 0.5)} color={AppColors.primary} />

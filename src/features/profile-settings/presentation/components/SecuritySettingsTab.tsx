@@ -18,6 +18,7 @@ import {
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { changePasswordApi } from '@/src/features/profile-settings/data/profileApi';
+import { dk } from '@/src/theme/themeMode';
 
 interface SecuritySettingsTabProps {
   userId?: string | number;
@@ -102,45 +103,45 @@ export const SecuritySettingsTab: React.FC<SecuritySettingsTabProps> = ({ userId
   return (
     <Animated.View entering={FadeInDown.duration(300)}>
       {/* Security Status Overview Card */}
-      <View className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm mb-4">
-        <View className="flex-row items-center gap-3 mb-3 pb-3 border-b border-gray-100">
-          <View className="w-10 h-10 rounded-2xl bg-emerald-50 justify-center items-center">
-            <Shield color="#059669" size={22} />
+      <View className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm mb-4 dark:bg-darkCard dark:border-darkLine">
+        <View className="flex-row items-center gap-3 mb-3 pb-3 border-b border-gray-100 dark:border-darkLine">
+          <View className="w-10 h-10 rounded-2xl bg-emerald-50 justify-center items-center dark:bg-darkRaised">
+            <Shield color={dk('#059669', 'text')} size={22} />
           </View>
           <View className="flex-1">
-            <Text className="text-sm font-bold text-gray-800">Tài khoản được bảo vệ</Text>
+            <Text className="text-sm font-bold text-gray-800 dark:text-darkInk">Tài khoản được bảo vệ</Text>
             <Text className="text-xs text-emerald-600 font-medium">Mật khẩu được mã hóa chuẩn Bcrypt an toàn</Text>
           </View>
         </View>
 
-        <View className="bg-gray-50 p-3.5 rounded-2xl border border-gray-200 flex-row items-center justify-between">
+        <View className="bg-gray-50 p-3.5 rounded-2xl border border-gray-200 flex-row items-center justify-between dark:bg-darkBg dark:border-darkLine">
           <View className="flex-row items-center gap-2">
-            <Smartphone color="#64748B" size={16} />
-            <Text className="text-xs font-semibold text-gray-700">Phiên đăng nhập hiện tại</Text>
+            <Smartphone color={dk('#64748B', 'text')} size={16} />
+            <Text className="text-xs font-semibold text-gray-700 dark:text-darkMuted">Phiên đăng nhập hiện tại</Text>
           </View>
-          <View className="bg-emerald-100 px-2 py-0.5 rounded-full">
+          <View className="bg-emerald-100 px-2 py-0.5 rounded-full dark:bg-darkRaised">
             <Text className="text-[10px] font-bold text-emerald-700">Đang hoạt động</Text>
           </View>
         </View>
       </View>
 
       {/* Change Password Card */}
-      <View className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm mb-4">
-        <View className="flex-row items-center gap-2 mb-4 pb-2 border-b border-gray-100">
-          <KeyRound color="#0D3B73" size={18} />
-          <Text className="text-sm font-bold text-gray-800">Đổi mật khẩu tài khoản</Text>
+      <View className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm mb-4 dark:bg-darkCard dark:border-darkLine">
+        <View className="flex-row items-center gap-2 mb-4 pb-2 border-b border-gray-100 dark:border-darkLine">
+          <KeyRound color={dk('#0D3B73', 'text')} size={18} />
+          <Text className="text-sm font-bold text-gray-800 dark:text-darkInk">Đổi mật khẩu tài khoản</Text>
         </View>
 
         {/* Old Password */}
         <View className="mb-4">
           <View className="flex-row items-center gap-1 mb-1.5">
-            <Text className="text-xs font-semibold text-gray-600">Mật khẩu hiện tại</Text>
+            <Text className="text-xs font-semibold text-gray-600 dark:text-darkMuted">Mật khẩu hiện tại</Text>
             <Text className="text-xs font-bold text-red-500">*</Text>
           </View>
           <View
             className={`flex-row items-center bg-gray-50 border rounded-2xl px-4 py-1.5 ${
               touched.oldPassword && errors.oldPassword ? 'border-red-400 bg-red-50/40' : 'border-gray-200'
-            }`}
+            } dark:bg-darkBg dark:border-darkLine`}
           >
             <Lock color="#9CA3AF" size={16} />
             <TextInput
@@ -150,10 +151,10 @@ export const SecuritySettingsTab: React.FC<SecuritySettingsTabProps> = ({ userId
               placeholder="Nhập mật khẩu hiện tại"
               placeholderTextColor="#9CA3AF"
               secureTextEntry={!showOldPassword}
-              className="flex-1 py-1 ml-2 text-sm text-gray-800 font-medium"
+              className="flex-1 py-1 ml-2 text-sm text-gray-800 font-medium dark:text-darkInk"
             />
             <Pressable onPress={() => setShowOldPassword(!showOldPassword)} className="p-1">
-              {showOldPassword ? <EyeOff color="#6B7280" size={16} /> : <Eye color="#6B7280" size={16} />}
+              {showOldPassword ? <EyeOff color={dk('#6B7280', 'text')} size={16} /> : <Eye color={dk('#6B7280', 'text')} size={16} />}
             </Pressable>
           </View>
           {touched.oldPassword && errors.oldPassword && (
@@ -164,13 +165,13 @@ export const SecuritySettingsTab: React.FC<SecuritySettingsTabProps> = ({ userId
         {/* New Password */}
         <View className="mb-2">
           <View className="flex-row items-center gap-1 mb-1.5">
-            <Text className="text-xs font-semibold text-gray-600">Mật khẩu mới</Text>
+            <Text className="text-xs font-semibold text-gray-600 dark:text-darkMuted">Mật khẩu mới</Text>
             <Text className="text-xs font-bold text-red-500">*</Text>
           </View>
           <View
             className={`flex-row items-center bg-gray-50 border rounded-2xl px-4 py-1.5 ${
               touched.newPassword && errors.newPassword ? 'border-red-400 bg-red-50/40' : 'border-gray-200'
-            }`}
+            } dark:bg-darkBg dark:border-darkLine`}
           >
             <Lock color="#9CA3AF" size={16} />
             <TextInput
@@ -180,10 +181,10 @@ export const SecuritySettingsTab: React.FC<SecuritySettingsTabProps> = ({ userId
               placeholder="Tối thiểu 6 ký tự"
               placeholderTextColor="#9CA3AF"
               secureTextEntry={!showNewPassword}
-              className="flex-1 py-1 ml-2 text-sm text-gray-800 font-medium"
+              className="flex-1 py-1 ml-2 text-sm text-gray-800 font-medium dark:text-darkInk"
             />
             <Pressable onPress={() => setShowNewPassword(!showNewPassword)} className="p-1">
-              {showNewPassword ? <EyeOff color="#6B7280" size={16} /> : <Eye color="#6B7280" size={16} />}
+              {showNewPassword ? <EyeOff color={dk('#6B7280', 'text')} size={16} /> : <Eye color={dk('#6B7280', 'text')} size={16} />}
             </Pressable>
           </View>
           {touched.newPassword && errors.newPassword && (
@@ -220,13 +221,13 @@ export const SecuritySettingsTab: React.FC<SecuritySettingsTabProps> = ({ userId
         {/* Confirm New Password */}
         <View className="mb-5 mt-2">
           <View className="flex-row items-center gap-1 mb-1.5">
-            <Text className="text-xs font-semibold text-gray-600">Xác nhận mật khẩu mới</Text>
+            <Text className="text-xs font-semibold text-gray-600 dark:text-darkMuted">Xác nhận mật khẩu mới</Text>
             <Text className="text-xs font-bold text-red-500">*</Text>
           </View>
           <View
             className={`flex-row items-center bg-gray-50 border rounded-2xl px-4 py-1.5 ${
               touched.confirmPassword && errors.confirmPassword ? 'border-red-400 bg-red-50/40' : 'border-gray-200'
-            }`}
+            } dark:bg-darkBg dark:border-darkLine`}
           >
             <Lock color="#9CA3AF" size={16} />
             <TextInput
@@ -236,10 +237,10 @@ export const SecuritySettingsTab: React.FC<SecuritySettingsTabProps> = ({ userId
               placeholder="Nhập lại mật khẩu mới"
               placeholderTextColor="#9CA3AF"
               secureTextEntry={!showConfirmPassword}
-              className="flex-1 py-1 ml-2 text-sm text-gray-800 font-medium"
+              className="flex-1 py-1 ml-2 text-sm text-gray-800 font-medium dark:text-darkInk"
             />
             <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)} className="p-1">
-              {showConfirmPassword ? <EyeOff color="#6B7280" size={16} /> : <Eye color="#6B7280" size={16} />}
+              {showConfirmPassword ? <EyeOff color={dk('#6B7280', 'text')} size={16} /> : <Eye color={dk('#6B7280', 'text')} size={16} />}
             </Pressable>
           </View>
           {touched.confirmPassword && errors.confirmPassword && (
@@ -265,8 +266,8 @@ export const SecuritySettingsTab: React.FC<SecuritySettingsTabProps> = ({ userId
       </View>
 
       {/* Security Tips Card */}
-      <View className="bg-blue-50/60 p-4 rounded-3xl border border-blue-100 mb-8 flex-row gap-3">
-        <AlertCircle color="#0284C7" size={18} className="mt-0.5" />
+      <View className="bg-blue-50/60 p-4 rounded-3xl border border-blue-100 mb-8 flex-row gap-3 dark:bg-darkRaised">
+        <AlertCircle color={dk('#0284C7', 'text')} size={18} className="mt-0.5" />
         <View className="flex-1">
           <Text className="text-xs font-bold text-sky-900 mb-1">Mẹo bảo mật tài khoản</Text>
           <Text className="text-[11px] text-sky-800 leading-relaxed font-medium">

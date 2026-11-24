@@ -4,6 +4,7 @@ import { useJoinClass } from '../../application/useClassMembership';
 import { useRouter } from 'expo-router';
 import { Crown, Lock } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
+import { isDarkTheme } from '@/src/theme/themeMode';
 
 interface JoinClassModalProps {
   visible: boolean;
@@ -52,7 +53,7 @@ export const JoinClassModal: React.FC<JoinClassModalProps> = ({
   return (
     <Modal visible={visible} transparent animationType="slide">
       <View className="flex-1 bg-black/60 justify-end">
-        <View className="bg-white p-6 rounded-t-3xl border-t border-gray-100 shadow-2xl">
+        <View className="bg-white p-6 rounded-t-3xl border-t border-gray-100 shadow-2xl dark:bg-darkCard dark:border-darkLine">
           <View className="w-12 h-1 bg-gray-300 rounded-full self-center mb-4" />
 
           {/* If student reached Free limit before even entering code */}
@@ -61,11 +62,11 @@ export const JoinClassModal: React.FC<JoinClassModalProps> = ({
               <View className="w-14 h-14 rounded-2xl bg-primary/10 items-center justify-center mb-3">
                 <Lock size={24} color={AppColors.primary} />
               </View>
-              <Text className="text-lg font-bold text-gray-900 mb-1 text-center">
+              <Text className="text-lg font-bold text-gray-900 mb-1 text-center dark:text-darkInk">
                 Đã Đạt Giới Hạn Gói Miễn Phí
               </Text>
-              <Text className="text-xs text-gray-600 text-center mb-6 leading-5 px-3">
-                Tài khoản Free chỉ được tham gia tối đa <Text className="font-bold text-gray-800">3 lớp học</Text> cùng lúc. Nâng cấp lên <Text className="font-bold text-primary">Gói Học Viên Premium</Text> để tham gia không giới hạn số lớp và nhận hướng dẫn sửa bài chi tiết từ AI.
+              <Text className="text-xs text-gray-600 text-center mb-6 leading-5 px-3 dark:text-darkMuted">
+                Tài khoản Free chỉ được tham gia tối đa <Text className="font-bold text-gray-800 dark:text-darkInk">3 lớp học</Text> cùng lúc. Nâng cấp lên <Text className="font-bold text-primary">Gói Học Viên Premium</Text> để tham gia không giới hạn số lớp và nhận hướng dẫn sửa bài chi tiết từ AI.
               </Text>
 
               <Pressable
@@ -81,21 +82,21 @@ export const JoinClassModal: React.FC<JoinClassModalProps> = ({
 
               <Pressable
                 onPress={onClose}
-                className="w-full py-3 rounded-xl border border-gray-200 items-center"
+                className="w-full py-3 rounded-xl border border-gray-200 items-center dark:border-darkLine"
               >
-                <Text className="font-semibold text-gray-700 text-sm">Để sau</Text>
+                <Text className="font-semibold text-gray-700 text-sm dark:text-darkMuted">Để sau</Text>
               </Pressable>
             </View>
           ) : (
             <View>
-              <Text className="text-xl font-bold text-gray-900 mb-1">Tham Gia Lớp Học</Text>
-              <Text className="text-xs text-gray-500 mb-5 leading-4">
+              <Text className="text-xl font-bold text-gray-900 mb-1 dark:text-darkInk">Tham Gia Lớp Học</Text>
+              <Text className="text-xs text-gray-500 mb-5 leading-4 dark:text-darkMuted">
                 Nhập mã tham gia (Join Code) do giáo viên của bạn cung cấp (ví dụ: TOEIC750K42).
               </Text>
 
               {/* Error Alert */}
               {isError && (
-                <View className="bg-rose-50 p-3.5 rounded-xl mb-4 border border-rose-200">
+                <View className="bg-rose-50 p-3.5 rounded-xl mb-4 border border-rose-200 dark:bg-darkRaised">
                   <Text className="text-xs text-rose-700 font-medium leading-4 mb-2">
                     {errorMessage}
                   </Text>
@@ -122,7 +123,7 @@ export const JoinClassModal: React.FC<JoinClassModalProps> = ({
                 placeholderTextColor="#9CA3AF"
                 autoCapitalize="characters"
                 maxLength={16}
-                className="bg-gray-50 px-4 py-3.5 rounded-xl text-gray-900 font-mono text-center text-xl tracking-widest border border-gray-300 mb-6 font-bold"
+                className="bg-gray-50 px-4 py-3.5 rounded-xl text-gray-900 font-mono text-center text-xl tracking-widest border border-gray-300 mb-6 font-bold dark:bg-darkBg dark:text-darkInk"
               />
 
               <View className="flex-row gap-3">
@@ -132,9 +133,9 @@ export const JoinClassModal: React.FC<JoinClassModalProps> = ({
                     reset();
                     onClose();
                   }}
-                  className="flex-1 py-3.5 rounded-xl border border-gray-200 items-center active:bg-gray-50"
+                  className={`flex-1 py-3.5 rounded-xl border border-gray-200 items-center dark:border-darkLine ${isDarkTheme() ? 'active:bg-[#2B4C7E]' : 'active:bg-gray-50'}`}
                 >
-                  <Text className="font-semibold text-gray-700">Hủy</Text>
+                  <Text className="font-semibold text-gray-700 dark:text-darkMuted">Hủy</Text>
                 </Pressable>
 
                 <Pressable

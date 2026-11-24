@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { X, RotateCcw, AlertTriangle, ShieldCheck } from 'lucide-react-native';
 import { apiClient } from '@/src/core/api/client';
+import { dk } from '@/src/theme/themeMode';
 
 interface RefundRequestModalProps {
   orderId: number | string;
@@ -116,12 +117,12 @@ export const RefundRequestModal: React.FC<RefundRequestModalProps> = ({
           <Text style={styles.title}>YÊU CẦU HOÀN TIỀN (7 NGÀY)</Text>
         </View>
         <Pressable onPress={onClose} style={styles.closeBtn}>
-          <X color="#64748B" size={18} />
+          <X color={dk('#64748B', 'text')} size={18} />
         </Pressable>
       </View>
 
       <View style={styles.policyNotice}>
-        <ShieldCheck color="#0369A1" size={16} style={{ marginTop: 1 }} />
+        <ShieldCheck color={dk('#0369A1', 'text')} size={16} style={{ marginTop: 1 }} />
         <Text style={styles.policyNoticeText}>
           Chính sách SmartEnglish AI cam kết hoàn tiền 100% trong vòng 7 ngày kể từ lúc thanh toán.
           Vui lòng cung cấp chính xác số tài khoản ngân hàng để đối soát.
@@ -139,7 +140,7 @@ export const RefundRequestModal: React.FC<RefundRequestModalProps> = ({
           onChangeText={setReason}
           onBlur={() => setTouched((p) => ({ ...p, reason: true }))}
           placeholder="Ví dụ: Đổi mục tiêu học tập, mua nhầm gói..."
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor={dk('#94A3B8', 'text')}
           style={[styles.input, touched.reason && errors.reason ? styles.inputError : null]}
         />
         {touched.reason && errors.reason && (
@@ -158,7 +159,7 @@ export const RefundRequestModal: React.FC<RefundRequestModalProps> = ({
           onChangeText={setBankName}
           onBlur={() => setTouched((p) => ({ ...p, bankName: true }))}
           placeholder="Ví dụ: MB Bank, Vietcombank, Techcombank, BIDV..."
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor={dk('#94A3B8', 'text')}
           style={[styles.input, touched.bankName && errors.bankName ? styles.inputError : null]}
         />
         {touched.bankName && errors.bankName && (
@@ -177,7 +178,7 @@ export const RefundRequestModal: React.FC<RefundRequestModalProps> = ({
           onChangeText={setAccountNumber}
           onBlur={() => setTouched((p) => ({ ...p, accountNumber: true }))}
           placeholder="Chỉ nhập số, ví dụ: 0963684871"
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor={dk('#94A3B8', 'text')}
           keyboardType="numeric"
           style={[
             styles.input,
@@ -201,7 +202,7 @@ export const RefundRequestModal: React.FC<RefundRequestModalProps> = ({
           onChangeText={(v) => setAccountHolderName(v.toUpperCase())}
           onBlur={() => setTouched((p) => ({ ...p, accountHolderName: true }))}
           placeholder="Ví dụ: NGUYEN VAN A"
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor={dk('#94A3B8', 'text')}
           autoCapitalize="characters"
           style={[
             styles.input,

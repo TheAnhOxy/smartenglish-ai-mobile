@@ -25,6 +25,7 @@ import {
 } from 'lucide-react-native';
 import { apiClient } from '@/src/core/api/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { dk } from '@/src/theme/themeMode';
 
 export interface SepayOrderData {
   id?: number | string;
@@ -177,7 +178,7 @@ export const SepayVietQrPaymentModal: React.FC<SepayVietQrPaymentModalProps> = (
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <View style={styles.logoBadge}>
-                <Building2 color="#0284C7" size={18} />
+                <Building2 color={dk('#0284C7', 'text')} size={18} />
               </View>
               <View>
                 <Text style={styles.headerTitle}>Thanh Toán VietQR Napas 24/7</Text>
@@ -185,7 +186,7 @@ export const SepayVietQrPaymentModal: React.FC<SepayVietQrPaymentModalProps> = (
               </View>
             </View>
             <Pressable onPress={onClose} style={styles.closeBtn}>
-              <X color="#64748B" size={20} />
+              <X color={dk('#64748B', 'text')} size={20} />
             </Pressable>
           </View>
 
@@ -194,7 +195,7 @@ export const SepayVietQrPaymentModal: React.FC<SepayVietQrPaymentModalProps> = (
               /* Màn hình thông báo Thanh toán thành công */
               <View style={styles.successContainer}>
                 <View style={styles.successIconBox}>
-                  <CheckCircle2 color="#10B981" size={54} />
+                  <CheckCircle2 color={dk('#10B981', 'text')} size={54} />
                 </View>
                 <Text style={styles.successTitle}>Thanh Toán Thành Công!</Text>
                 <Text style={styles.successSubtitle}>
@@ -229,7 +230,7 @@ export const SepayVietQrPaymentModal: React.FC<SepayVietQrPaymentModalProps> = (
                       }}
                       style={styles.invoiceBtn}
                     >
-                      <FileCheck2 color="#0284C7" size={18} />
+                      <FileCheck2 color={dk('#0284C7', 'text')} size={18} />
                       <Text style={styles.invoiceBtnText}>Xem & Lưu Hóa Đơn Điện Tử</Text>
                     </Pressable>
                   )}
@@ -252,11 +253,11 @@ export const SepayVietQrPaymentModal: React.FC<SepayVietQrPaymentModalProps> = (
                   </View>
                   {timeLeft > 0 ? (
                     <View style={styles.checkingBadge}>
-                      <ActivityIndicator size="small" color="#0284C7" />
+                      <ActivityIndicator size="small" color={dk('#0284C7', 'text')} />
                       <Text style={styles.checkingText}>Đang chờ chuyển khoản</Text>
                     </View>
                   ) : (
-                    <View style={[styles.checkingBadge, { backgroundColor: '#FEE2E2', borderColor: '#FECDD3' }]}>
+                    <View style={[styles.checkingBadge, { backgroundColor: dk('#FEE2E2', 'bg'), borderColor: dk('#FECDD3', 'border') }]}>
                       <Text style={[styles.checkingText, { color: '#E11D48', fontWeight: 'bold' }]}>Hết hiệu lực</Text>
                     </View>
                   )}
@@ -316,9 +317,9 @@ export const SepayVietQrPaymentModal: React.FC<SepayVietQrPaymentModalProps> = (
                         style={styles.copyBtn}
                       >
                         {copiedField === 'acc' ? (
-                          <Check color="#10B981" size={14} />
+                          <Check color={dk('#10B981', 'text')} size={14} />
                         ) : (
-                          <Copy color="#0284C7" size={14} />
+                          <Copy color={dk('#0284C7', 'text')} size={14} />
                         )}
                         <Text style={styles.copyBtnText}>
                           {copiedField === 'acc' ? 'Đã chép' : 'Sao chép'}
@@ -345,9 +346,9 @@ export const SepayVietQrPaymentModal: React.FC<SepayVietQrPaymentModalProps> = (
                         style={styles.copyBtn}
                       >
                         {copiedField === 'amount' ? (
-                          <Check color="#10B981" size={14} />
+                          <Check color={dk('#10B981', 'text')} size={14} />
                         ) : (
-                          <Copy color="#0284C7" size={14} />
+                          <Copy color={dk('#0284C7', 'text')} size={14} />
                         )}
                         <Text style={styles.copyBtnText}>
                           {copiedField === 'amount' ? 'Đã chép' : 'Sao chép'}
@@ -380,9 +381,9 @@ export const SepayVietQrPaymentModal: React.FC<SepayVietQrPaymentModalProps> = (
 
                 {/* Important Notice */}
                 <View style={styles.noticeBox}>
-                  <ShieldCheck color="#D97706" size={18} style={{ marginTop: 2 }} />
+                  <ShieldCheck color={dk('#D97706', 'text')} size={18} style={{ marginTop: 2 }} />
                   <Text style={styles.noticeText}>
-                    <Text style={{ fontWeight: 'bold' }}>Lưu ý quan trọng:</Text> Vui lòng nhập chính xác nội dung chuyển khoản <Text style={{ fontWeight: 'bold', color: '#0284C7' }}>{orderCode}</Text> để hệ thống tự động nhận diện và kích hoạt trong vòng 3-10 giây.
+                    <Text style={{ fontWeight: 'bold' }}>Lưu ý quan trọng:</Text> Vui lòng nhập chính xác nội dung chuyển khoản <Text style={{ fontWeight: 'bold', color: dk('#0284C7', 'text') }}>{orderCode}</Text> để hệ thống tự động nhận diện và kích hoạt trong vòng 3-10 giây.
                   </Text>
                 </View>
               </View>

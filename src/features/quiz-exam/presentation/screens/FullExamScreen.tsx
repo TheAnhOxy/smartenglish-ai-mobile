@@ -71,6 +71,7 @@ import { MatchingPairsView } from '../components/MatchingPairsView';
 import { OrderingQuestionView } from '../components/OrderingQuestionView';
 import { ds, dsFont } from '@/src/theme/ds';
 import { ProgressBar, feedback } from '@/src/components/ds';
+import { dk } from '@/src/theme/themeMode';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -1231,7 +1232,7 @@ export function FullExamScreen() {
       {/* Wrong Only Mode Notice Banner */}
       {isWrongOnly && (
         <View style={styles.wrongOnlyHeaderBanner}>
-          <RotateCcw size={14} color="#C2410C" />
+          <RotateCcw size={14} color={dk('#C2410C', 'text')} />
           <Text style={styles.wrongOnlyBannerText}>
             Làm lại câu sai: Còn {Math.max(0, questions.length - Object.keys(resolvedWrongIds).length)}/{questions.length} câu chưa sửa đúng
           </Text>
@@ -1347,7 +1348,7 @@ export function FullExamScreen() {
         {isPracticeMode && isCluster && !isClusterRevealed && (
           <View style={styles.clusterControlBox}>
             <View style={styles.clusterStatusRow}>
-              <HelpCircle size={15} color="#0284C7" />
+              <HelpCircle size={15} color={dk('#0284C7', 'text')} />
               <Text style={styles.clusterStatusText}>
                 Nhóm {clusterQuestions.length} câu: Đã làm {clusterAnsweredCount}/{clusterQuestions.length} câu
               </Text>
@@ -1373,7 +1374,7 @@ export function FullExamScreen() {
           <View style={styles.practiceFeedbackCard}>
             {selectedAnswer === currentQ.correctAnswer ? (
               <View style={styles.feedbackHeaderCorrect}>
-                <CheckCircle2 size={18} color="#16A34A" />
+                <CheckCircle2 size={18} color={dk('#16A34A', 'text')} />
                 <Text style={styles.feedbackTitleCorrect}>Chính xác! Đáp án đúng: {currentQ.correctAnswer}</Text>
               </View>
             ) : (
@@ -1385,7 +1386,7 @@ export function FullExamScreen() {
 
             {isWrongOnly && selectedAnswer === currentQ.correctAnswer && (
               <View style={styles.resolvedWrongBanner}>
-                <Sparkles size={13} color="#166534" />
+                <Sparkles size={13} color={dk('#166534', 'text')} />
                 <Text style={styles.resolvedWrongBannerText}>Đã sửa đúng! Đã xóa câu này khỏi danh sách câu sai.</Text>
               </View>
             )}
@@ -1398,12 +1399,12 @@ export function FullExamScreen() {
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <View style={styles.dropdownTitleRow}>
-                    <Headphones size={13} color="#5B6B7F" />
+                    <Headphones size={13} color={dk('#5B6B7F', 'text')} />
                     <Text style={styles.transcriptHeading}>Lời thoại (Transcript)</Text>
                   </View>
                   {showTranscript
-                    ? <ChevronUp size={16} color="#5B6B7F" />
-                    : <ChevronDown size={16} color="#5B6B7F" />}
+                    ? <ChevronUp size={16} color={dk('#5B6B7F', 'text')} />
+                    : <ChevronDown size={16} color={dk('#5B6B7F', 'text')} />}
                 </Pressable>
                 {showTranscript && (
                   <Text style={styles.transcriptBody}>{currentQ.audioScript}</Text>
@@ -1418,18 +1419,18 @@ export function FullExamScreen() {
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <View style={styles.dropdownTitleRow}>
-                  <Languages size={13} color="#5B6B7F" />
+                  <Languages size={13} color={dk('#5B6B7F', 'text')} />
                   <Text style={styles.translationHeading}>Bản dịch đáp án & câu hỏi</Text>
                 </View>
                 {showTranslations
-                  ? <ChevronUp size={16} color="#5B6B7F" />
-                  : <ChevronDown size={16} color="#5B6B7F" />}
+                  ? <ChevronUp size={16} color={dk('#5B6B7F', 'text')} />
+                  : <ChevronDown size={16} color={dk('#5B6B7F', 'text')} />}
               </Pressable>
               {showTranslations ? (
                 isTranslating ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 }}>
                     <ActivityIndicator size="small" color={ds.btn} />
-                    <Text style={{ fontSize: 13, color: '#5B6B7F' }}>Đang nạp bản dịch hỗ trợ...</Text>
+                    <Text style={{ fontSize: 13, color: dk('#5B6B7F', 'text') }}>Đang nạp bản dịch hỗ trợ...</Text>
                   </View>
                 ) : (
                   <View style={styles.translationList}>
@@ -1468,12 +1469,12 @@ export function FullExamScreen() {
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <View style={styles.dropdownTitleRow}>
-                    <FileText size={13} color="#92400E" />
+                    <FileText size={13} color={dk('#92400E', 'text')} />
                     <Text style={styles.explanationHeading}>Giải thích đáp án</Text>
                   </View>
                   {showExplanation
-                    ? <ChevronUp size={16} color="#92400E" />
-                    : <ChevronDown size={16} color="#92400E" />}
+                    ? <ChevronUp size={16} color={dk('#92400E', 'text')} />
+                    : <ChevronDown size={16} color={dk('#92400E', 'text')} />}
                 </Pressable>
                 {showExplanation && (
                   <Text style={styles.explanationBody}>{currentQ.explanationVi}</Text>
@@ -1782,7 +1783,7 @@ export function FullExamScreen() {
           <View style={styles.confirmBox}>
             <View style={[styles.confirmIconWrap, { backgroundColor: isPracticeMode ? '#E0F2FE' : '#FEE2E2' }]}>
               {isPracticeMode ? (
-                <CheckCircle2 color="#0284C7" size={32} />
+                <CheckCircle2 color={dk('#0284C7', 'text')} size={32} />
               ) : (
                 <AlertCircle color="#DC2626" size={32} />
               )}

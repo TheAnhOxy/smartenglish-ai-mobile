@@ -5,6 +5,7 @@ import { BookOpen, ChevronRight, Headphones, Layers, Mic, PenLine } from 'lucide
 import { AppColors } from '@/src/core/theme/colors';
 import { useCourseCurriculum } from '../../application/useClassMembership';
 import type { CourseLessonDTO } from '../../data/classApi';
+import { dk, isDarkTheme } from '@/src/theme/themeMode';
 
 const LESSON_TYPE_META: Record<string, { label: string; Icon: typeof BookOpen }> = {
   READING: { label: 'Đọc hiểu', Icon: BookOpen },
@@ -31,13 +32,13 @@ export const ClassCurriculumTab: React.FC<ClassCurriculumTabProps> = ({ courseId
       return (
         <Pressable
           onPress={() => router.push(`/(student)/lesson/${item.id}`)}
-          className="bg-white dark:bg-darkCard p-4 rounded-2xl border border-gray-100 dark:border-gray-800 mb-3 flex-row items-center active:bg-gray-50"
+          className={`bg-white dark:bg-darkCard p-4 rounded-2xl border border-gray-100 dark:border-gray-800 mb-3 flex-row items-center ${isDarkTheme() ? 'active:bg-[#2B4C7E]' : 'active:bg-gray-50'}`}
         >
           <View className="w-10 h-10 rounded-xl bg-primary/10 items-center justify-center mr-3">
             <meta.Icon size={18} color={AppColors.primary} />
           </View>
           <View className="flex-1 mr-2">
-            <Text className="text-[11px] text-neutralGray mb-0.5">
+            <Text className="text-[11px] text-neutralGray mb-0.5 dark:text-darkMuted">
               Bài {item.orderNumber || index + 1} · {meta.label}
             </Text>
             <Text className="text-sm font-bold text-neutralInk dark:text-white" numberOfLines={1}>
@@ -72,7 +73,7 @@ export const ClassCurriculumTab: React.FC<ClassCurriculumTabProps> = ({ courseId
           {thumbnailUrl ? (
             <Image
               source={{ uri: thumbnailUrl }}
-              style={{ width: '100%', aspectRatio: 16 / 9, backgroundColor: '#E2E8F0' }}
+              style={{ width: '100%', aspectRatio: 16 / 9, backgroundColor: dk('#E2E8F0', 'bg') }}
               resizeMode="cover"
               accessibilityLabel={courseTitle ? `Ảnh khóa học ${courseTitle}` : 'Ảnh khóa học'}
             />
@@ -82,7 +83,7 @@ export const ClassCurriculumTab: React.FC<ClassCurriculumTabProps> = ({ courseId
             <Text className="text-sm font-bold text-secondary dark:text-white flex-1" numberOfLines={2}>
               {courseTitle}
             </Text>
-            <Text className="text-xs text-neutralGray">{lessons.length} bài</Text>
+            <Text className="text-xs text-neutralGray dark:text-darkMuted">{lessons.length} bài</Text>
           </View>
         </View>
       }

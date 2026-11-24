@@ -198,7 +198,7 @@ export const EditProfileScreen = () => {
   };
 
   return (
-    <View className="flex-1 bg-[#F1F5F9]">
+    <View className="flex-1 bg-[#F1F5F9] dark:bg-darkBg">
       {/* Top Header */}
       <View className="bg-[#0D3B73] pt-8 pb-5 px-4 shadow-lg">
         <View className="w-full max-w-xl mx-auto flex-row justify-between items-center">
@@ -236,12 +236,12 @@ export const EditProfileScreen = () => {
         </View>
 
         {/* 3-Pill Segmented Control Switcher */}
-        <View className="w-full max-w-xl mx-auto mt-4 bg-white/10 p-1 rounded-2xl flex-row border border-white/15">
+        <View className="w-full max-w-xl mx-auto mt-4 bg-white/10 p-1 rounded-2xl flex-row border border-white/15 dark:bg-darkCard">
           <Pressable
             onPress={() => setActiveTab('profile')}
             className={`flex-1 py-2 rounded-xl flex-row justify-center items-center gap-1.5 ${
               activeTab === 'profile' ? 'bg-white shadow-sm' : 'bg-transparent'
-            }`}
+            } dark:bg-darkCard`}
           >
             <UserIcon color={activeTab === 'profile' ? '#0D3B73' : '#E2E8F0'} size={15} />
             <Text
@@ -257,7 +257,7 @@ export const EditProfileScreen = () => {
             onPress={() => setActiveTab('learning')}
             className={`flex-1 py-2 rounded-xl flex-row justify-center items-center gap-1.5 ${
               activeTab === 'learning' ? 'bg-white shadow-sm' : 'bg-transparent'
-            }`}
+            } dark:bg-darkCard`}
           >
             <Target color={activeTab === 'learning' ? '#0D3B73' : '#E2E8F0'} size={15} />
             <Text
@@ -273,7 +273,7 @@ export const EditProfileScreen = () => {
             onPress={() => setActiveTab('security')}
             className={`flex-1 py-2 rounded-xl flex-row justify-center items-center gap-1.5 ${
               activeTab === 'security' ? 'bg-white shadow-sm' : 'bg-transparent'
-            }`}
+            } dark:bg-darkCard`}
           >
             <Shield color={activeTab === 'security' ? '#0D3B73' : '#E2E8F0'} size={15} />
             <Text

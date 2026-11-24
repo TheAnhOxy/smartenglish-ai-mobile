@@ -170,7 +170,7 @@ export const ResultCelebrationHero: React.FC<ResultCelebrationHeroProps> = ({ la
 
 const st = StyleSheet.create({
   card: {
-    backgroundColor: ds.ink,
+    backgroundColor: ds.hero,
     borderRadius: dsRadius.xl,
     paddingVertical: 26,
     paddingHorizontal: 20,

@@ -9,6 +9,7 @@ import {
 import { Bookmark, RotateCcw, CheckCircle2, XCircle, Sparkles } from '@/src/components/ds/icons';
 import { colors } from '@/src/theme/colors';
 import { ds, dsFont } from '@/src/theme/ds';
+import { dk } from '@/src/theme/themeMode';
 
 export interface OrderingQuestionData {
   id: string;
@@ -186,7 +187,7 @@ export function OrderingQuestionView({
           <View style={[styles.feedbackCard, isCorrect ? styles.feedbackCorrect : styles.feedbackWrong]}>
             <View style={styles.feedbackTitleRow}>
               {isCorrect ? (
-                <CheckCircle2 size={18} color="#16A34A" />
+                <CheckCircle2 size={18} color={dk('#16A34A', 'text')} />
               ) : (
                 <XCircle size={18} color="#DC2626" />
               )}

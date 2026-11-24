@@ -31,11 +31,14 @@ import { CircularAccuracyRing } from '../components/CircularAccuracyRing';
 import { IpaSyllableBreakdownCard } from '../components/IpaSyllableBreakdownCard';
 import { SpeakingMetricsGrid } from '../components/SpeakingMetricsGrid';
 import { AppColors } from '@/src/core/theme/colors';
+import { PracticeFeedbackCard } from '@/src/features/practice-feedback/presentation/components/PracticeFeedbackCard';
 import {
   extractAndEvaluateSyllables,
   evaluatePronunciationApi,
   fetchPronunciationLessonsApi,
 } from '../../data/speakingApi';
+import { readRecordingBase64 } from '../../data/readRecording';
+import { dk } from '@/src/theme/themeMode';
 
 export const SpeakingFeedbackScreen = () => {
   const router = useRouter();
@@ -185,6 +188,7 @@ export const SpeakingFeedbackScreen = () => {
             targetText: targetWord,
             targetIpa,
             audioBase64: base64Audio,
+            audioMimeType: 'audio/webm',
             sessionType: 'SINGLE_WORD',
           }).then((res) => {
             setCurrentScore(res.overallScore);
@@ -192,7 +196,9 @@ export const SpeakingFeedbackScreen = () => {
             setStress(res.stressScore);
             setIntonation(res.intonationScore);
             setFluency(res.fluencyScore);
-          }).catch(() => {});
+          }).catch((err: unknown) => {
+            setNoticeMessage(err instanceof Error ? err.message : 'AI chưa chấm được phát âm. Hãy thử lại.');
+          });
         };
 
         mediaRecorderRef.current.start();
@@ -251,43 +257,30 @@ export const SpeakingFeedbackScreen = () => {
         setIsRecording(false);
       } else if (recorder.isRecording) {
         await recorder.stop();
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => undefined);
         const uri = recorder.uri;
         setRecordedUri(uri);
         setHasRecording(Boolean(uri));
         setIsRecording(false);
 
-        let base64Audio: string | undefined = undefined;
-        if (uri) {
-          try {
-            const res = await fetch(uri);
-            const blob = await res.blob();
-            base64Audio = await new Promise<string | undefined>((resolve) => {
-              const reader = new FileReader();
-              reader.onloadend = () => {
-                const str = reader.result as string;
-                resolve(str?.includes(',') ? str.split(',')[1] : str);
-              };
-              reader.onerror = () => resolve(undefined);
-              reader.readAsDataURL(blob);
-            });
-          } catch (audioErr) {
-            console.warn('[Feedback Audio] Base64 conversion fallback:', audioErr);
-          }
-        }
-
-        // Đánh giá cập nhật điểm số
-        evaluatePronunciationApi({
-          targetText: targetWord,
-          targetIpa,
-          audioBase64: base64Audio,
-          sessionType: 'SINGLE_WORD',
-        }).then((res) => {
+        // Đọc file ghi âm rồi chấm lại; lỗi hiện cho học viên thay vì im lặng
+        try {
+          const base64Audio = await readRecordingBase64(uri);
+          const res = await evaluatePronunciationApi({
+            targetText: targetWord,
+            targetIpa,
+            audioBase64: base64Audio,
+            audioMimeType: 'audio/mp4',
+            sessionType: 'SINGLE_WORD',
+          });
           setCurrentScore(res.overallScore);
           setAccuracy(res.accuracyScore);
           setStress(res.stressScore);
           setIntonation(res.intonationScore);
           setFluency(res.fluencyScore);
-        }).catch(() => {});
+        } catch (err) {
+          setNoticeMessage(err instanceof Error ? err.message : 'AI chưa chấm được phát âm. Hãy thử lại.');
+        }
       } else {
         setIsRecording(false);
       }
@@ -349,7 +342,7 @@ export const SpeakingFeedbackScreen = () => {
           }}
           style={s.closeBtn}
         >
-          <X color="#475569" size={22} />
+          <X color={dk('#475569', 'text')} size={22} />
         </Pressable>
 
         <Text style={s.headerTitle}>Chi tiết phản hồi AI</Text>
@@ -363,7 +356,7 @@ export const SpeakingFeedbackScreen = () => {
       <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
         {noticeMessage && (
           <View style={s.noticeBox}>
-            <AlertCircle color="#D97706" size={16} />
+            <AlertCircle color={dk('#D97706', 'text')} size={16} />
             <Text style={s.noticeText}>{noticeMessage}</Text>
           </View>
         )}
@@ -449,7 +442,7 @@ export const SpeakingFeedbackScreen = () => {
             </Pressable>
 
             <View style={{ flex: 1 }}>
-              <Text style={[s.audioLabelUserText, !hasRecording && { color: '#94A3B8' }]}>
+              <Text style={[s.audioLabelUserText, !hasRecording && { color: dk('#94A3B8', 'text') }]}>
                 {hasRecording ? 'Your Voice (Bản ghi âm giọng của bạn)' : 'Your Voice (Chưa có bản ghi âm)'}
               </Text>
               <View style={s.waveformRow}>
@@ -468,7 +461,7 @@ export const SpeakingFeedbackScreen = () => {
         {/* Tips to Improve Card */}
         <View style={s.card}>
           <View style={s.cardTitleRow}>
-            <Lightbulb color="#D97706" size={18} />
+            <Lightbulb color={dk('#D97706', 'text')} size={18} />
             <Text style={s.cardTitleText}>Mẹo cải thiện phát âm</Text>
           </View>
 
@@ -507,6 +500,21 @@ export const SpeakingFeedbackScreen = () => {
             </View>
           </View>
         </View>
+
+        <PracticeFeedbackCard
+          style={{ marginHorizontal: 20, marginTop: 8 }}
+          input={{
+            skill: 'SPEAKING',
+            title: `Phát âm: ${targetWord}`,
+            score: currentScore,
+            sourceId: `speak-${targetWord}-${currentScore}-${accuracy}-${fluency}`.slice(0, 80),
+            details: [
+              `Từ/cụm luyện phát âm: "${targetWord}" ${targetIpa}.`,
+              `Điểm tổng ${currentScore}/100; độ chính xác âm ${accuracy}; trọng âm ${stress}; ngữ điệu ${intonation}; độ trôi chảy ${fluency}.`,
+              'Hãy nhận xét phát âm (âm nào dễ sai với người Việt), kỹ năng nói và từ vựng liên quan.',
+            ].join('\n'),
+          }}
+        />
 
         <View style={{ height: 20 }} />
       </ScrollView>

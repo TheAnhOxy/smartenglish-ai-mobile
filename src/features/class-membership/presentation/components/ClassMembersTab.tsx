@@ -22,7 +22,7 @@ export const ClassMembersTab: React.FC<ClassMembersTabProps> = ({ classInfo }) =
         <View className="flex-1">
           <Text className="text-sm font-semibold text-neutralInk dark:text-white">{item.userName}</Text>
           {item.joinedAt ? (
-            <Text className="text-[11px] text-neutralGray">
+            <Text className="text-[11px] text-neutralGray dark:text-darkMuted">
               Tham gia {new Date(item.joinedAt).toLocaleDateString('vi-VN')}
             </Text>
           ) : null}
@@ -46,11 +46,11 @@ export const ClassMembersTab: React.FC<ClassMembersTabProps> = ({ classInfo }) =
               <UserRound size={18} color={AppColors.primary} />
             </View>
             <View className="flex-1">
-              <Text className="text-[11px] text-neutralGray">Giáo viên</Text>
+              <Text className="text-[11px] text-neutralGray dark:text-darkMuted">Giáo viên</Text>
               <Text className="text-sm font-bold text-neutralInk dark:text-white">{classInfo.teacherName || 'Giáo viên'}</Text>
             </View>
           </View>
-          <Text className="text-xs font-bold text-neutralGray uppercase">
+          <Text className="text-xs font-bold text-neutralGray uppercase dark:text-darkMuted">
             Học viên ({students.length}
             {classInfo.maxStudents ? `/${classInfo.maxStudents}` : ''})
           </Text>

@@ -47,6 +47,7 @@ import { colors } from '@/src/theme/colors';
 import { ds, dsFont, dsSize } from '@/src/theme/ds';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { normalizeCefr } from '@/src/features/onboarding/application/learnerLevel';
+import { dk } from '@/src/theme/themeMode';
 
 export const EXAM_CATEGORY_LABELS: Record<string, string> = {
   TOEIC_FULL: 'TOEIC',
@@ -225,11 +226,11 @@ export function ExamCatalogScreen() {
       >
         {/* Thanh tìm kiếm + nút bộ lọc */}
         <View style={styles.searchBar}>
-          <Search size={18} color="#94A3B8" />
+          <Search size={18} color={dk('#94A3B8', 'text')} />
           <TextInput
             style={styles.searchInput}
             placeholder="Tìm kiếm đề thi, chủ đề TOEIC..."
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={dk('#94A3B8', 'text')}
             value={searchText}
             onChangeText={setSearchText}
           />
@@ -328,7 +329,7 @@ export function ExamCatalogScreen() {
         {/* Empty State */}
         {displayExams.length === 0 && !query.isLoading && (
           <View style={styles.emptyContainer}>
-            <BookOpen size={42} color="#94A3B8" />
+            <BookOpen size={42} color={dk('#94A3B8', 'text')} />
             <Text style={styles.emptyTitle}>Chưa có bài thi nào</Text>
             <Text style={styles.emptySubtitle}>Không tìm thấy bài thi phù hợp với danh mục này.</Text>
           </View>
@@ -354,7 +355,7 @@ export function ExamCatalogScreen() {
                 <View style={styles.cardHeaderRow}>
                   <View style={styles.headerLeftGroup}>
                     <View style={styles.cardTagBadge}>
-                      <GraduationCap size={13} color="#0284C7" />
+                      <GraduationCap size={13} color={dk('#0284C7', 'text')} />
                       <Text style={styles.cardTagBadgeText}>{exam.categoryDisplay}</Text>
                     </View>
 
@@ -365,7 +366,7 @@ export function ExamCatalogScreen() {
                         style={styles.redoWrongTopBtn}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
-                        <RotateCcw size={15} color="#0284C7" strokeWidth={2.4} />
+                        <RotateCcw size={15} color={dk('#0284C7', 'text')} strokeWidth={2.4} />
                         <View style={styles.redoWrongBadge}>
                           <Text style={styles.redoWrongBadgeText}>{wrongCount}</Text>
                         </View>
@@ -380,13 +381,13 @@ export function ExamCatalogScreen() {
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         accessibilityLabel="Lịch sử thi"
                       >
-                        <History size={15} color="#059669" strokeWidth={2.4} />
+                        <History size={15} color={dk('#059669', 'text')} strokeWidth={2.4} />
                       </TouchableOpacity>
                     )}
                   </View>
 
                   <View style={styles.cardXpBadge}>
-                    <Sparkles size={13} color="#0284C7" />
+                    <Sparkles size={13} color={dk('#0284C7', 'text')} />
                     <Text style={styles.cardXpBadgeText}>+{exam.xpReward} XP</Text>
                   </View>
                 </View>
@@ -394,7 +395,7 @@ export function ExamCatalogScreen() {
                 {/* In-progress Practice Banner */}
                 {hasInProgressPractice && (
                   <View style={styles.inProgressBadge}>
-                    <Clock size={13} color="#D97706" />
+                    <Clock size={13} color={dk('#D97706', 'text')} />
                     <Text style={styles.inProgressBadgeText}>
                       Đang làm câu {practiceSession.questionNumber || (practiceSession.currentIndex + 1)}/{practiceSession.totalQuestions || exam.totalQuestions}
                     </Text>
@@ -408,7 +409,7 @@ export function ExamCatalogScreen() {
                     onPress={() => handleReviewResult(latestAttempt)}
                     style={styles.historyBadge}
                   >
-                    <CheckCircle2 size={14} color="#16A34A" />
+                    <CheckCircle2 size={14} color={dk('#16A34A', 'text')} />
                     <Text style={styles.historyBadgeText}>
                       Gần nhất: {latestAttempt.displayScore} điểm ({latestAttempt.correctAnswers}/{latestAttempt.totalQuestions || exam.totalQuestions} đúng)
                     </Text>
@@ -422,7 +423,7 @@ export function ExamCatalogScreen() {
                 <View style={styles.statsCardBox}>
                   <View style={styles.statColItem}>
                     <View style={styles.statColValueRow}>
-                      <Clock size={13} color="#64748B" />
+                      <Clock size={13} color={dk('#64748B', 'text')} />
                       <Text style={styles.statColValue}>{exam.durationMinutes}p</Text>
                     </View>
                     <Text style={styles.statColLabel}>Thời gian</Text>
@@ -432,7 +433,7 @@ export function ExamCatalogScreen() {
 
                   <View style={styles.statColItem}>
                     <View style={styles.statColValueRow}>
-                      <ListChecks size={13} color="#64748B" />
+                      <ListChecks size={13} color={dk('#64748B', 'text')} />
                       <Text style={styles.statColValue}>{exam.totalQuestions} câu</Text>
                     </View>
                     <Text style={styles.statColLabel}>Số câu</Text>
@@ -442,7 +443,7 @@ export function ExamCatalogScreen() {
 
                   <View style={styles.statColItem}>
                     <View style={styles.statColValueRow}>
-                      <Target size={13} color="#64748B" />
+                      <Target size={13} color={dk('#64748B', 'text')} />
                       <Text style={styles.statColValue}>{exam.targetScore.split(' ')[0]}</Text>
                     </View>
                     <Text style={styles.statColLabel}>Mục tiêu</Text>

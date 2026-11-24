@@ -38,7 +38,7 @@ export const StudentClassesScreen = () => {
     <View className="mb-3">
       {!isPremium ? (
         <View className="flex-row items-center justify-between bg-white dark:bg-darkCard px-4 py-3 rounded-2xl border border-gray-100 dark:border-gray-800 mb-3">
-          <Text className="text-xs text-neutralGray">
+          <Text className="text-xs text-neutralGray dark:text-darkMuted">
             {classCount}/{FREE_MAX_CLASSES} lớp (gói miễn phí)
           </Text>
           <Pressable
@@ -50,7 +50,7 @@ export const StudentClassesScreen = () => {
           </Pressable>
         </View>
       ) : null}
-      <Text className="text-xs font-bold text-neutralGray uppercase">Lớp đang học ({classCount})</Text>
+      <Text className="text-xs font-bold text-neutralGray uppercase dark:text-darkMuted">Lớp đang học ({classCount})</Text>
     </View>
   );
 
@@ -61,7 +61,7 @@ export const StudentClassesScreen = () => {
   ) : isError ? (
     <View className="items-center py-12 bg-white dark:bg-darkCard rounded-2xl p-6">
       <AlertCircle size={28} color={AppColors.error} />
-      <Text className="text-sm text-neutralGray text-center my-3">
+      <Text className="text-sm text-neutralGray text-center my-3 dark:text-darkMuted">
         {error instanceof Error ? error.message : 'Không thể tải danh sách lớp học'}
       </Text>
       <Pressable onPress={() => refetch()} className="bg-primary px-5 py-2.5 rounded-xl active:bg-primaryDark">

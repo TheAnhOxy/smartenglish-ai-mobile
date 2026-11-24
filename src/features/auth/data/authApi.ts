@@ -81,7 +81,8 @@ export const registerApi = async (payload: RegisterPayload): Promise<RegisterRes
       displayName: payload.displayName,
       username: payload.username || payload.email.split('@')[0],
       phone: payload.phone || undefined,
-      cefrLevel: payload.cefrLevel || 'B1',
+      // Chưa làm test đầu vào thì để trống — không tự gán B1 (trước đây mọi tài khoản mới đều thành B1)
+      cefrLevel: payload.cefrLevel || undefined,
       targetGoal: payload.targetGoal || 'TOEIC 750',
       referralCode: payload.referralCode || undefined
     });

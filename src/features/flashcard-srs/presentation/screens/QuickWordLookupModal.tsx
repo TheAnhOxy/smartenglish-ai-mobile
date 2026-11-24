@@ -3,6 +3,7 @@ import { View, Text, TextInput, Pressable, Modal, FlatList, ActivityIndicator } 
 import { RotateCcw, AlertCircle, Volume2, Search, X } from 'lucide-react-native';
 import { searchWordsApi, lookupWordApi, WordDetail } from '../../data/vocabularyApi';
 import { speakText } from '@/src/core/services/speechService';
+import { dk } from '@/src/theme/themeMode';
 
 interface QuickWordLookupModalProps {
   visible: boolean;
@@ -97,24 +98,24 @@ export const QuickWordLookupModal: React.FC<QuickWordLookupModalProps> = ({ visi
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 bg-black/50 justify-end">
-        <View className="bg-cardWhite p-6 rounded-t-3xl border-t border-gray-100 h-4/5">
+        <View className="bg-cardWhite p-6 rounded-t-3xl border-t border-gray-100 h-4/5 dark:bg-darkCard dark:border-darkLine">
           <View className="w-12 h-1 bg-gray-300 rounded-full self-center mb-4" />
 
           <View className="flex-row justify-between items-center mb-3">
-            <Text className="text-xl font-bold text-neutralInk">Tra từ vựng</Text>
+            <Text className="text-xl font-bold text-neutralInk dark:text-darkInk">Tra từ vựng</Text>
             <Pressable onPress={onClose} className="p-1" hitSlop={8} accessibilityLabel="Đóng">
-              <X size={22} color="#64748B" />
+              <X size={22} color={dk('#64748B', 'text')} />
             </Pressable>
           </View>
 
-          <View className="flex-row items-center bg-surface px-4 rounded-xl border border-gray-200 mb-3 gap-2">
-            <Search size={18} color="#94A3B8" />
+          <View className="flex-row items-center bg-surface px-4 rounded-xl border border-gray-200 mb-3 gap-2 dark:bg-darkBg dark:border-darkLine">
+            <Search size={18} color={dk('#94A3B8', 'text')} />
             <TextInput
               value={query}
               onChangeText={setQuery}
               placeholder="Nhập từ hoặc cụm từ, vd: negotiation"
-              placeholderTextColor="#94A3B8"
-              className="flex-1 py-3 text-neutralInk text-sm"
+              placeholderTextColor={dk('#94A3B8', 'text')}
+              className="flex-1 py-3 text-neutralInk text-sm dark:text-darkInk"
               autoCapitalize="none"
               autoCorrect={false}
               autoFocus
@@ -128,10 +129,10 @@ export const QuickWordLookupModal: React.FC<QuickWordLookupModalProps> = ({ visi
           )}
 
           {!loading && error && (
-            <View className="items-center justify-center p-6 bg-surface rounded-2xl border border-gray-100 my-4">
+            <View className="items-center justify-center p-6 bg-surface rounded-2xl border border-gray-100 my-4 dark:bg-darkBg dark:border-darkLine">
               <AlertCircle size={32} color="#EF4444" />
-              <Text className="text-sm font-bold text-neutralInk mt-2 mb-1">Lỗi tra từ</Text>
-              <Text className="text-xs text-neutralGray text-center mb-3">{error}</Text>
+              <Text className="text-sm font-bold text-neutralInk mt-2 mb-1 dark:text-darkInk">Lỗi tra từ</Text>
+              <Text className="text-xs text-neutralGray text-center mb-3 dark:text-darkMuted">{error}</Text>
               <Pressable
                 onPress={handleSearch}
                 className="flex-row items-center gap-2 bg-primary px-4 py-2 rounded-xl active:opacity-90"
@@ -149,7 +150,7 @@ export const QuickWordLookupModal: React.FC<QuickWordLookupModalProps> = ({ visi
               showsVerticalScrollIndicator={false}
               ListEmptyComponent={
                 <View className="items-center justify-center mt-12 px-4">
-                  <Text className="text-sm text-neutralGray text-center">
+                  <Text className="text-sm text-neutralGray text-center dark:text-darkMuted">
                     {query.trim()
                       ? `Không tìm thấy "${query.trim()}"`
                       : 'Nhập từ tiếng Anh để xem nghĩa, phiên âm và phát âm'}
@@ -161,11 +162,11 @@ export const QuickWordLookupModal: React.FC<QuickWordLookupModalProps> = ({ visi
                 const firstExample = item.examples && item.examples.length > 0 ? item.examples[0] : null;
 
                 return (
-                  <View className="bg-surface p-4 rounded-2xl border border-gray-100 mb-3 shadow-xs">
+                  <View className="bg-surface p-4 rounded-2xl border border-gray-100 mb-3 shadow-xs dark:bg-darkBg dark:border-darkLine">
                     <View className="flex-row justify-between items-start mb-2">
                       <View className="flex-1 mr-2">
                         <View className="flex-row items-center gap-2 mb-1">
-                          <Text className="text-lg font-bold text-neutralInk">{item.word}</Text>
+                          <Text className="text-lg font-bold text-neutralInk dark:text-darkInk">{item.word}</Text>
                           <Pressable
                             onPress={() => handlePlayAudio(item.word)}
                             className={`p-1.5 rounded-full ${isSpeaking ? 'bg-primary' : 'bg-primary/10'}`}
@@ -178,7 +179,7 @@ export const QuickWordLookupModal: React.FC<QuickWordLookupModalProps> = ({ visi
                           {item.ipaUs ? (
                             <Text className="text-xs font-semibold text-secondary">{item.ipaUs}</Text>
                           ) : null}
-                          <Text className="text-xs text-neutralGray">({item.partOfSpeech})</Text>
+                          <Text className="text-xs text-neutralGray dark:text-darkMuted">({item.partOfSpeech})</Text>
                           <View className="bg-success/15 px-2 py-0.5 rounded-md">
                             <Text className="text-[10px] font-bold text-success uppercase">{item.cefrLevel || 'B1'}</Text>
                           </View>
@@ -187,13 +188,13 @@ export const QuickWordLookupModal: React.FC<QuickWordLookupModalProps> = ({ visi
                     </View>
 
                     {item.definitionVi ? (
-                      <View className="mt-1 bg-cardWhite p-2.5 rounded-xl border border-gray-100">
-                        <Text className="text-xs font-medium text-neutralInk leading-5">
+                      <View className="mt-1 bg-cardWhite p-2.5 rounded-xl border border-gray-100 dark:bg-darkCard dark:border-darkLine">
+                        <Text className="text-xs font-medium text-neutralInk leading-5 dark:text-darkInk">
                           <Text className="font-bold text-primary">Nghĩa: </Text>
                           {item.definitionVi}
                         </Text>
                         {item.definitionEn && item.definitionEn !== item.definitionVi ? (
-                          <Text className="text-[11px] text-neutralGray mt-1 italic leading-4">
+                          <Text className="text-[11px] text-neutralGray mt-1 italic leading-4 dark:text-darkMuted">
                             {item.definitionEn}
                           </Text>
                         ) : null}
@@ -202,11 +203,11 @@ export const QuickWordLookupModal: React.FC<QuickWordLookupModalProps> = ({ visi
 
                     {firstExample && firstExample.sentenceEn ? (
                       <View className="mt-2 pl-2 border-l-2 border-primary/40">
-                        <Text className="text-xs text-neutralInk italic leading-5">
+                        <Text className="text-xs text-neutralInk italic leading-5 dark:text-darkInk">
                           "{firstExample.sentenceEn}"
                         </Text>
                         {firstExample.sentenceVi ? (
-                          <Text className="text-[11px] text-neutralGray mt-0.5">
+                          <Text className="text-[11px] text-neutralGray mt-0.5 dark:text-darkMuted">
                             {firstExample.sentenceVi}
                           </Text>
                         ) : null}

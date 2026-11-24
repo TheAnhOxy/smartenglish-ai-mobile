@@ -6,6 +6,9 @@ import { colors } from '@/src/theme/colors';
 import { useTabBounce } from '@/src/hooks/useTabBounce';
 import { useRoleGateStore } from '@/src/core/flows/roleGateStore';
 import { useAuthStore } from '@/src/core/flows/authStore';
+import { tabSceneTransition } from '@/src/core/navigation/transitions';
+import { isDarkTheme } from '@/src/theme/themeMode';
+import { useThemeSwitching } from '@/src/theme/useThemeMode';
 
 // AnimatedTabIcon: icon nảy lên khi tab active
 type AnimatedTabIconProps = { focused: boolean; children: React.ReactNode };
@@ -25,9 +28,14 @@ const hideTabOptions = {
   tabBarButton: hiddenTabButton,
   tabBarItemStyle: { display: 'none' as const },
   tabBarStyle: { display: 'none' as const },
+  // Chỉ màn chi tiết có hiệu ứng: trượt nhẹ + mờ dần + phóng nhẹ (lò xo, native driver)
+  ...tabSceneTransition,
 };
 
 export default function StudentTabsLayout() {
+  // Vừa đổi Sáng/Tối: màn chi tiết không chạy hiệu ứng trượt khi app quay lại đúng màn đang mở
+  const switching = useThemeSwitching();
+  const hideOptions = switching ? { ...hideTabOptions, sceneStyleInterpolator: undefined, transitionSpec: undefined, animation: 'none' as const } : hideTabOptions;
   const { hasPermission, syncRolePermissions } = useRoleGateStore();
 
   useEffect(() => {
@@ -43,6 +51,8 @@ export default function StudentTabsLayout() {
       backBehavior="history"
       screenOptions={{
         headerShown: false,
+        // Chuyển giữa các tab chính: tức thì, không hiệu ứng
+        animation: 'none',
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textFaint,
         tabBarLabelStyle: {
@@ -52,8 +62,10 @@ export default function StudentTabsLayout() {
           letterSpacing: 0.1,
         },
         tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopWidth: 0,
+          backgroundColor: colors.surface,
+          // Tối: viền mảnh tách thanh tab khỏi nội dung (bóng không thấy trên nền tối)
+          borderTopWidth: isDarkTheme() ? 1 : 0,
+          borderTopColor: colors.border,
           height: 72,
           paddingBottom: 12,
           paddingTop: 6,
@@ -129,69 +141,69 @@ export default function StudentTabsLayout() {
       />
 
       {/* Hide Non-Tab Subroutes from Bottom Navigation Bar */}
-      <Tabs.Screen name="profile/classes" options={hideTabOptions} />
-      <Tabs.Screen name="profile/edit" options={hideTabOptions} />
-      <Tabs.Screen name="profile/invoices" options={hideTabOptions} />
-      <Tabs.Screen name="profile/premium" options={hideTabOptions} />
-      <Tabs.Screen name="profile/settings" options={hideTabOptions} />
-      <Tabs.Screen name="profile/sessions" options={hideTabOptions} />
-      <Tabs.Screen name="league" options={hideTabOptions} />
-      <Tabs.Screen name="analytics" options={hideTabOptions} />
-      <Tabs.Screen name="daily-challenge" options={hideTabOptions} />
-      <Tabs.Screen name="feed" options={hideTabOptions} />
-      <Tabs.Screen name="iot" options={hideTabOptions} />
-      <Tabs.Screen name="knowledge-gap" options={hideTabOptions} />
-      <Tabs.Screen name="notifications" options={hideTabOptions} />
-      <Tabs.Screen name="referral" options={hideTabOptions} />
-      <Tabs.Screen name="shop" options={hideTabOptions} />
+      <Tabs.Screen name="profile/classes" options={hideOptions} />
+      <Tabs.Screen name="profile/edit" options={hideOptions} />
+      <Tabs.Screen name="profile/invoices" options={hideOptions} />
+      <Tabs.Screen name="profile/premium" options={hideOptions} />
+      <Tabs.Screen name="profile/settings" options={hideOptions} />
+      <Tabs.Screen name="profile/sessions" options={hideOptions} />
+      <Tabs.Screen name="league" options={hideOptions} />
+      <Tabs.Screen name="analytics" options={hideOptions} />
+      <Tabs.Screen name="daily-challenge" options={hideOptions} />
+      <Tabs.Screen name="feed" options={hideOptions} />
+      <Tabs.Screen name="iot" options={hideOptions} />
+      <Tabs.Screen name="knowledge-gap" options={hideOptions} />
+      <Tabs.Screen name="notifications" options={hideOptions} />
+      <Tabs.Screen name="referral" options={hideOptions} />
+      <Tabs.Screen name="shop" options={hideOptions} />
 
       {/* Nested folder subroutes */}
-      <Tabs.Screen name="classes/index" options={hideTabOptions} />
-      <Tabs.Screen name="classes/join" options={hideTabOptions} />
-      <Tabs.Screen name="classes/[classId]/index" options={hideTabOptions} />
-      <Tabs.Screen name="classes/[classId]/assignments" options={hideTabOptions} />
+      <Tabs.Screen name="classes/index" options={hideOptions} />
+      <Tabs.Screen name="classes/join" options={hideOptions} />
+      <Tabs.Screen name="classes/[classId]/index" options={hideOptions} />
+      <Tabs.Screen name="classes/[classId]/assignments" options={hideOptions} />
 
-      <Tabs.Screen name="lesson/[id]" options={hideTabOptions} />
+      <Tabs.Screen name="lesson/[id]" options={hideOptions} />
 
-      <Tabs.Screen name="practice/scan/index" options={hideTabOptions} />
-      <Tabs.Screen name="practice/scan/result" options={hideTabOptions} />
-      <Tabs.Screen name="practice/scan/[wordId]" options={hideTabOptions} />
-      <Tabs.Screen name="practice/speaking/index" options={hideTabOptions} />
-      <Tabs.Screen name="practice/speaking/ipa" options={hideTabOptions} />
-      <Tabs.Screen name="practice/speaking/single-practice" options={hideTabOptions} />
-      <Tabs.Screen name="practice/speaking/detailed-feedback" options={hideTabOptions} />
-      <Tabs.Screen name="practice/speaking/unit-roleplay" options={hideTabOptions} />
-      <Tabs.Screen name="practice/speaking/roleplay/index" options={hideTabOptions} />
-      <Tabs.Screen name="practice/speaking/roleplay/[scenarioId]" options={hideTabOptions} />
-      <Tabs.Screen name="practice/writing/index" options={hideTabOptions} />
-      <Tabs.Screen name="practice/writing/editor" options={hideTabOptions} />
-      <Tabs.Screen name="practice/writing/analysis" options={hideTabOptions} />
-      <Tabs.Screen name="practice/writing/compare" options={hideTabOptions} />
-      <Tabs.Screen name="practice/chatbot/index" options={hideTabOptions} />
-      <Tabs.Screen name="practice/chatbot/[conversationId]" options={hideTabOptions} />
-      <Tabs.Screen name="practice/quiz/index" options={hideTabOptions} />
-      <Tabs.Screen name="practice/quiz/play" options={hideTabOptions} />
-      <Tabs.Screen name="practice/quiz/result" options={hideTabOptions} />
-      <Tabs.Screen name="practice/quiz/[quizId]" options={hideTabOptions} />
-      <Tabs.Screen name="practice/exam/[examId]" options={hideTabOptions} />
-      <Tabs.Screen name="practice/exam/result" options={hideTabOptions} />
-      <Tabs.Screen name="practice/reading/[passageId]" options={hideTabOptions} />
-      <Tabs.Screen name="practice/reading/generate" options={hideTabOptions} />
-      <Tabs.Screen name="practice/listening/[audioId]" options={hideTabOptions} />
+      <Tabs.Screen name="practice/scan/index" options={hideOptions} />
+      <Tabs.Screen name="practice/scan/result" options={hideOptions} />
+      <Tabs.Screen name="practice/scan/[wordId]" options={hideOptions} />
+      <Tabs.Screen name="practice/speaking/index" options={hideOptions} />
+      <Tabs.Screen name="practice/speaking/ipa" options={hideOptions} />
+      <Tabs.Screen name="practice/speaking/single-practice" options={hideOptions} />
+      <Tabs.Screen name="practice/speaking/detailed-feedback" options={hideOptions} />
+      <Tabs.Screen name="practice/speaking/unit-roleplay" options={hideOptions} />
+      <Tabs.Screen name="practice/speaking/roleplay/index" options={hideOptions} />
+      <Tabs.Screen name="practice/speaking/roleplay/[scenarioId]" options={hideOptions} />
+      <Tabs.Screen name="practice/writing/index" options={hideOptions} />
+      <Tabs.Screen name="practice/writing/editor" options={hideOptions} />
+      <Tabs.Screen name="practice/writing/analysis" options={hideOptions} />
+      <Tabs.Screen name="practice/writing/compare" options={hideOptions} />
+      <Tabs.Screen name="practice/chatbot/index" options={hideOptions} />
+      <Tabs.Screen name="practice/chatbot/[conversationId]" options={hideOptions} />
+      <Tabs.Screen name="practice/quiz/index" options={hideOptions} />
+      <Tabs.Screen name="practice/quiz/play" options={hideOptions} />
+      <Tabs.Screen name="practice/quiz/result" options={hideOptions} />
+      <Tabs.Screen name="practice/quiz/[quizId]" options={hideOptions} />
+      <Tabs.Screen name="practice/exam/[examId]" options={hideOptions} />
+      <Tabs.Screen name="practice/exam/result" options={hideOptions} />
+      <Tabs.Screen name="practice/reading/[passageId]" options={hideOptions} />
+      <Tabs.Screen name="practice/reading/generate" options={hideOptions} />
+      <Tabs.Screen name="practice/listening/[audioId]" options={hideOptions} />
 
 
-      <Tabs.Screen name="placement/index" options={hideTabOptions} />
-      <Tabs.Screen name="placement/test" options={hideTabOptions} />
-      <Tabs.Screen name="placement/result" options={hideTabOptions} />
-      <Tabs.Screen name="courses/index" options={hideTabOptions} />
-      <Tabs.Screen name="courses/[courseId]" options={hideTabOptions} />
+      <Tabs.Screen name="placement/index" options={hideOptions} />
+      <Tabs.Screen name="placement/test" options={hideOptions} />
+      <Tabs.Screen name="placement/result" options={hideOptions} />
+      <Tabs.Screen name="courses/index" options={hideOptions} />
+      <Tabs.Screen name="courses/[courseId]" options={hideOptions} />
 
-      <Tabs.Screen name="review/index" options={hideTabOptions} />
-      <Tabs.Screen name="review/due" options={hideTabOptions} />
-      <Tabs.Screen name="review/decks/index" options={hideTabOptions} />
-      <Tabs.Screen name="review/decks/[deckId]/study" options={hideTabOptions} />
-      <Tabs.Screen name="review/topics" options={hideTabOptions} />
-      <Tabs.Screen name="review/manage" options={hideTabOptions} />
+      <Tabs.Screen name="review/index" options={hideOptions} />
+      <Tabs.Screen name="review/due" options={hideOptions} />
+      <Tabs.Screen name="review/decks/index" options={hideOptions} />
+      <Tabs.Screen name="review/decks/[deckId]/study" options={hideOptions} />
+      <Tabs.Screen name="review/topics" options={hideOptions} />
+      <Tabs.Screen name="review/manage" options={hideOptions} />
     </Tabs>
   );
 }

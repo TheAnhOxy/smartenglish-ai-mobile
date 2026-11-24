@@ -50,6 +50,7 @@ import {
   fetchPronunciationLessonsApi,
   PronunciationLesson,
 } from '../../data/speakingApi';
+import { readRecordingBase64 } from '../../data/readRecording';
 import { CircularAccuracyRing } from '../components/CircularAccuracyRing';
 import { IpaSyllableBreakdownCard } from '../components/IpaSyllableBreakdownCard';
 import { SpeakingMetricsGrid } from '../components/SpeakingMetricsGrid';
@@ -232,13 +233,14 @@ export const SingleWordSpeakingScreen = () => {
               targetText: targetWord,
               targetIpa: targetIpa,
               audioBase64: base64Audio,
+              audioMimeType: 'audio/webm',
               sessionType: 'SINGLE_WORD',
             });
             setAssessment(res);
             setScore(res.overallScore);
             setHasRecorded(true);
           } catch (err) {
-            console.warn('[SingleWordSpeaking] Evaluation error:', err);
+            setMicNotice(err instanceof Error ? err.message : 'AI chưa chấm được phát âm. Hãy thử lại.');
           } finally {
             setIsEvaluating(false);
           }
@@ -301,44 +303,28 @@ export const SingleWordSpeakingScreen = () => {
         setIsRecording(false);
       } else if (recorder.isRecording) {
         await recorder.stop();
+        // Trả iOS về chế độ phát loa ngoài (allowsRecording=true làm âm thanh ra loa thoại)
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => undefined);
         const uri = recorder.uri;
         setRecordedUri(uri);
         setIsRecording(false);
 
-        // Chuyển bản ghi âm thiết bị thật thành base64 gửi cho AI Backend
-        let base64Audio: string | undefined = undefined;
-        if (uri) {
-          try {
-            const res = await fetch(uri);
-            const blob = await res.blob();
-            base64Audio = await new Promise<string | undefined>((resolve) => {
-              const reader = new FileReader();
-              reader.onloadend = () => {
-                const str = reader.result as string;
-                resolve(str?.includes(',') ? str.split(',')[1] : str);
-              };
-              reader.onerror = () => resolve(undefined);
-              reader.readAsDataURL(blob);
-            });
-          } catch (audioErr) {
-            console.warn('[Native Audio] Base64 conversion fallback:', audioErr);
-          }
-        }
-
-        // Gọi Backend AI phân tích phát âm
+        // Đọc file ghi âm rồi gửi AI chấm (lỗi hiện cho học viên, không bịa điểm)
         setIsEvaluating(true);
         try {
+          const base64Audio = await readRecordingBase64(uri);
           const res = await evaluatePronunciationApi({
             targetText: targetWord,
             targetIpa: targetIpa,
             audioBase64: base64Audio,
+            audioMimeType: 'audio/mp4',
             sessionType: 'SINGLE_WORD',
           });
           setAssessment(res);
           setScore(res.overallScore);
           setHasRecorded(true);
         } catch (err) {
-          console.warn('[SingleWordSpeaking] Evaluation error:', err);
+          setMicNotice(err instanceof Error ? err.message : 'AI chưa chấm được phát âm. Hãy thử lại.');
         } finally {
           setIsEvaluating(false);
         }
@@ -752,7 +738,7 @@ const s = StyleSheet.create({
     lineHeight: 17,
   },
   wordCard: {
-    backgroundColor: ds.ink,
+    backgroundColor: ds.hero,
     paddingVertical: 26,
     paddingHorizontal: 22,
     borderRadius: dsRadius.xl,

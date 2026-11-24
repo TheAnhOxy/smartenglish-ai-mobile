@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { X, ChevronDown, ChevronUp, Headphones, FileText, Play, Bookmark, ClipboardList } from 'lucide-react-native';
 import { colors } from '@/src/theme/colors';
+import { dk } from '@/src/theme/themeMode';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -79,7 +80,7 @@ export function QuestionSheetModal({
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>Exam Question Sheet</Text>
             <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={8}>
-              <X size={20} color="#64748B" />
+              <X size={20} color={dk('#64748B', 'text')} />
             </Pressable>
           </View>
 
@@ -138,7 +139,7 @@ export function QuestionSheetModal({
                     style={styles.partHeaderBtn}
                   >
                     <View style={styles.partHeaderLeft}>
-                      <Headphones size={17} color="#1E293B" />
+                      <Headphones size={17} color={dk('#1E293B', 'text')} />
                       <Text style={styles.partHeaderText}>{partTitle}</Text>
                       <View style={styles.partCountBadge}>
                         <Text style={styles.partCountBadgeText}>
@@ -147,9 +148,9 @@ export function QuestionSheetModal({
                       </View>
                     </View>
                     {isCollapsed ? (
-                      <ChevronDown size={18} color="#64748B" />
+                      <ChevronDown size={18} color={dk('#64748B', 'text')} />
                     ) : (
-                      <ChevronUp size={18} color="#64748B" />
+                      <ChevronUp size={18} color={dk('#64748B', 'text')} />
                     )}
                   </Pressable>
 

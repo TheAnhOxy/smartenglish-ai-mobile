@@ -26,6 +26,14 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button3D, ProgressBar, PulseRing, Reveal, Tap, feedback } from '@/src/components/ds';
 import { ds, dsFont, dsRadius, dsShadow, dsSize } from '@/src/theme/ds';
+import { ChristmasScene } from '@/src/components/xmas/ChristmasScenes';
+import { useXmasActive } from '@/src/core/services/xmas';
+import { SnowEdge, ShimmerSweep } from '@/src/components/xmas/WinterUI';
+import { SnowConfetti } from '@/src/components/xmas/SnowConfetti';
+import { GiftBox, XmasTree } from '@/src/components/xmas/XmasArt';
+import { SantaHat } from '@/src/features/learning-path/presentation/winter/WinterArt';
+import { AnimatedFoxMascot } from '@/src/core/components/AnimatedFoxMascot';
+import { LinearGradient as XGradient } from 'expo-linear-gradient';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -66,6 +74,7 @@ export const StudyDeckScreen = ({ mode }: { mode?: 'due' } = {}) => {
   const router = useRouter();
   const { currentUser, userStats } = useAuthStore();
   const insets = useSafeAreaInsets();
+  const xmas = useXmasActive();
   const streakDays = userStats?.streak_current ?? 0;
   const accessToken = useAuthStore((st) => st.accessToken);
   const guestMode = useRoleGateStore((st) => st.guestMode);
@@ -468,14 +477,28 @@ export const StudyDeckScreen = ({ mode }: { mode?: 'due' } = {}) => {
   // 3. Completed State
   if (!currentCard) {
     return (
-      <View style={styles.completedContainer}>
+      <View style={[styles.completedContainer, xmas && { backgroundColor: 'transparent' }]}>
+        {xmas ? <ChristmasScene scene="studyroom" /> : null}
+        {/* Ăn mừng: chỉ khi thật sự hoàn thành phiên (màn này chỉ hiện sau thẻ cuối) */}
+        {xmas ? <SnowConfetti trigger={1} /> : null}
         <Reveal style={{ alignItems: 'center', width: '100%' }}>
-          <View style={styles.doneBadgeWrap}>
-            <PulseRing size={112} color={ds.green} />
-            <View style={styles.doneBadge}>
-              <CheckCircle2 color={ds.white} size={56} fill="none" />
+          {xmas ? (
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6, marginBottom: 8 }}>
+              <XmasTree size={60} />
+              <View>
+                <AnimatedFoxMascot size={110} entrance={false} />
+                <SantaHat size={40} style={{ position: 'absolute', top: -10, left: 34, transform: [{ rotate: '-12deg' }] }} />
+              </View>
+              <GiftBox size={40} delay={200} />
             </View>
-          </View>
+          ) : (
+            <View style={styles.doneBadgeWrap}>
+              <PulseRing size={112} color={ds.green} />
+              <View style={styles.doneBadge}>
+                <CheckCircle2 color={ds.white} size={56} fill="none" />
+              </View>
+            </View>
+          )}
           <Text style={styles.completedTitle}>Đã hoàn thành lượt ôn tập!</Text>
           <Text style={styles.completedSub}>
             {isSrsSession
@@ -505,7 +528,13 @@ export const StudyDeckScreen = ({ mode }: { mode?: 'due' } = {}) => {
   const remaining = studyQueue.length - currentIndex - 1;
 
   return (
-    <View style={[styles.root, { paddingTop: (insets.top || 20) + 8, paddingBottom: (insets.bottom || 12) + 12 }]}>
+    <View style={[styles.root, { paddingTop: (insets.top || 20) + 8, paddingBottom: (insets.bottom || 12) + 12 }, xmas && { backgroundColor: 'transparent' }]}>
+      {/* Giáng sinh (giao diện tối): phòng học phép thuật — cửa sổ tuyết, lò sưởi, cây thông */}
+      {xmas ? (
+        <View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, left: -20, right: -20 }}>
+          <ChristmasScene scene="studyroom" />
+        </View>
+      ) : null}
       {/* Header Bar */}
       <View style={styles.headerBar}>
         <Tap onPress={() => router.back()} style={styles.backBtnWrap} accessibilityLabel="Quay lại">
@@ -525,14 +554,26 @@ export const StudyDeckScreen = ({ mode }: { mode?: 'due' } = {}) => {
 
       {/* Progress Bar */}
       <View style={styles.progressSection}>
-        <ProgressBar value={progressPct / 100} color={ds.sky} height={12} style={{ flex: 1 }} />
+        <ProgressBar value={progressPct / 100} color={xmas ? '#67E8F9' : ds.sky} height={12} style={{ flex: 1 }} />
         <Text style={styles.progressText}>
           {currentIndex + 1}/{studyQueue.length}
         </Text>
       </View>
 
+      {/* Cáo Giáng sinh động viên — đổi câu theo từng thẻ, không lặp liên tục */}
+      {xmas ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'center', gap: 6, marginBottom: 4 }}>
+          <View>
+            <AnimatedFoxMascot size={40} entrance={false} />
+            <SantaHat size={18} style={{ position: 'absolute', top: -6, left: 12, transform: [{ rotate: '-12deg' }] }} />
+          </View>
+          <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: 'rgba(20,43,43,0.85)', borderWidth: 1, borderColor: 'rgba(251,191,36,0.45)' }}>
+            <Text style={{ fontFamily: dsFont.bold, fontSize: dsSize.xs, color: '#FDE68A' }}>{CHEERS[currentIndex % CHEERS.length]}</Text>
+          </View>
+        </View>
+      ) : null}
       {/* Hint Banner */}
-      <View style={styles.hintBanner}>
+      <View style={[styles.hintBanner, xmas && { backgroundColor: 'rgba(20,43,43,0.8)', borderColor: 'rgba(147,197,253,0.25)' }]}>
         <View style={[styles.hintDot, { backgroundColor: ds.red }]} />
         <Text style={styles.hintText}>Vuốt trái: chưa thuộc</Text>
         <View style={styles.hintSep} />
@@ -543,8 +584,8 @@ export const StudyDeckScreen = ({ mode }: { mode?: 'due' } = {}) => {
       {/* Card Viewport */}
       <View style={styles.cardViewport}>
         {/* Thẻ xếp chồng phía sau tạo chiều sâu */}
-        {remaining > 1 ? <View pointerEvents="none" style={[styles.stackCard, styles.stackCard2]} /> : null}
-        {remaining > 0 ? <View pointerEvents="none" style={[styles.stackCard, styles.stackCard1]} /> : null}
+        {remaining > 1 ? <View pointerEvents="none" style={[styles.stackCard, styles.stackCard2, xmas && XMAS_STACK]} /> : null}
+        {remaining > 0 ? <View pointerEvents="none" style={[styles.stackCard, styles.stackCard1, xmas && XMAS_STACK]} /> : null}
 
         <Animated.View
           style={[styles.animatedCardWrap, cardContainerStyle]}
@@ -569,7 +610,8 @@ export const StudyDeckScreen = ({ mode }: { mode?: 'due' } = {}) => {
           {/* Card Container */}
           <View style={styles.cardInnerContainer}>
             {/* FRONT CARD */}
-            <Animated.View style={[styles.cardFace, styles.cardFront, frontAnimatedStyle]}>
+            <Animated.View style={[styles.cardFace, styles.cardFront, xmas && XMAS_FRONT, frontAnimatedStyle]}>
+              {xmas ? <CrystalCardDecor variant="front" /> : null}
               <Pressable onPress={handleCardTapToFlip} style={styles.cardBackgroundTapArea}>
                 <View style={styles.cardHeaderTagRow}>
                   <View style={styles.cardHeaderTag}>
@@ -585,7 +627,7 @@ export const StudyDeckScreen = ({ mode }: { mode?: 'due' } = {}) => {
 
                 <View style={styles.frontCenterContent}>
                   <Text style={styles.wordTitle} adjustsFontSizeToFit numberOfLines={2}>{currentCard.word}</Text>
-                  {!!currentCard.ipa && <Text style={styles.ipaText}>{currentCard.ipa}</Text>}
+                  {!!currentCard.ipa && <Text style={[styles.ipaText, xmas && { color: '#BAE6FD' }]}>{currentCard.ipa}</Text>}
                 </View>
 
                 <View style={styles.cardFooter}>
@@ -596,7 +638,8 @@ export const StudyDeckScreen = ({ mode }: { mode?: 'due' } = {}) => {
             </Animated.View>
 
             {/* BACK CARD */}
-            <Animated.View style={[styles.cardFace, styles.cardBack, backAnimatedStyle]}>
+            <Animated.View style={[styles.cardFace, styles.cardBack, xmas && XMAS_BACK, backAnimatedStyle]}>
+              {xmas ? <CrystalCardDecor variant="back" /> : null}
               <Pressable onPress={toggleFlip} style={styles.cardBackgroundTapArea}>
                 <View style={styles.cardHeaderTagBack}>
                   <Bookmark color={ds.skyLight} size={16} />
@@ -641,11 +684,11 @@ export const StudyDeckScreen = ({ mode }: { mode?: 'due' } = {}) => {
       {!isFlipped && currentCard && (
         <View style={styles.speakerRow}>
           <View style={styles.speakerWrap}>
-            <PulseRing size={56} color={ds.sky} active={isPlayingAudio} />
+            <PulseRing size={56} color={xmas ? '#67E8F9' : ds.sky} active={isPlayingAudio} />
             <View style={styles.speakerEdge} />
             <Pressable
               onPressIn={handleSpeakerPress}
-              style={[styles.speakerBtn, isPlayingAudio && styles.speakerBtnActive]}
+              style={[styles.speakerBtn, isPlayingAudio && styles.speakerBtnActive, xmas && XMAS_SPEAKER]}
               accessibilityLabel="Nghe phát âm"
             >
               <Volume2 color={ds.white} size={26} fill="none" />
@@ -663,10 +706,10 @@ export const StudyDeckScreen = ({ mode }: { mode?: 'due' } = {}) => {
           {isSubmittingReview ? 'Đang lưu kết quả SRS...' : 'Mức độ nhớ từ này'}
         </Text>
         <View style={styles.ratingRow}>
-          <RateButton label="Chưa thuộc" sub={isSrsSession ? ratingHint(currentCard, 0) : ''} bg={ds.red} edge={ds.redEdge} disabled={isSubmittingReview} onPress={() => advanceCardRef.current(0)} />
-          <RateButton label="Khó" sub={isSrsSession ? ratingHint(currentCard, 1) : ''} bg={ds.amber} edge={ds.amberDeep} fg={ds.ink} disabled={isSubmittingReview} onPress={() => advanceCardRef.current(1)} />
-          <RateButton label="Thuộc" sub={isSrsSession ? ratingHint(currentCard, 2) : ''} bg={ds.btn} edge={ds.btnEdge} disabled={isSubmittingReview} onPress={() => advanceCardRef.current(2)} />
-          <RateButton label="Dễ" sub={isSrsSession ? ratingHint(currentCard, 3) : ''} bg={ds.green} edge={ds.greenEdge} disabled={isSubmittingReview} onPress={() => advanceCardRef.current(3)} />
+          <RateButton label="Chưa thuộc" sub={isSrsSession ? ratingHint(currentCard, 0) : ''} bg={xmas ? '#DC2626' : ds.red} edge={xmas ? '#7F1D1D' : ds.redEdge} glow={xmas ? '#FCA5A5' : undefined} disabled={isSubmittingReview} onPress={() => advanceCardRef.current(0)} />
+          <RateButton label="Khó" sub={isSrsSession ? ratingHint(currentCard, 1) : ''} bg={xmas ? '#F59E0B' : ds.amber} edge={xmas ? '#92400E' : ds.amberDeep} fg={xmas ? '#1C1208' : ds.ink} glow={xmas ? '#FDE68A' : undefined} disabled={isSubmittingReview} onPress={() => advanceCardRef.current(1)} />
+          <RateButton label="Thuộc" sub={isSrsSession ? ratingHint(currentCard, 2) : ''} bg={xmas ? '#0284C7' : ds.btn} edge={xmas ? '#0C4A6E' : ds.btnEdge} glow={xmas ? '#67E8F9' : undefined} disabled={isSubmittingReview} onPress={() => advanceCardRef.current(2)} />
+          <RateButton label="Dễ" sub={isSrsSession ? ratingHint(currentCard, 3) : ''} bg={xmas ? '#15803D' : ds.green} edge={xmas ? '#14532D' : ds.greenEdge} glow={xmas ? '#86EFAC' : undefined} disabled={isSubmittingReview} onPress={() => advanceCardRef.current(3)} />
         </View>
       </View>
     </View>
@@ -682,7 +725,9 @@ const RateButton: React.FC<{
   fg?: string;
   disabled?: boolean;
   onPress: () => void;
-}> = ({ label, sub, bg, edge, fg = ds.white, disabled, onPress }) => {
+  /** Viền sáng kiểu Giáng sinh. */
+  glow?: string;
+}> = ({ label, sub, bg, edge, fg = ds.white, disabled, onPress, glow }) => {
   const [down, setDown] = useState(false);
   return (
     <Pressable
@@ -695,13 +740,56 @@ const RateButton: React.FC<{
       accessibilityLabel={label}
     >
       <View style={[styles.rateBtnEdge, { backgroundColor: edge }]} />
-      <View style={[styles.rateBtn, { backgroundColor: bg, transform: [{ translateY: down ? 3 : 0 }] }]}>
+      <View
+        style={[
+          styles.rateBtn,
+          { backgroundColor: bg, transform: [{ translateY: down ? 3 : 0 }] },
+          glow ? { borderWidth: 1.5, borderColor: glow, shadowColor: glow, shadowOpacity: down ? 0.9 : 0.5, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } } : null,
+        ]}
+      >
         <Text style={[styles.rateBtnTitle, { color: fg }]} numberOfLines={1} adjustsFontSizeToFit>
           {label}
         </Text>
         <Text style={[styles.rateBtnSub, { color: fg }]}>{sub}</Text>
       </View>
     </Pressable>
+  );
+};
+
+const CHEERS = ["You've got this!", 'Keep going!', 'One word at a time!', 'Make your English sparkle!', 'Great job!'];
+
+// ── Thẻ pha lê Giáng sinh (style inline: bộ đổi màu giao diện tối không được đổi màu thẻ) ──
+const XMAS_FRONT = { backgroundColor: '#13254A', borderColor: '#93C5FD', borderWidth: 1.5, shadowColor: '#818CF8', shadowOpacity: 0.55, shadowRadius: 18, overflow: 'hidden' as const };
+const XMAS_BACK = { backgroundColor: '#14213D', borderColor: '#FBBF24', borderWidth: 1.5, shadowColor: '#FBBF24', shadowOpacity: 0.45, shadowRadius: 18, overflow: 'hidden' as const };
+const XMAS_STACK = { backgroundColor: '#1B2C52', borderColor: 'rgba(147,197,253,0.35)' };
+const XMAS_SPEAKER = { backgroundColor: '#0EA5E9', borderWidth: 2, borderColor: '#A5F3FC', shadowColor: '#67E8F9', shadowOpacity: 0.9, shadowRadius: 12 };
+
+/** Trang trí thẻ pha lê: gradient sapphire → băng, tuyết đọng mép trên, góc vàng, ánh phản chiếu. */
+const CrystalCardDecor: React.FC<{ variant: 'front' | 'back' }> = ({ variant }) => {
+  const corner = variant === 'front' ? '#FDE68A' : '#FBBF24';
+  const c = { position: 'absolute' as const, width: 18, height: 18, borderColor: corner };
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <XGradient
+        colors={variant === 'front' ? ['#172554', '#1E3A8A', '#0E7490'] : ['#14213D', '#1E1B4B', '#172554']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      {/* Ánh phản chiếu chéo trên mặt thẻ */}
+      <XGradient
+        colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.08)', 'rgba(255,255,255,0)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <ShimmerSweep width={360} every={5200} color="rgba(186,230,253,0.25)" />
+      <SnowEdge />
+      <View style={[c, { top: 12, left: 12, borderTopWidth: 2, borderLeftWidth: 2, borderTopLeftRadius: 6 }]} />
+      <View style={[c, { top: 12, right: 12, borderTopWidth: 2, borderRightWidth: 2, borderTopRightRadius: 6 }]} />
+      <View style={[c, { bottom: 12, left: 12, borderBottomWidth: 2, borderLeftWidth: 2, borderBottomLeftRadius: 6 }]} />
+      <View style={[c, { bottom: 12, right: 12, borderBottomWidth: 2, borderRightWidth: 2, borderBottomRightRadius: 6 }]} />
+    </View>
   );
 };
 
@@ -878,7 +966,7 @@ const styles = StyleSheet.create({
     borderBottomColor: ds.lineStrong,
   },
   cardBack: {
-    backgroundColor: ds.ink,
+    backgroundColor: ds.hero,
     borderBottomWidth: 6,
     borderBottomColor: '#07182A',
   },

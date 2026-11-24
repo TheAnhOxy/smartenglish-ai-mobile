@@ -117,7 +117,7 @@ export const SubmitAssignmentSheet: React.FC<SubmitAssignmentSheetProps> = ({ cl
           </View>
 
           {assignment?.instructions ? (
-            <Text className="text-xs text-neutralGray mb-3 leading-5">{assignment.instructions}</Text>
+            <Text className="text-xs text-neutralGray mb-3 leading-5 dark:text-darkMuted">{assignment.instructions}</Text>
           ) : null}
 
           {assignment?.attachmentUrl ? (
@@ -160,12 +160,12 @@ export const SubmitAssignmentSheet: React.FC<SubmitAssignmentSheetProps> = ({ cl
               className="flex-row items-center gap-2 self-start mt-2 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700"
             >
               <Paperclip size={14} color={AppColors.neutralGray} />
-              <Text className="text-xs font-semibold text-neutralGray">Đính kèm file</Text>
+              <Text className="text-xs font-semibold text-neutralGray dark:text-darkMuted">Đính kèm file</Text>
             </Pressable>
           )}
 
           {assignment?.status === 'Đã nộp' ? (
-            <Text className="text-[11px] text-neutralGray mt-2">Nộp lại sẽ thay thế bài đã nộp trước đó</Text>
+            <Text className="text-[11px] text-neutralGray mt-2 dark:text-darkMuted">Nộp lại sẽ thay thế bài đã nộp trước đó</Text>
           ) : null}
 
           {error ? <Text className="text-xs text-error mt-2">{error}</Text> : null}

@@ -22,20 +22,26 @@ export type UiSound = keyof typeof SOURCES;
 
 const players: Partial<Record<UiSound, AudioPlayer>> = {};
 let enabled = true;
+let masterVolume = 1;
 
 export const setUiSoundEnabled = (value: boolean) => {
   enabled = value;
 };
 
+/** Âm lượng chung 0–1 (Cài đặt / màn đăng nhập) nhân vào âm lượng từng hiệu ứng. */
+export const setUiSoundVolume = (value: number) => {
+  masterVolume = Math.max(0, Math.min(1, value));
+};
+
 export const playSound = (name: UiSound, volume = 0.6) => {
-  if (!enabled) return;
+  if (!enabled || masterVolume <= 0) return;
   try {
     let player = players[name];
     if (!player) {
       player = createAudioPlayer(SOURCES[name]);
       players[name] = player;
     }
-    player.volume = volume;
+    player.volume = volume * masterVolume;
     void player.seekTo(0).catch(() => undefined);
     player.play();
   } catch {

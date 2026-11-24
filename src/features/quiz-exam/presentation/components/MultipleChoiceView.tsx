@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Bookmark, CheckCircle2 } from 'lucide-react-native';
 import { colors } from '@/src/theme/colors';
+import { dk } from '@/src/theme/themeMode';
 
 export interface MultipleChoiceQuestionData {
   id: string;
@@ -111,7 +112,7 @@ export function MultipleChoiceView({
 
               {/* Selected Checkmark or Radio */}
               {isSelected ? (
-                <CheckCircle2 size={20} color="#1A4B84" />
+                <CheckCircle2 size={20} color={dk('#1A4B84', 'text')} />
               ) : (
                 <View style={styles.radioEmpty} />
               )}

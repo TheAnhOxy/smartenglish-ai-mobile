@@ -12,7 +12,7 @@ import {
   loadGoogleGsiScript,
   signInWithGoogleWeb,
 } from '../../infrastructure/googleAuthHelper';
-import { AuthButton, AuthDivider, AuthErrorBanner, AuthFooterLink, AuthLayout, AuthTextField } from '../components/AuthUI';
+import { AuthButton, AuthDivider, AuthErrorBanner, AuthFooterLink, AuthLayout, AuthTextField, AuthGoogleButton } from '../components/AuthUI';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -218,7 +218,7 @@ export const RegisterScreen = () => {
 
       <AuthButton label="Đăng ký" onPress={handleRegister} loading={isPending} />
       <AuthDivider label="hoặc" />
-      <AuthButton label="Tiếp tục với Google" variant="outline" onPress={handleGooglePress} disabled={isPending} />
+      <AuthGoogleButton label="Tiếp tục với Google" onPress={handleGooglePress} disabled={isPending} />
     </AuthLayout>
   );
 };

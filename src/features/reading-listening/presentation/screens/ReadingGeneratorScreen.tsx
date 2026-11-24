@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BackButton } from '@/src/core/components/BackButton';
 
 const TOPIC_CHIPS = [
   { id: 'tech', name: 'Công Nghệ & AI' },
@@ -19,6 +21,7 @@ const LENGTH_OPTIONS = [
 
 export const ReadingGeneratorScreen = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [selectedTopics, setSelectedTopics] = useState<string[]>(['tech']);
   const [selectedLength, setSelectedLength] = useState<string>('medium');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -38,18 +41,16 @@ export const ReadingGeneratorScreen = () => {
   };
 
   return (
-    <View className="flex-1 bg-surface pt-14 px-6 pb-6 justify-between">
+    <View style={{ paddingTop: insets.top + 8 }} className="flex-1 bg-surface px-6 pb-6 justify-between dark:bg-darkBg">
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <Pressable onPress={() => router.back()} className="mb-4">
-          <Text className="text-primary font-bold text-sm">← Thư Viện Bài Đọc</Text>
-        </Pressable>
+        <BackButton style={{ marginBottom: 16 }} />
 
-        <Text className="text-2xl font-bold text-neutralInk mb-1">Tạo Bài Đọc Theo Chủ Đề</Text>
-        <Text className="text-xs text-neutralGray mb-6">Tùy biến bài đọc hiểu chuẩn CEFR phù hợp với sở thích của bạn</Text>
+        <Text className="text-2xl font-bold text-neutralInk mb-1 dark:text-darkInk">Tạo Bài Đọc Theo Chủ Đề</Text>
+        <Text className="text-xs text-neutralGray mb-6 dark:text-darkMuted">Tùy biến bài đọc hiểu chuẩn CEFR phù hợp với sở thích của bạn</Text>
 
         {/* Section 1: Topics */}
-        <Text className="text-sm font-bold text-neutralInk mb-3">1. Chọn Chủ Đề Yêu Thích (Có thể chọn nhiều)</Text>
+        <Text className="text-sm font-bold text-neutralInk mb-3 dark:text-darkInk">1. Chọn Chủ Đề Yêu Thích (Có thể chọn nhiều)</Text>
         <View className="flex-row flex-wrap gap-2.5 mb-6">
           {TOPIC_CHIPS.map((chip) => {
             const active = selectedTopics.includes(chip.id);
@@ -59,9 +60,9 @@ export const ReadingGeneratorScreen = () => {
                 onPress={() => toggleTopic(chip.id)}
                 className={`px-4 py-2.5 rounded-2xl border flex-row items-center gap-2 ${
                   active ? 'bg-primary border-primary shadow-sm' : 'bg-cardWhite border-gray-200'
-                }`}
+                } dark:bg-darkCard dark:border-darkLine`}
               >
-                <Text className={`text-xs font-bold ${active ? 'text-white' : 'text-neutralInk'}`}>
+                <Text className={`text-xs font-bold ${active ? 'text-white' : 'text-neutralInk'} dark:text-darkInk`}>
                   {chip.name}
                 </Text>
               </Pressable>
@@ -70,7 +71,7 @@ export const ReadingGeneratorScreen = () => {
         </View>
 
         {/* Section 2: Length */}
-        <Text className="text-sm font-bold text-neutralInk mb-3">2. Độ Dài Bài Đọc</Text>
+        <Text className="text-sm font-bold text-neutralInk mb-3 dark:text-darkInk">2. Độ Dài Bài Đọc</Text>
         <View className="gap-2.5 mb-8">
           {LENGTH_OPTIONS.map((opt) => {
             const active = selectedLength === opt.id;
@@ -80,20 +81,20 @@ export const ReadingGeneratorScreen = () => {
                 onPress={() => setSelectedLength(opt.id)}
                 className={`p-4 rounded-2xl border flex-row items-center justify-between ${
                   active ? 'bg-secondary/10 border-secondary' : 'bg-cardWhite border-gray-100'
-                }`}
+                } dark:bg-darkCard dark:border-darkLine`}
               >
                 <View>
-                  <Text className={`text-sm font-bold ${active ? 'text-secondary' : 'text-neutralInk'}`}>
+                  <Text className={`text-sm font-bold ${active ? 'text-secondary' : 'text-neutralInk'} dark:text-darkInk`}>
                     {opt.label}
                   </Text>
-                  <Text className="text-xs text-neutralGray mt-0.5">Thời gian ước tính: {opt.time}</Text>
+                  <Text className="text-xs text-neutralGray mt-0.5 dark:text-darkMuted">Thời gian ước tính: {opt.time}</Text>
                 </View>
                 <View
                   className={`w-5 h-5 rounded-full border-2 items-center justify-center ${
                     active ? 'border-secondary bg-secondary' : 'border-gray-300'
                   }`}
                 >
-                  {active && <View className="w-2 h-2 rounded-full bg-white" />}
+                  {active && <View className="w-2 h-2 rounded-full bg-white dark:bg-darkCard" />}
                 </View>
               </Pressable>
             );

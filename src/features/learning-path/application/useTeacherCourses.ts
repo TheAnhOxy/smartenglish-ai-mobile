@@ -12,12 +12,14 @@ export const TEACHER_COURSES_KEY = ['content', 'teacher-courses'] as const;
  * Trình độ học viên: ưu tiên kết quả bài kiểm tra đầu vào (server chấm),
  * sau đó tới trình độ lưu trong hồ sơ.
  */
-export const useLearnerLevel = (): { level: CefrLevel | null; fromPlacement: boolean } => {
+export const useLearnerLevel = (): { level: CefrLevel | null; fromPlacement: boolean; needsPlacement: boolean } => {
   const currentUser = useAuthStore((s) => s.currentUser);
   const { data: plan } = useLearningPlanQuery(currentUser?.id);
   const placed = plan?.placementCompleted ? normalizeCefr(plan.cefrLevel) : null;
-  if (placed) return { level: placed, fromPlacement: true };
-  return { level: normalizeCefr(currentUser?.cefr_level), fromPlacement: false };
+  if (placed) return { level: placed, fromPlacement: true, needsPlacement: false };
+  // Server xác nhận CHƯA làm test đầu vào: không đoán trình độ (trước đây hồ sơ mới mặc định B1 → lộ trình B1 sai)
+  if (plan && !plan.placementCompleted) return { level: null, fromPlacement: false, needsPlacement: true };
+  return { level: normalizeCefr(currentUser?.cefr_level), fromPlacement: false, needsPlacement: false };
 };
 
 export const useTeacherCoursesQuery = () =>

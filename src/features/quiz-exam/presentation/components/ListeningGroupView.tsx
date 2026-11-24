@@ -17,6 +17,7 @@ import {
   Info,
 } from 'lucide-react-native';
 import { colors } from '../../../../theme/colors';
+import { dk } from '@/src/theme/themeMode';
 
 export interface GroupStepItem {
   number: number;
@@ -105,11 +106,11 @@ export const ListeningGroupView: React.FC<ListeningGroupViewProps> = ({
         {/* Top Badges */}
         <View style={styles.audioBadgeRow}>
           <View style={styles.dialogBadge}>
-            <Headphones size={13} color="#1E40AF" />
+            <Headphones size={13} color={dk('#1E40AF', 'text')} />
             <Text style={styles.dialogBadgeText}>{question.groupAudioBadge || 'Hội thoại câu 12–14'}</Text>
           </View>
           <View style={styles.playingBadge}>
-            <Activity size={13} color="#0284C7" />
+            <Activity size={13} color={dk('#0284C7', 'text')} />
             <Text style={styles.playingBadgeText}>Đang phát âm thanh</Text>
           </View>
         </View>
@@ -166,7 +167,7 @@ export const ListeningGroupView: React.FC<ListeningGroupViewProps> = ({
 
           {/* Info note */}
           <View style={styles.audioInfoRow}>
-            <Info size={13} color="#64748B" />
+            <Info size={13} color={dk('#64748B', 'text')} />
             <Text style={styles.audioInfoText}>
               Đoạn băng phát tự động 1 lần theo chuẩn ETS · Không có transcript
             </Text>
@@ -200,7 +201,7 @@ export const ListeningGroupView: React.FC<ListeningGroupViewProps> = ({
                 ]}
               >
                 {isDone ? (
-                  <Check size={16} color="#475569" />
+                  <Check size={16} color={dk('#475569', 'text')} />
                 ) : (
                   <Text
                     style={[

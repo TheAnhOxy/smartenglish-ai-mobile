@@ -102,11 +102,18 @@ const SOCIAL_TABS: SocialTabItem[] = [
 
 import { cleanAvatarUrl } from '../utils/avatarHelper';
 import { BackButton } from '@/src/core/components/BackButton';
+import { dk } from '@/src/theme/themeMode';
+import { SocialScene, type SocialSceneKey } from '@/src/components/xmas/SocialScenes';
+import { useXmasActive } from '@/src/core/services/xmas';
+import { Garland } from '@/src/components/xmas/XmasArt';
+import { SnowEdge } from '@/src/components/xmas/WinterUI';
 export { cleanAvatarUrl };
 
 
 
 export const SocialFeedScreen = () => {
+  // Giáng sinh (giao diện tối): mỗi tab một khung cảnh — quảng trường / bưu điện / khu vườn
+  const xmas = useXmasActive();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { currentUser } = useAuthStore();
@@ -873,9 +880,15 @@ export const SocialFeedScreen = () => {
   }, [conversations, searchQuery, currentUserId, communityUsers]);
 
   return (
-    <View style={s.root}>
+    <View style={[s.root, xmas && { backgroundColor: 'transparent' }]}>
+      {xmas ? <SocialScene scene={TAB_SCENE[activeTab] ?? 'townsquare'} /> : null}
       {/* Community Main Navigation Bar — Capsule Track matching Learn tab */}
-      <View style={[s.switcherBar, { paddingTop: Math.max(insets.top, 14) + 6 }]}>
+      <View style={[s.switcherBar, { paddingTop: Math.max(insets.top, 14) + 6 }, xmas && XMAS_BAR]}>
+        {xmas ? (
+          <View pointerEvents="none" style={{ position: 'absolute', left: 12, right: 12, bottom: -14 }}>
+            <Garland width={340} />
+          </View>
+        ) : null}
         <View style={s.topNavRow}>
           <BackButton onPress={() => {
               if (router.canGoBack()) {
@@ -885,7 +898,7 @@ export const SocialFeedScreen = () => {
               }
             }} />
 
-          <View style={s.capsuleTrack}>
+          <View style={[s.capsuleTrack, xmas && { backgroundColor: 'rgba(23,36,58,0.85)', borderWidth: 1, borderColor: 'rgba(147,197,253,0.25)' }]}>
             {SOCIAL_TABS.map((tab) => {
             const isActive = activeTab === tab.key;
             const IconComp = tab.icon;
@@ -904,7 +917,7 @@ export const SocialFeedScreen = () => {
               >
                 {isActive && (
                   <LinearGradient
-                    colors={['#1E1B4B', '#3B82F6']}
+                    colors={xmas ? ['#172554', '#1D4ED8', '#B45309'] : ['#1E1B4B', '#3B82F6']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={s.activePillBackground}
@@ -987,8 +1000,9 @@ export const SocialFeedScreen = () => {
                   <Animated.View
                     key={post.id || `post-${index}`}
                     entering={FadeInDown.delay(Math.min(index, 6) * 50)}
-                    style={s.postCard}
+                    style={[s.postCard, xmas && XMAS_POST]}
                   >
+                    {xmas ? <SnowEdge /> : null}
                     <View style={s.postHeader}>
                       {cleanAvatarUrl(post.authorAvatar) ? (
                         <Image
@@ -1009,13 +1023,13 @@ export const SocialFeedScreen = () => {
 
                       {isTeacher && (
                         <View style={s.badgeSharedDeck}>
-                          <BookOpen color="#0369A1" size={12} />
+                          <BookOpen color={dk('#0369A1', 'text')} size={12} />
                           <Text style={s.badgeSharedDeckText}>Giáo viên</Text>
                         </View>
                       )}
                       {isAdmin && (
                         <View style={s.badgeAchievement}>
-                          <Award color="#B45309" size={12} />
+                          <Award color={dk('#B45309', 'text')} size={12} />
                           <Text style={s.badgeAchievementText}>Quản trị viên</Text>
                         </View>
                       )}
@@ -1081,7 +1095,7 @@ export const SocialFeedScreen = () => {
                           }}
                           style={s.downloadBtn}
                         >
-                          <Download color="#475569" size={14} />
+                          <Download color={dk('#475569', 'text')} size={14} />
                           <Text style={s.downloadBtnText}>Tải về</Text>
                         </Pressable>
                       </View>
@@ -1110,14 +1124,14 @@ export const SocialFeedScreen = () => {
                       </Pressable>
 
                       <Pressable onPress={() => setCommentingPost(post)} style={s.actionBtn}>
-                        <MessageSquare color="#64748B" size={18} />
+                        <MessageSquare color={dk('#64748B', 'text')} size={18} />
                         <Text style={s.actionText}>
                           {post.commentsCount ?? (post.comments ? post.comments.length : 0)}
                         </Text>
                       </Pressable>
 
                       <Pressable onPress={() => setSharingPost(post)} style={s.actionBtn}>
-                        <Share2 color="#64748B" size={18} />
+                        <Share2 color={dk('#64748B', 'text')} size={18} />
                       </Pressable>
                     </View>
                   </Animated.View>
@@ -1141,7 +1155,7 @@ export const SocialFeedScreen = () => {
               contentContainerStyle={{ paddingBottom: 100 }}
               ListEmptyComponent={
                 <View style={s.emptyBox}>
-                  <Globe color="#94A3B8" size={40} />
+                  <Globe color={dk('#94A3B8', 'text')} size={40} />
                   <Text style={s.emptyTitle}>Chưa có bài viết nào</Text>
                   <Text style={s.emptySub}>Hãy là người đầu tiên chia sẻ cảm nghĩ hoặc tài liệu nhé!</Text>
                 </View>
@@ -1156,8 +1170,12 @@ export const SocialFeedScreen = () => {
             />
           )}
 
-          <Pressable onPress={() => setShowCreateModal(true)} style={s.fabBtn}>
+          <Pressable onPress={() => setShowCreateModal(true)} style={[s.fabBtn, xmas && XMAS_FAB]}>
             <Plus color="#FFFFFF" size={26} />
+            {xmas ? (
+              /* Nơ quà nhỏ ở góc nút */
+              <View pointerEvents="none" style={{ position: 'absolute', top: -4, right: -2, width: 16, height: 10, borderRadius: 5, backgroundColor: '#FBBF24' }} />
+            ) : null}
           </Pressable>
         </View>
       )}
@@ -1166,15 +1184,15 @@ export const SocialFeedScreen = () => {
       {/* TAB 2: TIN NHẮN (MESSAGES SYSTEM) */}
       {/* ───────────────────────────────────────────────────────────── */}
       {activeTab === 'messages' && (
-        <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+        <View style={{ flex: 1, backgroundColor: xmas ? 'transparent' : dk('#F8FAFC', 'bg') }}>
           {/* Search Box */}
-          <View style={s.searchBox}>
-            <Search color="#94A3B8" size={18} />
+          <View style={[s.searchBox, xmas && { backgroundColor: 'rgba(16,24,39,0.85)', borderWidth: 1, borderColor: 'rgba(253,230,138,0.35)' }]}>
+            <Search color={dk('#94A3B8', 'text')} size={18} />
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Tìm kiếm tin nhắn, bạn học..."
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={dk('#94A3B8', 'text')}
               style={s.searchInput}
             />
           </View>
@@ -1185,12 +1203,12 @@ export const SocialFeedScreen = () => {
             </View>
           ) : (
             <ScrollView
-              style={{ flex: 1, backgroundColor: '#FFFFFF' }}
+              style={{ flex: 1, backgroundColor: xmas ? 'transparent' : dk('#FFFFFF', 'bg') }}
               contentContainerStyle={{ paddingBottom: 24 }}
               showsVerticalScrollIndicator={false}
             >
               <View style={{ paddingHorizontal: 16, marginBottom: 8, marginTop: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#64748B' }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: dk('#64748B', 'text') }}>
                   Hội thoại ({filteredConversations.length})
                 </Text>
                 <Pressable
@@ -1198,7 +1216,7 @@ export const SocialFeedScreen = () => {
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
-                    backgroundColor: '#EEF2FF',
+                    backgroundColor: dk('#EEF2FF', 'bg'),
                     paddingHorizontal: 10,
                     paddingVertical: 6,
                     borderRadius: 12,
@@ -1212,7 +1230,7 @@ export const SocialFeedScreen = () => {
 
               {filteredConversations.length === 0 ? (
                 <View style={s.emptyBox}>
-                  <MessageCircle color="#94A3B8" size={40} />
+                  <MessageCircle color={dk('#94A3B8', 'text')} size={40} />
                   <Text style={s.emptyTitle}>Chưa có cuộc trò chuyện nào</Text>
                   <Text style={s.emptySub}>
                     Hãy bắt đầu trao đổi bài tập hoặc giải đáp thắc mắc cùng bạn bè nhé!
@@ -1285,7 +1303,8 @@ export const SocialFeedScreen = () => {
                         onPress={() => handleOpenConversation(conv)}
                         style={({ pressed }) => [
                           s.chatItemPressable,
-                          isUnread && { backgroundColor: '#F8FAFC' },
+                          isUnread && { backgroundColor: dk('#F8FAFC', 'bg') },
+                          xmas && (isUnread ? XMAS_LETTER_UNREAD : XMAS_LETTER),
                           pressed && s.chatItemPressed,
                         ]}
                       >
@@ -1327,7 +1346,7 @@ export const SocialFeedScreen = () => {
                               <Text
                                 style={[
                                   s.chatNameText,
-                                  isUnread && { fontWeight: '800', color: '#0F172A' },
+                                  isUnread && { fontWeight: '800', color: dk('#0F172A', 'text') },
                                 ]}
                                 numberOfLines={1}
                                 ellipsizeMode="tail"
@@ -1343,7 +1362,7 @@ export const SocialFeedScreen = () => {
                               <Text
                                 style={[
                                   s.chatLastMsgText,
-                                  isUnread && { color: '#0F172A', fontWeight: '800' },
+                                  isUnread && { color: dk('#0F172A', 'text'), fontWeight: '800' },
                                 ]}
                                 numberOfLines={1}
                                 ellipsizeMode="tail"
@@ -1399,7 +1418,7 @@ export const SocialFeedScreen = () => {
             >
               <Pressable
                 onPress={() => setRequestsSubTab('pending')}
-                style={[s.chipPill, requestsSubTab === 'pending' && s.chipPillActive]}
+                style={[s.chipPill, requestsSubTab === 'pending' && s.chipPillActive, xmas && (requestsSubTab === 'pending' ? XMAS_PILL_ON : XMAS_PILL)]}
               >
                 <Text style={[s.chipPillText, requestsSubTab === 'pending' && s.chipPillTextActive]}>
                   Đang chờ ({pendingRequests.filter((r) => r.status === 'PENDING').length})
@@ -1408,7 +1427,7 @@ export const SocialFeedScreen = () => {
 
               <Pressable
                 onPress={() => setRequestsSubTab('suggestions')}
-                style={[s.chipPill, requestsSubTab === 'suggestions' && s.chipPillActive]}
+                style={[s.chipPill, requestsSubTab === 'suggestions' && s.chipPillActive, xmas && (requestsSubTab === 'suggestions' ? XMAS_PILL_ON : XMAS_PILL)]}
               >
                 <Text style={[s.chipPillText, requestsSubTab === 'suggestions' && s.chipPillTextActive]}>
                   Gợi ý kết bạn ({communitySuggestions.length})
@@ -1417,7 +1436,7 @@ export const SocialFeedScreen = () => {
 
               <Pressable
                 onPress={() => setRequestsSubTab('friends')}
-                style={[s.chipPill, requestsSubTab === 'friends' && s.chipPillActive]}
+                style={[s.chipPill, requestsSubTab === 'friends' && s.chipPillActive, xmas && (requestsSubTab === 'friends' ? XMAS_PILL_ON : XMAS_PILL)]}
               >
                 <Text style={[s.chipPillText, requestsSubTab === 'friends' && s.chipPillTextActive]}>
                   Bạn bè ({friendsList.length})
@@ -1426,7 +1445,7 @@ export const SocialFeedScreen = () => {
 
               <Pressable
                 onPress={() => setRequestsSubTab('sent')}
-                style={[s.chipPill, requestsSubTab === 'sent' && s.chipPillActive]}
+                style={[s.chipPill, requestsSubTab === 'sent' && s.chipPillActive, xmas && (requestsSubTab === 'sent' ? XMAS_PILL_ON : XMAS_PILL)]}
               >
                 <Text style={[s.chipPillText, requestsSubTab === 'sent' && s.chipPillTextActive]}>
                   Đã gửi ({sentRequests.length})
@@ -1447,7 +1466,7 @@ export const SocialFeedScreen = () => {
               {requestsSubTab === 'pending' && (
                 pendingRequests.length === 0 ? (
                   <View style={s.emptyBox}>
-                    <UserCheck color="#94A3B8" size={40} />
+                    <UserCheck color={dk('#94A3B8', 'text')} size={40} />
                     <Text style={s.emptyTitle}>Không có lời mời nào</Text>
                     <Text style={s.emptySub}>Hiện tại bạn không có lời mời kết bạn nào đang chờ.</Text>
                   </View>
@@ -1457,7 +1476,7 @@ export const SocialFeedScreen = () => {
                     const reqInit = (req.requesterName || 'U').trim().charAt(0).toUpperCase();
 
                     return (
-                    <Animated.View key={req.id || idx} entering={FadeInDown.delay(idx * 60)} style={s.reqCard}>
+                    <Animated.View key={req.id || idx} entering={FadeInDown.delay(idx * 60)} style={[s.reqCard, xmas && XMAS_INVITE]}>
                       {req.status === 'ACCEPTED' ? (
                         <View style={s.acceptedCardInner}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
@@ -1468,7 +1487,7 @@ export const SocialFeedScreen = () => {
                                   style={s.reqAvatar}
                                 />
                               ) : (
-                                <View style={[s.reqAvatar, { backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#C7D2FE' }]}>
+                                <View style={[s.reqAvatar, { backgroundColor: dk('#EEF2FF', 'bg'), justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: dk('#C7D2FE', 'border') }]}>
                                   <Text style={{ fontSize: 16, fontWeight: '700', color: '#4F46E5' }}>{reqInit}</Text>
                                 </View>
                               )}
@@ -1500,7 +1519,7 @@ export const SocialFeedScreen = () => {
                                   style={s.reqAvatar}
                                 />
                               ) : (
-                                <View style={[s.reqAvatar, { backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#C7D2FE' }]}>
+                                <View style={[s.reqAvatar, { backgroundColor: dk('#EEF2FF', 'bg'), justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: dk('#C7D2FE', 'border') }]}>
                                   <Text style={{ fontSize: 16, fontWeight: '700', color: '#4F46E5' }}>{reqInit}</Text>
                                 </View>
                               )}
@@ -1541,7 +1560,7 @@ export const SocialFeedScreen = () => {
               {requestsSubTab === 'suggestions' && (
                 communitySuggestions.length === 0 ? (
                   <View style={s.emptyBox}>
-                    <Users color="#94A3B8" size={40} />
+                    <Users color={dk('#94A3B8', 'text')} size={40} />
                     <Text style={s.emptyTitle}>Chưa có gợi ý phù hợp</Text>
                     <Text style={s.emptySub}>Mọi người trong cộng đồng đều đã là bạn bè hoặc đang chờ phản hồi!</Text>
                   </View>
@@ -1557,7 +1576,7 @@ export const SocialFeedScreen = () => {
                     const uRoleText = uRole === 'TEACHER' ? 'Giáo viên SmartEnglish AI' : 'Học viên tích cực';
 
                     return (
-                      <Animated.View key={uId || idx} entering={FadeInDown.delay(idx * 50)} style={s.reqCard}>
+                      <Animated.View key={uId || idx} entering={FadeInDown.delay(idx * 50)} style={[s.reqCard, xmas && XMAS_INVITE]}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                           <View style={{ position: 'relative' }}>
                             {uAvatar ? (
@@ -1566,7 +1585,7 @@ export const SocialFeedScreen = () => {
                                 style={s.reqAvatar}
                               />
                             ) : (
-                              <View style={[s.reqAvatar, { backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#C7D2FE' }]}>
+                              <View style={[s.reqAvatar, { backgroundColor: dk('#EEF2FF', 'bg'), justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: dk('#C7D2FE', 'border') }]}>
                                 <Text style={{ fontSize: 16, fontWeight: '700', color: '#4F46E5' }}>{uInit}</Text>
                               </View>
                             )}
@@ -1578,7 +1597,7 @@ export const SocialFeedScreen = () => {
                             <Text style={s.reqName}>{uName}</Text>
                             <Text style={s.reqLevelSub}>{uRoleText}</Text>
                             {isOnline && (
-                              <Text style={{ fontSize: 10, color: '#16A34A', fontWeight: '700', marginTop: 2 }}>
+                              <Text style={{ fontSize: 10, color: dk('#16A34A', 'text'), fontWeight: '700', marginTop: 2 }}>
                                 Đang online
                               </Text>
                             )}
@@ -1586,7 +1605,7 @@ export const SocialFeedScreen = () => {
                           {isSent ? (
                             <View
                               style={{
-                                backgroundColor: '#F1F5F9',
+                                backgroundColor: dk('#F1F5F9', 'bg'),
                                 paddingHorizontal: 12,
                                 paddingVertical: 8,
                                 borderRadius: 12,
@@ -1595,8 +1614,8 @@ export const SocialFeedScreen = () => {
                                 gap: 4,
                               }}
                             >
-                              <Check color="#64748B" size={14} strokeWidth={2.5} />
-                              <Text style={{ fontSize: 12, fontWeight: '700', color: '#64748B' }}>
+                              <Check color={dk('#64748B', 'text')} size={14} strokeWidth={2.5} />
+                              <Text style={{ fontSize: 12, fontWeight: '700', color: dk('#64748B', 'text') }}>
                                 Đã gửi
                               </Text>
                             </View>
@@ -1637,7 +1656,7 @@ export const SocialFeedScreen = () => {
               {requestsSubTab === 'friends' && (
                 friendsList.length === 0 ? (
                   <View style={s.emptyBox}>
-                    <Users color="#94A3B8" size={40} />
+                    <Users color={dk('#94A3B8', 'text')} size={40} />
                     <Text style={s.emptyTitle}>Chưa có bạn bè</Text>
                     <Text style={s.emptySub}>Kết nối với các bạn học viên khác để cùng nhau tiến bộ!</Text>
                   </View>
@@ -1653,7 +1672,7 @@ export const SocialFeedScreen = () => {
                     const fInit = (friendName || 'U').trim().charAt(0).toUpperCase();
 
                     return (
-                      <Animated.View key={f.id || idx} entering={FadeInDown.delay(idx * 50)} style={s.reqCard}>
+                      <Animated.View key={f.id || idx} entering={FadeInDown.delay(idx * 50)} style={[s.reqCard, xmas && XMAS_INVITE]}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                           <View style={{ position: 'relative' }}>
                             {fAv ? (
@@ -1662,7 +1681,7 @@ export const SocialFeedScreen = () => {
                                 style={s.reqAvatar}
                               />
                             ) : (
-                              <View style={[s.reqAvatar, { backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#C7D2FE' }]}>
+                              <View style={[s.reqAvatar, { backgroundColor: dk('#EEF2FF', 'bg'), justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: dk('#C7D2FE', 'border') }]}>
                                 <Text style={{ fontSize: 16, fontWeight: '700', color: '#4F46E5' }}>{fInit}</Text>
                               </View>
                             )}
@@ -1678,7 +1697,7 @@ export const SocialFeedScreen = () => {
                           <Pressable
                             onPress={() => handleChatWithAcceptedFriend(friendId, friendName || 'Bạn học', friendAvatar)}
                             style={{
-                              backgroundColor: '#EEF2FF',
+                              backgroundColor: dk('#EEF2FF', 'bg'),
                               paddingHorizontal: 12,
                               paddingVertical: 8,
                               borderRadius: 12,
@@ -1700,7 +1719,7 @@ export const SocialFeedScreen = () => {
               {requestsSubTab === 'sent' && (
                 sentRequests.length === 0 ? (
                   <View style={s.emptyBox}>
-                    <Send color="#94A3B8" size={40} />
+                    <Send color={dk('#94A3B8', 'text')} size={40} />
                     <Text style={s.emptyTitle}>Không có yêu cầu đã gửi</Text>
                     <Text style={s.emptySub}>Bạn chưa gửi lời mời kết bạn nào.</Text>
                   </View>
@@ -1710,7 +1729,7 @@ export const SocialFeedScreen = () => {
                     const sReqInit = (sReq.addresseeName || 'U').trim().charAt(0).toUpperCase();
 
                     return (
-                      <Animated.View key={sReq.id || idx} entering={FadeInDown.delay(idx * 60)} style={s.reqCard}>
+                      <Animated.View key={sReq.id || idx} entering={FadeInDown.delay(idx * 60)} style={[s.reqCard, xmas && XMAS_INVITE]}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                           {sReqAv ? (
                             <Image
@@ -1718,7 +1737,7 @@ export const SocialFeedScreen = () => {
                               style={s.reqAvatar}
                             />
                           ) : (
-                            <View style={[s.reqAvatar, { backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#C7D2FE' }]}>
+                            <View style={[s.reqAvatar, { backgroundColor: dk('#EEF2FF', 'bg'), justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: dk('#C7D2FE', 'border') }]}>
                               <Text style={{ fontSize: 16, fontWeight: '700', color: '#4F46E5' }}>{sReqInit}</Text>
                             </View>
                           )}
@@ -1727,8 +1746,8 @@ export const SocialFeedScreen = () => {
                             <Text style={s.reqLevelSub}>Đang chờ phản hồi...</Text>
                             <Text style={s.reqTimeText}>{formatTimeAgo(sReq.createdAt)}</Text>
                           </View>
-                          <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
-                            <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '600' }}>Đang chờ</Text>
+                          <View style={{ backgroundColor: dk('#F1F5F9', 'bg'), paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
+                            <Text style={{ fontSize: 11, color: dk('#64748B', 'text'), fontWeight: '600' }}>Đang chờ</Text>
                           </View>
                         </View>
                       </Animated.View>
@@ -1770,9 +1789,9 @@ export const SocialFeedScreen = () => {
               <View>
                 <Text style={s.createAuthorName}>{currentUserName}</Text>
                 <View style={s.privacyDropdownBtn}>
-                  <Globe color="#475569" size={12} />
+                  <Globe color={dk('#475569', 'text')} size={12} />
                   <Text style={s.privacyDropdownText}>Công khai cộng đồng</Text>
-                  <ChevronDown color="#475569" size={12} />
+                  <ChevronDown color={dk('#475569', 'text')} size={12} />
                 </View>
               </View>
             </View>
@@ -1782,13 +1801,13 @@ export const SocialFeedScreen = () => {
               value={newPostContent}
               onChangeText={setNewPostContent}
               placeholder="Bạn muốn chia sẻ điều gì về lộ trình học hôm nay?"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={dk('#94A3B8', 'text')}
               style={s.createTextInput}
               autoFocus
             />
 
             <View style={{ marginBottom: 20 }}>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: '#1E293B', marginBottom: 10 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: dk('#1E293B', 'text'), marginBottom: 10 }}>
                 Chủ đề bài viết
               </Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -1816,7 +1835,7 @@ export const SocialFeedScreen = () => {
 
             <View style={s.sectionWrap}>
               <View style={s.sectionHeaderRow}>
-                <Trophy color="#D97706" size={16} />
+                <Trophy color={dk('#D97706', 'text')} size={16} />
                 <Text style={s.sectionHeaderTitle}>Khoe thành tích gần đây</Text>
               </View>
 
@@ -1842,7 +1861,7 @@ export const SocialFeedScreen = () => {
                   }}
                   style={s.achieveCard}
                 >
-                  <View style={[s.achieveIconBg, { backgroundColor: '#FEF3C7' }]}><Award color="#D97706" size={20} /></View>
+                  <View style={[s.achieveIconBg, { backgroundColor: dk('#FEF3C7', 'bg') }]}><Award color={dk('#D97706', 'text')} size={20} /></View>
                   <View>
                     <Text style={s.achieveCardTitle}>Chinh phục B2</Text>
                     <Text style={s.achieveCardSub}>Chạm để đính kèm vào bài viết</Text>
@@ -1880,7 +1899,7 @@ export const SocialFeedScreen = () => {
                   style={s.deckCard}
                 >
                   <View style={s.deckHeaderRow}>
-                    <View style={[s.deckIconBox, { backgroundColor: '#D1FAE5' }]}><MessageCircle color="#10B981" size={16} /></View>
+                    <View style={[s.deckIconBox, { backgroundColor: dk('#D1FAE5', 'bg') }]}><MessageCircle color={dk('#10B981', 'text')} size={16} /></View>
                     <View style={s.deckCountBadge}><Text style={s.deckCountText}>120 từ</Text></View>
                   </View>
                   <Text style={s.deckTitle}>Giao tiếp hàng ngày</Text>
@@ -2030,23 +2049,23 @@ export const SocialFeedScreen = () => {
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
             {/* Tên nhóm */}
             <View style={{ marginBottom: 20 }}>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: '#1E293B', marginBottom: 8 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: dk('#1E293B', 'text'), marginBottom: 8 }}>
                 Tên nhóm trò chuyện *
               </Text>
               <TextInput
                 value={groupName}
                 onChangeText={setGroupName}
                 placeholder="Ví dụ: Nhóm luyện nói IELTS 7.0+, Ôn tập từ vựng..."
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={dk('#94A3B8', 'text')}
                 style={{
-                  backgroundColor: '#F8FAFC',
+                  backgroundColor: dk('#F8FAFC', 'bg'),
                   borderWidth: 1,
-                  borderColor: '#E2E8F0',
+                  borderColor: dk('#E2E8F0', 'border'),
                   borderRadius: 12,
                   paddingHorizontal: 14,
                   paddingVertical: 12,
                   fontSize: 14,
-                  color: '#1E293B',
+                  color: dk('#1E293B', 'text'),
                 }}
               />
             </View>
@@ -2061,7 +2080,7 @@ export const SocialFeedScreen = () => {
                   marginBottom: 12,
                 }}
               >
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#1E293B' }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: dk('#1E293B', 'text') }}>
                   Thêm thành viên ({selectedGroupMemberIds.size} đã chọn)
                 </Text>
                 {selectedGroupMemberIds.size > 0 && (
@@ -2073,8 +2092,8 @@ export const SocialFeedScreen = () => {
 
               {candidateGroupMembers.length === 0 ? (
                 <View style={{ paddingVertical: 30, alignItems: 'center' }}>
-                  <Users color="#94A3B8" size={36} />
-                  <Text style={{ color: '#64748B', fontSize: 13, marginTop: 8 }}>
+                  <Users color={dk('#94A3B8', 'text')} size={36} />
+                  <Text style={{ color: dk('#64748B', 'text'), fontSize: 13, marginTop: 8 }}>
                     Chưa có bạn bè hay thành viên nào để thêm vào nhóm.
                   </Text>
                 </View>
@@ -2122,11 +2141,11 @@ export const SocialFeedScreen = () => {
                                 width: 42,
                                 height: 42,
                                 borderRadius: 21,
-                                backgroundColor: '#EEF2FF',
+                                backgroundColor: dk('#EEF2FF', 'bg'),
                                 justifyContent: 'center',
                                 alignItems: 'center',
                                 borderWidth: 1,
-                                borderColor: '#C7D2FE',
+                                borderColor: dk('#C7D2FE', 'border'),
                               }}
                             >
                               <Text style={{ fontSize: 16, fontWeight: '700', color: '#4F46E5' }}>
@@ -2145,7 +2164,7 @@ export const SocialFeedScreen = () => {
                                 bottom: 0,
                                 right: 0,
                                 borderWidth: 2,
-                                borderColor: '#FFFFFF',
+                                borderColor: dk('#FFFFFF', 'border'),
                                 zIndex: 2,
                               }}
                             />
@@ -2156,13 +2175,13 @@ export const SocialFeedScreen = () => {
                             style={{
                               fontSize: 14,
                               fontWeight: isSelected ? '700' : '600',
-                              color: '#1E293B',
+                              color: dk('#1E293B', 'text'),
                             }}
                             numberOfLines={1}
                           >
                             {member.name}
                           </Text>
-                          <Text style={{ fontSize: 11, color: '#64748B', marginTop: 1 }}>
+                          <Text style={{ fontSize: 11, color: dk('#64748B', 'text'), marginTop: 1 }}>
                             {member.role}
                           </Text>
                         </View>
@@ -2194,6 +2213,18 @@ export const SocialFeedScreen = () => {
     </View>
   );
 };
+
+/** Tab cộng đồng → khung cảnh Giáng sinh. */
+const TAB_SCENE: Record<string, SocialSceneKey> = { feed: 'townsquare', messages: 'postoffice', requests: 'garden' };
+// Kính mờ tối cho thẻ (style inline để giữ đúng màu)
+const XMAS_BAR = { backgroundColor: 'rgba(8,20,33,0.82)', borderBottomColor: 'rgba(147,197,253,0.2)' };
+const XMAS_POST = { backgroundColor: 'rgba(15,29,46,0.9)', borderColor: 'rgba(147,197,253,0.25)', borderWidth: 1 };
+const XMAS_FAB = { backgroundColor: '#15803D', borderWidth: 2, borderColor: '#FDE68A', shadowColor: '#22C55E', shadowOpacity: 0.7, shadowRadius: 12 };
+const XMAS_LETTER = { backgroundColor: 'rgba(16,24,39,0.82)', borderWidth: 1, borderColor: 'rgba(147,197,253,0.18)', borderRadius: 18, marginHorizontal: 10, marginVertical: 3 };
+const XMAS_LETTER_UNREAD = { ...XMAS_LETTER, borderColor: 'rgba(251,191,36,0.6)', backgroundColor: 'rgba(48,35,29,0.88)' };
+const XMAS_PILL = { backgroundColor: 'rgba(7,29,34,0.8)', borderColor: 'rgba(167,243,208,0.25)', borderWidth: 1 };
+const XMAS_PILL_ON = { backgroundColor: '#047857', borderColor: '#A7F3D0', borderWidth: 1 };
+const XMAS_INVITE = { backgroundColor: 'rgba(7,29,34,0.88)', borderColor: 'rgba(167,243,208,0.3)', borderWidth: 1 };
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F8FAF9' },

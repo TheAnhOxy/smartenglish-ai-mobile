@@ -10,6 +10,11 @@ import { useDailyQuestsQuery } from '../../application/useDashboard';
 import { rememberDailyClaim } from '../../data/dailyClaimMemory';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { AnimatedFoxMascot } from '@/src/core/components/AnimatedFoxMascot';
+import { useXmasActive } from '@/src/core/services/xmas';
+import { GiftBox } from '@/src/components/xmas/XmasArt';
+import { ShimmerSweep, SnowEdge } from '@/src/components/xmas/WinterUI';
+import { SnowConfetti } from '@/src/components/xmas/SnowConfetti';
+import { SantaHat } from '@/src/features/learning-path/presentation/winter/WinterArt';
 
 const QUEST_ICONS: Record<DailyQuestIconKey, React.ComponentType<{ size?: number; color?: string }>> = {
   target: Target,
@@ -30,6 +35,9 @@ export const DailyQuestList: React.FC<DailyQuestListProps> = ({ limit }) => {
   const router = useRouter();
   const { data, isLoading, isError, refetch } = useDailyQuestsQuery();
   const [claiming, setClaiming] = useState(false);
+  const xmas = useXmasActive();
+  // Ăn mừng chỉ khi vừa nhận thưởng thật, không chạy lại khi mở màn
+  const [celebrate, setCelebrate] = useState(0);
   const [claimError, setClaimError] = useState<string | null>(null);
   const [newBadges, setNewBadges] = useState<string[]>([]);
   const queryClient = useQueryClient();
@@ -65,10 +73,16 @@ export const DailyQuestList: React.FC<DailyQuestListProps> = ({ limit }) => {
   // Đã nhận thưởng: không còn nhiệm vụ hôm nay, chỉ báo hoàn thành (kèm huy hiệu vừa nhận nếu có)
   if (data.isClaimed) {
     return (
-      <View style={st.doneCard}>
-        <AnimatedFoxMascot size={92} entrance={false} />
+      <View style={[st.doneCard, xmas && XMAS_DONE]}>
+        {xmas ? <SnowEdge /> : null}
+        <SnowConfetti trigger={celebrate} />
+        <View>
+          <AnimatedFoxMascot size={92} entrance={false} />
+          {xmas ? <SantaHat size={34} style={{ position: 'absolute', top: -8, left: 30, transform: [{ rotate: '-12deg' }] }} /> : null}
+        </View>
+        {xmas ? <GiftBox size={34} style={{ position: 'absolute', right: 12, bottom: 10 }} /> : null}
         <View style={st.doneText}>
-          <Text style={st.doneTitle}>Đã xong nhiệm vụ hôm nay</Text>
+          <Text style={[st.doneTitle, xmas && { color: '#FDE68A' }]}>Đã xong nhiệm vụ hôm nay</Text>
           <Text style={st.doneHint}>Bạn đã nhận {data.totalXpReward} XP. Nhiệm vụ mới sẽ có vào ngày mai.</Text>
           {newBadges.length > 0 ? (
             <View style={st.badgeBox}>
@@ -107,6 +121,7 @@ export const DailyQuestList: React.FC<DailyQuestListProps> = ({ limit }) => {
       setNewBadges(badges.map((b: { nameVi?: string }) => b?.nameVi).filter((n: unknown): n is string => typeof n === 'string' && n.length > 0));
       if (userId != null) rememberDailyClaim(userId);
       feedback.success();
+      setCelebrate((c) => c + 1);
       await Promise.all([refetch(), queryClient.invalidateQueries({ queryKey: ['user-stats'] })]);
     } catch (e: any) {
       setClaimError(e?.response?.data?.message || e?.message || 'Không nhận được thưởng, vui lòng thử lại');
@@ -133,7 +148,7 @@ export const DailyQuestList: React.FC<DailyQuestListProps> = ({ limit }) => {
           <Pressable key={quest.id} onPress={() => {
               feedback.tap();
               router.push(quest.route as never);
-            }} style={st.item}>
+            }} style={[st.item, xmas && (done ? XMAS_ITEM_DONE : XMAS_ITEM)]}>
             <View style={[st.iconBox, done && st.iconBoxDone]}>
               <Icon size={22} color={done ? ds.green : ds.btn} />
             </View>
@@ -141,7 +156,7 @@ export const DailyQuestList: React.FC<DailyQuestListProps> = ({ limit }) => {
               <Text style={st.title} numberOfLines={1}>{quest.title}</Text>
               {quest.subtitle ? <Text style={st.subtitle} numberOfLines={1}>{quest.subtitle}</Text> : null}
               <View style={st.progressRow}>
-                <ProgressBar value={pct / 100} color={done ? ds.green : ds.sky} height={8} style={{ flex: 1 }} />
+                <ProgressBar value={pct / 100} color={xmas ? (done ? '#34D399' : '#67E8F9') : done ? ds.green : ds.sky} height={8} style={{ flex: 1 }} />
                 <Text style={st.progressLabel}>
                   {quest.current}/{quest.target} {quest.unit}
                 </Text>
@@ -150,8 +165,8 @@ export const DailyQuestList: React.FC<DailyQuestListProps> = ({ limit }) => {
             {done ? (
               <CheckCircle2 size={24} color={ds.green} />
             ) : (
-              <View style={st.xpPill}>
-                <Text style={st.xp}>+{quest.xp} XP</Text>
+              <View style={[st.xpPill, xmas && { backgroundColor: 'rgba(251,191,36,0.18)', borderWidth: 1, borderColor: 'rgba(251,191,36,0.5)' }]}>
+                <Text style={[st.xp, xmas && { color: '#FDE68A' }]}>+{quest.xp} XP</Text>
               </View>
             )}
           </Pressable>
@@ -159,7 +174,8 @@ export const DailyQuestList: React.FC<DailyQuestListProps> = ({ limit }) => {
       })}
 
       {canClaim ? (
-        <Pressable onPress={handleClaim} disabled={claiming} style={[st.claimBtn, claiming && { opacity: 0.6 }]}>
+        <Pressable onPress={handleClaim} disabled={claiming} style={[st.claimBtn, xmas && { backgroundColor: '#FBBF24', overflow: 'hidden' }, claiming && { opacity: 0.6 }]}>
+          {xmas ? <ShimmerSweep width={320} every={2400} /> : null}
           {claiming ? <ActivityIndicator size="small" color={ds.ink} /> : null}
           <Text style={st.claimText}>Nhận {data.totalXpReward} XP{data.gemReward ? ` + ${data.gemReward} gem` : ''}</Text>
         </Pressable>
@@ -170,6 +186,11 @@ export const DailyQuestList: React.FC<DailyQuestListProps> = ({ limit }) => {
     </View>
   );
 };
+
+// Giáng sinh (style inline để giữ đúng màu)
+const XMAS_ITEM = { backgroundColor: 'rgba(23,36,58,0.9)', borderColor: 'rgba(147,197,253,0.25)' };
+const XMAS_ITEM_DONE = { backgroundColor: 'rgba(6,78,59,0.55)', borderColor: 'rgba(52,211,153,0.5)' };
+const XMAS_DONE = { backgroundColor: 'rgba(23,36,58,0.92)', borderColor: 'rgba(251,191,36,0.45)', overflow: 'hidden' as const };
 
 const st = StyleSheet.create({
   list: { gap: 10 },

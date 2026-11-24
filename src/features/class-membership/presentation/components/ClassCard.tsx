@@ -3,6 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import { BookOpen, ChevronRight, ClipboardList, UserRound, Users } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
 import type { StudentClassDTO } from '../../data/classApi';
+import { isDarkTheme } from '@/src/theme/themeMode';
 
 interface ClassCardProps {
   item: StudentClassDTO;
@@ -12,7 +13,7 @@ interface ClassCardProps {
 export const ClassCard: React.FC<ClassCardProps> = ({ item, onPress }) => (
   <Pressable
     onPress={onPress}
-    className="bg-white dark:bg-darkCard p-4 rounded-2xl border border-gray-100 dark:border-gray-800 mb-3 active:bg-gray-50"
+    className={`bg-white dark:bg-darkCard p-4 rounded-2xl border border-gray-100 dark:border-gray-800 mb-3 ${isDarkTheme() ? 'active:bg-[#2B4C7E]' : 'active:bg-gray-50'}`}
   >
     <View className="flex-row justify-between items-start mb-2">
       <View className="flex-1 mr-2">
@@ -21,7 +22,7 @@ export const ClassCard: React.FC<ClassCardProps> = ({ item, onPress }) => (
         </Text>
         <View className="flex-row items-center gap-1">
           <UserRound size={12} color={AppColors.neutralGray} />
-          <Text className="text-xs text-neutralGray" numberOfLines={1}>
+          <Text className="text-xs text-neutralGray dark:text-darkMuted" numberOfLines={1}>
             {item.teacherName || 'Giáo viên'} · {item.joinCode}
           </Text>
         </View>
@@ -46,11 +47,11 @@ export const ClassCard: React.FC<ClassCardProps> = ({ item, onPress }) => (
       <View className="flex-row items-center gap-3">
         <View className="flex-row items-center gap-1">
           <Users size={12} color={AppColors.neutralGray} />
-          <Text className="text-xs text-neutralGray">{item.studentCount ?? 0} học viên</Text>
+          <Text className="text-xs text-neutralGray dark:text-darkMuted">{item.studentCount ?? 0} học viên</Text>
         </View>
         <View className="flex-row items-center gap-1">
           <ClipboardList size={12} color={AppColors.neutralGray} />
-          <Text className="text-xs text-neutralGray">{item.assignmentCount ?? 0} bài tập</Text>
+          <Text className="text-xs text-neutralGray dark:text-darkMuted">{item.assignmentCount ?? 0} bài tập</Text>
         </View>
       </View>
       <ChevronRight size={16} color={AppColors.neutralGray} />

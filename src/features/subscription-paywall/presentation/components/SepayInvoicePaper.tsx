@@ -7,6 +7,7 @@ import {
   formatDateStr,
   maskEmail,
 } from '../../utils/currencyWords';
+import { dk } from '@/src/theme/themeMode';
 
 export interface SepayInvoiceOrder {
   id: number | string;
@@ -70,7 +71,7 @@ export const SepayInvoicePaper: React.FC<SepayInvoicePaperProps> = ({
             HỆ THỐNG GIÁO DỤC CÔNG NGHỆ SMARTENGLISH AI
           </Text>
           <Text style={styles.sellerInfo}>
-            MST: <Text style={{ fontWeight: 'bold', color: '#0F172A' }}>03XXXXXXXX</Text>
+            MST: <Text style={{ fontWeight: 'bold', color: dk('#0F172A', 'text') }}>03XXXXXXXX</Text>
           </Text>
           <Text style={styles.sellerInfo}>
             Địa chỉ: Tòa nhà Innovation Hub, TP. Hồ Chí Minh
@@ -130,7 +131,7 @@ export const SepayInvoicePaper: React.FC<SepayInvoicePaperProps> = ({
             onPress={() => handleCopyCode(trackingCode)}
             style={styles.copyMiniBtn}
           >
-            <Copy color="#0284C7" size={11} />
+            <Copy color={dk('#0284C7', 'text')} size={11} />
             <Text style={styles.copyMiniBtnText}>
               {copiedCode === trackingCode ? 'Đã sao chép' : 'Sao chép'}
             </Text>
@@ -154,14 +155,14 @@ export const SepayInvoicePaper: React.FC<SepayInvoicePaperProps> = ({
               onPress={() => setShowFullEmail(!showFullEmail)}
               style={{ marginLeft: 6, paddingVertical: 2, paddingHorizontal: 4 }}
             >
-              <Text style={{ fontSize: 10, color: '#0284C7', textDecorationLine: 'underline' }}>
+              <Text style={{ fontSize: 10, color: dk('#0284C7', 'text'), textDecorationLine: 'underline' }}>
                 {showFullEmail ? 'Ẩn' : 'Hiện'}
               </Text>
             </Pressable>
           </View>
           <Text style={styles.buyerText}>
             Hình thức thanh toán:{' '}
-            <Text style={{ fontWeight: '600', color: '#059669' }}>
+            <Text style={{ fontWeight: '600', color: dk('#059669', 'text') }}>
               VietQR Napas 24/7 (SePay)
             </Text>
           </Text>
@@ -182,7 +183,7 @@ export const SepayInvoicePaper: React.FC<SepayInvoicePaperProps> = ({
         </View>
 
         <View style={styles.tableRow}>
-          <Text style={[styles.tdText, { width: 30, textAlign: 'center', color: '#64748B' }]}>1</Text>
+          <Text style={[styles.tdText, { width: 30, textAlign: 'center', color: dk('#64748B', 'text') }]}>1</Text>
           <View style={{ flex: 1, paddingRight: 4 }}>
             <Text style={styles.itemName}>
               {order.planName || 'Gói Học Viên Premium'}
@@ -191,15 +192,15 @@ export const SepayInvoicePaper: React.FC<SepayInvoicePaperProps> = ({
               Mở khóa Antigravity AI, Luyện nói & Lộ trình cá nhân hóa
             </Text>
           </View>
-          <Text style={[styles.tdText, { width: 38, textAlign: 'center', color: '#64748B' }]}>Gói</Text>
-          <Text style={[styles.tdText, { width: 30, textAlign: 'center', color: '#64748B' }]}>1</Text>
-          <Text style={[styles.tdText, { width: 78, textAlign: 'right', fontWeight: 'bold', color: '#0F172A' }]}>
+          <Text style={[styles.tdText, { width: 38, textAlign: 'center', color: dk('#64748B', 'text') }]}>Gói</Text>
+          <Text style={[styles.tdText, { width: 30, textAlign: 'center', color: dk('#64748B', 'text') }]}>1</Text>
+          <Text style={[styles.tdText, { width: 78, textAlign: 'right', fontWeight: 'bold', color: dk('#0F172A', 'text') }]}>
             {(order.amount || 0).toLocaleString('vi-VN')} đ
           </Text>
         </View>
 
         <View style={styles.taxRow}>
-          <Text style={{ fontSize: 10, color: '#64748B', fontStyle: 'italic' }}>
+          <Text style={{ fontSize: 10, color: dk('#64748B', 'text'), fontStyle: 'italic' }}>
             * Dịch vụ phần mềm đào tạo trực tuyến thuộc đối tượng không chịu thuế GTGT (TT 219/2013/TT-BTC)
           </Text>
         </View>
@@ -215,7 +216,7 @@ export const SepayInvoicePaper: React.FC<SepayInvoicePaperProps> = ({
       {/* 5. Số Tiền Viết Bằng Chữ */}
       <View style={styles.wordsBox}>
         <Text style={styles.wordsText}>
-          <Text style={{ fontWeight: 'bold', fontStyle: 'normal', color: '#0F172A' }}>
+          <Text style={{ fontWeight: 'bold', fontStyle: 'normal', color: dk('#0F172A', 'text') }}>
             Số tiền viết bằng chữ (Amount in words):{' '}
           </Text>
           {convertVNDToWords(order.amount)}
@@ -231,7 +232,7 @@ export const SepayInvoicePaper: React.FC<SepayInvoicePaperProps> = ({
           <View style={styles.sellerStampBox}>
             <View style={{ flex: 1, paddingRight: 6 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <ShieldCheck color="#059669" size={13} />
+                <ShieldCheck color={dk('#059669', 'text')} size={13} />
                 <Text style={styles.signValidTitle}>Chữ ký có hiệu lực</Text>
               </View>
               <Text style={styles.signActor} numberOfLines={1}>
@@ -262,7 +263,7 @@ export const SepayInvoicePaper: React.FC<SepayInvoicePaperProps> = ({
         </Text>
         <Text style={styles.legalPortal}>
           Tra cứu trực tuyến tại:{' '}
-          <Text style={{ color: '#0284C7', fontWeight: 'bold' }}>
+          <Text style={{ color: dk('#0284C7', 'text'), fontWeight: 'bold' }}>
             https://sepay.vn/tra-cuu-hoa-don-dien-tu
           </Text>
         </Text>

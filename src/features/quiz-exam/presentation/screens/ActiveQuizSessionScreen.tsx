@@ -26,6 +26,7 @@ import { ListeningGroupView, ListeningGroupQuestion } from '../components/Listen
 import { QuestionSheetModal, QuestionSummaryItem } from '../components/QuestionSheetModal';
 import { SubmitConfirmModal } from '../components/SubmitConfirmModal';
 import { colors } from '../../../../theme/colors';
+import { dk } from '@/src/theme/themeMode';
 
 export type UnifiedQuizQuestion =
   | ({ type: 'FILL_BLANK' } & FillInTheBlankQuestionData)
@@ -395,7 +396,7 @@ export function ActiveQuizSessionScreen() {
       <View style={styles.topHeader}>
         {/* Close Button */}
         <Pressable onPress={handleExitPress} style={styles.iconBtn} hitSlop={10}>
-          <X size={22} color="#0F172A" />
+          <X size={22} color={dk('#0F172A', 'text')} />
         </Pressable>
 
         {/* Title */}
@@ -405,7 +406,7 @@ export function ActiveQuizSessionScreen() {
 
         {/* Timer Chip */}
         <View style={styles.timerBadge}>
-          <Clock size={16} color="#0F3D6B" />
+          <Clock size={16} color={dk('#0F3D6B', 'text')} />
           <Text style={styles.timerText}>{formatTimer(timeLeft)}</Text>
         </View>
 
@@ -527,7 +528,7 @@ export function ActiveQuizSessionScreen() {
           style={({ pressed }) => [styles.iconActionBtn, pressed && styles.pressed]}
           hitSlop={8}
         >
-          <Grid size={20} color="#0F3D6B" />
+          <Grid size={20} color={dk('#0F3D6B', 'text')} />
         </Pressable>
 
         {/* Bookmark Quick Toggle */}

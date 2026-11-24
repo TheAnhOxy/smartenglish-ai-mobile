@@ -12,8 +12,10 @@ import {
   signInWithGoogleWeb,
 } from '../../infrastructure/googleAuthHelper';
 import { ds, dsFont, dsSize } from '@/src/theme/ds';
+
 import { LoginFoxGuard, type FoxMood } from '../components/LoginFoxGuard';
-import { AuthButton, AuthDivider, AuthErrorBanner, AuthFooterLink, AuthLayout, AuthTextField } from '../components/AuthUI';
+import { AuthButton, AuthDivider, AuthErrorBanner, AuthFooterLink, AuthGoogleButton, AuthLayout, AuthTextField } from '../components/AuthUI';
+import { ThemeToggle } from '@/src/core/components/ThemeToggle';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -99,6 +101,7 @@ export const LoginScreen = () => {
       title="Chào mừng trở lại"
       subtitle="Đăng nhập để tiếp tục hành trình học tiếng Anh"
       night={passwordVisible}
+      headerRight={<ThemeToggle variant="onDark" />}
       mascot={<LoginFoxGuard mood={foxMood} size={140} beamLength={380} />}
       onBack={() => router.replace('/(auth)/welcome')}
       footer={<AuthFooterLink text="Chưa có tài khoản?" link="Đăng ký" onPress={() => router.push('/(auth)/register')} />}
@@ -150,7 +153,7 @@ export const LoginScreen = () => {
 
       <AuthButton label="Đăng nhập" onPress={handleLogin} loading={isPending} />
       <AuthDivider label="hoặc" />
-      <AuthButton label="Tiếp tục với Google" variant="outline" onPress={handleGooglePress} disabled={isPending} />
+      <AuthGoogleButton label="Tiếp tục với Google" onPress={handleGooglePress} disabled={isPending} />
     </AuthLayout>
   );
 };

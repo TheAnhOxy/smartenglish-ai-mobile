@@ -29,7 +29,7 @@ export const SpeakingPracticeScreen = () => {
   };
 
   return (
-    <View className="flex-1 bg-[#F8FAF9] pt-12 px-6 justify-between pb-10">
+    <View className="flex-1 bg-[#F8FAF9] pt-12 px-6 justify-between pb-10 dark:bg-darkBg">
       {/* Top Header Bar */}
       <View className="flex-row justify-between items-center">
         <BackButton onPress={() => router.back()} />
@@ -47,7 +47,7 @@ export const SpeakingPracticeScreen = () => {
           Phenomenal
         </Text>
 
-        <View className="bg-[#EEF2FF] px-4 py-1.5 rounded-full border border-indigo-100 mb-8">
+        <View className="bg-[#EEF2FF] px-4 py-1.5 rounded-full border border-indigo-100 mb-8 dark:bg-darkBg">
           <Text className="text-sm font-semibold text-[#4F46E5]">/fəˈnæmənəl/</Text>
         </View>
 
@@ -63,7 +63,7 @@ export const SpeakingPracticeScreen = () => {
         </View>
 
         {/* Pronunciation Accuracy Box matching Screenshot 2 */}
-        <View className="w-full bg-white p-6 rounded-3xl border border-orange-200/80 shadow-md items-center my-4">
+        <View className="w-full bg-white p-6 rounded-3xl border border-orange-200/80 shadow-md items-center my-4 dark:bg-darkCard">
           <Text className="text-[11px] font-extrabold text-[#78350F] uppercase tracking-wider mb-2">
             PRONUNCIATION ACCURACY
           </Text>
@@ -73,7 +73,7 @@ export const SpeakingPracticeScreen = () => {
           </Text>
 
           {/* Progress Bar */}
-          <View className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
+          <View className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden dark:bg-darkBg">
             <View className="h-full bg-[#C23B00] rounded-full" style={{ width: '88%' }} />
           </View>
         </View>

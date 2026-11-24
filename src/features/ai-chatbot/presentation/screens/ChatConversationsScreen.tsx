@@ -50,6 +50,7 @@ import { useTutorVoice } from '../../application/useTutorVoice';
 import { ThinkingIndicator } from '../components/ThinkingIndicator';
 import { BackButton } from '@/src/core/components/BackButton';
 import { hasActivePremium } from '@/src/core/utils/plan';
+import { dk } from '@/src/theme/themeMode';
 
 export interface ChatMessage {
   id: string;
@@ -429,7 +430,7 @@ export const ChatConversationsScreen = () => {
             </Pressable>
 
             <Pressable onPress={handleResetChat} style={s.iconHeaderBtn} hitSlop={6}>
-              <RotateCcw size={18} color="#64748B" />
+              <RotateCcw size={18} color={dk('#64748B', 'text')} />
             </Pressable>
           </View>
         </View>
@@ -576,7 +577,7 @@ export const ChatConversationsScreen = () => {
                   style={s.suggestionCard}
                 >
                   <View style={s.suggestionIcon}>
-                    <item.icon size={18} color="#1F4E79" />
+                    <item.icon size={18} color={dk('#1F4E79', 'text')} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={s.suggestionTitle}>{item.title}</Text>
@@ -627,7 +628,7 @@ export const ChatConversationsScreen = () => {
               ? 'Loxera AI đang suy nghĩ...'
               : 'Hỏi Loxera hoặc gửi câu tiếng Anh cần sửa…'
           }
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor={dk('#94A3B8', 'text')}
           style={s.textInput}
           onSubmitEditing={() => handleSend()}
           returnKeyType="send"

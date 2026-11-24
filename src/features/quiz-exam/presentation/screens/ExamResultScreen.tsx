@@ -33,6 +33,9 @@ import { font } from '@/src/theme/typography';
 import { ds, dsFont } from '@/src/theme/ds';
 import { ResultCelebrationHero } from '../components/ResultCelebrationHero';
 import { BackButton } from '@/src/core/components/BackButton';
+import { PracticeFeedbackCard } from '@/src/features/practice-feedback/presentation/components/PracticeFeedbackCard';
+import type { PracticeSkill, SessionFeedbackInput } from '@/src/features/practice-feedback/data/practiceFeedbackApi';
+import { dk } from '@/src/theme/themeMode';
 
 export function ExamResultScreen() {
   const router = useRouter();
@@ -48,6 +51,39 @@ export function ExamResultScreen() {
   const userAnswers = useMemo(() => Object.fromEntries(
     questions.filter((q) => q.selectedAnswer).map((q) => [q.id, q.selectedAnswer])
   ), [questions]);
+
+  const NL = '\n';
+  // Dữ liệu buổi làm đề gửi cho AI nhận xét: điểm, các câu sai (đề, đáp án chọn, đáp án đúng)
+  const feedbackInput = useMemo<SessionFeedbackInput | null>(() => {
+    if (!result || !attemptId || questions.length === 0) return null;
+    const cat = String(result.category || '').toUpperCase();
+    const listeningCount = questions.filter((q) => ['PART_1', 'PART_2', 'PART_3', 'PART_4'].includes(q.part)).length;
+    const skill: PracticeSkill = cat.includes('LISTEN')
+      ? 'LISTENING'
+      : cat.includes('READ')
+        ? 'READING'
+        : cat.includes('VOCAB')
+          ? 'VOCABULARY'
+          : cat.startsWith('TOEIC')
+            ? listeningCount * 2 >= questions.length ? 'LISTENING' : 'READING'
+            : 'GRAMMAR';
+    const wrong = questions.filter((q) => q.selectedAnswer && q.selectedAnswer !== q.correctAnswer);
+    const skipped = questions.filter((q) => !q.selectedAnswer).length;
+    const lines = wrong.slice(0, 15).map(
+      (q, i) => `${i + 1}. [${q.partLabel || q.part}] ${String(q.questionText || '').slice(0, 220)} | chọn: ${q.selectedAnswer} | đúng: ${q.correctAnswer}`,
+    );
+    return {
+      skill,
+      title: result.title || 'Bài luyện đề',
+      score: result.scorePercentage ?? null,
+      cefrLevel: result.cefrLevel || null,
+      sourceId: `exam-${attemptId}`,
+      details: [
+        `Loại đề: ${cat || 'không rõ'}. Tổng ${questions.length} câu, đúng ${result.correctAnswers ?? 0}, sai ${wrong.length}, bỏ trống ${skipped}.`,
+        wrong.length ? ['Các câu sai:', ...lines].join(NL) : 'Không có câu sai.',
+      ].join(NL),
+    };
+  }, [result, attemptId, questions]);
 
   const [expandedQId, setExpandedQId] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<'ALL' | 'CORRECT' | 'WRONG'>('ALL');
@@ -197,8 +233,8 @@ export function ExamResultScreen() {
           {/* Listening */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionCardHeader}>
-              <View style={[styles.sectionIconWrap, { backgroundColor: '#E0F2FE' }]}>
-                <Headphones color="#0284C7" size={18} />
+              <View style={[styles.sectionIconWrap, { backgroundColor: dk('#E0F2FE', 'bg') }]}>
+                <Headphones color={dk('#0284C7', 'text')} size={18} />
               </View>
               <Text style={styles.sectionTitle}>Listening</Text>
             </View>
@@ -220,8 +256,8 @@ export function ExamResultScreen() {
           {/* Reading */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionCardHeader}>
-              <View style={[styles.sectionIconWrap, { backgroundColor: '#E0F2FE' }]}>
-                <BookOpen color="#0369A1" size={18} />
+              <View style={[styles.sectionIconWrap, { backgroundColor: dk('#E0F2FE', 'bg') }]}>
+                <BookOpen color={dk('#0369A1', 'text')} size={18} />
               </View>
               <Text style={styles.sectionTitle}>Reading</Text>
             </View>
@@ -251,7 +287,7 @@ export function ExamResultScreen() {
           return (
             <View style={styles.metricsBox}>
               <View style={styles.metricItem}>
-                <CheckCircle2 color="#16A34A" size={18} />
+                <CheckCircle2 color={dk('#16A34A', 'text')} size={18} />
                 <Text style={styles.metricVal}>{result.correctAnswers}</Text>
                 <Text style={styles.metricLbl}>Đúng</Text>
               </View>
@@ -269,7 +305,7 @@ export function ExamResultScreen() {
               </View>
               <View style={styles.metricDivider} />
               <View style={styles.metricItem}>
-                <Target color="#0369A1" size={18} />
+                <Target color={dk('#0369A1', 'text')} size={18} />
                 <Text style={styles.metricVal}>
                   {accuracyPct}%
                 </Text>
@@ -387,7 +423,7 @@ export function ExamResultScreen() {
                         ]}
                       >
                         {isCorrect ? (
-                          <CheckCircle2 color="#16A34A" size={15} />
+                          <CheckCircle2 color={dk('#16A34A', 'text')} size={15} />
                         ) : (
                           <XCircle color="#DC2626" size={15} />
                         )}
@@ -465,7 +501,7 @@ export function ExamResultScreen() {
                                   <Text style={styles.expOptionSubLabel}>{opt.subLabel}</Text>
                                 ) : null}
                               </View>
-                              {isRight && <Check color="#16A34A" size={16} />}
+                              {isRight && <Check color={dk('#16A34A', 'text')} size={16} />}
                             </View>
                           );
                         })}
@@ -486,6 +522,8 @@ export function ExamResultScreen() {
             })}
           </View>
         </View>
+
+        <PracticeFeedbackCard input={feedbackInput} style={{ marginHorizontal: 20, marginTop: 8 }} />
       </ScrollView>
 
       {/* ─── BOTTOM CTA ACTIONS ─── */}

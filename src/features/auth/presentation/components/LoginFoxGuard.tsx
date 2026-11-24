@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import Svg, { Defs, LinearGradient as SvgGradient, Polygon, Stop } from 'react-native-svg';
+import { ds } from '@/src/theme/ds';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -11,7 +12,6 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { ds } from '@/src/theme/ds';
 
 const BODY = require('@/assets/images/mascot/fox-body.png');
 const TAIL = require('@/assets/images/mascot/fox-tail.png');
@@ -202,7 +202,7 @@ export const LoginFoxGuard: React.FC<LoginFoxGuardProps> = ({ mood, size = 150, 
 const s = StyleSheet.create({
   layer: { position: 'absolute', top: 0, left: 0 },
   beam: { position: 'absolute' },
-  torch: { position: 'absolute', borderRadius: 4, backgroundColor: ds.inkSoft, justifyContent: 'flex-end', overflow: 'hidden' },
+  torch: { position: 'absolute', borderRadius: 4, backgroundColor: ds.heroSoft, justifyContent: 'flex-end', overflow: 'hidden' },
   torchHead: { backgroundColor: ds.amber },
   pawWrap: { position: 'absolute' },
   paw: { backgroundColor: FUR, borderWidth: 1.5, borderColor: ds.amberDeep, overflow: 'hidden', ...{ shadowColor: ds.ink, shadowOpacity: 0.25, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 2 } },

@@ -15,6 +15,7 @@ import {
 } from '@/src/components/ds/icons';
 import { colors } from '@/src/theme/colors';
 import { ds, dsFont } from '@/src/theme/ds';
+import { dk } from '@/src/theme/themeMode';
 
 export interface MatchingPairItem {
   id: string; // key for left item (e.g. "1")
@@ -121,7 +122,7 @@ export function MatchingPairsView({
         </View>
 
         <View style={styles.progressBadge}>
-          <CheckCircle2 size={14} color="#166534" />
+          <CheckCircle2 size={14} color={dk('#166534', 'text')} />
           <Text style={styles.progressBadgeText}>
             Đã ghép: {currentMatchedCount}/{totalPairsCount} cặp
           </Text>
@@ -312,7 +313,7 @@ export function MatchingPairsView({
       {/* Memory Tip Card */}
       <View style={styles.tipCard}>
         <View style={styles.tipIconWrapper}>
-          <Lightbulb size={18} color="#0F2A44" />
+          <Lightbulb size={18} color={dk('#0F2A44', 'text')} />
         </View>
         <View style={styles.tipContent}>
           <Text style={styles.tipTitle}>Mẹo ghi nhớ</Text>

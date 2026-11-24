@@ -6,6 +6,7 @@ import { useAuthStore } from '@/src/core/flows/authStore';
 import { speakText } from '@/src/core/services/speechService';
 import { AppColors } from '@/src/core/theme/colors';
 import { hasActivePremium } from '@/src/core/utils/plan';
+import { dk } from '@/src/theme/themeMode';
 
 export const ScanWordDetailScreen = () => {
   const router = useRouter();
@@ -70,12 +71,12 @@ export const ScanWordDetailScreen = () => {
   };
 
   return (
-    <View className="flex-1 bg-[#F8FAF9] pt-12 px-6 pb-6">
+    <View className="flex-1 bg-[#F8FAF9] pt-12 px-6 pb-6 dark:bg-darkBg">
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Top Header Bar */}
         <View className="flex-row justify-between items-center mb-6">
           <Pressable onPress={handleBack} className="flex-row items-center gap-2">
-            <ArrowLeft color="#1E293B" size={20} />
+            <ArrowLeft color={dk('#1E293B', 'text')} size={20} />
             <Text className="text-xl font-bold text-[#0EA5E9]">Chi Tiết Từ Vựng AI</Text>
           </Pressable>
 
@@ -83,44 +84,44 @@ export const ScanWordDetailScreen = () => {
           <View className="flex-row items-center gap-2">
             <View className="flex-row items-center gap-1">
               <Flame size={12} color={AppColors.warning} />
-              <Text className="text-xs font-bold text-neutralInk">7</Text>
+              <Text className="text-xs font-bold text-neutralInk dark:text-darkInk">7</Text>
             </View>
             <View className="flex-row items-center gap-1">
               <Coins size={12} color={AppColors.warning} />
-              <Text className="text-xs font-bold text-neutralInk">1200</Text>
+              <Text className="text-xs font-bold text-neutralInk dark:text-darkInk">1200</Text>
             </View>
           </View>
         </View>
 
         {/* Word Header Card */}
-        <View className="bg-white p-6 rounded-3xl border border-gray-100 items-center shadow-sm mb-6">
-          <Text className="text-3xl font-extrabold text-neutralInk mb-2">{word}</Text>
+        <View className="bg-white p-6 rounded-3xl border border-gray-100 items-center shadow-sm mb-6 dark:bg-darkCard dark:border-darkLine">
+          <Text className="text-3xl font-extrabold text-neutralInk mb-2 dark:text-darkInk">{word}</Text>
           <View className="flex-row items-center gap-2 mb-4">
-            <Text className="text-sm text-neutralGray font-medium">{phonetic}</Text>
+            <Text className="text-sm text-neutralGray font-medium dark:text-darkMuted">{phonetic}</Text>
             <Pressable
               onPress={handlePlayWord}
               className={`w-9 h-9 rounded-full justify-center items-center ${
                 isPlayingWord ? 'bg-[#0EA5E9]' : 'bg-[#E0F2FE] active:bg-cyan-200'
-              }`}
+              } dark:bg-darkBg dark:active:bg-darkRaised`}
             >
               <Volume2 color={isPlayingWord ? '#FFFFFF' : '#0284C7'} size={18} />
             </Pressable>
           </View>
 
-          <View className="bg-[#E0F2FE] px-4 py-1.5 rounded-full">
+          <View className="bg-[#E0F2FE] px-4 py-1.5 rounded-full dark:bg-darkBg">
             <Text className="text-xs font-bold text-[#0284C7]">{pos}</Text>
           </View>
         </View>
 
         {/* Difficulty Level Tabs (Segmented Controls) */}
-        <View className="flex-row bg-[#F1F5F9] p-1.5 rounded-2xl mb-6 border border-gray-200">
+        <View className="flex-row bg-[#F1F5F9] p-1.5 rounded-2xl mb-6 border border-gray-200 dark:border-darkLine dark:bg-darkBg">
           <Pressable
             onPress={() => handleTabPress('beginner')}
             className={`flex-1 py-2.5 rounded-xl items-center ${
               activeTab === 'beginner' ? 'bg-[#0EA5E9] shadow-sm' : ''
             }`}
           >
-            <Text className={`text-xs font-bold ${activeTab === 'beginner' ? 'text-white' : 'text-neutralGray'}`}>
+            <Text className={`text-xs font-bold ${activeTab === 'beginner' ? 'text-white' : 'text-neutralGray'} dark:text-darkMuted`}>
               Beginner
             </Text>
           </Pressable>
@@ -131,10 +132,10 @@ export const ScanWordDetailScreen = () => {
               activeTab === 'intermediate' ? 'bg-[#0EA5E9] shadow-sm' : ''
             }`}
           >
-            <Text className={`text-xs font-bold ${activeTab === 'intermediate' ? 'text-white' : 'text-neutralGray'}`}>
+            <Text className={`text-xs font-bold ${activeTab === 'intermediate' ? 'text-white' : 'text-neutralGray'} dark:text-darkMuted`}>
               Intermediate
             </Text>
-            {!isPremium && <Lock color="#94A3B8" size={12} />}
+            {!isPremium && <Lock color={dk('#94A3B8', 'text')} size={12} />}
           </Pressable>
 
           <Pressable
@@ -143,38 +144,38 @@ export const ScanWordDetailScreen = () => {
               activeTab === 'advanced' ? 'bg-[#0EA5E9] shadow-sm' : ''
             }`}
           >
-            <Text className={`text-xs font-bold ${activeTab === 'advanced' ? 'text-white' : 'text-neutralGray'}`}>
+            <Text className={`text-xs font-bold ${activeTab === 'advanced' ? 'text-white' : 'text-neutralGray'} dark:text-darkMuted`}>
               Advanced
             </Text>
-            {!isPremium && <Lock color="#94A3B8" size={12} />}
+            {!isPremium && <Lock color={dk('#94A3B8', 'text')} size={12} />}
           </Pressable>
         </View>
 
         {/* Meaning Card */}
-        <View className="bg-white p-5 rounded-3xl border border-gray-100 mb-5 shadow-sm">
-          <Text className="text-sm font-bold text-neutralInk mb-2">Định Nghĩa Tiếng Việt</Text>
-          <Text className="text-xs text-neutralGray font-medium leading-5">
+        <View className="bg-white p-5 rounded-3xl border border-gray-100 mb-5 shadow-sm dark:bg-darkCard dark:border-darkLine">
+          <Text className="text-sm font-bold text-neutralInk mb-2 dark:text-darkInk">Định Nghĩa Tiếng Việt</Text>
+          <Text className="text-xs text-neutralGray font-medium leading-5 dark:text-darkMuted">
             {meaning_vi}
           </Text>
         </View>
 
         {/* Examples Card */}
-        <View className="bg-white p-5 rounded-3xl border border-gray-100 mb-8 shadow-sm">
+        <View className="bg-white p-5 rounded-3xl border border-gray-100 mb-8 shadow-sm dark:bg-darkCard dark:border-darkLine">
           <View className="flex-row justify-between items-center mb-3">
-            <Text className="text-sm font-bold text-neutralInk">Câu Ví Dụ Ngữ Cảnh</Text>
+            <Text className="text-sm font-bold text-neutralInk dark:text-darkInk">Câu Ví Dụ Ngữ Cảnh</Text>
             <Sparkles color="#0EA5E9" size={16} />
           </View>
 
           <View className="gap-3">
-            <View className="bg-surface p-4 rounded-2xl border border-gray-100 flex-row justify-between items-center">
-              <Text className="text-xs text-neutralInk leading-5 font-medium flex-1 mr-3">
+            <View className="bg-surface p-4 rounded-2xl border border-gray-100 flex-row justify-between items-center dark:bg-darkBg dark:border-darkLine">
+              <Text className="text-xs text-neutralInk leading-5 font-medium flex-1 mr-3 dark:text-darkInk">
                 {currentExample}
               </Text>
               <Pressable
                 onPress={() => handlePlaySentence(currentExample, 1)}
                 className={`w-8 h-8 rounded-full justify-center items-center ${
                   playingSentenceIndex === 1 ? 'bg-[#0EA5E9]' : 'bg-[#E0F2FE] active:bg-cyan-200'
-                }`}
+                } dark:bg-darkBg dark:active:bg-darkRaised`}
               >
                 <Volume2 color={playingSentenceIndex === 1 ? '#FFFFFF' : '#0284C7'} size={16} />
               </Pressable>

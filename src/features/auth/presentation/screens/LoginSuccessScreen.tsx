@@ -18,6 +18,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { AnimatedFoxMascot } from '@/src/core/components/AnimatedFoxMascot';
 import { useAuthStore } from '@/src/core/flows/authStore';
+import { fetchPlacementStatusApi } from '@/src/features/onboarding/data/onboardingApi';
 import { ds, dsFont, dsSize } from '@/src/theme/ds';
 
 /** Tổng thời gian màn chào trước khi chuyển trang (ms). */
@@ -55,10 +56,25 @@ export const LoginSuccessScreen: React.FC = () => {
   const firstName = (displayName || '').trim().split(/\s+/).pop() || '';
 
   // Giáo viên dùng app mobile như học viên (quản lý lớp làm trên Web Portal)
+  // Học viên chưa làm bài kiểm tra đầu vào → làm test trước để xếp lộ trình đúng trình độ
+  // (hỏi server trong lúc màn chào đang chạy; lỗi mạng thì vào trang chủ như cũ)
+  const placementDone = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (role !== 'student') return;
+    fetchPlacementStatusApi()
+      .then((st) => {
+        placementDone.current = st.completed;
+      })
+      .catch(() => {
+        placementDone.current = null;
+      });
+  }, [role]);
+
   const getDestination = (): string => {
     if (role === 'teacher') return '/(student)/home';
     const meta = (globalThis as { __loginMeta?: { onboarding_completed?: boolean } }).__loginMeta;
     if (meta && !meta.onboarding_completed) return '/(auth)/welcome';
+    if (role === 'student' && placementDone.current === false) return '/(student)/placement';
     return '/(student)/home';
   };
 
@@ -114,7 +130,7 @@ export const LoginSuccessScreen: React.FC = () => {
 
   return (
     <Animated.View style={[s.root, screenStyle]}>
-      <LinearGradient colors={[ds.ink, ds.inkSoft, ds.btnEdge]} start={{ x: 0, y: 0 }} end={{ x: 0.4, y: 1 }} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[ds.hero, ds.heroSoft, ds.btnEdge]} start={{ x: 0, y: 0 }} end={{ x: 0.4, y: 1 }} style={StyleSheet.absoluteFill} />
       <View style={[s.halo, s.haloTop]} />
       <View style={[s.halo, s.haloBottom]} />
 
@@ -169,7 +185,7 @@ const STAGE_W = 300;
 const STAGE_H = 300;
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: ds.ink },
+  root: { flex: 1, backgroundColor: ds.hero },
   halo: { position: 'absolute', borderRadius: 999, backgroundColor: ds.onInkFaint },
   haloTop: { width: 320, height: 320, top: -120, right: -110 },
   haloBottom: { width: 260, height: 260, bottom: -90, left: -100 },

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, FlatList, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BackButton } from '@/src/core/components/BackButton';
 import { useNotificationsQuery, useMarkNotificationReadMutation } from '../../application/useNotifications';
 import { NotificationItem } from '@/src/core/types/schema';
 import { StudentInvoicesModal } from '@/src/features/subscription-paywall/presentation/components/StudentInvoicesModal';
@@ -9,6 +11,7 @@ import { AppColors } from '@/src/core/theme/colors';
 
 export const NotificationsScreen = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { data: notifications, isLoading } = useNotificationsQuery();
   const markReadMutation = useMarkNotificationReadMutation();
   const [isInvoicesModalOpen, setIsInvoicesModalOpen] = useState(false);
@@ -27,21 +30,16 @@ export const NotificationsScreen = () => {
   };
 
   return (
-    <View className="flex-1 bg-surface pt-8 px-6 pb-6">
-      <Pressable
-        onPress={() => {
+    <View style={{ paddingTop: insets.top + 8 }} className="flex-1 bg-surface px-6 pb-6 dark:bg-darkBg">
+      <BackButton onPress={() => {
           if (router.canGoBack()) {
             router.back();
           } else {
             router.navigate('/(student)/profile' as any);
           }
-        }}
-        className="mb-4 self-start"
-      >
-        <Text className="text-primary font-bold text-sm">← Cá Nhân</Text>
-      </Pressable>
+        }} style={{ marginBottom: 16 }} />
 
-      <Text className="text-xl font-bold text-neutralInk mb-5">Thông báo</Text>
+      <Text className="text-xl font-bold text-neutralInk mb-5 dark:text-darkInk">Thông báo</Text>
 
       {isLoading ? (
         <ActivityIndicator color="#0EA5E9" size="large" />
@@ -53,7 +51,7 @@ export const NotificationsScreen = () => {
           ListEmptyComponent={
             <View className="py-16 items-center justify-center">
               <Inbox size={28} color={AppColors.neutralGray} />
-              <Text className="text-sm font-semibold text-neutralInk mt-3">Chưa có thông báo</Text>
+              <Text className="text-sm font-semibold text-neutralInk mt-3 dark:text-darkInk">Chưa có thông báo</Text>
             </View>
           }
           renderItem={({ item }) => {
@@ -71,14 +69,14 @@ export const NotificationsScreen = () => {
                     : item.is_read
                     ? 'bg-white border-gray-100 opacity-80'
                     : 'bg-cardWhite border-primary/20'
-                }`}
+                } dark:bg-darkCard dark:border-darkLine`}
               >
                 <View
                   className={`w-10 h-10 rounded-xl items-center justify-center border ${
                     isPayment
                       ? 'bg-emerald-100/70 border-emerald-200'
                       : 'bg-surface border-gray-100'
-                  }`}
+                  } dark:bg-darkBg dark:border-darkLine`}
                 >
                   {isPayment ? (
                     <Receipt size={18} color={AppColors.success} />
@@ -91,17 +89,17 @@ export const NotificationsScreen = () => {
                     <Text
                       className={`text-sm mb-0.5 flex-1 ${
                         item.is_read ? 'font-medium text-neutralInk' : 'font-bold text-neutralInk'
-                      }`}
+                      } dark:text-darkInk`}
                     >
                       {item.title}
                     </Text>
                     {isPayment && (
-                      <View className="bg-emerald-100 px-2 py-0.5 rounded-md">
+                      <View className="bg-emerald-100 px-2 py-0.5 rounded-md dark:bg-darkRaised">
                         <Text className="text-[10px] font-bold text-emerald-800">BIÊN LAI HĐĐT</Text>
                       </View>
                     )}
                   </View>
-                  <Text className="text-xs text-neutralGray">{item.body}</Text>
+                  <Text className="text-xs text-neutralGray dark:text-darkMuted">{item.body}</Text>
 
                   {/* Nút Xem hóa đơn điện tử trực tiếp nếu là thông báo thanh toán */}
                   {isPayment && (

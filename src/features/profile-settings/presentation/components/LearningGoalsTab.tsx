@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Target, BookOpen, Zap, Globe, Check } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { dk } from '@/src/theme/themeMode';
 
 export const CEFR_LEVELS = [
   { level: 'A1', title: 'Mới bắt đầu' },
@@ -63,10 +64,10 @@ export const LearningGoalsTab: React.FC<LearningGoalsTabProps> = ({
   return (
     <Animated.View entering={FadeInDown.duration(300)}>
       {/* CEFR Level Card */}
-      <View className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm mb-4">
-        <View className="flex-row items-center gap-2 mb-3 pb-2 border-b border-gray-100">
-          <Target color="#0284C7" size={18} />
-          <Text className="text-sm font-bold text-gray-800">Trình độ CEFR hiện tại</Text>
+      <View className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm mb-4 dark:bg-darkCard dark:border-darkLine">
+        <View className="flex-row items-center gap-2 mb-3 pb-2 border-b border-gray-100 dark:border-darkLine">
+          <Target color={dk('#0284C7', 'text')} size={18} />
+          <Text className="text-sm font-bold text-gray-800 dark:text-darkInk">Trình độ CEFR hiện tại</Text>
         </View>
 
         <View className="flex-row flex-wrap gap-2.5">
@@ -80,12 +81,12 @@ export const LearningGoalsTab: React.FC<LearningGoalsTabProps> = ({
                   isSelected
                     ? 'bg-[#0284C7] border-[#0284C7] shadow-sm'
                     : 'bg-gray-50 border-gray-200 active:bg-gray-100'
-                }`}
+                } dark:bg-darkBg dark:border-darkLine dark:active:bg-darkRaised`}
               >
-                <Text className={`text-base font-extrabold ${isSelected ? 'text-white' : 'text-gray-800'}`}>
+                <Text className={`text-base font-extrabold ${isSelected ? 'text-white' : 'text-gray-800'} dark:text-darkInk`}>
                   {item.level}
                 </Text>
-                <Text className={`text-[10px] font-medium mt-0.5 ${isSelected ? 'text-sky-100' : 'text-gray-500'}`}>
+                <Text className={`text-[10px] font-medium mt-0.5 ${isSelected ? 'text-sky-100' : 'text-gray-500'} dark:text-darkMuted`}>
                   {item.title}
                 </Text>
               </Pressable>
@@ -95,10 +96,10 @@ export const LearningGoalsTab: React.FC<LearningGoalsTabProps> = ({
       </View>
 
       {/* Target Goal Card */}
-      <View className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm mb-4">
-        <View className="flex-row items-center gap-2 mb-3 pb-2 border-b border-gray-100">
+      <View className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm mb-4 dark:bg-darkCard dark:border-darkLine">
+        <View className="flex-row items-center gap-2 mb-3 pb-2 border-b border-gray-100 dark:border-darkLine">
           <BookOpen color="#0EA5E9" size={18} />
-          <Text className="text-sm font-bold text-gray-800">Mục tiêu học tập</Text>
+          <Text className="text-sm font-bold text-gray-800 dark:text-darkInk">Mục tiêu học tập</Text>
         </View>
 
         <View className="flex-row flex-wrap gap-2 mb-3">
@@ -110,9 +111,9 @@ export const LearningGoalsTab: React.FC<LearningGoalsTabProps> = ({
                 onPress={() => setTargetGoal(goal)}
                 className={`px-3.5 py-2 rounded-full border ${
                   isSelected ? 'bg-[#00BCD4] border-[#00BCD4]' : 'bg-gray-50 border-gray-200'
-                }`}
+                } dark:bg-darkBg dark:border-darkLine`}
               >
-                <Text className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-gray-700'}`}>
+                <Text className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-gray-700'} dark:text-darkMuted`}>
                   {goal}
                 </Text>
               </Pressable>
@@ -125,15 +126,15 @@ export const LearningGoalsTab: React.FC<LearningGoalsTabProps> = ({
           onChangeText={setTargetGoal}
           placeholder="Hoặc nhập mục tiêu riêng của bạn..."
           placeholderTextColor="#9CA3AF"
-          className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2.5 text-xs text-gray-800 font-medium"
+          className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2.5 text-xs text-gray-800 font-medium dark:bg-darkBg dark:text-darkInk dark:border-darkLine"
         />
       </View>
 
       {/* Daily XP Goal */}
-      <View className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm mb-4">
-        <View className="flex-row items-center gap-2 mb-3 pb-2 border-b border-gray-100">
+      <View className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm mb-4 dark:bg-darkCard dark:border-darkLine">
+        <View className="flex-row items-center gap-2 mb-3 pb-2 border-b border-gray-100 dark:border-darkLine">
           <Zap color="#F59E0B" size={18} fill="#F59E0B" />
-          <Text className="text-sm font-bold text-gray-800">Mục tiêu XP mỗi ngày</Text>
+          <Text className="text-sm font-bold text-gray-800 dark:text-darkInk">Mục tiêu XP mỗi ngày</Text>
         </View>
 
         <View className="gap-2.5">
@@ -145,7 +146,7 @@ export const LearningGoalsTab: React.FC<LearningGoalsTabProps> = ({
                 onPress={() => setDailyGoalXp(item.xp)}
                 className={`p-3.5 rounded-2xl border flex-row justify-between items-center ${
                   isSelected ? 'bg-amber-50 border-amber-400' : 'bg-gray-50 border-gray-200'
-                }`}
+                } dark:bg-darkBg dark:border-darkLine`}
               >
                 <View className="flex-row items-center gap-2">
                   <View
@@ -155,12 +156,12 @@ export const LearningGoalsTab: React.FC<LearningGoalsTabProps> = ({
                   >
                     <Zap color={isSelected ? '#FFFFFF' : '#6B7280'} size={14} />
                   </View>
-                  <Text className={`text-sm font-bold ${isSelected ? 'text-amber-900' : 'text-gray-800'}`}>
+                  <Text className={`text-sm font-bold ${isSelected ? 'text-amber-900' : 'text-gray-800'} dark:text-darkInk`}>
                     {item.label}
                   </Text>
-                  <Text className="text-xs text-gray-500 font-medium">({item.desc})</Text>
+                  <Text className="text-xs text-gray-500 font-medium dark:text-darkMuted">({item.desc})</Text>
                 </View>
-                {isSelected && <Check color="#D97706" size={18} strokeWidth={3} />}
+                {isSelected && <Check color={dk('#D97706', 'text')} size={18} strokeWidth={3} />}
               </Pressable>
             );
           })}
@@ -168,10 +169,10 @@ export const LearningGoalsTab: React.FC<LearningGoalsTabProps> = ({
       </View>
 
       {/* Language Selection */}
-      <View className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm mb-4">
-        <View className="flex-row items-center gap-2 mb-3 pb-2 border-b border-gray-100">
-          <Globe color="#10B981" size={18} />
-          <Text className="text-sm font-bold text-gray-800">Ngôn ngữ ứng dụng</Text>
+      <View className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm mb-4 dark:bg-darkCard dark:border-darkLine">
+        <View className="flex-row items-center gap-2 mb-3 pb-2 border-b border-gray-100 dark:border-darkLine">
+          <Globe color={dk('#10B981', 'text')} size={18} />
+          <Text className="text-sm font-bold text-gray-800 dark:text-darkInk">Ngôn ngữ ứng dụng</Text>
         </View>
 
         <View className="flex-row gap-3">
@@ -179,9 +180,9 @@ export const LearningGoalsTab: React.FC<LearningGoalsTabProps> = ({
             onPress={() => setUiLanguage('vi')}
             className={`flex-1 py-3 rounded-2xl border items-center ${
               uiLanguage === 'vi' ? 'bg-[#0D3B73] border-[#0D3B73]' : 'bg-gray-50 border-gray-200'
-            }`}
+            } dark:bg-darkBg dark:border-darkLine`}
           >
-            <Text className={`text-xs font-bold ${uiLanguage === 'vi' ? 'text-white' : 'text-gray-800'}`}>
+            <Text className={`text-xs font-bold ${uiLanguage === 'vi' ? 'text-white' : 'text-gray-800'} dark:text-darkInk`}>
               Tiếng Việt
             </Text>
           </Pressable>
@@ -190,9 +191,9 @@ export const LearningGoalsTab: React.FC<LearningGoalsTabProps> = ({
             onPress={() => setUiLanguage('en')}
             className={`flex-1 py-3 rounded-2xl border items-center ${
               uiLanguage === 'en' ? 'bg-[#0D3B73] border-[#0D3B73]' : 'bg-gray-50 border-gray-200'
-            }`}
+            } dark:bg-darkBg dark:border-darkLine`}
           >
-            <Text className={`text-xs font-bold ${uiLanguage === 'en' ? 'text-white' : 'text-gray-800'}`}>
+            <Text className={`text-xs font-bold ${uiLanguage === 'en' ? 'text-white' : 'text-gray-800'} dark:text-darkInk`}>
               English
             </Text>
           </Pressable>

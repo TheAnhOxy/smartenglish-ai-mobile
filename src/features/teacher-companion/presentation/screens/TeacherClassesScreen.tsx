@@ -4,18 +4,19 @@ import { useTeacherClasses } from '../../application/useTeacherCompanion';
 import { useRouter } from 'expo-router';
 import { GraduationCap } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
+import { dk, isDarkTheme } from '@/src/theme/themeMode';
 
 export const TeacherClassesScreen = () => {
   const router = useRouter();
   const { data: classes, isLoading, refetch } = useTeacherClasses();
 
   return (
-    <View className="flex-1 bg-surface px-6 pt-14">
+    <View className="flex-1 bg-surface px-6 pt-14 dark:bg-darkBg">
       {/* Header Teacher Companion - Deep Teal Theme */}
       <View className="flex-row justify-between items-center mb-6">
         <View>
           <Text className="text-2xl font-bold text-secondary">Lớp Học Của Tôi</Text>
-          <Text className="text-xs font-semibold text-neutralGray mt-0.5">
+          <Text className="text-xs font-semibold text-neutralGray mt-0.5 dark:text-darkMuted">
             Teacher Companion Mode (Read-Only)
           </Text>
         </View>
@@ -26,7 +27,7 @@ export const TeacherClassesScreen = () => {
 
       {isLoading ? (
         <View className="flex-1 justify-center items-center">
-          <ActivityIndicator color="#0F7173" size="large" />
+          <ActivityIndicator color={dk('#0F7173', 'text')} size="large" />
         </View>
       ) : (
         <FlatList
@@ -38,21 +39,21 @@ export const TeacherClassesScreen = () => {
           renderItem={({ item }) => (
             <Pressable
               onPress={() => router.push(`/(teacher-companion)/teacher/classes/${item.id}` as any)}
-              className="bg-cardWhite p-5 rounded-2xl border border-gray-100 mb-4 shadow-sm active:bg-gray-50"
+              className={`bg-cardWhite p-5 rounded-2xl border border-gray-100 mb-4 shadow-sm dark:bg-darkCard dark:border-darkLine ${isDarkTheme() ? 'active:bg-[#2B4C7E]' : 'active:bg-gray-50'}`}
             >
               <View className="flex-row justify-between items-start mb-2">
-                <Text className="text-lg font-bold text-neutralInk flex-1 mr-2">{item.name}</Text>
+                <Text className="text-lg font-bold text-neutralInk flex-1 mr-2 dark:text-darkInk">{item.name}</Text>
                 <View className="bg-secondary/10 px-2.5 py-1 rounded-full">
                   <Text className="text-xs font-bold text-secondary">{item.cefr_target}</Text>
                 </View>
               </View>
 
-              <Text className="text-xs text-neutralGray mb-4 line-clamp-2">{item.description}</Text>
+              <Text className="text-xs text-neutralGray mb-4 line-clamp-2 dark:text-darkMuted">{item.description}</Text>
 
-              <View className="flex-row justify-between items-center pt-3 border-t border-gray-100">
+              <View className="flex-row justify-between items-center pt-3 border-t border-gray-100 dark:border-darkLine">
                 <View className="flex-row items-center gap-1.5">
-                  <Text className="text-xs text-neutralGray">Sĩ số:</Text>
-                  <Text className="text-xs font-bold text-neutralInk">{item.student_count ?? 0}/{item.max_students}</Text>
+                  <Text className="text-xs text-neutralGray dark:text-darkMuted">Sĩ số:</Text>
+                  <Text className="text-xs font-bold text-neutralInk dark:text-darkInk">{item.student_count ?? 0}/{item.max_students}</Text>
                 </View>
 
                 <View className="flex-row items-center gap-1 bg-warning/10 px-2.5 py-1 rounded-full">
@@ -60,15 +61,15 @@ export const TeacherClassesScreen = () => {
                 </View>
               </View>
 
-              <Text className="text-[10px] italic text-neutralGray text-right mt-2">
+              <Text className="text-[10px] italic text-neutralGray text-right mt-2 dark:text-darkMuted">
                 Chạm để xem chi tiết — chỉnh sửa trên Web Portal
               </Text>
             </Pressable>
           )}
           ListEmptyComponent={
             <View className="py-16 items-center justify-center">
-              <Text className="text-sm font-medium text-neutralGray">Bạn chưa có lớp học nào.</Text>
-              <Text className="text-xs text-neutralGray/70 mt-1">Các lớp được tạo trên trang web quản trị sẽ xuất hiện tại đây.</Text>
+              <Text className="text-sm font-medium text-neutralGray dark:text-darkMuted">Bạn chưa có lớp học nào.</Text>
+              <Text className="text-xs text-neutralGray/70 mt-1 dark:text-darkMuted">Các lớp được tạo trên trang web quản trị sẽ xuất hiện tại đây.</Text>
             </View>
           }
         />

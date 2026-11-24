@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from 'react';
+import { useXmasActive } from '@/src/core/services/xmas';
+import { PineBranch, SnowEdge } from '@/src/components/xmas/WinterUI';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { Bookmark, BookmarkCheck, Volume2 } from '@/src/components/ds/icons';
@@ -29,6 +31,7 @@ const fetchWordPool = async (level: string | null) => {
 
 /** Từ vựng hôm nay: chọn cố định theo ngày từ kho từ vựng thật, ưu tiên đúng trình độ học viên. */
 export const WordOfDayCard: React.FC = () => {
+  const xmas = useXmasActive();
   const learnerLevel = normalizeCefr(useAuthStore((s) => s.currentUser?.cefr_level));
   const { data, isLoading, isError } = useQuery({
     queryKey: ['home-word-of-day-pool', learnerLevel ?? 'all'],
@@ -82,9 +85,15 @@ export const WordOfDayCard: React.FC = () => {
   };
 
   return (
-    <View style={st.card}>
+    <View style={[st.card, xmas && { backgroundColor: 'rgba(23,36,58,0.92)', borderColor: 'rgba(103,232,249,0.4)', overflow: 'hidden' }]}>
+      {xmas ? (
+        <>
+          <SnowEdge />
+          <PineBranch size={70} flip style={{ position: 'absolute', right: -8, top: -12 }} />
+        </>
+      ) : null}
       <View style={st.topRow}>
-        <Text style={st.tag}>Từ vựng hôm nay</Text>
+        <Text style={[st.tag, xmas && { color: '#FDE68A' }]}>Từ vựng hôm nay</Text>
         {data?.levelMatched ? (
           <Text style={[st.level, st.levelMatch]}>Phù hợp trình độ của bạn</Text>
         ) : word.cefrLevel ? (

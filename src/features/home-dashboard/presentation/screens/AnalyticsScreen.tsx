@@ -9,8 +9,10 @@ import {
 } from "react-native";
 import { LinearGradient as ExpoLinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { BackButton } from "@/src/core/components/BackButton";
 import Svg, {
   Polygon,
+  Path,
   Line,
   Circle,
   Defs,
@@ -53,6 +55,7 @@ import { useAuthStore } from "@/src/core/flows/authStore";
 import { UserAvatar } from "@/src/core/components/UserAvatar";
 import { AnimatedFoxMascot } from "@/src/core/components/AnimatedFoxMascot";
 import { TabLoadingState } from "@/src/components/ui/TabLoadingState";
+import { FoxRunLoader } from "@/src/core/components/FoxRunLoader";
 import {
   fetchProgressStatsApi,
   fetchAiAssessmentApi,
@@ -63,8 +66,21 @@ import {
   LeaderboardMember,
   RemedialQuiz,
 } from "../../data/analyticsApi";
+import { PracticeFeedbackOverview } from '@/src/features/practice-feedback/presentation/components/PracticeFeedbackOverview';
+import { ChristmasScene, type ChristmasSceneKey } from '@/src/components/xmas/ChristmasScenes';
+import { useXmasActive } from '@/src/core/services/xmas';
+import { Campfire, METRIC_TONE, MetricArt, type MetricKind } from '@/src/components/xmas/ExpeditionArt';
+import { SnowCorner } from '@/src/components/xmas/WinterUI';
+import { Mountains } from '@/src/features/learning-path/presentation/winter/WinterBackdrop';
+import { SantaHat } from '@/src/features/learning-path/presentation/winter/WinterArt';
+import { ShimmerSweep, SnowEdge, SparkleRing, glassCard } from '@/src/components/xmas/WinterUI';
+import { LinearGradient as ExpoGradient } from 'expo-linear-gradient';
+import { dk } from '@/src/theme/themeMode';
 
 type TabKey = "progress" | "analytics" | "ranking";
+
+/** Tiến độ = Hành trình núi tuyết · Đánh giá = Đài quan sát pha lê · Xếp hạng = Lễ hội nhà vô địch. */
+const TAB_SCENE: Record<TabKey, ChristmasSceneKey> = { progress: "expedition", analytics: "observatory", ranking: "festival" };
 
 const TABS: {
   key: TabKey;
@@ -78,6 +94,8 @@ const TABS: {
 
 /** Màu huy chương top 3: vàng, bạc, đồng. */
 const MEDAL = [ds.amber, ds.lineStrong, ds.heart] as const;
+/** Bục vinh danh Giáng sinh: vàng kim · bạc băng · đồng ấm. */
+const XMAS_MEDAL = ['#FBBF24', '#CBD5E1', '#CD7F32'] as const;
 const MEDAL_SOFT = [ds.amberSoft, ds.line, ds.redSoft] as const;
 
 // ───── Cột biểu đồ 7 ngày: mọc lên bằng lò xo ─────
@@ -87,28 +105,43 @@ const WeekBar: React.FC<{
   label: string;
   isToday: boolean;
   index: number;
-}> = ({ pct, minutes, label, isToday, index }) => {
+  /** Biểu đồ pha lê băng (Giáng sinh). */
+  xmas?: boolean;
+}> = ({ pct, minutes, label, isToday, index, xmas = false }) => {
   const h = useSharedValue(0);
   useEffect(() => {
     h.value = withDelay(
       index * 60,
-      withSpring(pct, { damping: 14, stiffness: 120 }),
+      // Giáng sinh: 0 phút là đúng 0 — không vẽ cột giả để trang trí
+      withSpring(xmas && minutes <= 0 ? 0 : pct, { damping: 14, stiffness: 120 }),
     );
-  }, [h, index, pct]);
+  }, [h, index, pct, xmas, minutes]);
   const barStyle = useAnimatedStyle(() => ({ height: `${h.value}%` }));
   return (
     <View style={s.barCol}>
-      <Text style={[s.barValue, isToday && { color: ds.btn }]}>
+      <Text style={[s.barValue, isToday && { color: ds.btn }, xmas && { color: isToday ? '#FCD34D' : '#BAE6FD' }]}>
         {minutes > 0 ? `${minutes}p` : ""}
       </Text>
-      <View style={s.barTrack}>
+      <View style={[s.barTrack, xmas && { backgroundColor: 'rgba(186,230,253,0.08)', borderWidth: 1, borderColor: 'rgba(186,230,253,0.15)' }]}>
         <Animated.View
           style={[
             s.barFill,
             { backgroundColor: isToday ? ds.btn : ds.skyLight },
+            xmas && { overflow: 'hidden', backgroundColor: 'transparent', shadowColor: isToday ? '#FBBF24' : '#67E8F9', shadowOpacity: 0.9, shadowRadius: 8 },
             barStyle,
           ]}
-        />
+        >
+          {xmas ? (
+            <>
+              <ExpoGradient
+                colors={isToday ? ['#FDE68A', '#FBBF24', '#B45309'] : ['#E0F2FE', '#67E8F9', '#1D4ED8']}
+                style={StyleSheet.absoluteFill}
+              />
+              {/* Mặt cắt pha lê: vệt sáng dọc bên trái cột */}
+              <View style={{ position: 'absolute', left: 2, top: 2, bottom: 2, width: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.45)' }} />
+            </>
+          ) : null}
+        </Animated.View>
       </View>
       <Text style={[s.barDay, isToday && s.barDayToday]}>{label}</Text>
     </View>
@@ -123,10 +156,26 @@ const StatTile: React.FC<{
   value: string;
   label: string;
   hint: string;
-}> = ({ icon: Icon, tint, tone, value, label, hint }) => (
-  <View style={s.statTile}>
+  /** Giáng sinh: thẻ kính + minh hoạ riêng theo chỉ số. */
+  xmasKind?: MetricKind;
+}> = ({ icon: Icon, tint, tone, value, label, hint, xmasKind }) => (
+  <View
+    style={[
+      s.statTile,
+      xmasKind ? { backgroundColor: 'rgba(11,23,48,0.9)', borderColor: `${METRIC_TONE[xmasKind].glow}66`, overflow: 'hidden' } : null,
+    ]}
+  >
+    {xmasKind ? (
+      <>
+        <ExpoGradient colors={METRIC_TONE[xmasKind].tint} style={StyleSheet.absoluteFill} />
+        <SnowCorner size={34} />
+        <View pointerEvents="none" style={{ position: 'absolute', right: 8, top: 8 }}>
+          <MetricArt kind={xmasKind} size={48} />
+        </View>
+      </>
+    ) : null}
     <View style={[s.statIcon, { backgroundColor: tone }]}>
-      <Icon size={20} color={tint} />
+      <Icon size={20} color={xmasKind ? METRIC_TONE[xmasKind].glow : tint} />
     </View>
     <Text style={s.statValue}>{value}</Text>
     <Text style={s.statLabel}>{label}</Text>
@@ -143,8 +192,11 @@ const Card: React.FC<{
   right?: React.ReactNode;
   children: React.ReactNode;
   style?: object;
-}> = ({ title, sub, right, children, style }) => (
+  /** Lớp nền trang trí phía sau nội dung thẻ. */
+  backdrop?: React.ReactNode;
+}> = ({ title, sub, right, children, style, backdrop }) => (
   <View style={[s.card, style]}>
+    {backdrop}
     {title ? (
       <View style={s.cardHead}>
         <View style={{ flex: 1 }}>
@@ -159,9 +211,10 @@ const Card: React.FC<{
 );
 
 // ───── Vòng điểm tổng (SVG) ─────
-const ScoreRing: React.FC<{ score: number; size?: number }> = ({
+const ScoreRing: React.FC<{ score: number; size?: number; xmas?: boolean }> = ({
   score,
   size = 96,
+  xmas = false,
 }) => {
   const stroke = 9;
   const r = (size - stroke) / 2;
@@ -177,11 +230,20 @@ const ScoreRing: React.FC<{ score: number; size?: number }> = ({
       }}
     >
       <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+        {xmas ? (
+          <Defs>
+            <LinearGradient id="crystalRing" x1="0" y1="0" x2="1" y2="1">
+              <Stop offset="0" stopColor="#22D3EE" />
+              <Stop offset="0.55" stopColor="#A78BFA" />
+              <Stop offset="1" stopColor="#FCD34D" />
+            </LinearGradient>
+          </Defs>
+        ) : null}
         <Circle
           cx={size / 2}
           cy={size / 2}
           r={r}
-          stroke={ds.onInkFaint}
+          stroke={xmas ? 'rgba(165,180,252,0.18)' : ds.onInkFaint}
           strokeWidth={stroke}
           fill="none"
         />
@@ -190,7 +252,7 @@ const ScoreRing: React.FC<{ score: number; size?: number }> = ({
             cx={size / 2}
             cy={size / 2}
             r={r}
-            stroke={ds.amber}
+            stroke={xmas ? 'url(#crystalRing)' : ds.amber}
             strokeWidth={stroke}
             fill="none"
             strokeLinecap="round"
@@ -200,7 +262,8 @@ const ScoreRing: React.FC<{ score: number; size?: number }> = ({
           />
         ) : null}
       </Svg>
-      <Text style={s.ringValue}>{score}</Text>
+      {xmas ? <SparkleRing size={size} color="#A5F3FC" /> : null}
+      <Text style={[s.ringValue, xmas && { color: '#F1F5F9', textShadowColor: '#22D3EE', textShadowRadius: 12, textShadowOffset: { width: 0, height: 0 } }]}>{score}</Text>
       <Text style={s.ringMax}>/100</Text>
     </View>
   );
@@ -270,7 +333,9 @@ const PodiumCol: React.FC<{
   place: 0 | 1 | 2;
   height: number;
   delay: number;
-}> = ({ member, place, height, delay }) => {
+  /** Sân khấu vinh danh Giáng sinh (giao diện tối). */
+  xmas?: boolean;
+}> = ({ member, place, height, delay, xmas = false }) => {
   const grow = useSharedValue(0);
   useEffect(() => {
     grow.value = withDelay(
@@ -281,8 +346,17 @@ const PodiumCol: React.FC<{
   const barStyle = useAnimatedStyle(() => ({ height: height * grow.value }));
   if (!member) return <View style={s.podiumCol} />;
   const big = place === 0;
+  // Vàng kim · bạc băng · đồng ấm
+  const tone = xmas ? XMAS_MEDAL[place] : MEDAL[place];
   return (
     <View style={s.podiumCol}>
+      {xmas && big ? (
+        <ExpoGradient
+          pointerEvents="none"
+          colors={['rgba(253,224,71,0.32)', 'rgba(253,224,71,0)']}
+          style={{ position: 'absolute', top: -30, width: 120, height: 170, borderTopLeftRadius: 60, borderTopRightRadius: 60 }}
+        />
+      ) : null}
       {big ? (
         <Crown
           color={ds.amber}
@@ -294,11 +368,13 @@ const PodiumCol: React.FC<{
       <View
         style={[
           s.podiumAvatarRing,
-          { borderColor: MEDAL[place] },
+          { borderColor: tone },
           big && s.podiumAvatarRingBig,
+          xmas && { shadowColor: tone, shadowOpacity: 0.9, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } },
         ]}
       >
         <UserAvatar uri={member.avatarUrl} size={big ? 56 : 46} />
+        {xmas ? <SparkleRing size={big ? 64 : 54} color={tone} /> : null}
       </View>
       <Text
         style={[s.podiumName, member.isMe && { color: ds.btn }]}
@@ -310,8 +386,10 @@ const PodiumCol: React.FC<{
         {member.weeklyXp.toLocaleString("vi-VN")} XP
       </Text>
       <Animated.View
-        style={[s.podiumBar, { backgroundColor: MEDAL[place] }, barStyle]}
+        style={[s.podiumBar, { backgroundColor: tone }, xmas && { overflow: 'hidden' }, barStyle]}
       >
+        {xmas ? <SnowEdge /> : null}
+        {xmas && big ? <ShimmerSweep width={110} every={2600} /> : null}
         <Medal size={16} color={place === 1 ? ds.ink : ds.white} />
         <Text style={[s.podiumPlace, place === 1 && { color: ds.ink }]}>
           {place + 1}
@@ -321,7 +399,23 @@ const PodiumCol: React.FC<{
   );
 };
 
-export const AnalyticsScreen = () => {
+const XMAS_GLASS_ICE = { backgroundColor: 'rgba(11,23,48,0.9)', borderColor: 'rgba(186,230,253,0.3)', overflow: 'hidden' as const };
+
+/** Nền thẻ biểu đồ: bóng núi tuyết mờ + vài ngôi sao (ngoài vùng cột). */
+const ChartBackdrop: React.FC = () => (
+  <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+    <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, opacity: 0.35 }}>
+      <Mountains width={360} height={90} color={dk('#1E3A5F', 'text')} peaks={[0.3, 0.7, 0.45, 0.9, 0.5, 0.75, 0.35]} snow />
+    </View>
+    {[0.62, 0.74, 0.86].map((fx, i) => (
+      <View key={fx} style={{ position: 'absolute', left: `${fx * 100}%`, top: 16 + i * 8, width: 2, height: 2, borderRadius: 1, backgroundColor: dk('#F1F5F9', 'bg'), opacity: 0.6 }} />
+    ))}
+  </View>
+);
+
+/** `showBack`: mở như màn chi tiết (route /analytics) thì có nút quay lại; ở tab Thống kê thì không. */
+export const AnalyticsScreen = ({ showBack = false }: { showBack?: boolean }) => {
+  const xmas = useXmasActive();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { currentUser } = useAuthStore();
@@ -339,6 +433,7 @@ export const AnalyticsScreen = () => {
   );
   const [assessmentData, setAssessmentData] =
     useState<StudentAssessmentData | null>(null);
+  const [assessmentFailed, setAssessmentFailed] = useState(false);
   const [leaderboardData, setLeaderboardData] =
     useState<LeaderboardData | null>(null);
 
@@ -351,13 +446,20 @@ export const AnalyticsScreen = () => {
   const loadData = useCallback(async () => {
     try {
       const uid = currentUser?.id ? String(currentUser.id) : undefined;
-      const [prog, assess, lb] = await Promise.all([
+      // Đánh giá AI gọi Gemini nên chậm (10–50s): tải riêng để Tiến độ/Xếp hạng hiện ngay
+      // và lỗi của nó không làm hỏng cả màn.
+      setAssessmentFailed(false);
+      fetchAiAssessmentApi(uid)
+        .then(setAssessmentData)
+        .catch((err) => {
+          console.warn("[AnalyticsScreen] AI assessment failed:", err);
+          setAssessmentFailed(true);
+        });
+      const [prog, lb] = await Promise.all([
         fetchProgressStatsApi(uid),
-        fetchAiAssessmentApi(uid),
         fetchLeaderboardApi(rankingSubTab, uid),
       ]);
       setProgressData(prog);
-      setAssessmentData(assess);
       setLeaderboardData(lb);
       setLoadFailed(false);
     } catch (err) {
@@ -483,10 +585,15 @@ export const AnalyticsScreen = () => {
     progressData?.weeklyChart?.filter((d) => d.minutes > 0).length ?? 0;
 
   return (
-    <View style={s.root}>
+    <View style={[s.root, xmas && { backgroundColor: 'transparent' }]}>
+      {/* Giáng sinh (giao diện tối): mỗi tab một khung cảnh, đổi tab thì cảnh mờ dần sang nhau */}
+      {xmas ? <ChristmasScene scene={TAB_SCENE[activeTab]} /> : null}
       {/* Thanh chuyển tab dạng pill */}
-      <View style={[s.header, { paddingTop: safeTop }]}>
-        <Text style={dsText.h1}>Thống kê</Text>
+      <View style={[s.header, { paddingTop: safeTop }, xmas && { backgroundColor: 'transparent' }]}>
+        <View style={s.titleRow}>
+          {showBack ? <BackButton /> : null}
+          <Text style={dsText.h1}>Thống kê</Text>
+        </View>
         <View style={s.tabs}>
           {TABS.map((t) => {
             const active = activeTab === t.key;
@@ -544,18 +651,35 @@ export const AnalyticsScreen = () => {
             <Reveal>
               <View style={s.hero}>
                 <ExpoLinearGradient
-                  colors={[ds.ink, ds.btnEdge]}
+                  colors={xmas ? ['#050F24', '#172554', '#3B1D0A'] : [ds.hero, ds.btnEdge]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={StyleSheet.absoluteFill}
                 />
-                <View style={s.heroGlow} />
-                <View style={s.heroTop}>
-                  <View style={s.flameBox}>
-                    <Flame size={30} color={ds.amber} />
+                {xmas ? (
+                  <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+                    {/* Khu cắm trại: rừng thông + đồi tuyết phía sau, lều nhỏ */}
+                    <Svg width="100%" height={70} viewBox="0 0 400 70" preserveAspectRatio="none" style={{ position: 'absolute', right: 0, top: 4 }}>
+                      <Path d="M250 70 L262 30 L274 70 Z M270 70 L284 18 L298 70 Z M330 70 L342 34 L354 70 Z M350 70 L364 22 L378 70 Z" fill="rgba(11,27,54,0.85)" />
+                      <Path d="M300 70 L318 44 L336 70 Z" fill="#9A3412" />
+                      <Path d="M318 44 L318 70" stroke="#FDE68A" strokeWidth={2} />
+                    </Svg>
                   </View>
+                ) : (
+                  <View style={s.heroGlow} />
+                )}
+                <View style={s.heroTop}>
+                  {xmas ? (
+                    <View style={{ width: 64, height: 64, alignItems: 'center', justifyContent: 'flex-end' }}>
+                      <Campfire size={58} />
+                    </View>
+                  ) : (
+                    <View style={s.flameBox}>
+                      <Flame size={30} color={ds.amber} />
+                    </View>
+                  )}
                   <View style={{ flex: 1 }}>
-                    <Text style={s.heroBig}>
+                    <Text style={[s.heroBig, xmas && { color: '#FDE68A', textShadowColor: '#FB923C', textShadowRadius: 14, textShadowOffset: { width: 0, height: 0 } }]}>
                       {progressData.streakDays}
                       <Text style={s.heroUnit}> ngày liên tiếp</Text>
                     </Text>
@@ -568,8 +692,12 @@ export const AnalyticsScreen = () => {
                 </View>
 
                 <View style={s.weekRow}>
+                  {/* Con đường tuyết nối 7 trạm dừng */}
+                  {xmas ? <View pointerEvents="none" style={{ position: 'absolute', left: 18, right: 18, bottom: 18, height: 4, borderRadius: 2, backgroundColor: 'rgba(241,245,249,0.25)' }} /> : null}
                   {progressData.weeklyChart.map((item, idx) => {
                     const done = item.minutes > 0;
+                    const todayIdx = progressData.weeklyChart.findIndex((d) => d.isToday);
+                    const future = todayIdx >= 0 && idx > todayIdx;
                     return (
                       <View key={idx} style={s.weekItem}>
                         <Text
@@ -585,9 +713,16 @@ export const AnalyticsScreen = () => {
                             s.weekDot,
                             done && s.weekDotDone,
                             item.isToday && s.weekDotToday,
+                            xmas && (done
+                              ? { backgroundColor: '#FBBF24', borderColor: '#FDE68A', shadowColor: '#FB923C', shadowOpacity: 1, shadowRadius: 10 }
+                              : item.isToday
+                                ? { backgroundColor: 'rgba(103,232,249,0.15)', borderColor: '#67E8F9', borderWidth: 2, shadowColor: '#67E8F9', shadowOpacity: 0.9, shadowRadius: 8 }
+                                : future
+                                  ? { backgroundColor: 'rgba(51,65,85,0.5)', borderColor: 'rgba(148,163,184,0.25)' }
+                                  : { backgroundColor: 'rgba(241,245,249,0.12)', borderColor: 'rgba(241,245,249,0.55)' }),
                           ]}
                         >
-                          {done ? <Check size={14} color={ds.ink} /> : null}
+                          {done ? (xmas ? <Flame size={15} color={dk('#7C2D12', 'text')} fill="#FB923C" /> : <Check size={14} color={ds.ink} />) : null}
                         </View>
                       </View>
                     );
@@ -613,6 +748,7 @@ export const AnalyticsScreen = () => {
                   tone={ds.skySoft}
                   value={String(progressData.masteredWords)}
                   label="Từ đã thành thạo"
+                  xmasKind={xmas ? "mastered" : undefined}
                   hint={`Tổng ${progressData.totalWordsLearned} từ SRS`}
                 />
                 <StatTile
@@ -621,6 +757,7 @@ export const AnalyticsScreen = () => {
                   tone={ds.amberSoft}
                   value={`${progressData.quizAccuracyPct}%`}
                   label="Độ chính xác"
+                  xmasKind={xmas ? "accuracy" : undefined}
                   hint={`${progressData.totalQuizCount} bài đã làm`}
                 />
               </View>
@@ -633,6 +770,7 @@ export const AnalyticsScreen = () => {
                   tone={ds.redSoft}
                   value={`${(progressData.totalStudyMinutes / 60).toFixed(1)}h`}
                   label="Thời gian học"
+                  xmasKind={xmas ? "time" : undefined}
                   hint={`Tuần này ${progressData.weeklyMinutes} phút`}
                 />
                 <StatTile
@@ -641,6 +779,7 @@ export const AnalyticsScreen = () => {
                   tone={ds.greenSoft}
                   value={`${progressData.avgResponseTimeSec}s`}
                   label="Tốc độ phản xạ"
+                  xmasKind={xmas ? "speed" : undefined}
                   hint={
                     progressData.avgResponseTimeSec > 0
                       ? "Thời gian trả lời TB"
@@ -654,6 +793,8 @@ export const AnalyticsScreen = () => {
               <Card
                 title="Thời gian học 7 ngày"
                 sub={`Tổng tuần ${progressData.weeklyMinutes} phút`}
+                style={xmas ? XMAS_GLASS_ICE : undefined}
+                backdrop={xmas ? <ChartBackdrop /> : undefined}
                 right={
                   <View style={s.pill}>
                     <Text style={s.pillText}>
@@ -670,6 +811,7 @@ export const AnalyticsScreen = () => {
                       label={item.dayLabel}
                       minutes={item.minutes}
                       isToday={item.isToday}
+                      xmas={xmas}
                       pct={Math.max(
                         6,
                         Math.min(
@@ -686,22 +828,35 @@ export const AnalyticsScreen = () => {
         ) : null}
 
         {/* ═══════════ TAB 2: ĐÁNH GIÁ ═══════════ */}
+        {/* Tổng quan AI chấm từ các buổi luyện: tải riêng, không chờ API đánh giá lịch sử học */}
+        {activeTab === "analytics" ? (
+          <View style={{ marginBottom: 14 }}>
+            <PracticeFeedbackOverview />
+          </View>
+        ) : null}
         {activeTab === "analytics" && assessmentData ? (
           <View style={s.stack}>
             <Reveal>
               <View style={s.hero}>
                 <ExpoLinearGradient
-                  colors={[ds.ink, ds.btnEdge]}
+                  colors={xmas ? ['#0B1026', '#312E81', '#1E1B4B'] : [ds.hero, ds.btnEdge]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={StyleSheet.absoluteFill}
                 />
-                <View style={s.heroGlow} />
+                {xmas ? (
+                  <Svg pointerEvents="none" width={90} height={120} viewBox="0 0 40 100" style={{ position: 'absolute', right: 6, bottom: -10, opacity: 0.35 }}>
+                    <Polygon points="20,0 38,30 30,100 10,100 2,30" fill="#A78BFA" />
+                    <Polygon points="20,0 38,30 20,100" fill="#FFFFFF" opacity={0.25} />
+                  </Svg>
+                ) : (
+                  <View style={s.heroGlow} />
+                )}
                 <View style={s.scoreRow}>
-                  <ScoreRing score={assessmentData.overallMasteryScore} />
+                  <ScoreRing score={assessmentData.overallMasteryScore} xmas={xmas} />
                   <View style={{ flex: 1, gap: 6 }}>
                     <Text style={s.heroKicker}>Chỉ số thông thạo</Text>
-                    <View style={s.levelTag}>
+                    <View style={[s.levelTag, xmas && { backgroundColor: 'rgba(167,139,250,0.25)', borderWidth: 1, borderColor: dk('#A5F3FC', 'border') }]}>
                       <Text style={s.levelTagText}>
                         {assessmentData.levelClassification}
                       </Text>
@@ -717,16 +872,25 @@ export const AnalyticsScreen = () => {
             </Reveal>
 
             <Reveal delay={80}>
-              <View style={[s.card, s.insightCard]}>
+              <View style={[s.card, s.insightCard, xmas && { backgroundColor: 'rgba(30,27,75,0.92)', borderColor: 'rgba(167,139,250,0.55)' }]}>
                 <View style={s.insightHead}>
-                  <View
-                    style={[
-                      s.statIcon,
-                      { backgroundColor: ds.amberSoft, marginBottom: 0 },
-                    ]}
-                  >
-                    <Lightbulb size={20} color={ds.amberText} />
-                  </View>
+                  {xmas ? (
+                    /* Quả cầu pha lê AI đội mũ Noel */
+                    <View style={{ width: 44, height: 44 }}>
+                      <ExpoGradient colors={['#A5F3FC', '#22D3EE', '#7C3AED']} style={{ width: 44, height: 44, borderRadius: 22 }} />
+                      <View style={{ position: 'absolute', left: 10, top: 8, width: 10, height: 6, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.7)' }} />
+                      <SantaHat size={22} style={{ position: 'absolute', top: -12, right: -6, transform: [{ rotate: '20deg' }] }} />
+                    </View>
+                  ) : (
+                    <View
+                      style={[
+                        s.statIcon,
+                        { backgroundColor: ds.amberSoft, marginBottom: 0 },
+                      ]}
+                    >
+                      <Lightbulb size={20} color={ds.amberText} />
+                    </View>
+                  )}
                   <View style={{ flex: 1 }}>
                     <Text style={s.cardTitle}>Nhận xét từ AI</Text>
                     <Text style={s.cardSub}>Dựa trên lịch sử học của bạn</Text>
@@ -743,6 +907,7 @@ export const AnalyticsScreen = () => {
               <Reveal delay={140}>
                 <Card
                   title="Bản đồ 5 kỹ năng"
+                  style={xmas ? { backgroundColor: 'rgba(30,27,75,0.9)', borderColor: 'rgba(165,180,252,0.35)' } : undefined}
                   sub="Điểm thật từ bài làm của bạn"
                 >
                   <View style={s.radarBox}>
@@ -757,21 +922,22 @@ export const AnalyticsScreen = () => {
                         >
                           <Stop
                             offset="0"
-                            stopColor={ds.sky}
+                            stopColor={xmas ? '#22D3EE' : ds.sky}
                             stopOpacity="0.45"
                           />
                           <Stop
                             offset="1"
-                            stopColor={ds.btn}
-                            stopOpacity="0.15"
+                            stopColor={xmas ? '#A78BFA' : ds.btn}
+                            stopOpacity={xmas ? '0.3' : '0.15'}
                           />
                         </LinearGradient>
                       </Defs>
                       <Polygon
                         points={getPentagonPoints(72)}
-                        fill={ds.bg}
-                        stroke={ds.line}
+                        fill={xmas ? 'rgba(11,16,38,0.55)' : ds.bg}
+                        stroke={xmas ? 'rgba(165,180,252,0.45)' : ds.line}
                         strokeWidth="1.5"
+                        strokeDasharray={xmas ? '3,4' : undefined}
                       />
                       <Polygon
                         points={getPentagonPoints(50)}
@@ -805,7 +971,7 @@ export const AnalyticsScreen = () => {
                       <Polygon
                         points={userSkillPoints}
                         fill="url(#radarFill)"
-                        stroke={ds.sky}
+                        stroke={xmas ? '#22D3EE' : ds.sky}
                         strokeWidth="2.5"
                       />
                       {userSkillRatios.map((ratio, i) => {
@@ -815,10 +981,10 @@ export const AnalyticsScreen = () => {
                             key={i}
                             cx={cx + maxR * ratio * Math.cos(angle)}
                             cy={cy + maxR * ratio * Math.sin(angle)}
-                            r="4.5"
-                            fill={ds.white}
-                            stroke={ds.btn}
-                            strokeWidth="2.5"
+                            r={xmas ? '5' : '4.5'}
+                            fill={xmas ? '#FDE68A' : ds.white}
+                            stroke={xmas ? 'rgba(253,230,138,0.35)' : ds.btn}
+                            strokeWidth={xmas ? '6' : '2.5'}
                           />
                         );
                       })}
@@ -1009,6 +1175,20 @@ export const AnalyticsScreen = () => {
             ) : null}
           </View>
         ) : null}
+        {activeTab === "analytics" && !assessmentData ? (
+          <View style={[s.card, { alignItems: "center", gap: 10 }]}>
+            {assessmentFailed ? (
+              <>
+                <Text style={s.cardSub}>Chưa tải được đánh giá lịch sử học.</Text>
+                <Pressable onPress={onRefresh} style={s.retryBtn}>
+                  <Text style={s.retryText}>Thử lại</Text>
+                </Pressable>
+              </>
+            ) : (
+              <FoxRunLoader message="AI đang phân tích lịch sử học của bạn..." size={56} />
+            )}
+          </View>
+        ) : null}
 
         {/* ═══════════ TAB 3: XẾP HẠNG ═══════════ */}
         {activeTab === "ranking" && leaderboardData ? (
@@ -1035,7 +1215,7 @@ export const AnalyticsScreen = () => {
             <Reveal>
               <View style={[s.hero, s.leagueHero]}>
                 <ExpoLinearGradient
-                  colors={[ds.ink, ds.btnEdge]}
+                  colors={[ds.hero, ds.btnEdge]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={StyleSheet.absoluteFill}
@@ -1076,23 +1256,26 @@ export const AnalyticsScreen = () => {
             ) : (
               <>
                 <Reveal delay={80}>
-                  <View style={[s.card, s.podiumCard]}>
+                  <View style={[s.card, s.podiumCard, xmas && glassCard('rgba(251,191,36,0.35)')]}>
                     <Text style={s.cardTitle}>Vinh danh tuần này</Text>
                     <View style={s.podiumRow}>
                       <PodiumCol
                         member={top2}
+                        xmas={xmas}
                         place={1}
                         height={74}
                         delay={200}
                       />
                       <PodiumCol
                         member={top1}
+                        xmas={xmas}
                         place={0}
                         height={104}
                         delay={0}
                       />
                       <PodiumCol
                         member={top3}
+                        xmas={xmas}
                         place={2}
                         height={56}
                         delay={350}
@@ -1162,6 +1345,7 @@ const CARD_EDGE = {
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: ds.bg },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   header: {
     paddingHorizontal: 20,
     paddingBottom: 12,
@@ -1185,7 +1369,7 @@ const s = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: dsRadius.full,
   },
-  tabActive: { backgroundColor: ds.ink },
+  tabActive: { backgroundColor: ds.hero },
   tabText: {
     fontFamily: dsFont.semibold,
     fontSize: dsSize.sm,

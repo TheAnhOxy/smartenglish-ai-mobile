@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Activity, CheckCircle2, Sparkles, Zap } from '@/src/components/ds/icons';
 import { dsFont } from '@/src/theme/ds';
+import { dk } from '@/src/theme/themeMode';
 
 interface SpeakingMetricsGridProps {
   accuracy: number;
@@ -21,7 +22,7 @@ export const SpeakingMetricsGrid: React.FC<SpeakingMetricsGridProps> = ({
       label: 'Độ chính xác',
       sub: 'Accuracy',
       value: Math.round(accuracy),
-      color: '#16A34A',
+      color: dk('#16A34A', 'text'),
       bg: '#DCFCE7',
       icon: CheckCircle2,
     },
@@ -45,7 +46,7 @@ export const SpeakingMetricsGrid: React.FC<SpeakingMetricsGridProps> = ({
       label: 'Ngữ điệu',
       sub: 'Intonation',
       value: Math.round(intonation),
-      color: '#0369A1',
+      color: dk('#0369A1', 'text'),
       bg: '#E0F2FE',
       icon: Sparkles,
     },
