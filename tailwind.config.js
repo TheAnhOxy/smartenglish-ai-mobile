@@ -22,8 +22,12 @@ module.exports = {
         neutralGray: "#6B7280",    // Text Sub
         surface: "#F0F7FF",        // App Background Soft Light Blue
         cardWhite: "#FFFFFF",      // Card Background Light
-        darkBg: "#12141C",         // Dark BG
-        darkCard: "#1E212C",       // Dark Mode Card
+        darkBg: "#0A1120",         // Nền chế độ tối (navy sâu)
+        darkCard: "#131D31",       // Thẻ chế độ tối
+        darkRaised: "#1A2740",     // Thẻ nổi / ô nhập chế độ tối
+        darkInk: "#EAF2FB",        // Chữ chính chế độ tối
+        darkMuted: "#9AABC2",      // Chữ phụ chế độ tối
+        darkLine: "#24334D",       // Viền chế độ tối
         // SRS Specific Colors
         srsAgain: "#FF4D4D",
         srsHard: "#FFA726",
