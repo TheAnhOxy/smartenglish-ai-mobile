@@ -30,6 +30,7 @@ import { AppColors } from '@/src/core/theme/colors';
 import { MessageCircle, SlidersHorizontal, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CategoryFilterMenu } from '../components/CategoryFilterMenu';
+import { BackButton } from '@/src/core/components/BackButton';
 import {
   fetchPronunciationLessonsApi,
   fetchRoleplayScenariosApi,
@@ -69,7 +70,8 @@ const CEFR_BADGES: Record<string, { bg: string; text: string; border: string }> 
 
 const CATEGORIES = ['Tất cả', 'Giao tiếp', 'Công việc', 'Đời sống', 'Du lịch'];
 
-export const SpeakingHomeScreen = () => {
+/** `embedded`: nằm trong tab Lộ trình (đã có thanh chuyển tab + vùng an toàn) → không có nút quay lại. */
+export const SpeakingHomeScreen = ({ embedded = false }: { embedded?: boolean }) => {
   const router = useRouter();
   const { currentUser } = useAuthStore();
   const isPremium = hasActivePremium(currentUser);
@@ -135,13 +137,14 @@ export const SpeakingHomeScreen = () => {
 
   return (
     <View style={s.root}>
-
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={s.scrollContent}
+        contentContainerStyle={[s.scrollContent, !embedded && { paddingTop: insets.top + 8 }]}
       >
-        {/* ── Search Bar đồng bộ Admin ──────────────────────────────────── */}
-        <View style={s.searchWrap}>
+        {/* ── Search Bar (mở riêng thì có nút quay lại cùng hàng) ─────────── */}
+        <View style={s.searchRow}>
+        {!embedded ? <BackButton /> : null}
+        <View style={[s.searchWrap, { flex: 1 }]}>
           <Search color={ADMIN_THEME.textMuted} size={16} style={s.searchIcon} />
           <TextInput
             placeholder={
@@ -169,6 +172,7 @@ export const SpeakingHomeScreen = () => {
             <SlidersHorizontal color={selectedCategory !== 'Tất cả' ? AppColors.primary : ADMIN_THEME.textMuted} size={18} />
           </Pressable>
         </View>
+        </View>
 
         <CategoryFilterMenu
           visible={showFilter}
@@ -176,7 +180,7 @@ export const SpeakingHomeScreen = () => {
           selected={selectedCategory}
           onSelect={setSelectedCategory}
           onClose={() => setShowFilter(false)}
-          top={insets.top + 64}
+          top={embedded ? insets.top + 64 : insets.top}
         />
 
         {/* ── Segmented Control / Tab Switcher (Gọn gàng, tinh tế) ── */}
@@ -515,6 +519,13 @@ const s = StyleSheet.create({
   },
 
   // Search
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 6,
+    marginBottom: 12,
+  },
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -524,8 +535,6 @@ const s = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     height: 44,
-    marginTop: 6,
-    marginBottom: 12,
   },
   searchIcon: {
     marginRight: 8,

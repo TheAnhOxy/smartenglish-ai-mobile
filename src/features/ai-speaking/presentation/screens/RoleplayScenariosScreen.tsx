@@ -145,10 +145,8 @@ export const RoleplayScenariosScreen = () => {
               </View>
               {!isPremium && (
                 <Pressable
-                  onPress={() => {
-                    useAuthStore.getState().updateCurrentUser({ plan: 'premium_yearly' });
-                    alert('Nâng cấp SmartEnglish Premium thành công! Bạn có thể luyện nói không giới hạn.');
-                  }}
+                  // Nâng cấp phải qua trang thanh toán; không tự đổi gói trên máy
+                  onPress={() => router.push({ pathname: '/(student)/profile/premium', params: { from: 'speaking' } } as never)}
                   style={s.quotaBannerUpgradeBtn}
                 >
                   <Sparkles size={12} color="#FFFFFF" />

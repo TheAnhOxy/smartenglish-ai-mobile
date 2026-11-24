@@ -271,24 +271,41 @@ export const extractAndEvaluateSyllables = (
   });
 };
 
+/** Lỗi từ server (FastAPI `detail`) hoặc thông báo mặc định — để hiện cho học viên thay vì bịa điểm. */
+export const speakingErrorMessage = (err: unknown, fallback: string): string => {
+  const detail = (err as { response?: { data?: { detail?: unknown; message?: unknown } } })?.response?.data;
+  if (typeof detail?.detail === 'string') return detail.detail;
+  if (typeof detail?.message === 'string') return detail.message;
+  if ((err as { code?: string })?.code === 'ECONNABORTED') return 'AI phản hồi quá lâu. Hãy thử lại.';
+  return fallback;
+};
+
+/** Chấm phát âm từ bản ghi âm thật. Lỗi (không có giọng nói, AI lỗi…) được ném ra — không tự bịa điểm. */
 export const evaluatePronunciationApi = async (params: {
   targetText: string;
   targetIpa?: string;
   audioBase64?: string;
+  audioMimeType?: string;
   sessionType?: string;
 }): Promise<PronunciationAssessmentData> => {
-  const body = {
-    sessionType: params.sessionType || 'SINGLE_WORD',
-    targetText: params.targetText,
-    targetIpa: params.targetIpa,
-    audioBase64: params.audioBase64,
-  };
-
+  if (!params.audioBase64) throw new Error('Chưa ghi âm được giọng của bạn. Hãy bấm micro và đọc lại.');
+  let response;
   try {
-    const response = await apiClient.post<any>(
+    response = await apiClient.post<any>(
       '/api/v1/ai-practice/speaking/pronunciation/evaluate',
-      body
+      {
+        sessionType: params.sessionType || 'SINGLE_WORD',
+        targetText: params.targetText,
+        targetIpa: params.targetIpa,
+        audioBase64: params.audioBase64,
+        audioMimeType: params.audioMimeType || 'audio/mp4',
+      },
+      { timeout: 45000 },
     );
+  } catch (err) {
+    throw new Error(speakingErrorMessage(err, 'AI chưa chấm được phát âm. Hãy thử lại.'));
+  }
+  {
     const data = response.data?.data || response.data;
     if (data && typeof data.overallScore === 'number') {
       const overall = Math.round(data.overallScore);
@@ -321,72 +338,24 @@ export const evaluatePronunciationApi = async (params: {
         transcribedText: data.transcribedText,
       };
     }
-  } catch (err) {
-    console.warn('[speakingApi] evaluatePronunciationApi backend offline/error, calculating resilient evaluation:', err);
-    // Tính điểm dựa trên dữ liệu đầu vào thực tế
-    const lengthFactor = Math.min(6, params.targetText.length);
-    const hasAudio = Boolean(params.audioBase64 && params.audioBase64.length > 50);
-    const baseScore = hasAudio ? 85 + (lengthFactor % 4) : 74;
-    const acc = hasAudio ? Math.min(96, baseScore + 2) : 72;
-    const stress = hasAudio ? Math.min(92, baseScore - 2) : 70;
-    const fluency = hasAudio ? Math.min(94, baseScore + 1) : 75;
-    const intonation = hasAudio ? Math.min(93, baseScore) : 73;
-    const overall = Math.round((acc + stress + fluency + intonation) / 4);
-
-    const syllables = extractAndEvaluateSyllables(
-      params.targetText,
-      params.targetIpa || '',
-      acc
-    );
-
-    const hasErrorSyllable = syllables.some((s) => !s.isCorrect);
-
-    return {
-      overallScore: overall,
-      accuracyScore: Math.round(acc),
-      stressScore: Math.round(stress),
-      intonationScore: Math.round(intonation),
-      fluencyScore: Math.round(fluency),
-      nativeComparisonScore: Math.round(overall * 0.96),
-      syllables,
-      phonemeErrors: {
-        targetPhonemes: syllables.map((s) => s.ipa),
-        mispronounced: syllables
-          .filter((s) => !s.isCorrect)
-          .map((s) => ({
-            phoneme: s.ipa,
-            userAudioScore: s.score,
-            tip: s.feedback || 'Chú ý đặt răng - môi - lưỡi đúng vị trí',
-          })),
-      },
-      errorFeedback: hasErrorSyllable
-        ? [
-            `Chú ý âm tiết ${syllables.find((s) => !s.isCorrect)?.ipa || ''}: Cần phát âm rõ ràng, tránh nuốt âm đuôi.`,
-            'Giữ tốc độ nói đều đặn, không ngắt quãng giữa các âm tiết.',
-          ]
-        : ['Phát âm rất tốt! Trọng âm và cao độ đạt chuẩn bản ngữ.'],
-      improvementTips: [
-        'Nghe lại bản thu âm mẫu để so sánh độ mở của vòm họng.',
-        'Luyện tập phát âm từ 3-5 lần để ghi nhớ phản xạ cơ miệng.',
-      ],
-      transcribedText: params.targetText,
-    };
   }
+  throw new Error('AI chưa chấm được phát âm. Hãy thử lại.');
+};
 
-  const fallbackSyllables = extractAndEvaluateSyllables(params.targetText, params.targetIpa || '', 85);
-  return {
-    overallScore: 85,
-    accuracyScore: 86,
-    stressScore: 82,
-    intonationScore: 84,
-    fluencyScore: 88,
-    nativeComparisonScore: 85,
-    syllables: fallbackSyllables,
-    phonemeErrors: { targetPhonemes: [], mispronounced: [] },
-    errorFeedback: ['Phát âm tương đối chuẩn, chú ý khẩu hình âm đuôi.'],
-    improvementTips: ['Luyện tập thêm với người bản ngữ.'],
-    transcribedText: params.targetText,
-  };
+/** Giọng nói → chữ (micro ở Hội thoại AI trên iOS/Android). */
+export const transcribeSpeechApi = async (audioBase64: string, audioMimeType = 'audio/mp4'): Promise<string> => {
+  try {
+    const response = await apiClient.post<any>(
+      '/api/v1/ai-practice/speaking/transcribe',
+      { audioBase64, audioMimeType },
+      { timeout: 30000 },
+    );
+    const transcript = (response.data?.data || response.data)?.transcript;
+    if (typeof transcript === 'string' && transcript.trim()) return transcript.trim();
+  } catch (err) {
+    throw new Error(speakingErrorMessage(err, 'Chưa nhận dạng được giọng nói. Hãy thử lại.'));
+  }
+  throw new Error('Không nghe rõ giọng nói. Hãy nói to và rõ hơn.');
 };
 
 export const submitPronunciationAudioApi = async (

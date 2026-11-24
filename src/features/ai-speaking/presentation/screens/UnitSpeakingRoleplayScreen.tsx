@@ -185,6 +185,7 @@ export const UnitSpeakingRoleplayScreen = () => {
         setIsRecording(false);
       } else if (recorder.isRecording) {
         await recorder.stop();
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => undefined);
         setRecordedUri(recorder.uri);
         setHasRecorded(true);
         setIsRecording(false);
@@ -397,15 +398,10 @@ export const UnitSpeakingRoleplayScreen = () => {
             </View>
 
             <Pressable
+              // Nâng cấp phải qua trang thanh toán; không tự đổi gói trên máy
               onPress={() => {
-                try {
-                  useAuthStore.getState().updateCurrentUser({ plan: 'premium_yearly' });
-                  Alert.alert('Thành công', 'Đã kích hoạt gói Premium! Bạn có thể tiếp tục luyện nói không giới hạn.');
-                  setShowQuotaModal(false);
-                } catch (e) {
-                  setShowQuotaModal(false);
-                  router.push('/(student)/profile/premium' as any);
-                }
+                setShowQuotaModal(false);
+                router.push({ pathname: '/(student)/profile/premium', params: { from: 'speaking' } } as never);
               }}
               style={s.upgradeBtn}
             >
