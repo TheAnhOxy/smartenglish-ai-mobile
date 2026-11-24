@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BackButton } from '@/src/core/components/BackButton';
 import { usePassageQuery } from '../../application/useReadingListening';
 import { QuickWordLookupModal } from '@/src/features/flashcard-srs/presentation/screens/QuickWordLookupModal';
 import { TranslatableText, TranslationPanel } from '@/src/core/components/TranslatableText';
@@ -10,6 +12,7 @@ import { AppColors } from '@/src/core/theme/colors';
 export const ReadingPassageScreen = () => {
   const { passageId } = useLocalSearchParams<{ passageId?: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const validId = passageId ? String(passageId) : '';
   const { data: passage, isLoading, isError, error, refetch } = usePassageQuery(validId);
   const [showTranslate, setShowTranslate] = useState(false);
@@ -63,11 +66,9 @@ export const ReadingPassageScreen = () => {
   }
 
   return (
-    <View className="flex-1 bg-surface pt-14 px-6 justify-between pb-6">
+    <View style={{ paddingTop: insets.top + 8 }} className="flex-1 bg-surface px-6 justify-between pb-6">
       <View className="flex-1">
-        <Pressable onPress={() => router.back()} className="mb-4">
-          <Text className="text-primary font-bold text-sm">← Bài Tập Đọc Hiểu</Text>
-        </Pressable>
+        <BackButton style={{ marginBottom: 16 }} />
 
         <View className="flex-row justify-between items-center mb-2">
           <Text className="text-xl font-bold text-neutralInk flex-1 mr-2">{passage.title}</Text>

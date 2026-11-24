@@ -187,7 +187,7 @@ function RootLayoutNav() {
   return (
     <ThemeProvider value={DefaultTheme}>
       <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#F8FAFC' } }}>
+      <Stack screenOptions={{ headerShown: false, animation: 'fade', contentStyle: { backgroundColor: '#F8FAFC' } }}>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(student)" options={{ headerShown: false }} />
         <Stack.Screen name="(teacher-companion)" options={{ headerShown: false }} />

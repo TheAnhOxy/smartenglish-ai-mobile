@@ -3,11 +3,14 @@ import { View, Text, ScrollView, Pressable, Modal, ActivityIndicator } from 'rea
 import { useKnowledgeGapQuery } from '../../application/useKnowledgeGap';
 import { SkillGapItem } from '../../data/knowledgeGapApi';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BackButton } from '@/src/core/components/BackButton';
 import { AlertTriangle, Target } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
 
 export const KnowledgeGapScreen = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { data: gaps, isLoading, isError, refetch } = useKnowledgeGapQuery();
   const [selectedItem, setSelectedItem] = useState<SkillGapItem | null>(null);
 
@@ -31,11 +34,9 @@ export const KnowledgeGapScreen = () => {
   const gapList: SkillGapItem[] = Array.isArray(gaps) ? gaps : [];
 
   return (
-    <View className="flex-1 bg-surface pt-14 px-6 justify-between pb-10">
+    <View style={{ paddingTop: insets.top + 8 }} className="flex-1 bg-surface px-6 justify-between pb-10">
       <ScrollView showsVerticalScrollIndicator={false}>
-        <Pressable onPress={() => router.back()} className="mb-4">
-          <Text className="text-primary font-bold text-sm">← Trang Chủ</Text>
-        </Pressable>
+        <BackButton style={{ marginBottom: 16 }} />
 
         <Text className="text-2xl font-bold text-neutralInk mb-1">Ma Trận Lỗ Hổng Kiến Thức</Text>
         <Text className="text-xs text-neutralGray mb-6">Chẩn đoán điểm yếu ngữ pháp & từ vựng cần ưu tiên luyện tập</Text>

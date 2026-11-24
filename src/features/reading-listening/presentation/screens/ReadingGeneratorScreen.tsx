@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BackButton } from '@/src/core/components/BackButton';
 
 const TOPIC_CHIPS = [
   { id: 'tech', name: 'Công Nghệ & AI' },
@@ -19,6 +21,7 @@ const LENGTH_OPTIONS = [
 
 export const ReadingGeneratorScreen = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [selectedTopics, setSelectedTopics] = useState<string[]>(['tech']);
   const [selectedLength, setSelectedLength] = useState<string>('medium');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -38,12 +41,10 @@ export const ReadingGeneratorScreen = () => {
   };
 
   return (
-    <View className="flex-1 bg-surface pt-14 px-6 pb-6 justify-between">
+    <View style={{ paddingTop: insets.top + 8 }} className="flex-1 bg-surface px-6 pb-6 justify-between">
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <Pressable onPress={() => router.back()} className="mb-4">
-          <Text className="text-primary font-bold text-sm">← Thư Viện Bài Đọc</Text>
-        </Pressable>
+        <BackButton style={{ marginBottom: 16 }} />
 
         <Text className="text-2xl font-bold text-neutralInk mb-1">Tạo Bài Đọc Theo Chủ Đề</Text>
         <Text className="text-xs text-neutralGray mb-6">Tùy biến bài đọc hiểu chuẩn CEFR phù hợp với sở thích của bạn</Text>

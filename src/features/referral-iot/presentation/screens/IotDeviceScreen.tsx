@@ -1,19 +1,18 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, Switch } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BackButton } from '@/src/core/components/BackButton';
 import { Lightbulb } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
 
 export const IotDeviceScreen = () => {
-  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [isConnected, setIsConnected] = useState(true);
   const [lightMode, setLightMode] = useState<'breathing_fire' | 'solid_gold' | 'off'>('breathing_fire');
 
   return (
-    <ScrollView className="flex-1 bg-surface pt-14 px-6 pb-10" showsVerticalScrollIndicator={false}>
-      <Pressable onPress={() => router.back()} className="mb-4">
-        <Text className="text-primary font-bold text-sm">← Hồ Sơ Cá Nhân</Text>
-      </Pressable>
+    <ScrollView style={{ paddingTop: insets.top + 8 }} className="flex-1 bg-surface px-6 pb-10" showsVerticalScrollIndicator={false}>
+      <BackButton style={{ marginBottom: 16 }} />
 
       <Text className="text-2xl font-bold text-neutralInk mb-1">Kết Nối Đèn IoT SmartLamp</Text>
       <Text className="text-xs text-neutralGray mb-6">Đồng bộ ánh sáng sinh học theo chuỗi Streak & thời gian học</Text>

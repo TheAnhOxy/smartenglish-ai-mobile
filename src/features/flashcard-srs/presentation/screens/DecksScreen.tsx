@@ -43,7 +43,9 @@ import { getTopicsApi } from '../../data/vocabularyApi';
 import { colors, palette, font } from '@/src/theme';
 import { usePressSpring } from '@/src/hooks/usePressSpring';
 import { TabLoadingState } from '@/src/components/ui/TabLoadingState';
+import { BackButton } from '@/src/core/components/BackButton';
 import { UserAvatar } from '@/src/core/components/UserAvatar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { hasActivePremium } from '@/src/core/utils/plan';
 import { ds, dsFont } from '@/src/theme/ds';
 import { isLevelMatch, sortByLevelCloseness } from '@/src/features/onboarding/application/learnerLevel';
@@ -212,8 +214,10 @@ const FlashcardDeckCard: React.FC<DeckCardItemProps> = ({
   );
 };
 
-export const DecksScreen = () => {
+/** `embedded`: nằm trong tab Lộ trình → không nút quay lại, không cộng vùng an toàn lần nữa. */
+export const DecksScreen = ({ embedded = false }: { embedded?: boolean }) => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { currentUser } = useAuthStore();
 
   const [activeTab, setActiveTab] = useState<'SYSTEM' | 'MY_DECKS'>('SYSTEM');
@@ -340,12 +344,12 @@ export const DecksScreen = () => {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.scrollContent}
+      contentContainerStyle={[styles.scrollContent, !embedded && { paddingTop: insets.top + 10 }]}
       showsVerticalScrollIndicator={false}
     >
       {/* Top Header Bar */}
       <View style={styles.headerRow}>
-        <UserAvatar uri={currentUser?.avatar_url} size={40} style={styles.avatar} />
+        {embedded ? <UserAvatar uri={currentUser?.avatar_url} size={40} /> : <BackButton />}
 
         <View style={styles.headerCenter}>
           <Text style={styles.headerBrand}>SMARTENGLISH AI</Text>
@@ -534,13 +538,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: colors.border,
   },
   headerCenter: {
     alignItems: 'center',

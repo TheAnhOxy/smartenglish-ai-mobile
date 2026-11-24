@@ -4,6 +4,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Compass, Layers, Mic, Zap } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { LearningPathScreen } from '@/src/features/learning-path/presentation/screens/LearningPathScreen';
 import { DecksScreen } from '@/src/features/flashcard-srs/presentation/screens/DecksScreen';
 import { SpeakingHomeScreen } from '@/src/features/ai-speaking/presentation/screens/SpeakingHomeScreen';
@@ -64,6 +65,17 @@ export default function LearnTabContainer() {
   const insets = useSafeAreaInsets();
   const safeTop = (insets.top || 12) + 6;
 
+  // Đổi mục: nội dung mờ dần hiện ra + trượt lên nhẹ
+  const reveal = useSharedValue(1);
+  useEffect(() => {
+    reveal.value = 0;
+    reveal.value = withTiming(1, { duration: 280, easing: Easing.out(Easing.cubic) });
+  }, [activeSegment, reveal]);
+  const revealStyle = useAnimatedStyle(() => ({
+    opacity: 0.35 + reveal.value * 0.65,
+    transform: [{ translateY: (1 - reveal.value) * 10 }],
+  }));
+
   return (
     <View style={styles.container}>
       {/* Top Floating Segment Switcher Bar */}
@@ -109,7 +121,7 @@ export default function LearnTabContainer() {
       </View>
 
       {/* Screen Content with Tab State Preservation & Lazy Loading */}
-      <View style={styles.content}>
+      <Animated.View style={[styles.content, revealStyle]}>
         {visitedTabs.path && (
           <View style={[styles.tabPane, activeSegment === 'path' ? styles.tabPaneActive : styles.tabPaneHidden]}>
             <MemoizedLearningPathScreen />
@@ -117,12 +129,12 @@ export default function LearnTabContainer() {
         )}
         {visitedTabs.decks && (
           <View style={[styles.tabPane, activeSegment === 'decks' ? styles.tabPaneActive : styles.tabPaneHidden]}>
-            <MemoizedDecksScreen />
+            <MemoizedDecksScreen embedded />
           </View>
         )}
         {visitedTabs.speaking && (
           <View style={[styles.tabPane, activeSegment === 'speaking' ? styles.tabPaneActive : styles.tabPaneHidden]}>
-            <MemoizedSpeakingHomeScreen />
+            <MemoizedSpeakingHomeScreen embedded />
           </View>
         )}
         {visitedTabs.quiz && (
@@ -130,7 +142,7 @@ export default function LearnTabContainer() {
             <MemoizedExamCatalogScreen />
           </View>
         )}
-      </View>
+      </Animated.View>
     </View>
   );
 }

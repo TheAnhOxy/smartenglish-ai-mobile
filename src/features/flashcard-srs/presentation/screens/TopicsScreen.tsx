@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BackButton } from '@/src/core/components/BackButton';
 import { RotateCcw, AlertCircle, BookOpen } from 'lucide-react-native';
 import { getTopicsApi, VocabTopic } from '../../data/vocabularyApi';
 import { AppColors } from '@/src/core/theme/colors';
 
 export const TopicsScreen = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [topics, setTopics] = useState<VocabTopic[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,10 +33,8 @@ export const TopicsScreen = () => {
   }, []);
 
   return (
-    <View className="flex-1 bg-surface pt-14 px-6 pb-6">
-      <Pressable onPress={() => router.back()} className="mb-4">
-        <Text className="text-primary font-bold text-sm">← Bộ Thẻ Flashcard</Text>
-      </Pressable>
+    <View style={{ paddingTop: insets.top + 8 }} className="flex-1 bg-surface px-6 pb-6">
+      <BackButton style={{ marginBottom: 16 }} />
 
       <Text className="text-2xl font-bold text-neutralInk mb-1">Thư Viện Chủ Đề</Text>
       <Text className="text-xs text-neutralGray mb-6">Chọn chủ đề từ vựng được biên soạn sẵn bởi hệ thống</Text>

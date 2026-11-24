@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, FlatList, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BackButton } from '@/src/core/components/BackButton';
 import { useNotificationsQuery, useMarkNotificationReadMutation } from '../../application/useNotifications';
 import { NotificationItem } from '@/src/core/types/schema';
 import { StudentInvoicesModal } from '@/src/features/subscription-paywall/presentation/components/StudentInvoicesModal';
@@ -9,6 +11,7 @@ import { AppColors } from '@/src/core/theme/colors';
 
 export const NotificationsScreen = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { data: notifications, isLoading } = useNotificationsQuery();
   const markReadMutation = useMarkNotificationReadMutation();
   const [isInvoicesModalOpen, setIsInvoicesModalOpen] = useState(false);
@@ -27,19 +30,14 @@ export const NotificationsScreen = () => {
   };
 
   return (
-    <View className="flex-1 bg-surface pt-8 px-6 pb-6">
-      <Pressable
-        onPress={() => {
+    <View style={{ paddingTop: insets.top + 8 }} className="flex-1 bg-surface px-6 pb-6">
+      <BackButton onPress={() => {
           if (router.canGoBack()) {
             router.back();
           } else {
             router.navigate('/(student)/profile' as any);
           }
-        }}
-        className="mb-4 self-start"
-      >
-        <Text className="text-primary font-bold text-sm">← Cá Nhân</Text>
-      </Pressable>
+        }} style={{ marginBottom: 16 }} />
 
       <Text className="text-xl font-bold text-neutralInk mb-5">Thông báo</Text>
 

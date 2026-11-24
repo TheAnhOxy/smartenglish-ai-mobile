@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { LinearGradient as ExpoLinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { BackButton } from "@/src/core/components/BackButton";
 import Svg, {
   Polygon,
   Line,
@@ -323,7 +324,8 @@ const PodiumCol: React.FC<{
   );
 };
 
-export const AnalyticsScreen = () => {
+/** `showBack`: mở như màn chi tiết (route /analytics) thì có nút quay lại; ở tab Thống kê thì không. */
+export const AnalyticsScreen = ({ showBack = false }: { showBack?: boolean }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { currentUser } = useAuthStore();
@@ -496,7 +498,10 @@ export const AnalyticsScreen = () => {
     <View style={s.root}>
       {/* Thanh chuyển tab dạng pill */}
       <View style={[s.header, { paddingTop: safeTop }]}>
-        <Text style={dsText.h1}>Thống kê</Text>
+        <View style={s.titleRow}>
+          {showBack ? <BackButton /> : null}
+          <Text style={dsText.h1}>Thống kê</Text>
+        </View>
         <View style={s.tabs}>
           {TABS.map((t) => {
             const active = activeTab === t.key;
@@ -1192,6 +1197,7 @@ const CARD_EDGE = {
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: ds.bg },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   header: {
     paddingHorizontal: 20,
     paddingBottom: 12,

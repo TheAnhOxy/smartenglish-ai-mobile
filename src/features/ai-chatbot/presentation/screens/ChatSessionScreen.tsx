@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, ScrollView, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform, type ScrollViewInstance } from 'react-native';
 import { Send } from 'lucide-react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { BackButton } from '@/src/core/components/BackButton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { clearChatHistory, getChatQuotaApi } from '../../data/chatbotApi';
@@ -82,9 +83,7 @@ export const ChatSessionScreen = () => {
       className="flex-1 bg-surface px-6 justify-between">
       {/* Header */}
       <View>
-        <Pressable onPress={() => router.back()} className="mb-2">
-          <Text className="text-primary font-bold text-sm">← Danh Sách Chat</Text>
-        </Pressable>
+        <BackButton style={{ marginBottom: 8 }} />
         <Text className="text-xl font-bold text-neutralInk mb-4">Loxera AI Tutor</Text>
         {quota && <Text className="text-xs text-neutralGray mb-2">
           {quota.limit === null ? 'Premium · Không giới hạn' : `Còn ${Math.max(0, quota.limit - quota.used)}/${quota.limit} tin nhắn hôm nay`}

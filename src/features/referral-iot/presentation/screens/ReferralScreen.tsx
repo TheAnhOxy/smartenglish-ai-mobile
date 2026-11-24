@@ -1,17 +1,16 @@
 import React from 'react';
 import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BackButton } from '@/src/core/components/BackButton';
 import { useReferralQuery } from '../../application/useReferralIot';
 
 export const ReferralScreen = () => {
-  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { data: refData, isLoading } = useReferralQuery();
 
   return (
-    <ScrollView className="flex-1 bg-surface pt-14 px-6 pb-10" showsVerticalScrollIndicator={false}>
-      <Pressable onPress={() => router.back()} className="mb-4">
-        <Text className="text-primary font-bold text-sm">← Hồ Sơ Cá Nhân</Text>
-      </Pressable>
+    <ScrollView style={{ paddingTop: insets.top + 8 }} className="flex-1 bg-surface px-6 pb-10" showsVerticalScrollIndicator={false}>
+      <BackButton style={{ marginBottom: 16 }} />
 
       <Text className="text-2xl font-bold text-neutralInk mb-1">Mời Bạn Bè Nhận Premium</Text>
       <Text className="text-xs text-neutralGray mb-6">Mỗi bạn bè đăng ký qua mã của bạn, cả 2 nhận 7 ngày Premium miễn phí</Text>

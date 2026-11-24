@@ -6,6 +6,7 @@ import { colors } from '@/src/theme/colors';
 import { useTabBounce } from '@/src/hooks/useTabBounce';
 import { useRoleGateStore } from '@/src/core/flows/roleGateStore';
 import { useAuthStore } from '@/src/core/flows/authStore';
+import { tabSceneTransition } from '@/src/core/navigation/transitions';
 
 // AnimatedTabIcon: icon nảy lên khi tab active
 type AnimatedTabIconProps = { focused: boolean; children: React.ReactNode };
@@ -25,6 +26,8 @@ const hideTabOptions = {
   tabBarButton: hiddenTabButton,
   tabBarItemStyle: { display: 'none' as const },
   tabBarStyle: { display: 'none' as const },
+  // Chỉ màn chi tiết có hiệu ứng: trượt nhẹ + mờ dần + phóng nhẹ (lò xo, native driver)
+  ...tabSceneTransition,
 };
 
 export default function StudentTabsLayout() {
@@ -43,6 +46,8 @@ export default function StudentTabsLayout() {
       backBehavior="history"
       screenOptions={{
         headerShown: false,
+        // Chuyển giữa các tab chính: tức thì, không hiệu ứng
+        animation: 'none',
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textFaint,
         tabBarLabelStyle: {
