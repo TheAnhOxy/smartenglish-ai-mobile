@@ -1,24 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { subscribeTopic, useStompConnected } from '@/src/core/realtime/stompClient';
-import {
-  View,
-  Text,
-  ScrollView,
-  FlatList,
-  RefreshControl,
-  Pressable,
-  Image,
-  TextInput,
-  Modal,
-  StyleSheet,
-  Dimensions,
-  Alert,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Linking,
-  type ScrollViewInstance,
-} from 'react-native';
+import { View, Text, ScrollView, FlatList, RefreshControl, Image, TextInput, Modal, StyleSheet, Dimensions, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, Linking, type ScrollViewInstance } from 'react-native';
+// Pressable hỗ trợ style dạng hàm ({ pressed }) — bản của react-native bỏ qua nó (xem PressableCompat)
+import { Pressable } from '@/src/core/components/PressableCompat';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   Search,
