@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { apiClient } from '@/src/core/api/client';
 
 /** Câu hỏi trắc nghiệm của bài đọc / bài nghe (đã chuẩn hoá 2 định dạng lưu trên web). */
@@ -161,5 +162,5 @@ export const saveSkillPracticeResultApi = async (payload: {
   total: number;
   durationSec: number;
 }): Promise<void> => {
-  await apiClient.post('/api/v1/learning/skill-practice/results', payload);
+  await apiClient.post('/api/v1/learning/skill-practice/results', { ...payload, platform: Platform.OS });
 };
