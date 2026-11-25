@@ -53,6 +53,7 @@ import { readRecordingBase64 } from '../../data/readRecording';
 import { CircularAccuracyRing } from '../components/CircularAccuracyRing';
 import { IpaSyllableBreakdownCard } from '../components/IpaSyllableBreakdownCard';
 import { MouthShapeGuideModal } from './MouthShapeGuideModal';
+import { PracticeFeedbackCard } from '@/src/features/practice-feedback/presentation/components/PracticeFeedbackCard';
 
 export const SingleWordSpeakingScreen = () => {
   const router = useRouter();
@@ -71,6 +72,8 @@ export const SingleWordSpeakingScreen = () => {
   const [recordedUri, setRecordedUri] = useState<string | null>(null);
   const [score, setScore] = useState<number | null>(null);
   const [assessment, setAssessment] = useState<PronunciationAssessmentData | null>(null);
+  // Mỗi lượt chấm là một buổi luyện riêng: lưu vào tab Đánh giá (Thống kê)
+  const [attemptKey, setAttemptKey] = useState(0);
 
   const [recordTime, setRecordTime] = useState(0);
   const [isPlayingUserVoice, setIsPlayingUserVoice] = useState(false);
@@ -236,6 +239,7 @@ export const SingleWordSpeakingScreen = () => {
             });
             setAssessment(res);
             setScore(Math.round(res.accuracyScore));
+            setAttemptKey(Date.now());
             setHasRecorded(true);
           } catch (err) {
             setMicNotice(err instanceof Error ? err.message : 'AI chưa chấm được phát âm. Hãy thử lại.');
@@ -320,6 +324,7 @@ export const SingleWordSpeakingScreen = () => {
           });
           setAssessment(res);
           setScore(Math.round(res.accuracyScore));
+          setAttemptKey(Date.now());
           setHasRecorded(true);
         } catch (err) {
           setMicNotice(err instanceof Error ? err.message : 'AI chưa chấm được phát âm. Hãy thử lại.');
@@ -545,6 +550,24 @@ export const SingleWordSpeakingScreen = () => {
             </View>
           </Animated.View>
         )}
+
+        {hasRecorded && score !== null && assessment ? (
+          <PracticeFeedbackCard
+            style={{ marginTop: 12 }}
+            input={{
+              skill: 'SPEAKING',
+              title: `Phát âm: ${targetWord}`,
+              score,
+              sourceId: `pron-${lessonId ?? targetWord}-${attemptKey}`.slice(0, 80),
+              details: [
+                `Từ/cụm luyện phát âm: "${targetWord}" ${targetIpa}.`,
+                `Độ chính xác ${score}/100.`,
+                assessment.transcribedText ? `AI nghe được: "${assessment.transcribedText}".` : '',
+                'Hãy nhận xét phát âm (âm nào dễ sai với người Việt), kỹ năng nói và từ vựng liên quan.',
+              ].filter(Boolean).join('\n'),
+            }}
+          />
+        ) : null}
       </ScrollView>
 
       {/* Record Mic Button Controls (Chuẩn 2-State Mic UI) */}
