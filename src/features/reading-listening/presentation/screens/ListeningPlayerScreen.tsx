@@ -119,7 +119,8 @@ export const ListeningPlayerScreen: React.FC<Props> = ({ footer }) => {
 
         <SkillQuestionsPanel kind="LISTENING" contentId={track.id} title={track.title} questions={track.questions ?? []} />
 
-        {footer}
+        {/* Bài có câu hỏi: nộp bài tập lớp kèm điểm nằm trong SkillQuestionsPanel */}
+        {(track.questions ?? []).length === 0 ? footer : null}
       </ScrollView>
     </View>
   );
