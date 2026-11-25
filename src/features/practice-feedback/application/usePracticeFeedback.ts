@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useAuthStore } from '@/src/core/flows/authStore';
+import { markPracticeUpdated } from '@/src/core/flows/practiceActivity';
 import {
   fetchFeedbackOverviewApi,
   submitSessionFeedbackApi,
@@ -28,7 +29,9 @@ export const useSessionFeedback = (input: SessionFeedbackInput | null) => {
   });
 
   useEffect(() => {
-    if (query.isSuccess) void queryClient.invalidateQueries({ queryKey: FEEDBACK_OVERVIEW_KEY });
+    if (!query.isSuccess) return;
+    markPracticeUpdated();
+    void queryClient.invalidateQueries({ queryKey: FEEDBACK_OVERVIEW_KEY });
   }, [query.isSuccess, queryClient]);
 
   return { ...query, enabled };
