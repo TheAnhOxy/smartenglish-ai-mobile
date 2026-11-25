@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { useRefetchOnFocus } from '@/src/hooks/useRefetchOnFocus';
 import { ActivityIndicator, FlatList, Linking, Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AlertCircle, BookOpen, Clock, ClipboardList, Paperclip, Play, Send } from 'lucide-react-native';
@@ -9,6 +10,7 @@ import {
   canSubmitAssignment,
   getAssignmentRoute,
   getAssignmentTypeLabel,
+  isAssignmentLocked,
   isAssignmentOverdue,
 } from '../../application/assignmentNavigation';
 import type { ClassAssignmentDTO } from '../../data/classApi';
@@ -31,12 +33,14 @@ const openAttachment = async (url?: string) => {
 
 export const StudentAssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ classId }) => {
   const { data: assignments = [], isLoading, isError, error, refetch, isRefetching } = useStudentAssignments(classId);
+  useRefetchOnFocus(() => classId && refetch());
   const router = useRouter();
   const startAssignment = useActiveAssignmentStore((s) => s.start);
   const [submitting, setSubmitting] = useState<ClassAssignmentDTO | null>(null);
 
   const handleOpen = useCallback(
     (item: ClassAssignmentDTO) => {
+      if (isAssignmentLocked(item)) return;
       const route = getAssignmentRoute(item);
       if (route) {
         // Ghi nhớ bài tập đang làm để màn học liệu hiện nút "Nộp vào bài tập lớp"
@@ -62,11 +66,13 @@ export const StudentAssignmentsScreen: React.FC<StudentAssignmentsScreenProps> =
       const overdue = isAssignmentOverdue(item);
       const submittable = canSubmitAssignment(item);
       const hasPractice = !!getAssignmentRoute(item);
+      const locked = isAssignmentLocked(item);
 
       return (
         <Pressable
           onPress={() => handleOpen(item)}
-          className={`bg-white dark:bg-darkCard p-4 rounded-2xl border border-gray-100 dark:border-gray-800 mb-3 ${isDarkTheme() ? 'active:bg-[#2B4C7E]' : 'active:bg-gray-50'}`}
+          disabled={locked}
+          className={`bg-white dark:bg-darkCard p-4 rounded-2xl border border-gray-100 dark:border-gray-800 mb-3 ${locked ? 'opacity-60' : isDarkTheme() ? 'active:bg-[#2B4C7E]' : 'active:bg-gray-50'}`}
         >
           <View className="flex-row items-start justify-between mb-2">
             <View className="flex-1 mr-3">
@@ -92,6 +98,7 @@ export const StudentAssignmentsScreen: React.FC<StudentAssignmentsScreenProps> =
           {item.attachmentUrl ? (
             <Pressable
               onPress={() => openAttachment(item.attachmentUrl)}
+              disabled={locked}
               className="flex-row items-center gap-2 bg-surface dark:bg-darkBg rounded-xl px-3 py-2 mb-2"
             >
               <Paperclip size={13} color={AppColors.secondary} />
@@ -150,7 +157,7 @@ export const StudentAssignmentsScreen: React.FC<StudentAssignmentsScreenProps> =
                   {item.status === 'Đã nộp' ? 'Nộp lại' : 'Nộp bài'}
                 </Text>
               </Pressable>
-            ) : hasPractice ? (
+            ) : hasPractice && !locked ? (
               <Text className="text-xs font-bold text-primary">Xem bài</Text>
             ) : null}
           </View>

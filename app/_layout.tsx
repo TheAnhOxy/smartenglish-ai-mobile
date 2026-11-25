@@ -31,6 +31,7 @@ import { stopAllAudio } from '@/src/core/services/speechService';
 import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync } from '@/src/features/notifications/application/pushNotificationService';
 import { useNotificationRealtimeSync } from '@/src/features/notifications/application/useNotificationRealtimeSync';
+import { useEntitlementSync } from '@/src/core/flows/useEntitlementSync';
 
 // Tắt một số cảnh báo thuộc tính deprecated không cần thiết
 LogBox.ignoreLogs([
@@ -150,6 +151,7 @@ function RootLayoutNav() {
 
   // Nhận thông báo gần realtime khi app đang mở (polling 5s, giống tin nhắn chat)
   useNotificationRealtimeSync(currentUser?.id);
+  useEntitlementSync(currentUser?.id);
 
   // Đăng ký Push Token lên backend khi người dùng đăng nhập & lắng nghe click thông báo
   useEffect(() => {

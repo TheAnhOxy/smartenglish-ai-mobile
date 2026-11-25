@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { useRefetchOnFocus } from '@/src/hooks/useRefetchOnFocus';
 import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,6 +21,7 @@ export const StudentClassesScreen = () => {
   const insets = useSafeAreaInsets();
   const { currentUser } = useAuthStore();
   const { data: classes = [], isLoading, isError, error, refetch, isRefetching } = useStudentClasses();
+  useRefetchOnFocus(refetch);
   const [showJoinModal, setShowJoinModal] = useState(false);
 
   const isPremium = hasActivePremium(currentUser);

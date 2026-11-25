@@ -1,10 +1,11 @@
 import React, { useCallback, useMemo } from 'react';
+import { useRefetchOnFocus } from '@/src/hooks/useRefetchOnFocus';
 import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AlertCircle, BarChart3 } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
 import { useStudentAssignments } from '../../application/useClassMembership';
-import { getAssignmentRoute } from '../../application/assignmentNavigation';
+import { getAssignmentRoute, isAssignmentLocked } from '../../application/assignmentNavigation';
 import type { ClassAssignmentDTO } from '../../data/classApi';
 import { AssignmentStatusBadge } from '../components/AssignmentStatusBadge';
 import { isDarkTheme } from '@/src/theme/themeMode';
@@ -25,6 +26,7 @@ const getAcademicRank = (avg: number | null) => {
 export const StudentGradesTab: React.FC<StudentGradesTabProps> = ({ classId, className }) => {
   const router = useRouter();
   const { data: assignments = [], isLoading, isError, refetch, isRefetching } = useStudentAssignments(classId);
+  useRefetchOnFocus(() => classId && refetch());
 
   const stats = useMemo(() => {
     const total = assignments.length;
@@ -43,12 +45,13 @@ export const StudentGradesTab: React.FC<StudentGradesTabProps> = ({ classId, cla
 
   const renderItem = useCallback(
     ({ item }: { item: ClassAssignmentDTO }) => {
-      const route = getAssignmentRoute(item);
+      const locked = isAssignmentLocked(item);
+      const route = locked ? null : getAssignmentRoute(item);
       return (
         <Pressable
           onPress={() => route && router.push(route)}
           disabled={!route}
-          className={`bg-white dark:bg-darkCard p-4 rounded-2xl border border-gray-100 dark:border-gray-800 mb-3 ${isDarkTheme() ? 'active:bg-[#2B4C7E]' : 'active:bg-gray-50'}`}
+          className={`bg-white dark:bg-darkCard p-4 rounded-2xl border border-gray-100 dark:border-gray-800 mb-3 ${locked ? 'opacity-60' : isDarkTheme() ? 'active:bg-[#2B4C7E]' : 'active:bg-gray-50'}`}
         >
           <View className="flex-row items-start justify-between">
             <View className="flex-1 mr-3">
