@@ -9,6 +9,7 @@ import { Button3D, Tap, dsText } from '@/src/components/ds';
 import { ds, dsFont, dsRadius, dsShadow, dsSize } from '@/src/theme/ds';
 import { TranslatableText, TranslationPanel } from '@/src/core/components/TranslatableText';
 import { SeekBar } from '../components/SeekBar';
+import { SkillQuestionsPanel } from '../components/SkillQuestionsPanel';
 
 const SPEEDS = [
   { label: '0.75x', rate: 0.75 },
@@ -149,6 +150,8 @@ export const ListeningPlayerScreen: React.FC<Props> = ({ footer }) => {
         </View>
 
         <Button3D label={showSub ? 'Ẩn phụ đề' : 'Hiện phụ đề'} variant="light" onPress={() => setShowSub(!showSub)} height={48} />
+
+        <SkillQuestionsPanel kind="LISTENING" contentId={track.id} title={track.title} questions={track.questions ?? []} />
 
         {footer}
       </ScrollView>
