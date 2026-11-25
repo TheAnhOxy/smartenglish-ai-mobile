@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   ArrowRight,
   Send,
+  Square,
   Crown,
 } from 'lucide-react-native';
 import * as Speech from 'expo-speech';
@@ -601,22 +602,8 @@ export const RoleplaySessionScreen = () => {
 
       {/* ── KHU VỰC ĐIỀU KHIỂN DƯỚI CHÂN: MICRO + CÂU VỪA NÓI + NÚT GỬI (không nhập chữ) ── */}
       <View style={s.bottomControl}>
-        <View style={[s.textInputRow, isRecording && s.textInputRowRecording]}>
-          {/* Nút Micro bên trái: Bấm để bật/tắt thu âm và nhận diện giọng nói */}
-          <Pressable
-            onPress={toggleRecording}
-            disabled={isProcessing || voiceBusy}
-            accessibilityLabel={isRecording ? 'Dừng ghi âm' : 'Nói bằng giọng'}
-            style={({ pressed }) => [
-              s.micBtnInBar,
-              isRecording ? s.micBtnRecording : s.micBtnIdle,
-              pressed && { opacity: 0.75 },
-            ]}
-          >
-            <Mic color={isRecording ? '#DC2626' : '#4F46E5'} size={20} />
-          </Pressable>
-
-          {/* Câu nhận dạng từ giọng nói: chỉ hiển thị, không cho gõ */}
+        {/* Câu nhận dạng từ giọng nói: chỉ hiển thị, không cho gõ */}
+        <View style={[s.transcriptBox, isRecording && s.transcriptBoxRecording]}>
           <Text
             numberOfLines={3}
             style={[
@@ -632,25 +619,51 @@ export const RoleplaySessionScreen = () => {
                 ? inputText || 'Đang ghi âm... bấm micro lần nữa khi nói xong'
                 : inputText || 'Bấm micro và nói câu trả lời bằng tiếng Anh'}
           </Text>
+        </View>
 
-          {/* Nút Gửi bên phải: Xoay vòng tròn ActivityIndicator khi AI đang xử lý phản hồi */}
+        {/* Micro lớn ở giữa, nút gửi bên phải */}
+        <View style={s.controlRow}>
+          <View style={s.controlSide} />
           <Pressable
-            onPress={handleSendMessage}
-            disabled={(!inputText.trim() && !isRecording) || isProcessing || voiceBusy}
-            style={[
-              s.sendBtn,
-              (inputText.trim() || isRecording) && !isProcessing
-                ? s.sendBtnActive
-                : s.sendBtnDisabled,
+            onPress={toggleRecording}
+            disabled={isProcessing || voiceBusy}
+            accessibilityLabel={isRecording ? 'Dừng ghi âm' : 'Nói bằng giọng'}
+            style={({ pressed }) => [
+              s.micBtnCenter,
+              isRecording ? s.micBtnRecording : s.micBtnIdle,
+              (isProcessing || voiceBusy) && { opacity: 0.5 },
+              pressed && { opacity: 0.75 },
             ]}
           >
-            {isProcessing ? (
+            {voiceBusy ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : isRecording ? (
+              <Square color="#FFFFFF" size={22} fill="#FFFFFF" />
             ) : (
-              <Send color="#FFFFFF" size={17} />
+              <Mic color="#FFFFFF" size={28} />
             )}
           </Pressable>
+          <View style={[s.controlSide, { alignItems: 'flex-end' }]}>
+            <Pressable
+              onPress={handleSendMessage}
+              disabled={!inputText.trim() || isRecording || isProcessing || voiceBusy}
+              accessibilityLabel="Gửi câu trả lời"
+              style={[
+                s.sendBtn,
+                inputText.trim() && !isRecording && !isProcessing ? s.sendBtnActive : s.sendBtnDisabled,
+              ]}
+            >
+              {isProcessing ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Send color="#FFFFFF" size={18} />
+              )}
+            </Pressable>
+          </View>
         </View>
+        <Text style={s.micHint}>
+          {isRecording ? 'Đang ghi âm · bấm lại để dừng' : inputText ? 'Bấm gửi hoặc nói lại' : 'Bấm để nói'}
+        </Text>
 
         {/* Hàng thông tin bên dưới: Trạng thái & số lượt còn lại */}
         {voice.error || voiceNotice ? (
@@ -1130,35 +1143,51 @@ const s = StyleSheet.create({
     paddingBottom: 22,
     paddingHorizontal: 16,
   },
-  textInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  transcriptBox: {
     backgroundColor: '#F8FAFC',
-    borderRadius: 28,
+    borderRadius: 16,
     borderWidth: 1.5,
     borderColor: '#CBD5E1',
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
     paddingVertical: 4,
+    minHeight: 44,
+    justifyContent: 'center',
   },
-  textInputRowRecording: {
+  transcriptBoxRecording: {
     borderColor: '#F87171',
     backgroundColor: '#FFF7ED',
   },
-  micBtnInBar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  controlRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  controlSide: {
+    flex: 1,
+  },
+  micBtnCenter: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 6,
   },
   micBtnIdle: {
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#4F46E5',
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   micBtnRecording: {
-    backgroundColor: '#FEE2E2',
-    borderWidth: 1.5,
-    borderColor: '#EF4444',
+    backgroundColor: '#DC2626',
+  },
+  micHint: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 6,
   },
   textInputField: {
     flex: 1,
@@ -1175,12 +1204,11 @@ const s = StyleSheet.create({
     color: '#94A3B8',
   },
   sendBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 6,
   },
   sendBtnActive: {
     backgroundColor: '#4F46E5',
