@@ -27,6 +27,8 @@ import {
   useAudioPlayerStatus,
   useAudioRecorder,
 } from 'expo-audio';
+import { METERED_RECORDING_OPTIONS, useMicLevel } from '@/src/core/audio/micLevel';
+import { MicLevelWaveform } from '@/src/core/components/MicLevelWaveform';
 import { CircularAccuracyRing } from '../components/CircularAccuracyRing';
 import { IpaSyllableBreakdownCard } from '../components/IpaSyllableBreakdownCard';
 import { AppColors } from '@/src/core/theme/colors';
@@ -97,7 +99,10 @@ export const SpeakingFeedbackScreen = () => {
 
   const syllables = extractAndEvaluateSyllables(targetWord, targetIpa, phonemeErrors);
 
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  // Bật đo âm lượng để vẽ sóng âm theo giọng nói, học viên biết micro có đang thu hay không
+  const recorder = useAudioRecorder(METERED_RECORDING_OPTIONS);
+  const [webStream, setWebStream] = useState<MediaStream | null>(null);
+  const micLevel = useMicLevel(recorder, isRecording, webStream);
   const player = useAudioPlayer(recordedUri);
   const playerStatus = useAudioPlayerStatus(player);
 
@@ -167,6 +172,7 @@ export const SpeakingFeedbackScreen = () => {
     try {
       if (Platform.OS === 'web' && typeof window !== 'undefined' && navigator.mediaDevices) {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setWebStream(stream);
         mediaRecorderRef.current = new (window as any).MediaRecorder(stream);
         audioChunksRef.current = [];
 
@@ -453,15 +459,21 @@ export const SpeakingFeedbackScreen = () => {
               <Text style={[s.audioLabelUserText, !hasRecording && { color: dk('#94A3B8', 'text') }]}>
                 {hasRecording ? 'Your Voice (Bản ghi âm giọng của bạn)' : 'Your Voice (Chưa có bản ghi âm)'}
               </Text>
-              <View style={s.waveformRow}>
-                <View style={[s.waveBar, { height: 14, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
-                <View style={[s.waveBar, { height: 28, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
-                <View style={[s.waveBar, { height: 12, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
-                <View style={[s.waveBar, { height: 32, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
-                <View style={[s.waveBar, { height: 24, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
-                <View style={[s.waveBar, { height: 16, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
-                <View style={[s.waveBar, { height: 10, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
-              </View>
+              {isRecording ? (
+                <View style={{ marginTop: 6 }}>
+                  <MicLevelWaveform recording level={micLevel} color="#38BDF8" height={36} />
+                </View>
+              ) : (
+                <View style={s.waveformRow}>
+                  <View style={[s.waveBar, { height: 14, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
+                  <View style={[s.waveBar, { height: 28, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
+                  <View style={[s.waveBar, { height: 12, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
+                  <View style={[s.waveBar, { height: 32, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
+                  <View style={[s.waveBar, { height: 24, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
+                  <View style={[s.waveBar, { height: 16, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
+                  <View style={[s.waveBar, { height: 10, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
+                </View>
+              )}
             </View>
           </View>
         </View>

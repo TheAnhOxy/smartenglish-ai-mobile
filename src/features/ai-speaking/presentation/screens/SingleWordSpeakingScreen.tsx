@@ -41,6 +41,8 @@ import {
   useAudioPlayerStatus,
   useAudioRecorder,
 } from 'expo-audio';
+import { METERED_RECORDING_OPTIONS, useMicLevel } from '@/src/core/audio/micLevel';
+import { MicLevelWaveform } from '@/src/core/components/MicLevelWaveform';
 import * as Speech from 'expo-speech';
 import { createManagedWebAudio, speakText, stopSpeech } from '@/src/core/services/speechService';
 import {
@@ -83,7 +85,10 @@ export const SingleWordSpeakingScreen = () => {
 
   const isActionProcessingRef = useRef(false);
 
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  // Bật đo âm lượng để vẽ sóng âm theo giọng nói, học viên biết micro có đang thu hay không
+  const recorder = useAudioRecorder(METERED_RECORDING_OPTIONS);
+  const [webStream, setWebStream] = useState<MediaStream | null>(null);
+  const micLevel = useMicLevel(recorder, isRecording, webStream);
   const player = useAudioPlayer(recordedUri);
   const playerStatus = useAudioPlayerStatus(player);
   const mediaRecorderRef = useRef<any>(null);
@@ -198,6 +203,7 @@ export const SingleWordSpeakingScreen = () => {
     try {
       if (Platform.OS === 'web' && typeof window !== 'undefined' && navigator.mediaDevices) {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setWebStream(stream);
         mediaRecorderRef.current = new (window as any).MediaRecorder(stream);
         audioChunksRef.current = [];
 
@@ -446,7 +452,11 @@ export const SingleWordSpeakingScreen = () => {
           </Tap>
 
           {/* Sóng âm — chuyển động khi đang thu hoặc đang phát mẫu */}
-          <Waveform active={isRecording || isPlayingNative} color={isRecording ? '#FCA5A5' : ds.skyLight} />
+          {isRecording ? (
+            <MicLevelWaveform recording level={micLevel} color="#FCA5A5" hintColor={ds.onInk} />
+          ) : (
+            <Waveform active={isPlayingNative} color={ds.skyLight} />
+          )}
         </Animated.View>
 
         {/* ─── TRẠNG THÁI 1: CHƯA THU ÂM (SẴN SÀNG LUYỆN TẬP) ─── */}

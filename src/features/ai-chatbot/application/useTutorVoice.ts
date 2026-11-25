@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
-import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
+import { AudioModule, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import { File } from 'expo-file-system';
+import { METERED_RECORDING_OPTIONS, meteringToLevel, useWebStreamLevel } from '@/src/core/audio/micLevel';
 import { TutorAudio } from '../data/chatbotApi';
 import { DictationSession, SpeechRecognizer, startBrowserDictation } from '../data/browserDictation';
 
@@ -17,13 +18,8 @@ const blobBase64 = (blob: Blob): Promise<string> => new Promise((resolve, reject
   reader.readAsDataURL(blob);
 });
 
-const RECORDING_OPTIONS = { ...RecordingPresets.HIGH_QUALITY, isMeteringEnabled: true };
-
-/** dB của micro (-160…0) → 0…1. Giọng nói thường khoảng -40…-5 dB; dưới -50 dB coi như im lặng. */
-export const meteringToLevel = (db: number | null | undefined): number => {
-  if (typeof db !== 'number' || !Number.isFinite(db)) return 0;
-  return Math.max(0, Math.min(1, (db + 50) / 45));
-};
+const RECORDING_OPTIONS = METERED_RECORDING_OPTIONS;
+export { meteringToLevel };
 
 export const useTutorVoice = (callbacks: {
   onText: (text: string) => void;
@@ -42,6 +38,8 @@ export const useTutorVoice = (callbacks: {
   const dictation = useRef<DictationSession | null>(null);
   const media = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // Web: luồng micro dùng để đo âm lượng vẽ sóng (luồng ghi âm, hoặc luồng riêng khi nhận dạng giọng nói của trình duyệt)
+  const [meterStream, setMeterStream] = useState<MediaStream | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const version = useRef(0);
   const opening = useRef(false);
@@ -102,6 +100,13 @@ export const useTutorVoice = (callbacks: {
         const SpeechClass = browser.SpeechRecognition || browser.webkitSpeechRecognition;
         if (SpeechClass && !recordAudio) {
           setListening(true);
+          // Nhận dạng của trình duyệt không cho đọc âm thanh: mở thêm luồng micro chỉ để đo âm lượng
+          navigator.mediaDevices?.getUserMedia?.({ audio: true })
+            .then((meter) => {
+              if (activeVersion === version.current) setMeterStream(meter);
+              else meter.getTracks().forEach((track) => track.stop());
+            })
+            .catch(() => undefined);
           dictation.current = startBrowserDictation(new SpeechClass(), language,
             (text) => handlers.current.onInterim(text),
             (text) => { if (activeVersion === version.current) handlers.current.onText(text); },
@@ -111,6 +116,7 @@ export const useTutorVoice = (callbacks: {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           if (activeVersion !== version.current) { stream.getTracks().forEach((t) => t.stop()); return; }
           streamRef.current = stream;
+          setMeterStream(stream);
           const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
           const recording = new MediaRecorder(stream, { mimeType });
           const chunks: BlobPart[] = [];
@@ -151,8 +157,15 @@ export const useTutorVoice = (callbacks: {
   }, [cancel, finish, language, recordAudio, recorder, stop]);
 
   useEffect(() => () => cancel(), [cancel]);
-  // Mức âm lượng 0…1 khi đang ghi (iOS/Android); null nếu không đo được (web)
-  const level = Platform.OS !== 'web' && listening ? meteringToLevel(recorderState.metering) : null;
+  // Dừng nghe: tắt luồng đo âm lượng (luồng ghi âm đã tự dừng ở onstop / cancel)
+  useEffect(() => {
+    if (listening || !meterStream) return;
+    if (meterStream !== streamRef.current) meterStream.getTracks().forEach((track) => track.stop());
+    setMeterStream(null);
+  }, [listening, meterStream]);
+  const webLevel = useWebStreamLevel(listening ? meterStream : null);
+  // Mức âm lượng 0…1 khi đang ghi: iOS/Android đọc metering, web đo luồng micro; null nếu không đo được
+  const level = !listening ? null : Platform.OS === 'web' ? webLevel : meteringToLevel(recorderState.metering);
   return { listening, processing, error, language, setLanguage, recordAudio, setRecordAudio,
     cancel, stop, start, level };
 };
