@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Activity, CheckCircle2, Sparkles, Zap } from '@/src/components/ds/icons';
+import { Activity, Target, Volume2, Zap } from '@/src/components/ds/icons';
 import { dsFont } from '@/src/theme/ds';
 import { dk } from '@/src/theme/themeMode';
 
@@ -11,64 +11,44 @@ interface SpeakingMetricsGridProps {
   intonation: number;
 }
 
+/** Màu theo điểm, không theo tiêu chí: tránh hiện xanh khi điểm thấp. */
+const tone = (v: number) =>
+  v >= 80
+    ? { fg: dk('#16A34A', 'text'), bar: '#16A34A' }
+    : v >= 60
+    ? { fg: dk('#B45309', 'text'), bar: '#F59E0B' }
+    : { fg: dk('#DC2626', 'text'), bar: '#DC2626' };
+
 export const SpeakingMetricsGrid: React.FC<SpeakingMetricsGridProps> = ({
-  accuracy = 85,
-  fluency = 80,
-  stress = 78,
-  intonation = 82,
+  accuracy,
+  fluency,
+  stress,
+  intonation,
 }) => {
   const metrics = [
-    {
-      label: 'Độ chính xác',
-      sub: 'Accuracy',
-      value: Math.round(accuracy),
-      color: dk('#16A34A', 'text'),
-      bg: '#DCFCE7',
-      icon: CheckCircle2,
-    },
-    {
-      label: 'Trôi chảy',
-      sub: 'Fluency',
-      value: Math.round(fluency),
-      color: '#0EA5E9',
-      bg: '#E0F2FE',
-      icon: Zap,
-    },
-    {
-      label: 'Trọng âm',
-      sub: 'Stress',
-      value: Math.round(stress),
-      color: '#F59E0B',
-      bg: '#FEF3C7',
-      icon: Activity,
-    },
-    {
-      label: 'Ngữ điệu',
-      sub: 'Intonation',
-      value: Math.round(intonation),
-      color: dk('#0369A1', 'text'),
-      bg: '#E0F2FE',
-      icon: Sparkles,
-    },
+    { label: 'Độ chính xác', value: Math.round(accuracy), icon: Target },
+    { label: 'Trôi chảy', value: Math.round(fluency), icon: Zap },
+    { label: 'Trọng âm', value: Math.round(stress), icon: Activity },
+    { label: 'Ngữ điệu', value: Math.round(intonation), icon: Volume2 },
   ];
 
   return (
     <View style={styles.gridContainer}>
       {metrics.map((item, index) => {
         const IconComponent = item.icon;
+        const c = tone(item.value);
         return (
           <View key={index} style={styles.metricCard}>
             <View style={styles.topRow}>
-              <View style={[styles.iconWrap, { backgroundColor: item.bg }]}>
-                <IconComponent color={item.color} size={15} />
+              <View style={styles.iconWrap}>
+                <IconComponent color={dk('#5B6B7F', 'text')} size={15} />
               </View>
-              <Text style={[styles.valueText, { color: item.color }]}>
+              <Text style={[styles.valueText, { color: c.fg }]}>
                 {item.value}%
               </Text>
             </View>
 
             <Text style={styles.labelText}>{item.label}</Text>
-            <Text style={styles.subText}>{item.sub}</Text>
 
             {/* Progress Bar Mini */}
             <View style={styles.progressBarTrack}>
@@ -77,7 +57,7 @@ export const SpeakingMetricsGrid: React.FC<SpeakingMetricsGridProps> = ({
                   styles.progressBarFill,
                   {
                     width: `${Math.min(100, Math.max(0, item.value))}%`,
-                    backgroundColor: item.color,
+                    backgroundColor: c.bar,
                   },
                 ]}
               />
@@ -121,6 +101,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#F4F7FB',
   },
   valueText: {
     fontSize: 18,
@@ -130,11 +111,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: dsFont.bold,
     color: '#0F2A44',
-  },
-  subText: {
-    fontFamily: dsFont.body,
-    fontSize: 11,
-    color: '#8597AB',
     marginBottom: 8,
   },
   progressBarTrack: {
