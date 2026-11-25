@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
 import { BookOpen, CheckCircle2, Lightbulb, Mic, MessageSquare, PenLine, Sparkles, TrendingUp } from 'lucide-react-native';
@@ -12,6 +12,8 @@ interface PracticeFeedbackCardProps {
   /** null khi dữ liệu buổi luyện chưa sẵn sàng (thẻ sẽ chưa gọi AI). */
   input: SessionFeedbackInput | null;
   style?: StyleProp<ViewStyle>;
+  /** Gọi một lần khi AI nhận xét xong hoặc báo lỗi (để màn cha hiện các số liệu cùng lúc). */
+  onSettled?: (ok: boolean) => void;
 }
 
 const DIMENSIONS: { key: 'vocabulary' | 'pronunciation' | 'speaking' | 'grammar'; label: string; icon: typeof BookOpen }[] = [
@@ -69,9 +71,14 @@ const BulletList: React.FC<{ title: string; items: string[]; icon: typeof BookOp
   );
 
 /** Thẻ "Nhận xét từ AI" sau mỗi buổi luyện tập: điểm, từng mặt kỹ năng, điểm mạnh, cần cải thiện, lời khuyên. */
-export const PracticeFeedbackCard: React.FC<PracticeFeedbackCardProps> = ({ input, style }) => {
+export const PracticeFeedbackCard: React.FC<PracticeFeedbackCardProps> = ({ input, style, onSettled }) => {
   const router = useRouter();
   const { data, isLoading, isError, error, refetch, isRefetching, enabled } = useSessionFeedback(input);
+  const settled = enabled && !isLoading && (data != null || isError);
+  useEffect(() => {
+    if (settled) onSettled?.(!isError);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settled]);
 
   if (!enabled) return null;
 

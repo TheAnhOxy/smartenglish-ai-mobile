@@ -1,14 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  Modal,
-  StyleSheet,
-  ActivityIndicator,
-  type ScrollViewInstance,
-} from 'react-native';
+import { View, Text, ScrollView, Modal, StyleSheet, ActivityIndicator, type ScrollViewInstance } from 'react-native';
+// Pressable hỗ trợ style dạng hàm ({ pressed }) — bản của react-native bỏ qua nó (xem PressableCompat)
+import { Pressable } from '@/src/core/components/PressableCompat';
 import { useLocalSearchParams, useRouter, useFocusEffect, useIsFocused } from 'expo-router';
 import {
   Mic,
@@ -22,6 +15,8 @@ import {
   Send,
   Square,
   Crown,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react-native';
 import * as Speech from 'expo-speech';
 import {
@@ -67,6 +62,8 @@ interface ChatTurn {
   /** Lượt học viên: câu sửa ngữ pháp / cách nói hay hơn. */
   grammarFix?: string;
   betterPhrasing?: string;
+  /** Các cách nói khác do AI gợi ý cho câu này. */
+  alternatives?: string[];
 }
 
 const toTurnAssessment = (attempt: SpokenAttempt): TurnAssessment => ({
@@ -107,6 +104,13 @@ export const RoleplaySessionScreen = () => {
   const [attempt, setAttempt] = useState<SpokenAttempt | null>(null);
   const [showAttempt, setShowAttempt] = useState(false);
   const [reviewAttempt, setReviewAttempt] = useState<SpokenAttempt | null>(null);
+  // Lượt nói đang mở phần đánh giá (mặc định thu gọn: chỉ có nút nhỏ "Xem đánh giá")
+  const [openAssessIdx, setOpenAssessIdx] = useState<number | null>(null);
+  // Bảng tổng kết: điểm chỉ hiện khi AI đã nhận xét xong (hoặc báo lỗi), không hiện trước
+  const [summaryAiSettled, setSummaryAiSettled] = useState(false);
+  useEffect(() => {
+    if (!showSummaryModal) setSummaryAiSettled(false);
+  }, [showSummaryModal]);
   const targetRef = useRef<string | null>(null);
   targetRef.current = practiceTarget;
   const voice = useTutorVoice({
@@ -335,7 +339,7 @@ export const RoleplaySessionScreen = () => {
       setTurns((prev) => [
         ...prev.map((t, i) =>
           i === userIndex
-            ? { ...t, grammarFix: aiResult.grammarCorrections[0], betterPhrasing: aiResult.betterPhrasing }
+            ? { ...t, grammarFix: aiResult.grammarCorrections[0], betterPhrasing: aiResult.betterPhrasing, alternatives: aiResult.alternatives }
             : t
         ),
         { role: 'ai', text: aiText, suggestions: aiResult.suggestedNextReplies },
@@ -502,37 +506,66 @@ export const RoleplaySessionScreen = () => {
                   {mainText}
                 </Text>
 
-                {/* Đánh giá ngay sau câu nói của học viên */}
-                {!isAi && (turn.assessment || turn.assessError || turn.grammarFix || turn.betterPhrasing) ? (
-                  <View style={s.assessCard}>
-                    {turn.assessment ? (
-                      <Pressable
-                        onPress={() => setReviewAttempt(turn.assessment?.detail ?? null)}
-                        accessibilityLabel="Xem chi tiết điểm phát âm"
-                        style={({ pressed }) => [s.assessRow, pressed && { opacity: 0.7 }]}
-                      >
-                        <Text style={[s.assessOverall, { color: scoreColor(turn.assessment.overall) }]}>
-                          {turn.assessment.overall}%
-                        </Text>
-                        <Text style={[s.assessMuted, { flex: 1 }]} numberOfLines={1}>
-                          {scoreLabel(turn.assessment.overall)}
-                        </Text>
-                        <Text style={s.assessLink}>Xem chi tiết</Text>
-                      </Pressable>
-                    ) : null}
-                    {turn.assessError ? <Text style={s.assessMuted}>{turn.assessError}</Text> : null}
-                    {turn.grammarFix ? (
-                      <Text style={s.assessFix}>
-                        <Text style={s.assessFixLabel}>Sửa ngữ pháp: </Text>
-                        {turn.grammarFix}
+                {/* Đánh giá câu nói: thu gọn thành một nút nhỏ, bấm mới mở chi tiết (không hiện % ngay) */}
+                {!isAi && (turn.assessment || turn.assessError || turn.grammarFix || turn.betterPhrasing || turn.alternatives?.length) ? (
+                  <Pressable
+                    onPress={() => setOpenAssessIdx(openAssessIdx === idx ? null : idx)}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel={openAssessIdx === idx ? 'Ẩn đánh giá' : 'Xem đánh giá câu nói'}
+                    style={s.assessToggle}
+                  >
+                    <Text style={s.assessToggleText}>{openAssessIdx === idx ? 'Ẩn đánh giá' : 'Xem đánh giá'}</Text>
+                    {openAssessIdx === idx ? <ChevronUp color="#E0E7FF" size={14} /> : <ChevronDown color="#E0E7FF" size={14} />}
+                  </Pressable>
+                ) : null}
+                {!isAi && openAssessIdx === idx ? (
+                <View style={s.assessCard}>
+                  {turn.assessment ? (
+                    <View style={s.assessRow}>
+                      <Text style={[s.assessOverall, { color: scoreColor(turn.assessment.overall) }]}>
+                        {turn.assessment.overall}%
                       </Text>
-                    ) : null}
-                    {!turn.grammarFix && turn.betterPhrasing ? (
-                      <Text style={s.assessBetter}>
-                        <Text style={s.assessBetterLabel}>Cách nói tự nhiên hơn: </Text>
-                        {turn.betterPhrasing}
+                      <Text style={[s.assessMuted, { flexShrink: 1 }]} numberOfLines={2}>
+                        {scoreLabel(turn.assessment.overall)}
                       </Text>
-                    ) : null}
+                    </View>
+                  ) : null}
+                  {turn.assessError ? <Text style={s.assessMuted}>{turn.assessError}</Text> : null}
+                  {turn.grammarFix ? (
+                    <Text style={s.assessFix}>
+                      <Text style={s.assessFixLabel}>Sửa ngữ pháp: </Text>
+                      {turn.grammarFix}
+                    </Text>
+                  ) : null}
+                  {/* Gợi ý cách nói khác (vd. "how are you" → "How are you doing?"); bấm để nghe đọc mẫu */}
+                  {turn.alternatives && turn.alternatives.length > 0 ? (
+                    <View style={{ gap: 4 }}>
+                      <Text style={s.assessBetterLabel}>Bạn có thể nói:</Text>
+                      {turn.alternatives.map((alt) => (
+                        <Pressable
+                          key={alt}
+                          onPress={() => handleSpeakAiLine(alt)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Nghe đọc: ${alt}`}
+                          style={s.altChip}
+                        >
+                          <Volume2 color="#4F46E5" size={13} />
+                          <Text style={s.altText}>{alt}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : turn.betterPhrasing ? (
+                    <Text style={s.assessBetter}>
+                      <Text style={s.assessBetterLabel}>Cách nói tự nhiên hơn: </Text>
+                      {turn.betterPhrasing}
+                    </Text>
+                  ) : null}
+                  {turn.assessment?.detail ? (
+                    <Pressable onPress={() => setReviewAttempt(turn.assessment?.detail ?? null)} hitSlop={6} accessibilityRole="button">
+                      <Text style={s.assessLink}>Xem phân tích phát âm chi tiết</Text>
+                    </Pressable>
+                  ) : null}
                   </View>
                 ) : null}
 
@@ -620,9 +653,7 @@ export const RoleplaySessionScreen = () => {
           </Text>
           {attempt && !voiceBusy && !isRecording ? (
             <Pressable onPress={() => setShowAttempt(true)} style={s.attemptPill} accessibilityLabel="Xem lại kết quả chấm">
-              <Text style={[s.attemptPillText, { color: scoreColor(attempt.data.overallScore) }]}>
-                {attempt.data.overallScore}%
-              </Text>
+              <Text style={[s.attemptPillText, { color: '#4F46E5' }]}>Chi tiết</Text>
             </Pressable>
           ) : null}
         </View>
@@ -734,6 +765,13 @@ export const RoleplaySessionScreen = () => {
               Đánh giá phản xạ đàm thoại với {scenario.ai_persona}
             </Text>
 
+            {/* Chưa nói câu nào thì không có nhận xét AI để chờ */}
+            {!summaryAiSettled && turns.some((t) => t.role === 'user') ? (
+              <View style={[s.scoreBox, { justifyContent: 'center', gap: 8 }]}>
+                <ActivityIndicator color="#4F46E5" size="small" />
+                <Text style={s.scoreLabel}>AI đang tổng hợp kết quả...</Text>
+              </View>
+            ) : (
             <View style={s.scoreBox}>
               <View style={s.scoreItem}>
                 <Text style={s.scoreNumber}>{sessionEvaluation.turnsCount}</Text>
@@ -754,10 +792,12 @@ export const RoleplaySessionScreen = () => {
                 <Text style={s.scoreLabel}>Câu cần sửa</Text>
               </View>
             </View>
+            )}
 
             {/* AI thật nhận xét cả đoạn hội thoại: từ vựng, ngữ pháp, kỹ năng nói và lời khuyên */}
             <PracticeFeedbackCard
               style={{ width: '100%', marginBottom: 18 }}
+              onSettled={() => setSummaryAiSettled(true)}
               input={
                 showSummaryModal && turns.some((t) => t.role === 'user')
                   ? {
@@ -1440,9 +1480,30 @@ const s = StyleSheet.create({
     fontWeight: '600',
     color: '#94A3B8',
   },
-  assessCard: {
+  altChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: '#EEF2FF',
+  },
+  altText: { flexShrink: 1, fontSize: 13, fontWeight: '600', color: '#312E81' },
+  assessToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
     alignSelf: 'flex-end',
-    maxWidth: '85%',
+    gap: 3,
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  assessToggleText: { fontSize: 11, fontWeight: '700', color: '#E0E7FF' },
+  assessCard: {
+    alignSelf: 'stretch',
     marginTop: 6,
     padding: 10,
     gap: 6,
