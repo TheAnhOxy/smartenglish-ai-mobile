@@ -1,5 +1,6 @@
 import * as Speech from 'expo-speech';
 import { Platform } from 'react-native';
+import { chooseBestVoice } from './voiceQuality';
 import { assignVoices, parseDialogue, type SpeakerVoice, type VoiceInfo } from './dialogueScript';
 
 export interface SpeakOptions {
@@ -59,22 +60,10 @@ export const stopSpeech = async () => {
   }
 };
 
-// Giọng đọc tự nhiên nhất có trên máy (ưu tiên bản Enhanced/Premium/Neural), chọn một lần rồi dùng lại
+// Giọng đọc tự nhiên nhất có trên máy (ưu tiên bản Premium/Enhanced/Neural), chọn một lần rồi dùng lại
 let naturalVoice: { id?: string; webVoice?: SpeechSynthesisVoice } | null = null;
-const NATURAL_HINTS = /(premium|enhanced|neural|natural|siri|google us english|samantha|ava|zoe|allison|network)/i;
-const ROBOTIC_HINTS = /(compact|eloquence|espeak|fred|albert|zarvox|bad news|bells|boing|bubbles|cellos|trinoids|whisper|jester|organ|superstar|wobble|grandpa|grandma|rocko|shelley|flo|reed|sandy|eddy)/i;
 
-const scoreVoice = (v: { name?: string; identifier?: string; language?: string; quality?: string }) => {
-  const label = `${v.name ?? ''} ${v.identifier ?? ''}`;
-  if (ROBOTIC_HINTS.test(label)) return -10;
-  let s = 0;
-  if (/^en[-_]US/i.test(v.language ?? '')) s += 3;
-  else if (/^en/i.test(v.language ?? '')) s += 1;
-  if (v.quality === 'Enhanced') s += 4;
-  if (NATURAL_HINTS.test(label)) s += 3;
-  if (/network/i.test(label)) s += 1;
-  return s;
-};
+export { chooseBestVoice, scoreVoice, type VoiceCandidate } from './voiceQuality';
 
 const pickNaturalVoice = async () => {
   if (naturalVoice) return naturalVoice;
@@ -89,18 +78,12 @@ const pickNaturalVoice = async () => {
         });
         voices = window.speechSynthesis.getVoices();
       }
-      const best = voices
-        .filter((v) => /^en/i.test(v.lang))
-        .sort((a, b) => scoreVoice({ name: a.name, language: a.lang }) - scoreVoice({ name: b.name, language: b.lang }))
-        .pop();
-      return (naturalVoice = { webVoice: best });
+      const best = chooseBestVoice(voices.map((v) => ({ name: v.name, identifier: v.voiceURI, language: v.lang, voice: v })));
+      return (naturalVoice = { webVoice: best?.voice });
     }
     const voices = await Speech.getAvailableVoicesAsync();
-    const best = voices
-      .filter((v) => /^en/i.test(v.language))
-      .sort((a, b) => scoreVoice(a) - scoreVoice(b))
-      .pop();
-    return (naturalVoice = { id: best && scoreVoice(best) > 0 ? best.identifier : undefined });
+    const best = chooseBestVoice(voices);
+    return (naturalVoice = { id: best?.identifier });
   } catch {
     return (naturalVoice = {});
   }

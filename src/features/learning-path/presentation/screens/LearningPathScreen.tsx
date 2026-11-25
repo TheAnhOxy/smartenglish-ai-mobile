@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, Modal, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, ScrollView, Modal, StyleSheet, Dimensions } from 'react-native';
+// Pressable hỗ trợ style dạng hàm ({ pressed }) — bản của react-native bỏ qua nó (xem PressableCompat)
+import { Pressable } from '@/src/core/components/PressableCompat';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,

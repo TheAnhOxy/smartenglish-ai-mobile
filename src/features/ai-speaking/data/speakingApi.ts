@@ -100,6 +100,8 @@ export interface RoleplayChatResponse {
   vocabularySuggestions: Array<{ word: string; meaningVi: string }>;
   /** Câu học viên viết lại cho tự nhiên hơn (AI gợi ý khi không có lỗi ngữ pháp). */
   betterPhrasing?: string;
+  /** Các cách nói khác cho câu của học viên, vd. "how are you" → "How are you doing?". */
+  alternatives: string[];
 }
 
 export const fetchRoleplayScenariosApi = async (forceRefresh: boolean = false): Promise<RoleplayScenario[]> => {
@@ -414,7 +416,10 @@ export const sendRoleplayChatApi = async (
         suggestedNextReplies: suggestions.filter((x) => typeof x === 'string' && x.trim()).slice(0, 3),
         grammarCorrections: data.grammarCorrection ? [String(data.grammarCorrection)] : data.grammarCorrections || [],
         vocabularySuggestions: Array.isArray(data.vocabularySuggestions) ? data.vocabularySuggestions : [],
-        betterPhrasing: data.betterPhrasing ? String(data.betterPhrasing) : undefined
+        betterPhrasing: data.betterPhrasing ? String(data.betterPhrasing) : undefined,
+        alternatives: Array.isArray(data.alternativePhrasings)
+          ? data.alternativePhrasings.filter((x: unknown): x is string => typeof x === 'string' && x.trim() !== '').slice(0, 3)
+          : [],
       };
     }
   } catch (err: any) {

@@ -1,13 +1,7 @@
 import React, { useState } from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  ScrollView,
-  Dimensions,
-} from 'react-native';
+import { Modal, View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
+// Pressable hỗ trợ style dạng hàm ({ pressed }) — bản của react-native bỏ qua nó (xem PressableCompat)
+import { Pressable } from '@/src/core/components/PressableCompat';
 import { X, ChevronDown, ChevronUp, Headphones, FileText, Play, Bookmark, ClipboardList } from 'lucide-react-native';
 import { colors } from '@/src/theme/colors';
 import { dk } from '@/src/theme/themeMode';

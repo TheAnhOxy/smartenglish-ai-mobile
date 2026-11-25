@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  Image,
-} from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
+// Pressable hỗ trợ style dạng hàm ({ pressed }) — bản của react-native bỏ qua nó (xem PressableCompat)
+import { Pressable } from '@/src/core/components/PressableCompat';
 import {
   Volume2,
   Bookmark,

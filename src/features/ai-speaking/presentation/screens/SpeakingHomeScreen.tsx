@@ -1,17 +1,8 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { useRefetchOnFocus } from '@/src/hooks/useRefetchOnFocus';
-import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  StyleSheet,
-  ActivityIndicator,
-  Image,
-  TextInput,
-  Dimensions,
-  RefreshControl,
-} from 'react-native';
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator, Image, TextInput, Dimensions, RefreshControl } from 'react-native';
+// Pressable hỗ trợ style dạng hàm ({ pressed }) — bản của react-native bỏ qua nó (xem PressableCompat)
+import { Pressable } from '@/src/core/components/PressableCompat';
 import { useRouter } from 'expo-router';
 import {
   Search,

@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
+// Pressable hỗ trợ style dạng hàm ({ pressed }) — bản của react-native bỏ qua nó (xem PressableCompat)
+import { Pressable } from '@/src/core/components/PressableCompat';
 import { useRouter } from 'expo-router';
 import { Bot, ChevronRight, Lock, MessageSquare, Flame, Sparkles, Crown } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';

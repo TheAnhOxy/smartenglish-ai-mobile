@@ -53,6 +53,11 @@ export const Tap: React.FC<TapProps> = ({ style, scaleTo = 0.96, sound = 'tap', 
   const to = (v: number) =>
     Animated.spring(scale, { toValue: v, useNativeDriver: true, speed: 40, bounciness: v === 1 ? 8 : 0 }).start();
   const { outer, inner } = splitTapStyle(style);
+  // Chỉ kéo lớp trong lấp đầy khi khung ngoài có kích thước do cha quy định (ô lưới flex:1, width…).
+  // Luôn flexGrow:1 khiến iOS (Yoga native) kéo dãn nút cỡ-theo-nội-dung theo chiều dọc — vd. nút
+  // "Nghe phát âm mẫu" thành khối vòm cao, chữ bị đẩy khuất; web tính layout khác nên không thấy.
+  const fillOuter =
+    outer.flex != null || outer.flexGrow != null || outer.flexBasis != null || outer.width != null || outer.alignSelf === 'stretch';
   return (
     <Pressable
       {...rest}
@@ -72,7 +77,7 @@ export const Tap: React.FC<TapProps> = ({ style, scaleTo = 0.96, sound = 'tap', 
         else if (sound === 'select') feedback.select();
       }}
     >
-      <Animated.View style={[inner, { flexGrow: 1 }, { transform: [{ scale }] }, disabled ? { opacity: 0.5 } : null]}>{children}</Animated.View>
+      <Animated.View style={[inner, fillOuter ? { flexGrow: 1 } : null, { transform: [{ scale }] }, disabled ? { opacity: 0.5 } : null]}>{children}</Animated.View>
     </Pressable>
   );
 };

@@ -1,19 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  AppState,
-  BackHandler,
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  Image,
-  Modal,
-  StyleSheet,
-  Dimensions,
-  Platform,
-} from 'react-native';
+import { ActivityIndicator, Alert, AppState, BackHandler, View, Text, ScrollView, Image, Modal, StyleSheet, Dimensions, Platform } from 'react-native';
+// Pressable hỗ trợ style dạng hàm ({ pressed }) — bản của react-native bỏ qua nó (xem PressableCompat)
+import { Pressable } from '@/src/core/components/PressableCompat';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as Speech from 'expo-speech';

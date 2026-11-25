@@ -1,3 +1,4 @@
+import { scoreVoice } from './voiceQuality';
 // Tách lời thoại bài nghe thành từng lượt nói để đọc mỗi người bằng một giọng riêng.
 
 export type SpeakerGender = 'male' | 'female' | 'neutral';
@@ -81,9 +82,10 @@ export interface SpeakerVoice {
  * Thiết bị không có giọng phù hợp thì đổi cao độ để vẫn phân biệt được nam/nữ.
  */
 export const assignVoices = (lines: DialogueLine[], voices: VoiceInfo[]): Record<string, SpeakerVoice> => {
-  const english = voices.filter((v) => v.language.toLowerCase().replace('_', '-').startsWith('en'));
-  const preferUs = (a: VoiceInfo, b: VoiceInfo) =>
-    Number(b.language.toLowerCase().includes('us')) - Number(a.language.toLowerCase().includes('us'));
+  // Chỉ giọng tiếng Anh tự nhiên: bỏ giọng "đồ chơi" của iOS (Ralph, Kathy, Good News…), giọng tốt lên trước
+  const english = voices.filter((v) => v.language.toLowerCase().replace('_', '-').startsWith('en') && scoreVoice(v) > 0);
+  const isUs = (v: VoiceInfo) => Number(v.language.toLowerCase().includes('us'));
+  const preferUs = (a: VoiceInfo, b: VoiceInfo) => isUs(b) - isUs(a) || scoreVoice(b) - scoreVoice(a);
   const pools: Record<SpeakerGender, VoiceInfo[]> = {
     male: english.filter((v) => voiceGender(v) === 'male').sort(preferUs),
     female: english.filter((v) => voiceGender(v) === 'female').sort(preferUs),
