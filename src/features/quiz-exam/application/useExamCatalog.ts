@@ -3,6 +3,7 @@ import {
   ExamCatalogFilters,
   fetchPublishedExamDetailApi,
   fetchPublishedExamsApi,
+  fetchSkillLessonsApi,
 } from '../data/examCatalogApi';
 
 export function usePublishedExamsInfiniteQuery(filters: Omit<ExamCatalogFilters, 'page'>) {
@@ -22,6 +23,15 @@ export function usePublishedExamDetailQuery(examId: number | null) {
     queryKey: ['public-exam-detail', examId],
     queryFn: () => fetchPublishedExamDetailApi(examId as number),
     enabled: examId !== null && Number.isFinite(examId) && examId > 0,
+    staleTime: 60_000,
+  });
+}
+
+export function useSkillLessonsQuery(kind: 'LISTENING' | 'READING' | null) {
+  return useQuery({
+    queryKey: ['skill-lessons', kind],
+    queryFn: () => fetchSkillLessonsApi(kind as 'LISTENING' | 'READING'),
+    enabled: kind !== null,
     staleTime: 60_000,
   });
 }

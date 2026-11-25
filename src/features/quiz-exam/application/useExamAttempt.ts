@@ -1,4 +1,5 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { markPracticeUpdated } from '@/src/core/flows/practiceActivity';
 import {
   AnswerKey,
   fetchExamAttemptApi,
@@ -32,10 +33,20 @@ export const useSaveExamAnswer = () => useMutation({
     saveExamAnswerApi(payload.attemptId, payload.questionId, payload.selectedAnswer, payload.bookmarked),
 });
 
-export const useSubmitExamAttempt = () => useMutation({
-  mutationFn: (payload: { attemptId: number; answers: Record<string, AnswerKey>; timeSpentSeconds: number }) =>
-    submitExamAttemptApi(payload.attemptId, payload.answers, payload.timeSpentSeconds),
-});
+export const useSubmitExamAttempt = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { attemptId: number; answers: Record<string, AnswerKey>; timeSpentSeconds: number }) =>
+      submitExamAttemptApi(payload.attemptId, payload.answers, payload.timeSpentSeconds),
+    onSuccess: () => {
+      // Nộp bài xong: nhiệm vụ hằng ngày, lịch sử và tab Thống kê tính lại
+      markPracticeUpdated();
+      void queryClient.invalidateQueries({ queryKey: ['daily-quests'] });
+      void queryClient.invalidateQueries({ queryKey: ['user-exam-history'] });
+      void queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+    },
+  });
+};
 
 export const useExamResultQuery = (attemptId: number | null) => useQuery({
   queryKey: ['exam-attempt-result', attemptId],

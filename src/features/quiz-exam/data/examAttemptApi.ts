@@ -107,8 +107,13 @@ const toPart = (raw: any): ExamPart => {
 };
 
 const normalizeOptions = (raw: any): ExamOption[] =>
-  (Array.isArray(raw) ? raw : []).map((option: any, index: number) => {
+  (Array.isArray(raw) ? raw : []).map((rawOption: any, index: number) => {
     const defaultKey = String.fromCharCode(65 + index);
+    // Đề soạn trên web có thể lưu đáp án dạng chuỗi ["to whom", "whom", ...] thay vì {key, text}
+    const option =
+      typeof rawOption === 'string' || typeof rawOption === 'number'
+        ? { key: defaultKey, text: String(rawOption) }
+        : rawOption;
     const candidateId = typeof option?.id === 'string' && ['A', 'B', 'C', 'D'].includes(option.id.toUpperCase()) ? option.id : '';
     const rawKey = String(option?.key || candidateId || defaultKey).toUpperCase() as AnswerKey;
     const textVal = String(option?.text ?? option?.content ?? '').trim();
@@ -206,7 +211,20 @@ export const normalizeQuestion = (raw: any, index: number, total: number, catego
     groupQuestionNumbers,
     passageText: passageText || undefined,
     instructionPrompt: raw?.instructionPrompt || raw?.instructions || section?.instructions || undefined,
-    questionType: String(raw?.questionType || raw?.type || (raw?.pairs ? 'MATCHING' : (raw?.wordBank || raw?.sentenceBefore ? 'FILL_BLANK' : (raw?.items ? 'ORDERING' : 'MULTIPLE_CHOICE')))).toUpperCase(),
+    questionType: String(
+      raw?.questionType ||
+        raw?.type ||
+        (raw?.pairs
+          ? 'MATCHING'
+          : raw?.wordBank || raw?.sentenceBefore
+            ? 'FILL_BLANK'
+            : raw?.items
+              ? 'ORDERING'
+              : // Câu không có lựa chọn → học viên tự gõ đáp án
+                !Array.isArray(raw?.options) || raw.options.length === 0
+                ? 'FILL_BLANK'
+                : 'MULTIPLE_CHOICE'),
+    ).toUpperCase(),
     translationVi: raw?.translationVi || raw?.questionTranslationVi || undefined,
     explanationVi: raw?.explanationVi ?? raw?.explanation,
     passage: raw?.passage ?? (passageText ? {
