@@ -36,13 +36,18 @@ export const StudentAssignmentsScreen: React.FC<StudentAssignmentsScreenProps> =
   useRefetchOnFocus(() => classId && refetch());
   const router = useRouter();
   const startAssignment = useActiveAssignmentStore((s) => s.start);
+  const clearAssignment = useActiveAssignmentStore((s) => s.clear);
   const [submitting, setSubmitting] = useState<ClassAssignmentDTO | null>(null);
 
   const handleOpen = useCallback(
     (item: ClassAssignmentDTO) => {
       if (isAssignmentLocked(item)) return;
       const route = getAssignmentRoute(item);
-      if (route) {
+      if (route && !canSubmitAssignment(item)) {
+        // Đã nộp và giáo viên không cho làm lại: chỉ xem lại học liệu, không hiện nút nộp
+        clearAssignment();
+        router.push(route);
+      } else if (route) {
         // Ghi nhớ bài tập đang làm để màn học liệu hiện nút "Nộp vào bài tập lớp"
         startAssignment({
           assignmentId: item.id,
@@ -58,7 +63,7 @@ export const StudentAssignmentsScreen: React.FC<StudentAssignmentsScreenProps> =
         setSubmitting(item);
       }
     },
-    [router, startAssignment, classId]
+    [router, startAssignment, clearAssignment, classId]
   );
 
   const renderItem = useCallback(
@@ -143,7 +148,7 @@ export const StudentAssignmentsScreen: React.FC<StudentAssignmentsScreenProps> =
               >
                 <Play size={12} color="#FFFFFF" />
                 <Text className="text-xs font-bold text-white">
-                  {item.status === 'Đã nộp' ? 'Làm lại' : 'Làm bài'}
+                  {item.status === 'Chưa làm' ? 'Làm bài' : 'Làm lại'}
                 </Text>
               </Pressable>
             ) : submittable ? (
@@ -154,7 +159,7 @@ export const StudentAssignmentsScreen: React.FC<StudentAssignmentsScreenProps> =
               >
                 <Send size={12} color="#FFFFFF" />
                 <Text className="text-xs font-bold text-white">
-                  {item.status === 'Đã nộp' ? 'Nộp lại' : 'Nộp bài'}
+                  {item.status === 'Chưa làm' ? 'Nộp bài' : 'Nộp lại'}
                 </Text>
               </Pressable>
             ) : hasPractice && !locked ? (

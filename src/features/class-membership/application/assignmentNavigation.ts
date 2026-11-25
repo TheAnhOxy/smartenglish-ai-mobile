@@ -59,6 +59,9 @@ export const isAssignmentOverdue = (item: ClassAssignmentDTO): boolean =>
 export const isAssignmentLocked = (item: ClassAssignmentDTO): boolean =>
   item.score == null && item.status !== 'Đã nộp' && isAssignmentOverdue(item);
 
-/** Học viên còn được nộp/nộp lại khi chưa bị chấm và chưa quá hạn. */
+/**
+ * Còn hạn thì học viên được làm bài lần đầu; làm lại / nộp lại (kể cả bài đã chấm)
+ * chỉ khi giáo viên bật "Cho phép học viên làm lại".
+ */
 export const canSubmitAssignment = (item: ClassAssignmentDTO): boolean =>
-  (item.status === 'Chưa làm' || item.status === 'Đã nộp') && !isAssignmentOverdue(item);
+  !isAssignmentOverdue(item) && (item.status === 'Chưa làm' || item.allowRetake === true);
