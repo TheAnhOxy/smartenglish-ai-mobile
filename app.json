@@ -44,7 +44,12 @@
       ],
       "expo-sqlite",
       "react-native-nfc-manager",
-      "expo-audio",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "SmartEnglish cần dùng micro để ghi lại câu bạn nói khi luyện nói và chấm phát âm."
+        }
+      ],
       "expo-web-browser",
       "expo-asset",
       "expo-font",
