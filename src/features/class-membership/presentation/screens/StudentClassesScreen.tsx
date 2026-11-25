@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AlertCircle, Crown, GraduationCap, Plus } from 'lucide-react-native';
 import { AppColors } from '@/src/core/theme/colors';
@@ -11,6 +11,7 @@ import { ClassCard } from '../components/ClassCard';
 import { JoinClassModal } from './JoinClassModal';
 import { BackButton } from '@/src/core/components/BackButton';
 import { hasActivePremium } from '@/src/core/utils/plan';
+import { refreshEntitlements } from '@/src/core/flows/refreshEntitlements';
 
 const FREE_MAX_CLASSES = 3;
 
@@ -24,6 +25,13 @@ export const StudentClassesScreen = () => {
   const isPremium = hasActivePremium(currentUser);
   const classCount = classes.length;
   const isLimitReached = !isPremium && classCount >= FREE_MAX_CLASSES;
+
+  // Gói có thể vừa được kích hoạt ở nơi khác (webhook thanh toán, web): kiểm tra lại khi quay về trang
+  useFocusEffect(
+    useCallback(() => {
+      if (isLimitReached) refreshEntitlements();
+    }, [isLimitReached]),
+  );
 
   const goBack = () => (router.canGoBack() ? router.back() : router.navigate('/(student)/profile'));
 

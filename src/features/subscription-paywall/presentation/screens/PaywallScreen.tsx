@@ -50,6 +50,7 @@ import { CancelPlanSheet } from '../components/CancelPlanSheet';
 import { isLowerThanCurrent } from '../../application/planRank';
 import { AppColors } from '@/src/core/theme/colors';
 import { hasActivePremium } from '@/src/core/utils/plan';
+import { refreshEntitlements } from '@/src/core/flows/refreshEntitlements';
 import { dk } from '@/src/theme/themeMode';
 
 export const PaywallScreen = () => {
@@ -295,15 +296,9 @@ export const PaywallScreen = () => {
     }
   };
 
-  const handlePaymentSuccess = (paidOrder: any) => {
-    const newPlan =
-      selectedPlan.durationMonths >= 12
-        ? 'premium_yearly'
-        : selectedPlan.durationMonths === 999
-        ? 'lifetime'
-        : 'premium_monthly';
-
-    updateCurrentUser({ plan: newPlan as any });
+  const handlePaymentSuccess = (_paidOrder: unknown) => {
+    // Lấy gói thật (kể cả ngày hết hạn) và token mới từ máy chủ, rồi tải lại các trang có giới hạn
+    refreshEntitlements();
   };
 
   // 4 Trọng tâm quyền lợi mà người dùng nhận được khi nâng cấp PRO
