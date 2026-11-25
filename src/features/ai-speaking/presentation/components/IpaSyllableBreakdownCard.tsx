@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { AlertCircle, CheckCircle2, HelpCircle, Sparkles } from '@/src/components/ds/icons';
+import { AlertCircle, CheckCircle2, HelpCircle } from '@/src/components/ds/icons';
 import { SyllableEvaluation } from '../../data/speakingApi';
 import { MouthShapeGuideModal } from '../screens/MouthShapeGuideModal';
 import { dsFont } from '@/src/theme/ds';
@@ -10,14 +10,30 @@ interface IpaSyllableBreakdownCardProps {
   syllables?: SyllableEvaluation[];
   targetWord: string;
   targetIpa: string;
+  /** Từ/câu AI nghe được từ bản ghi (chép mù, không biết từ mẫu). */
+  heardText?: string;
+  /** Điểm tổng 0–100 của lần chấm. */
+  overallScore?: number;
   mouthShapeGuide?: string;
   onOpenMouthGuide?: () => void;
 }
+
+const wordsOf = (t: string) => t.toLowerCase().replace(/’/g, "'").match(/[a-z0-9']+/g) ?? [];
+
+/** Từ mẫu có được nghe ra đúng không: mọi từ của từ mẫu xuất hiện theo thứ tự trong câu nghe được. */
+const heardMatches = (target: string, heard: string) => {
+  const t = wordsOf(target);
+  let j = 0;
+  for (const w of wordsOf(heard)) if (w === t[j]) j++;
+  return t.length > 0 && j === t.length;
+};
 
 export const IpaSyllableBreakdownCard: React.FC<IpaSyllableBreakdownCardProps> = ({
   syllables = [],
   targetWord,
   targetIpa,
+  heardText,
+  overallScore,
   mouthShapeGuide,
   onOpenMouthGuide,
 }) => {
@@ -26,6 +42,11 @@ export const IpaSyllableBreakdownCard: React.FC<IpaSyllableBreakdownCardProps> =
 
   const errorSyllables = syllables.filter((s) => !s.isCorrect);
   const hasErrors = errorSyllables.length > 0;
+  const heard = (heardText || '').trim();
+  const wrongWord = Boolean(heard) && !heardMatches(targetWord, heard);
+  // Chỉ báo "đạt" khi nghe đúng từ, không có âm sai và điểm từ 80 trở lên
+  const good = !wrongWord && !hasErrors && (overallScore ?? 0) >= 80;
+  const focus = selectedSyllable && !selectedSyllable.isCorrect ? selectedSyllable : errorSyllables[0];
 
   const handleOpenGuide = () => {
     if (onOpenMouthGuide) {
@@ -37,88 +58,72 @@ export const IpaSyllableBreakdownCard: React.FC<IpaSyllableBreakdownCardProps> =
 
   return (
     <View style={styles.card}>
-      {/* Header */}
       <View style={styles.headerRow}>
-        <View style={styles.titleWrap}>
-          <Sparkles color={dk('#0369A1', 'text')} size={18} />
-          <Text style={styles.cardTitle}>Phân tích âm tiết IPA (AI Phonemes)</Text>
-        </View>
+        <Text style={styles.cardTitle}>So với từ mẫu</Text>
         <Pressable onPress={handleOpenGuide} style={styles.guideBadge}>
           <HelpCircle color={dk('#0369A1', 'text')} size={13} />
           <Text style={styles.guideBadgeText}>Khẩu hình</Text>
         </Pressable>
       </View>
 
-      <Text style={styles.cardSubtitle}>
-        AI bóc tách phát âm từng âm vị. Âm tiết đọc sai được <Text style={styles.highlightRed}>tô đỏ</Text> để bạn dễ dàng điều chỉnh.
-      </Text>
+      <View style={styles.compareRow}>
+        <Text style={styles.compareLabel}>Từ mẫu</Text>
+        <Text style={styles.compareValue}>
+          {targetWord}
+          {targetIpa ? <Text style={styles.compareIpa}>{`  ${targetIpa}`}</Text> : null}
+        </Text>
+      </View>
+      {heard ? (
+        <View style={styles.compareRow}>
+          <Text style={styles.compareLabel}>AI nghe được</Text>
+          <Text style={[styles.compareValue, wrongWord && styles.textError]}>{heard}</Text>
+        </View>
+      ) : null}
 
-      {/* Syllables Pills Container */}
-      <View style={styles.pillsContainer}>
-        {syllables.map((item, index) => {
-          const isErr = !item.isCorrect;
-          return (
+      {hasErrors ? (
+        <View style={styles.pillsContainer}>
+          {syllables.map((item, index) => (
             <Pressable
               key={index}
               onPress={() => setSelectedSyllable(item)}
-              style={[
-                styles.syllablePill,
-                isErr ? styles.pillError : styles.pillCorrect,
-              ]}
+              style={[styles.syllablePill, !item.isCorrect && styles.pillError]}
             >
-              <Text
-                style={[
-                  styles.syllableText,
-                  isErr ? styles.textError : styles.textCorrect,
-                ]}
-              >
-                {item.ipa}
-              </Text>
-              <View
-                style={[
-                  styles.badgeTag,
-                  isErr ? styles.badgeTagError : styles.badgeTagCorrect,
-                ]}
-              >
-                {isErr ? (
-                  <Text style={styles.tagErrorText}>{item.score}%</Text>
-                ) : (
-                  <Text style={styles.tagCorrectText}>✓ {item.score}%</Text>
-                )}
-              </View>
+              <Text style={[styles.syllableText, !item.isCorrect && styles.textError]}>{item.ipa}</Text>
             </Pressable>
-          );
-        })}
-      </View>
+          ))}
+        </View>
+      ) : null}
 
-      {/* Chi tiết hướng dẫn sửa lỗi âm đọc sai (Thế mạnh AI) */}
-      {hasErrors ? (
+      {wrongWord ? (
         <View style={styles.feedbackAlertBox}>
           <View style={styles.alertHeader}>
             <AlertCircle color="#DC2626" size={16} />
-            <Text style={styles.alertTitle}>
-              Cần cải thiện âm {selectedSyllable ? selectedSyllable.ipa : errorSyllables[0]?.ipa}:
-            </Text>
+            <Text style={styles.alertTitle}>Chưa đọc đúng từ "{targetWord}"</Text>
           </View>
           <Text style={styles.alertDesc}>
-            {selectedSyllable?.feedback ||
-              errorSyllables[0]?.feedback ||
-              'Hãy hạ hàm dưới và đặt lưỡi đúng vị trí để âm phát ra chuẩn xác hơn.'}
+            AI nghe thành "{heard}". Bấm "Nghe phát âm mẫu", rồi đọc lại chậm và rõ từng âm.
           </Text>
+        </View>
+      ) : hasErrors && focus ? (
+        <View style={styles.feedbackAlertBox}>
+          <View style={styles.alertHeader}>
+            <AlertCircle color="#DC2626" size={16} />
+            <Text style={styles.alertTitle}>Cần sửa âm {focus.ipa}</Text>
+          </View>
+          {focus.feedback ? <Text style={styles.alertDesc}>{focus.feedback}</Text> : null}
           <Pressable onPress={handleOpenGuide} style={styles.mouthBtn}>
-            <Text style={styles.mouthBtnText}>Xem hướng dẫn đặt răng - môi - lưỡi</Text>
+            <Text style={styles.mouthBtnText}>Xem cách đặt răng, môi, lưỡi</Text>
           </Pressable>
         </View>
-      ) : (
-        <View style={styles.feedbackSuccessBox}>
-          <View style={styles.alertHeader}>
-            <CheckCircle2 color={dk('#16A34A', 'text')} size={16} />
-            <Text style={styles.successTitle}>Phát âm chuẩn xác 100%!</Text>
-          </View>
-          <Text style={styles.successDesc}>
-            Toàn bộ các âm tiết và trọng âm của từ "{targetWord}" đạt chuẩn ngữ âm quốc tế.
-          </Text>
+      ) : good ? (
+        <View style={styles.statusRow}>
+          <CheckCircle2 color={dk('#16A34A', 'text')} size={16} />
+          <Text style={styles.successTitle}>Đọc đúng từ, AI không đánh dấu âm nào sai.</Text>
         </View>
+      ) : (
+        <Text style={styles.neutralText}>
+          Đọc đúng từ nhưng điểm chưa cao. Xem điểm trọng âm, ngữ điệu ở trên và đọc lại.
+        </Text>
       )}
 
       <MouthShapeGuideModal
@@ -127,8 +132,8 @@ export const IpaSyllableBreakdownCard: React.FC<IpaSyllableBreakdownCardProps> =
         targetWord={targetWord}
         targetIpa={targetIpa}
         mouthShapeGuide={mouthShapeGuide}
-        mispronouncedPhoneme={selectedSyllable?.ipa || errorSyllables[0]?.ipa}
-        feedback={selectedSyllable?.feedback || errorSyllables[0]?.feedback}
+        mispronouncedPhoneme={focus?.ipa}
+        feedback={focus?.feedback}
       />
     </View>
   );
@@ -193,20 +198,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    justifyContent: 'center',
-    marginBottom: 14,
+    marginTop: 4,
+    marginBottom: 10,
   },
   syllablePill: {
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 14,
-    borderWidth: 1.5,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E3EAF2',
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
-    minWidth: 70,
-  },
-  pillCorrect: {
-    backgroundColor: '#DCFCE7',
-    borderColor: '#86EFAC',
+    minWidth: 56,
   },
   pillError: {
     backgroundColor: '#FEE2E2',
@@ -214,10 +217,16 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   syllableText: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: dsFont.display,
-    marginBottom: 4,
+    color: '#0F2A44',
   },
+  compareRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10, marginBottom: 6 },
+  compareLabel: { width: 92, fontSize: 12, fontFamily: dsFont.bold, color: '#5B6B7F' },
+  compareValue: { flex: 1, fontSize: 16, fontFamily: dsFont.display, color: '#0F2A44' },
+  compareIpa: { fontSize: 13, fontFamily: dsFont.body, color: '#5B6B7F' },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  neutralText: { fontFamily: dsFont.body, fontSize: 12, color: '#5B6B7F', lineHeight: 18, marginTop: 6 },
   textCorrect: {
     color: '#166534',
   },
@@ -247,6 +256,7 @@ const styles = StyleSheet.create({
     color: '#991B1B',
   },
   feedbackAlertBox: {
+    marginTop: 6,
     backgroundColor: '#FEE2E2',
     borderRadius: 14,
     borderWidth: 1,

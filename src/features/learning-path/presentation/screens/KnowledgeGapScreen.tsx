@@ -81,7 +81,7 @@ export const KnowledgeGapScreen = () => {
               Bạn chưa có bài nộp kiểm tra nào được ghi nhận. Hãy hoàn thành ít nhất 1 bài thi để AI chẩn đoán chính xác lỗ hổng ngữ pháp và từ vựng của bạn.
             </Text>
             <Pressable
-              onPress={() => router.push('/(student)/practice' as any)}
+              onPress={() => router.push({ pathname: '/(student)/learn', params: { tab: 'quiz' } } as never)}
               className="bg-primary px-5 py-2.5 rounded-xl active:bg-primaryDark"
             >
               <Text className="text-white font-bold text-xs">Làm bài kiểm tra ngay</Text>
@@ -133,7 +133,7 @@ export const KnowledgeGapScreen = () => {
             <Pressable
               onPress={() => {
                 setSelectedItem(null);
-                router.push('/(student)/practice' as any);
+                router.push({ pathname: '/(student)/learn', params: { tab: 'quiz' } } as never);
               }}
               className="bg-primary py-3.5 rounded-xl items-center shadow-md active:bg-primaryDark"
             >

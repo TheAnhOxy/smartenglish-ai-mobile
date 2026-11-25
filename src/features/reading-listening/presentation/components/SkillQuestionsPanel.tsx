@@ -1,10 +1,12 @@
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button3D, Tap, dsText } from '@/src/components/ds';
 import { ds, dsFont, dsRadius, dsSize } from '@/src/theme/ds';
 import { markPracticeUpdated } from '@/src/core/flows/practiceActivity';
 import { saveSkillPracticeResultApi, type SkillQuestion } from '../../data/readingListeningApi';
+import { AssignmentSubmitBanner } from '@/src/features/class-membership/presentation/components/AssignmentSubmitBanner';
 
 interface Props {
   kind: 'READING' | 'LISTENING';
@@ -20,10 +22,10 @@ const verdict = (pct: number, kind: Props['kind']) => {
   if (pct >= 80) return 'Rất tốt. Bạn đã nắm được ý chính và chi tiết của bài.';
   if (pct >= 50)
     return kind === 'LISTENING'
-      ? 'Khá. Hãy nghe lại đoạn có câu sai và bật phụ đề để đối chiếu.'
+      ? 'Khá. Hãy nghe lại đoạn có câu sai rồi làm lại.'
       : 'Khá. Hãy đọc lại đoạn chứa câu sai, chú ý từ khoá trong câu hỏi.';
   return kind === 'LISTENING'
-    ? 'Cần luyện thêm. Nghe chậm 0.75x, bật phụ đề rồi làm lại.'
+    ? 'Cần luyện thêm. Nghe lại ở tốc độ 0.75x rồi làm lại.'
     : 'Cần luyện thêm. Đọc lướt tìm ý chính trước, sau đó tìm chi tiết cho từng câu.';
 };
 
@@ -34,6 +36,18 @@ export const SkillQuestionsPanel: React.FC<Props> = ({ kind, contentId, title, q
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
+
+  const reset = useCallback(() => {
+    setAnswers({});
+    setSubmitted(false);
+    setSaveFailed(false);
+    startedAt.current = Date.now();
+  }, []);
+
+  // Màn chi tiết nằm trong tab nên không bị tháo: rời màn hoặc đổi bài thì xoá bài làm,
+  // lần mở sau bắt đầu lại từ đầu và chỉ hiện "Làm lại" sau khi nộp.
+  useEffect(() => reset(), [contentId, reset]);
+  useFocusEffect(useCallback(() => reset, [reset]));
 
   if (questions.length === 0) return null;
 
@@ -65,12 +79,7 @@ export const SkillQuestionsPanel: React.FC<Props> = ({ kind, contentId, title, q
     }
   };
 
-  const retry = () => {
-    setAnswers({});
-    setSubmitted(false);
-    setSaveFailed(false);
-    startedAt.current = Date.now();
-  };
+  const retry = reset;
 
   return (
     <View style={st.wrap}>
@@ -121,6 +130,13 @@ export const SkillQuestionsPanel: React.FC<Props> = ({ kind, contentId, title, q
             <Text style={[dsText.caption, { color: ds.red }]}>Chưa lưu được kết quả, nhiệm vụ hôm nay chưa được tính.</Text>
           ) : null}
           <Button3D label="Làm lại" variant="light" onPress={retry} height={46} />
+          {/* Mở từ bài tập lớp: nộp kèm điểm (thang 10) để hệ thống chấm luôn, giáo viên không phải chấm tay */}
+          <View style={{ marginHorizontal: -16 }}>
+            <AssignmentSubmitBanner
+              referenceId={contentId}
+              score={Math.round((correct / questions.length) * 100) / 10}
+            />
+          </View>
         </View>
       ) : (
         <Button3D

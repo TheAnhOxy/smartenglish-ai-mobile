@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import { useRefetchOnFocus } from '@/src/hooks/useRefetchOnFocus';
 import {
   View,
   Text,
@@ -9,6 +10,7 @@ import {
   Image,
   TextInput,
   Dimensions,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -71,6 +73,18 @@ const CEFR_BADGES: Record<string, { bg: string; text: string; border: string }> 
 
 const CATEGORIES = ['Tất cả', 'Giao tiếp', 'Công việc', 'Đời sống', 'Du lịch'];
 
+/** Tên tiếng Việt cho nhóm bài phát âm (dữ liệu lưu tên tiếng Anh). */
+const PRON_CATEGORY_LABELS: Record<string, string> = {
+  vowels: 'Nguyên âm',
+  diphthongs: 'Nguyên âm đôi',
+  consonants: 'Phụ âm',
+  stress: 'Trọng âm',
+  intonation: 'Ngữ điệu',
+  'connected speech': 'Nối âm',
+};
+const pronCategoryLabel = (raw?: string) =>
+  raw ? PRON_CATEGORY_LABELS[raw.trim().toLowerCase()] ?? raw : 'Phát âm';
+
 /** `embedded`: nằm trong tab Lộ trình (đã có thanh chuyển tab + vùng an toàn) → không có nút quay lại. */
 export const SpeakingHomeScreen = ({ embedded = false }: { embedded?: boolean }) => {
   const router = useRouter();
@@ -83,6 +97,10 @@ export const SpeakingHomeScreen = ({ embedded = false }: { embedded?: boolean })
   // Tabs: 'roleplay' (Hội thoại AI) | 'pronunciation' (Luyện phát âm)
   const [activeTab, setActiveTab] = useState<'roleplay' | 'pronunciation'>('roleplay');
   const [selectedCategory, setSelectedCategory] = useState('Tất cả');
+  const switchTab = (tab: 'roleplay' | 'pronunciation') => {
+    setActiveTab(tab);
+    setSelectedCategory('Tất cả');
+  };
   const [showFilter, setShowFilter] = useState(false);
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
@@ -91,16 +109,32 @@ export const SpeakingHomeScreen = ({ embedded = false }: { embedded?: boolean })
   const [pronLessons, setPronLessons] = useState<PronunciationLesson[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    setLoading(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  /** silent: tải lại ngầm khi quay lại màn hoặc kéo để làm mới (bài mới được duyệt hiện ngay). */
+  const load = useCallback((silent = false) => {
+    if (!silent) setLoading(true);
     // allSettled: một nguồn lỗi (vd. khách chưa đăng nhập bị 401) không làm hỏng cả màn hình
-    Promise.allSettled([fetchRoleplayScenariosApi(), fetchPronunciationLessonsApi()])
+    return Promise.allSettled([fetchRoleplayScenariosApi(), fetchPronunciationLessonsApi()])
       .then(([roleplayRes, lessonsRes]) => {
-        setScenarios(roleplayRes.status === 'fulfilled' ? roleplayRes.value : []);
-        setPronLessons(lessonsRes.status === 'fulfilled' ? lessonsRes.value : []);
+        // Tải ngầm lỗi thì giữ danh sách đang có
+        if (roleplayRes.status === 'fulfilled' || !silent) setScenarios(roleplayRes.status === 'fulfilled' ? roleplayRes.value : []);
+        if (lessonsRes.status === 'fulfilled' || !silent) setPronLessons(lessonsRes.status === 'fulfilled' ? lessonsRes.value : []);
       })
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  useRefetchOnFocus(() => load(true));
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load(true);
+    setRefreshing(false);
+  }, [load]);
 
   // Trình độ học viên: kịch bản và bài phát âm gần trình độ lên trước
   const learnerLevel = normalizeCefr(currentUser?.cefr_level);
@@ -124,9 +158,7 @@ export const SpeakingHomeScreen = ({ embedded = false }: { embedded?: boolean })
   // Lọc bài phát âm
   const filteredLessons = useMemo(() => {
     const matched = pronLessons.filter((item) => {
-      const matchCat =
-        selectedCategory === 'Tất cả' ||
-        (item.category && item.category.toLowerCase().includes(selectedCategory.toLowerCase()));
+      const matchCat = selectedCategory === 'Tất cả' || pronCategoryLabel(item.category) === selectedCategory;
       const matchQuery =
         !searchQuery.trim() ||
         item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -136,11 +168,21 @@ export const SpeakingHomeScreen = ({ embedded = false }: { embedded?: boolean })
     return sortByLevelCloseness(matched, learnerLevel, (item) => item.cefrLevel);
   }, [pronLessons, selectedCategory, searchQuery, learnerLevel]);
 
+  // Chủ đề của bộ lọc theo tab đang mở; tab phát âm lấy từ các nhóm bài hiện có
+  const filterCategories = useMemo(
+    () =>
+      activeTab === 'roleplay'
+        ? CATEGORIES
+        : ['Tất cả', ...Array.from(new Set(pronLessons.map((item) => pronCategoryLabel(item.category))))],
+    [activeTab, pronLessons],
+  );
+
   return (
     <View style={s.root}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[s.scrollContent, !embedded && { paddingTop: insets.top + 8 }]}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={AppColors.primary} colors={[AppColors.primary]} />}
       >
         {/* ── Search Bar (mở riêng thì có nút quay lại cùng hàng) ─────────── */}
         <View style={s.searchRow}>
@@ -177,7 +219,7 @@ export const SpeakingHomeScreen = ({ embedded = false }: { embedded?: boolean })
 
         <CategoryFilterMenu
           visible={showFilter}
-          categories={CATEGORIES}
+          categories={filterCategories}
           selected={selectedCategory}
           onSelect={setSelectedCategory}
           onClose={() => setShowFilter(false)}
@@ -187,7 +229,7 @@ export const SpeakingHomeScreen = ({ embedded = false }: { embedded?: boolean })
         {/* ── Segmented Control / Tab Switcher (Gọn gàng, tinh tế) ── */}
         <View style={s.tabContainer}>
           <Pressable
-            onPress={() => setActiveTab('roleplay')}
+            onPress={() => switchTab('roleplay')}
             style={[s.tabItem, activeTab === 'roleplay' && s.tabItemActive]}
           >
             <Bot
@@ -200,7 +242,7 @@ export const SpeakingHomeScreen = ({ embedded = false }: { embedded?: boolean })
           </Pressable>
 
           <Pressable
-            onPress={() => setActiveTab('pronunciation')}
+            onPress={() => switchTab('pronunciation')}
             style={[s.tabItem, activeTab === 'pronunciation' && s.tabItemActive]}
           >
             <Mic
@@ -391,7 +433,7 @@ export const SpeakingHomeScreen = ({ embedded = false }: { embedded?: boolean })
                               </Text>
                             </View>
                             <Text style={s.pronCategoryText} numberOfLines={1}>
-                              {item.category || 'Phát âm'}
+                              {pronCategoryLabel(item.category)}
                             </Text>
                           </View>
 

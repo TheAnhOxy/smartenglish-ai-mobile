@@ -14,7 +14,7 @@ export const useStudentClasses = () => {
   return useQuery({
     queryKey: ['my-classes'],
     queryFn: () => fetchStudentClassesApi(),
-    staleTime: 1000 * 30, // 30s cache
+    staleTime: 0, // lớp mới duyệt, bị xóa khỏi lớp: mở lại là thấy ngay
   });
 };
 
@@ -23,6 +23,7 @@ export const useClassDetail = (classId: string | number) => {
     queryKey: ['class-detail', String(classId)],
     queryFn: () => fetchClassDetailApi(classId),
     enabled: !!classId,
+    staleTime: 0,
   });
 };
 
@@ -39,6 +40,8 @@ export const useStudentAssignments = (classId: string | number) => {
     queryKey: ['student-assignments', String(classId)],
     queryFn: () => fetchStudentAssignmentsApi(classId),
     enabled: !!classId,
+    // Giáo viên giao bài hoặc chấm điểm bất cứ lúc nào: mỗi lần mở tab Bài tập, Điểm là tải lại
+    staleTime: 0,
   });
 };
 

@@ -44,6 +44,8 @@ export interface ClassAssignmentDTO {
   dueDate?: string | null;
   passingScore: number;
   isGraded?: boolean;
+  /** Giáo viên cho phép làm lại / nộp lại khi còn hạn. */
+  allowRetake?: boolean;
   status: AssignmentStatus;
   submittedAt?: string | null;
   submissionText?: string | null;
@@ -72,6 +74,7 @@ interface AssignmentRaw {
   dueDate?: string | null;
   passingScore?: number | string | null;
   isGraded?: boolean;
+  allowRetake?: boolean;
   mySubmission?: MySubmissionRaw | null;
 }
 
@@ -100,6 +103,7 @@ const mapAssignment = (a: AssignmentRaw, classId: string | number): ClassAssignm
     dueDate: a.dueDate ?? null,
     passingScore,
     isGraded: a.isGraded !== false,
+    allowRetake: a.allowRetake === true,
     status: resolveStatus(sub, passingScore),
     submittedAt: sub?.submittedAt ?? null,
     submissionText: sub?.submissionText ?? null,

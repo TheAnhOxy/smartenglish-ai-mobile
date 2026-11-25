@@ -17,7 +17,6 @@ import {
   Mic,
   Square,
   Volume2,
-  Sparkles,
   ChevronLeft,
   Play,
   RotateCcw,
@@ -42,6 +41,8 @@ import {
   useAudioPlayerStatus,
   useAudioRecorder,
 } from 'expo-audio';
+import { METERED_RECORDING_OPTIONS, useMicLevel } from '@/src/core/audio/micLevel';
+import { MicLevelWaveform } from '@/src/core/components/MicLevelWaveform';
 import * as Speech from 'expo-speech';
 import { createManagedWebAudio, speakText, stopSpeech } from '@/src/core/services/speechService';
 import {
@@ -53,8 +54,8 @@ import {
 import { readRecordingBase64 } from '../../data/readRecording';
 import { CircularAccuracyRing } from '../components/CircularAccuracyRing';
 import { IpaSyllableBreakdownCard } from '../components/IpaSyllableBreakdownCard';
-import { SpeakingMetricsGrid } from '../components/SpeakingMetricsGrid';
 import { MouthShapeGuideModal } from './MouthShapeGuideModal';
+import { PracticeFeedbackCard } from '@/src/features/practice-feedback/presentation/components/PracticeFeedbackCard';
 
 export const SingleWordSpeakingScreen = () => {
   const router = useRouter();
@@ -62,9 +63,9 @@ export const SingleWordSpeakingScreen = () => {
   const { lessonId, target } = useLocalSearchParams<{ lessonId?: string; target?: string }>();
 
   const [currentLesson, setCurrentLesson] = useState<PronunciationLesson | null>(null);
-  const [targetWord, setTargetWord] = useState<string>(target || 'Phenomenal');
-  const [targetIpa, setTargetIpa] = useState<string>('/fəˈnæmənəl/');
-  const [meaning, setMeaning] = useState<string>('tính từ • Phi thường, kỳ diệu, ấn tượng');
+  const [targetWord, setTargetWord] = useState<string>(target || '');
+  const [targetIpa, setTargetIpa] = useState<string>('');
+  const [meaning, setMeaning] = useState<string>('');
 
   // Trạng thái thu âm và kết quả AI chấm
   const [isRecording, setIsRecording] = useState(false);
@@ -73,6 +74,8 @@ export const SingleWordSpeakingScreen = () => {
   const [recordedUri, setRecordedUri] = useState<string | null>(null);
   const [score, setScore] = useState<number | null>(null);
   const [assessment, setAssessment] = useState<PronunciationAssessmentData | null>(null);
+  // Mỗi lượt chấm là một buổi luyện riêng: lưu vào tab Đánh giá (Thống kê)
+  const [attemptKey, setAttemptKey] = useState(0);
 
   const [recordTime, setRecordTime] = useState(0);
   const [isPlayingUserVoice, setIsPlayingUserVoice] = useState(false);
@@ -82,7 +85,10 @@ export const SingleWordSpeakingScreen = () => {
 
   const isActionProcessingRef = useRef(false);
 
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  // Bật đo âm lượng để vẽ sóng âm theo giọng nói, học viên biết micro có đang thu hay không
+  const recorder = useAudioRecorder(METERED_RECORDING_OPTIONS);
+  const [webStream, setWebStream] = useState<MediaStream | null>(null);
+  const micLevel = useMicLevel(recorder, isRecording, webStream);
   const player = useAudioPlayer(recordedUri);
   const playerStatus = useAudioPlayerStatus(player);
   const mediaRecorderRef = useRef<any>(null);
@@ -103,20 +109,20 @@ export const SingleWordSpeakingScreen = () => {
       if (found) {
         setCurrentLesson(found);
         setTargetWord(found.targetText);
-        setTargetIpa(found.ipaTranscription || `/${found.targetText}/`);
+        setTargetIpa(found.ipaTranscription || '');
         setMeaning(found.meaningVi || 'Luyện phát âm chuẩn theo bảng phiên âm IPA quốc tế');
       } else if (target) {
         setTargetWord(target);
-        setTargetIpa(`/${target.toLowerCase()}/`);
+        setTargetIpa('');
         setMeaning('Luyện phát âm từ vựng mục tiêu');
       } else if (list && list.length > 0) {
         const first = list[0];
         setCurrentLesson(first);
         setTargetWord(first.targetText);
-        setTargetIpa(first.ipaTranscription || `/${first.targetText}/`);
+        setTargetIpa(first.ipaTranscription || '');
         setMeaning(first.meaningVi || 'Luyện phát âm chuẩn theo bảng phiên âm IPA quốc tế');
       }
-    });
+    }).catch(() => setMicNotice('Không tải được bài luyện phát âm. Hãy kiểm tra kết nối và thử lại.'));
   }, [lessonId, target]);
 
   // Bộ đếm thời gian thu âm & hiệu ứng sóng
@@ -197,6 +203,7 @@ export const SingleWordSpeakingScreen = () => {
     try {
       if (Platform.OS === 'web' && typeof window !== 'undefined' && navigator.mediaDevices) {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setWebStream(stream);
         mediaRecorderRef.current = new (window as any).MediaRecorder(stream);
         audioChunksRef.current = [];
 
@@ -237,7 +244,8 @@ export const SingleWordSpeakingScreen = () => {
               sessionType: 'SINGLE_WORD',
             });
             setAssessment(res);
-            setScore(res.overallScore);
+            setScore(Math.round(res.accuracyScore));
+            setAttemptKey(Date.now());
             setHasRecorded(true);
           } catch (err) {
             setMicNotice(err instanceof Error ? err.message : 'AI chưa chấm được phát âm. Hãy thử lại.');
@@ -321,7 +329,8 @@ export const SingleWordSpeakingScreen = () => {
             sessionType: 'SINGLE_WORD',
           });
           setAssessment(res);
-          setScore(res.overallScore);
+          setScore(Math.round(res.accuracyScore));
+          setAttemptKey(Date.now());
           setHasRecorded(true);
         } catch (err) {
           setMicNotice(err instanceof Error ? err.message : 'AI chưa chấm được phát âm. Hãy thử lại.');
@@ -389,7 +398,7 @@ export const SingleWordSpeakingScreen = () => {
   const timeLabel = `${String(Math.floor(recordTime / 60)).padStart(2, '0')}:${String(recordTime % 60).padStart(2, '0')}`;
 
   return (
-    <View style={[s.root, { paddingTop: (insets.top || 20) + 8, paddingBottom: (insets.bottom || 12) + 12 }]}>
+    <View style={[s.root, { paddingTop: (insets.top || 20) + 8, paddingBottom: (insets.bottom || 8) + 6 }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
         {/* Top Header */}
         <Animated.View entering={FadeInDown.duration(300)} style={s.headerRow}>
@@ -431,7 +440,7 @@ export const SingleWordSpeakingScreen = () => {
           <View style={[s.wordDot, { width: 80, height: 80, left: -30, bottom: -40 }]} />
           <Text style={s.wordOverline}>Đọc to từ này</Text>
           <Text style={s.wordTitle} adjustsFontSizeToFit numberOfLines={1}>{targetWord}</Text>
-          <Text style={s.ipaText}>{targetIpa}</Text>
+          {targetIpa ? <Text style={s.ipaText}>{targetIpa}</Text> : null}
           <Text style={s.meaningText}>{meaning}</Text>
 
           {/* Nút phát âm chuẩn bản ngữ */}
@@ -443,7 +452,11 @@ export const SingleWordSpeakingScreen = () => {
           </Tap>
 
           {/* Sóng âm — chuyển động khi đang thu hoặc đang phát mẫu */}
-          <Waveform active={isRecording || isPlayingNative} color={isRecording ? '#FCA5A5' : ds.skyLight} />
+          {isRecording ? (
+            <MicLevelWaveform recording level={micLevel} color="#FCA5A5" hintColor={ds.onInk} />
+          ) : (
+            <Waveform active={isPlayingNative} color={ds.skyLight} />
+          )}
         </Animated.View>
 
         {/* ─── TRẠNG THÁI 1: CHƯA THU ÂM (SẴN SÀNG LUYỆN TẬP) ─── */}
@@ -454,8 +467,8 @@ export const SingleWordSpeakingScreen = () => {
             </View>
             <Text style={s.readyTitle}>Sẵn sàng luyện phát âm</Text>
             <Text style={s.readySubtitle}>
-              Bấm nút micro bên dưới và đọc to từ "{targetWord}". AI sẽ phân tích khẩu hình,
-              đối chiếu âm vị IPA và phản hồi chi tiết 4 tiêu chí cho bạn.
+              Bấm micro bên dưới, đọc to từ "{targetWord}" rồi bấm lại để dừng. AI nghe bản ghi,
+              so với từ mẫu và chấm độ chính xác, trọng âm, ngữ điệu, trôi chảy.
             </Text>
             <View style={s.readyTipsRow}>
               <Lightbulb color={ds.amberText} size={18} />
@@ -470,9 +483,9 @@ export const SingleWordSpeakingScreen = () => {
             <View style={s.evaluatingSpinner}>
               <ActivityIndicator color={ds.btn} size="large" />
             </View>
-            <Text style={s.evaluatingTitle}>AI đang phân tích sóng âm và đối chiếu IPA...</Text>
+            <Text style={s.evaluatingTitle}>AI đang nghe và chấm phát âm...</Text>
             <Text style={s.evaluatingSubtitle}>
-              Đang chấm điểm độ chính xác, lưu loát, trọng âm và tìm các âm vị phát âm sai
+              So với từ mẫu, chấm trọng âm, ngữ điệu, trôi chảy và tìm âm đọc sai
             </Text>
           </Animated.View>
         )}
@@ -486,7 +499,7 @@ export const SingleWordSpeakingScreen = () => {
                 score={score}
                 size={110}
                 strokeWidth={10}
-                label="ĐỘ CHUẨN"
+                label="CHÍNH XÁC"
               />
               <View style={s.scoreSummaryWrap}>
                 <View style={[s.scorePill, { backgroundColor: score >= 80 ? ds.greenSoft : score >= 60 ? ds.amberSoft : ds.redSoft }]}>
@@ -494,34 +507,19 @@ export const SingleWordSpeakingScreen = () => {
                     {score >= 80 ? 'Xuất sắc' : score >= 60 ? 'Khá tốt' : 'Cần luyện thêm'}
                   </Text>
                 </View>
-                <Text style={s.scoreTitle}>
-                  {score >= 80
-                    ? 'Chuẩn giọng bản ngữ'
-                    : score >= 60
-                    ? 'Cần chú ý âm đuôi'
-                    : 'Cần luyện tập thêm khẩu hình'}
-                </Text>
                 <Text style={s.scoreSubTitle}>
-                  {score >= 80
-                    ? 'Ngữ điệu tự nhiên, các âm vị phát âm rất rõ ràng.'
-                    : 'Hãy xem chi tiết âm tiết tô đỏ bên dưới để điều chỉnh.'}
+                  Mức khớp giữa từ AI nghe được và từ mẫu. Âm đọc sai được chỉ ra bên dưới.
                 </Text>
               </View>
             </View>
-
-            {/* 4 Chỉ Số Đánh Giá Chi Tiết */}
-            <SpeakingMetricsGrid
-              accuracy={assessment.accuracyScore}
-              fluency={assessment.fluencyScore}
-              stress={assessment.stressScore}
-              intonation={assessment.intonationScore}
-            />
 
             {/* Tô đỏ âm tiết IPA đọc sai để làm nổi bật thế mạnh AI */}
             <IpaSyllableBreakdownCard
               syllables={assessment.syllables}
               targetWord={targetWord}
               targetIpa={targetIpa}
+              heardText={assessment.transcribedText}
+              overallScore={score}
               mouthShapeGuide={currentLesson?.mouthShapeGuide}
               onOpenMouthGuide={() => setShowMouthGuide(true)}
             />
@@ -560,41 +558,37 @@ export const SingleWordSpeakingScreen = () => {
                 onPress={handleResetPractice}
               />
             </View>
-            <Button3D
-              style={{ marginTop: 10 }}
-              height={46}
-              variant="amber"
-              label="Xem phân tích chi tiết"
-              icon={<Sparkles color={ds.ink} size={18} />}
-              onPress={() => {
-                router.push({
-                  pathname: '/(student)/practice/speaking/detailed-feedback' as any,
-                  params: {
-                    word: targetWord,
-                    ipa: targetIpa,
-                    score: String(score),
-                    accuracy: String(assessment.accuracyScore),
-                    stress: String(assessment.stressScore),
-                    intonation: String(assessment.intonationScore),
-                    fluency: String(assessment.fluencyScore),
-                    audioUri: recordedUri || '',
-                  },
-                });
-              }}
-            />
           </Animated.View>
         )}
+
+        {hasRecorded && score !== null && assessment ? (
+          <PracticeFeedbackCard
+            style={{ marginTop: 12 }}
+            input={{
+              skill: 'SPEAKING',
+              title: `Phát âm: ${targetWord}`,
+              score,
+              sourceId: `pron-${lessonId ?? targetWord}-${attemptKey}`.slice(0, 80),
+              details: [
+                `Từ/cụm luyện phát âm: "${targetWord}" ${targetIpa}.`,
+                `Độ chính xác ${score}/100.`,
+                assessment.transcribedText ? `AI nghe được: "${assessment.transcribedText}".` : '',
+                'Hãy nhận xét phát âm (âm nào dễ sai với người Việt), kỹ năng nói và từ vựng liên quan.',
+              ].filter(Boolean).join('\n'),
+            }}
+          />
+        ) : null}
       </ScrollView>
 
       {/* Record Mic Button Controls (Chuẩn 2-State Mic UI) */}
       <View style={s.micSection}>
         <View style={s.micWrap}>
-          <PulseRing size={88} color={ds.red} active={isRecording} />
+          <PulseRing size={68} color={ds.red} active={isRecording} />
           <Animated.View style={[s.micWrap, animatedPulseStyle]}>
             <View style={[s.micEdge, { backgroundColor: isRecording ? ds.redEdge : ds.btnEdge }]} />
             <Pressable
               onPress={onMicPress}
-              disabled={isEvaluating}
+              disabled={isEvaluating || !targetWord}
               style={[
                 s.micBtn,
                 isRecording ? s.micBtnRecording : s.micBtnNormal,
@@ -603,9 +597,9 @@ export const SingleWordSpeakingScreen = () => {
               accessibilityLabel={isRecording ? 'Dừng thu âm' : 'Bắt đầu thu âm'}
             >
               {isRecording ? (
-                <Square color={ds.white} size={30} fill={ds.white} />
+                <Square color={ds.white} size={22} fill={ds.white} />
               ) : (
-                <Mic color={ds.white} size={36} fill="none" />
+                <Mic color={ds.white} size={28} fill="none" />
               )}
             </Pressable>
           </Animated.View>
@@ -617,11 +611,11 @@ export const SingleWordSpeakingScreen = () => {
             <Text style={s.recTime}>{timeLabel}</Text>
             <Text style={s.micHintText}>Chạm để hoàn tất và chấm điểm</Text>
           </View>
-        ) : (
+        ) : isEvaluating || !hasRecorded ? (
           <Text style={s.micHintText}>
-            {isEvaluating ? 'Đang gửi AI phân tích âm thanh...' : 'Chạm micro để thu âm giọng nói'}
+            {isEvaluating ? 'AI đang chấm phát âm...' : 'Chạm micro để thu âm giọng nói'}
           </Text>
-        )}
+        ) : null}
       </View>
 
       <MouthShapeGuideModal
@@ -943,15 +937,15 @@ const s = StyleSheet.create({
   },
   micSection: {
     alignItems: 'center',
-    paddingTop: 10,
-    gap: 10,
+    paddingTop: 8,
+    gap: 6,
   },
-  micWrap: { width: 88, height: 94, alignItems: 'center' },
-  micEdge: { position: 'absolute', top: 6, width: 88, height: 88, borderRadius: 44 },
+  micWrap: { width: 68, height: 73, alignItems: 'center' },
+  micEdge: { position: 'absolute', top: 5, width: 68, height: 68, borderRadius: 34 },
   micBtn: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     justifyContent: 'center',
     alignItems: 'center',
   },

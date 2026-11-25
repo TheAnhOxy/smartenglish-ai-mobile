@@ -37,6 +37,8 @@ import {
   useAudioPlayerStatus,
   useAudioRecorder,
 } from 'expo-audio';
+import { METERED_RECORDING_OPTIONS, useMicLevel } from '@/src/core/audio/micLevel';
+import { MicLevelWaveform } from '@/src/core/components/MicLevelWaveform';
 import * as Speech from 'expo-speech';
 import { createManagedWebAudio, speakText, stopSpeech } from '@/src/core/services/speechService';
 import { UserAvatar } from '@/src/core/components/UserAvatar';
@@ -65,7 +67,10 @@ export const UnitSpeakingRoleplayScreen = () => {
   const [isPlayingAiVoice, setIsPlayingAiVoice] = useState(false);
   const [showQuotaModal, setShowQuotaModal] = useState(false);
 
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  // Bật đo âm lượng để vẽ sóng âm theo giọng nói, học viên biết micro có đang thu hay không
+  const recorder = useAudioRecorder(METERED_RECORDING_OPTIONS);
+  const [webStream, setWebStream] = useState<MediaStream | null>(null);
+  const micLevel = useMicLevel(recorder, isRecording, webStream);
   const player = useAudioPlayer(recordedUri);
   const playerStatus = useAudioPlayerStatus(player);
   const mediaRecorderRef = useRef<any>(null);
@@ -140,6 +145,7 @@ export const UnitSpeakingRoleplayScreen = () => {
     try {
       if (Platform.OS === 'web' && typeof window !== 'undefined' && navigator.mediaDevices) {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setWebStream(stream);
         mediaRecorderRef.current = new (window as any).MediaRecorder(stream);
         audioChunksRef.current = [];
 
@@ -351,6 +357,11 @@ export const UnitSpeakingRoleplayScreen = () => {
 
       {/* Bottom Hold/Tap to Speak Mic Controls */}
       <View style={s.micSection}>
+        {isRecording ? (
+          <View style={{ marginBottom: 10 }}>
+            <MicLevelWaveform recording level={micLevel} height={36} />
+          </View>
+        ) : null}
         <Animated.View style={animatedPulseStyle}>
           <Pressable
             onPress={toggleRecording}

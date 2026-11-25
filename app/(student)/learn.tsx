@@ -2,16 +2,16 @@ import React, { useState, useEffect, memo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Compass, Layers, Mic, Zap } from 'lucide-react-native';
+import { Compass, Dumbbell, Layers, Zap } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { LearningPathScreen } from '@/src/features/learning-path/presentation/screens/LearningPathScreen';
 import { DecksScreen } from '@/src/features/flashcard-srs/presentation/screens/DecksScreen';
-import { SpeakingHomeScreen } from '@/src/features/ai-speaking/presentation/screens/SpeakingHomeScreen';
+import { SkillPracticeScreen } from '@/src/features/ai-practice/presentation/screens/SkillPracticeScreen';
 import { ExamCatalogScreen } from '@/src/features/quiz-exam/presentation/screens/ExamCatalogScreen';
 import { colors } from '@/src/theme';
 
-type SegmentKey = 'path' | 'decks' | 'speaking' | 'quiz';
+type SegmentKey = 'path' | 'decks' | 'skills' | 'quiz';
 
 interface TabItem {
   key: SegmentKey;
@@ -22,21 +22,22 @@ interface TabItem {
 const TABS: TabItem[] = [
   { key: 'path', label: 'Lộ Trình', icon: Compass },
   { key: 'decks', label: 'Bộ Thẻ', icon: Layers },
-  { key: 'speaking', label: 'Luyện Nói', icon: Mic },
+  { key: 'skills', label: 'Kỹ năng', icon: Dumbbell },
   { key: 'quiz', label: 'Luyện đề', icon: Zap },
 ];
 
 const MemoizedLearningPathScreen = memo(LearningPathScreen);
 const MemoizedDecksScreen = memo(DecksScreen);
-const MemoizedSpeakingHomeScreen = memo(SpeakingHomeScreen);
+const MemoizedSkillPracticeScreen = memo(SkillPracticeScreen);
+
+/** `tab=speaking` (đường dẫn cũ) mở mục Kỹ năng. */
+const segmentOf = (tab?: string): SegmentKey | null =>
+  tab === 'speaking' ? 'skills' : tab === 'quiz' || tab === 'decks' || tab === 'skills' || tab === 'path' ? tab : null;
 const MemoizedExamCatalogScreen = memo(ExamCatalogScreen);
 
 export default function LearnTabContainer() {
   const params = useLocalSearchParams<{ tab?: string }>();
-  const initialKey: SegmentKey =
-    params.tab === 'quiz' || params.tab === 'decks' || params.tab === 'speaking' || params.tab === 'path'
-      ? (params.tab as SegmentKey)
-      : 'path';
+  const initialKey: SegmentKey = segmentOf(params.tab) ?? 'path';
 
   const [activeSegment, setActiveSegment] = useState<SegmentKey>(initialKey);
 
@@ -45,13 +46,13 @@ export default function LearnTabContainer() {
   const [visitedTabs, setVisitedTabs] = useState<Record<SegmentKey, boolean>>(() => ({
     path: initialKey === 'path',
     decks: initialKey === 'decks',
-    speaking: initialKey === 'speaking',
+    skills: initialKey === 'skills',
     quiz: initialKey === 'quiz',
   }));
 
   useEffect(() => {
-    if (params.tab === 'quiz' || params.tab === 'decks' || params.tab === 'speaking' || params.tab === 'path') {
-      const tabKey = params.tab as SegmentKey;
+    const tabKey = segmentOf(params.tab);
+    if (tabKey) {
       setActiveSegment(tabKey);
       setVisitedTabs((prev) => (prev[tabKey] ? prev : { ...prev, [tabKey]: true }));
     }
@@ -132,9 +133,9 @@ export default function LearnTabContainer() {
             <MemoizedDecksScreen embedded />
           </View>
         )}
-        {visitedTabs.speaking && (
-          <View style={[styles.tabPane, activeSegment === 'speaking' ? styles.tabPaneActive : styles.tabPaneHidden]}>
-            <MemoizedSpeakingHomeScreen embedded />
+        {visitedTabs.skills && (
+          <View style={[styles.tabPane, activeSegment === 'skills' ? styles.tabPaneActive : styles.tabPaneHidden]}>
+            <MemoizedSkillPracticeScreen />
           </View>
         )}
         {visitedTabs.quiz && (

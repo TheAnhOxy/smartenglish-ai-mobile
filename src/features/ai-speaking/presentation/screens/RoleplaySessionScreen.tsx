@@ -32,7 +32,6 @@ import {
   FREE_SPEAKING_DAILY_LIMIT,
   transcribeSpeechApi,
   evaluatePronunciationApi,
-  speakingErrorMessage,
 } from '../../data/speakingApi';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { speakText, stopSpeech } from '@/src/core/services/speechService';
@@ -40,6 +39,7 @@ import { UserAvatar } from '@/src/core/components/UserAvatar';
 import { BackButton } from '@/src/core/components/BackButton';
 import { useTutorVoice } from '@/src/features/ai-chatbot/application/useTutorVoice';
 import { RecordingOverlay } from '../components/RecordingOverlay';
+import { PronunciationResultModal, scoreColor, scoreLabel, type SpokenAttempt } from '../components/PronunciationResultModal';
 import { PracticeFeedbackCard } from '@/src/features/practice-feedback/presentation/components/PracticeFeedbackCard';
 import { hasActivePremium } from '@/src/core/utils/plan';
 import { dk } from '@/src/theme/themeMode';
@@ -52,6 +52,8 @@ interface TurnAssessment {
   fluency: number;
   intonation: number;
   tip?: string;
+  /** Toàn bộ kết quả chấm để mở lại modal chi tiết. */
+  detail: SpokenAttempt;
 }
 
 interface ChatTurn {
@@ -61,15 +63,20 @@ interface ChatTurn {
   suggestions?: string[];
   /** Lượt học viên: điểm phát âm (chỉ khi nói bằng micro). */
   assessment?: TurnAssessment;
-  assessing?: boolean;
   assessError?: string;
   /** Lượt học viên: câu sửa ngữ pháp / cách nói hay hơn. */
   grammarFix?: string;
   betterPhrasing?: string;
 }
 
-const scoreColor = (v: number) => (v >= 80 ? '#15803D' : v >= 60 ? '#B45309' : '#B91C1C');
-
+const toTurnAssessment = (attempt: SpokenAttempt): TurnAssessment => ({
+  overall: attempt.data.overallScore,
+  accuracy: attempt.data.accuracyScore,
+  fluency: attempt.data.fluencyScore,
+  intonation: attempt.data.intonationScore,
+  tip: attempt.data.improvementTips[0] || attempt.data.errorFeedback[0],
+  detail: attempt,
+});
 
 export const RoleplaySessionScreen = () => {
   const { scenarioId } = useLocalSearchParams<{ scenarioId: string }>();
@@ -92,29 +99,55 @@ export const RoleplaySessionScreen = () => {
   const [showQuotaModal, setShowQuotaModal] = useState(false);
   const [isAiVoiceMuted, setIsAiVoiceMuted] = useState(false);
 
-  // Micro: web nhận dạng trực tiếp; iOS/Android ghi âm rồi gửi AI chuyển thành chữ.
-  // Giữ lại bản ghi của câu vừa nói để chấm phát âm ngay khi gửi.
+  // Micro: mọi nền tảng đều ghi âm thật rồi gửi AI chấm ngay khi học viên dừng nói.
+  // Câu mẫu = câu gợi ý học viên vừa chạm (nếu có) để so từng từ.
   const [transcribing, setTranscribing] = useState(false);
   const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
-  const lastRecording = useRef<{ base64: string; mimeType: string; transcript: string } | null>(null);
+  const [practiceTarget, setPracticeTarget] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState<SpokenAttempt | null>(null);
+  const [showAttempt, setShowAttempt] = useState(false);
+  const [reviewAttempt, setReviewAttempt] = useState<SpokenAttempt | null>(null);
+  const targetRef = useRef<string | null>(null);
+  targetRef.current = practiceTarget;
   const voice = useTutorVoice({
     onText: (text) => setInputText(text.trim()),
     onInterim: (text) => setInputText(text.trim()),
     onAudio: async ({ base64, mimeType }) => {
+      // Mỗi lần chấm (kể cả "Nói lại") tính 1 lượt; gửi câu đã chấm thì không trừ thêm
+      if (!consumeTurn(isPremium)) {
+        setShowQuotaModal(true);
+        return;
+      }
       setTranscribing(true);
-      lastRecording.current = null;
+      setAttempt(null);
+      const target = targetRef.current;
+      let heard = '';
       try {
-        const transcript = await transcribeSpeechApi(base64, mimeType);
-        lastRecording.current = { base64, mimeType, transcript };
-        setInputText(transcript);
+        // Có câu mẫu: chấm thẳng (server tự nghe mù rồi so). Nói tự do: nghe trước, lấy câu nghe được làm mục tiêu.
+        if (!target) heard = await transcribeSpeechApi(base64, mimeType);
+        const data = await evaluatePronunciationApi({
+          targetText: target || heard,
+          audioBase64: base64,
+          audioMimeType: mimeType,
+          sessionType: 'ROLEPLAY',
+        });
+        heard = (data.transcribedText || heard).trim();
+        setInputText(heard);
+        setAttempt({ target, heard, data });
+        setShowAttempt(true);
       } catch (err) {
-        setInputText('');
-        setVoiceNotice(err instanceof Error ? err.message : 'Chưa nghe được giọng nói. Hãy nói to, rõ và thử lại.');
+        setInputText(heard);
+        setVoiceNotice(err instanceof Error ? err.message : 'Chưa chấm được phát âm. Hãy nói to, rõ và thử lại.');
       } finally {
         setTranscribing(false);
       }
     },
   });
+  // Web mặc định nhận dạng bằng trình duyệt (không có bản ghi); luyện nói cần bản ghi để chấm
+  const setRecordAudio = voice.setRecordAudio;
+  useEffect(() => {
+    setRecordAudio(true);
+  }, [setRecordAudio]);
   const learnerLevel = currentUser?.cefr_level ?? null;
   const isRecording = voice.listening;
   const voiceBusy = voice.processing || transcribing;
@@ -241,7 +274,8 @@ export const RoleplaySessionScreen = () => {
     }
     setVoiceNotice(null);
     setInputText('');
-    lastRecording.current = null;
+    setAttempt(null);
+    setShowAttempt(false);
     // iOS không ghi âm được khi phiên âm thanh đang phát giọng AI
     stopSpeech();
     Speech.stop();
@@ -264,15 +298,19 @@ export const RoleplaySessionScreen = () => {
       return;
     }
 
+    const scored = attempt && attempt.heard === textToSend ? attempt : null;
     setInputText('');
-    handleSendUserTurn(textToSend);
+    setAttempt(null);
+    setShowAttempt(false);
+    setPracticeTarget(null);
+    void handleSendUserTurn(textToSend, scored);
   };
 
-  // Gửi tin nhắn và xử lý phản hồi từ AI
-  const handleSendUserTurn = async (userText: string) => {
+  // Gửi tin nhắn (kèm điểm phát âm đã chấm) và xử lý phản hồi từ AI
+  const handleSendUserTurn = async (userText: string, scored: SpokenAttempt | null) => {
 
-    // Kiểm tra hạn mức lượt chat hôm nay
-    if (!canChat(isPremium)) {
+    // Câu đã chấm phát âm thì lượt đã trừ lúc chấm; câu chưa chấm được thì trừ khi gửi
+    if (!scored && !consumeTurn(isPremium)) {
       setShowQuotaModal(true);
       return;
     }
@@ -280,47 +318,14 @@ export const RoleplaySessionScreen = () => {
     setIsProcessing(true);
     setVoiceNotice(null);
 
-    // Trừ 1 lượt
-    const consumed = consumeTurn(isPremium);
-    if (!consumed) {
-      setIsProcessing(false);
-      setShowQuotaModal(true);
-      return;
-    }
-
-    // Câu vừa nói bằng micro (chưa sửa tay) thì chấm phát âm trên chính bản ghi đó
-    const recording =
-      lastRecording.current && lastRecording.current.transcript.trim().toLowerCase() === userText.trim().toLowerCase()
-        ? lastRecording.current
-        : null;
-    lastRecording.current = null;
-
     const history = turns.map((t) => ({ role: t.role === 'ai' ? ('model' as const) : ('user' as const), content: t.text }));
     const userIndex = turns.length;
-    setTurns((prev) => [...prev, { role: 'user', text: userText, assessing: Boolean(recording) }]);
-
-    if (recording) {
-      evaluatePronunciationApi({
-        targetText: userText,
-        audioBase64: recording.base64,
-        audioMimeType: recording.mimeType,
-        sessionType: 'ROLEPLAY',
-      })
-        .then((r) => {
-          const assessment: TurnAssessment = {
-            overall: r.overallScore,
-            accuracy: r.accuracyScore,
-            fluency: r.fluencyScore,
-            intonation: r.intonationScore,
-            tip: r.improvementTips[0] || r.errorFeedback[0],
-          };
-          setTurns((prev) => prev.map((t, i) => (i === userIndex ? { ...t, assessing: false, assessment } : t)));
-        })
-        .catch((err) => {
-          const message = speakingErrorMessage(err, 'Chưa chấm được phát âm câu này.');
-          setTurns((prev) => prev.map((t, i) => (i === userIndex ? { ...t, assessing: false, assessError: message } : t)));
-        });
-    }
+    setTurns((prev) => [
+      ...prev,
+      scored
+        ? { role: 'user', text: userText, assessment: toTurnAssessment(scored) }
+        : { role: 'user', text: userText, assessError: 'Câu này chưa được chấm phát âm.' },
+    ]);
 
     try {
       const aiResult = await sendRoleplayChatApi(scenario.id, userText, { history, learnerLevel });
@@ -498,36 +503,22 @@ export const RoleplaySessionScreen = () => {
                 </Text>
 
                 {/* Đánh giá ngay sau câu nói của học viên */}
-                {!isAi && (turn.assessing || turn.assessment || turn.assessError || turn.grammarFix || turn.betterPhrasing) ? (
+                {!isAi && (turn.assessment || turn.assessError || turn.grammarFix || turn.betterPhrasing) ? (
                   <View style={s.assessCard}>
-                    {turn.assessing ? (
-                      <View style={s.assessRow}>
-                        <ActivityIndicator size="small" color="#4F46E5" />
-                        <Text style={s.assessMuted}>Đang chấm phát âm...</Text>
-                      </View>
-                    ) : null}
                     {turn.assessment ? (
-                      <>
-                        <View style={s.assessRow}>
-                          <Text style={[s.assessOverall, { color: scoreColor(turn.assessment.overall) }]}>
-                            {turn.assessment.overall}%
-                          </Text>
-                          <Text style={s.assessMuted}>Phát âm tổng thể</Text>
-                        </View>
-                        <View style={s.assessMetrics}>
-                          {[
-                            ['Chính xác', turn.assessment.accuracy],
-                            ['Trôi chảy', turn.assessment.fluency],
-                            ['Ngữ điệu', turn.assessment.intonation],
-                          ].map(([label, value]) => (
-                            <View key={String(label)} style={s.assessMetric}>
-                              <Text style={[s.assessMetricValue, { color: scoreColor(Number(value)) }]}>{value}%</Text>
-                              <Text style={s.assessMetricLabel}>{label}</Text>
-                            </View>
-                          ))}
-                        </View>
-                        {turn.assessment.tip ? <Text style={s.assessTip}>{turn.assessment.tip}</Text> : null}
-                      </>
+                      <Pressable
+                        onPress={() => setReviewAttempt(turn.assessment?.detail ?? null)}
+                        accessibilityLabel="Xem chi tiết điểm phát âm"
+                        style={({ pressed }) => [s.assessRow, pressed && { opacity: 0.7 }]}
+                      >
+                        <Text style={[s.assessOverall, { color: scoreColor(turn.assessment.overall) }]}>
+                          {turn.assessment.overall}%
+                        </Text>
+                        <Text style={[s.assessMuted, { flex: 1 }]} numberOfLines={1}>
+                          {scoreLabel(turn.assessment.overall)}
+                        </Text>
+                        <Text style={s.assessLink}>Xem chi tiết</Text>
+                      </Pressable>
                     ) : null}
                     {turn.assessError ? <Text style={s.assessMuted}>{turn.assessError}</Text> : null}
                     {turn.grammarFix ? (
@@ -567,14 +558,19 @@ export const RoleplaySessionScreen = () => {
             {(turns[turns.length - 1]?.suggestions ?? []).map((sug) => (
               <Pressable
                 key={sug}
-                onPress={() => handleSpeakAiLine(sug)}
-                style={({ pressed }) => [s.suggestChip, pressed && { opacity: 0.7 }]}
-                accessibilityLabel={`Nghe đọc mẫu câu gợi ý: ${sug}`}
+                onPress={() => {
+                  setPracticeTarget(sug);
+                  handleSpeakAiLine(sug);
+                }}
+                style={({ pressed }) => [s.suggestChip, practiceTarget === sug && s.suggestChipOn, pressed && { opacity: 0.7 }]}
+                accessibilityLabel={`Chọn làm câu mẫu và nghe đọc: ${sug}`}
               >
-                <Text style={s.suggestText}>{sug}</Text>
+                <Text style={[s.suggestText, practiceTarget === sug && s.suggestTextOn]}>{sug}</Text>
               </Pressable>
             ))}
-            <Text style={s.suggestHint}>Chạm để nghe đọc mẫu, sau đó bấm micro và tự nói lại để được chấm phát âm.</Text>
+            <Text style={s.suggestHint}>
+              Chạm một câu để nghe đọc mẫu và chọn làm câu mẫu, rồi bấm micro đọc lại: AI so từng từ và chấm điểm. Cũng có thể tự nói câu khác.
+            </Text>
           </View>
         ) : null}
 
@@ -603,7 +599,7 @@ export const RoleplaySessionScreen = () => {
       {/* ── KHU VỰC ĐIỀU KHIỂN DƯỚI CHÂN: MICRO + CÂU VỪA NÓI + NÚT GỬI (không nhập chữ) ── */}
       <View style={s.bottomControl}>
         {/* Câu nhận dạng từ giọng nói: chỉ hiển thị, không cho gõ */}
-        <View style={[s.transcriptBox, isRecording && s.transcriptBoxRecording]}>
+        <View style={[s.transcriptBox, isRecording && s.transcriptBoxRecording, attempt && { paddingRight: 64 }]}>
           <Text
             numberOfLines={3}
             style={[
@@ -614,11 +610,21 @@ export const RoleplaySessionScreen = () => {
             accessibilityLiveRegion="polite"
           >
             {voiceBusy
-              ? 'Đang nhận dạng giọng nói...'
+              ? 'AI đang nghe và chấm phát âm...'
               : isRecording
-                ? inputText || 'Đang ghi âm... bấm micro lần nữa khi nói xong'
-                : inputText || 'Bấm micro và nói câu trả lời bằng tiếng Anh'}
+                ? practiceTarget
+                  ? `Đang ghi âm: đọc "${practiceTarget}"`
+                  : 'Đang ghi âm... bấm micro lần nữa khi nói xong'
+                : inputText ||
+                  (practiceTarget ? `Câu mẫu: ${practiceTarget}` : 'Bấm micro và nói câu trả lời bằng tiếng Anh')}
           </Text>
+          {attempt && !voiceBusy && !isRecording ? (
+            <Pressable onPress={() => setShowAttempt(true)} style={s.attemptPill} accessibilityLabel="Xem lại kết quả chấm">
+              <Text style={[s.attemptPillText, { color: scoreColor(attempt.data.overallScore) }]}>
+                {attempt.data.overallScore}%
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
 
         {/* Micro lớn ở giữa, nút gửi bên phải */}
@@ -682,6 +688,7 @@ export const RoleplaySessionScreen = () => {
       <RecordingOverlay
         listening={isRecording}
         busy={voiceBusy}
+        targetText={practiceTarget}
         liveText={isRecording ? inputText : ''}
         level={voice.level}
         onStop={() => void voice.stop()}
@@ -689,6 +696,29 @@ export const RoleplaySessionScreen = () => {
           voice.cancel();
           setInputText('');
         }}
+      />
+
+      {/* ── KẾT QUẢ CHẤM NGAY SAU KHI NÓI ───────────────────────────────── */}
+      {showAttempt && attempt ? (
+        <PronunciationResultModal
+          attempt={attempt}
+          onClose={() => setShowAttempt(false)}
+          onRetry={() => {
+            setShowAttempt(false);
+            toggleRecording();
+          }}
+          onSend={() => {
+            setShowAttempt(false);
+            handleSendMessage();
+          }}
+        />
+      ) : null}
+      <PronunciationResultModal
+        attempt={reviewAttempt}
+        readOnly
+        onClose={() => setReviewAttempt(null)}
+        onRetry={() => setReviewAttempt(null)}
+        onSend={() => setReviewAttempt(null)}
       />
 
       {/* ── MODAL TỔNG KẾT PHIÊN LUYỆN NÓI ───────────────────────────────── */}
@@ -756,6 +786,9 @@ export const RoleplaySessionScreen = () => {
                   stopSpeech();
                   Speech.stop();
                   setShowSummaryModal(false);
+                  setPracticeTarget(null);
+                  setAttempt(null);
+                  setInputText('');
                   setTurns([{ role: 'ai', text: scenario.opening_line }]);
                 }}
                 style={s.btnSecondary}
@@ -1456,5 +1489,20 @@ const s = StyleSheet.create({
     backgroundColor: AppColors.surface,
   },
   suggestText: { fontSize: 14, color: AppColors.neutralInk },
+  suggestChipOn: { backgroundColor: '#4F46E5', borderColor: '#4F46E5' },
+  suggestTextOn: { color: '#FFFFFF', fontWeight: '600' },
+  assessLink: { fontSize: 12, fontWeight: '700', color: '#4F46E5' },
+  attemptPill: {
+    position: 'absolute',
+    right: 8,
+    top: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: AppColors.cardWhite,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  attemptPillText: { fontSize: 12, fontWeight: '800' },
   suggestHint: { fontSize: 11, color: AppColors.neutralGray },
 });

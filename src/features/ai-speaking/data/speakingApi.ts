@@ -140,7 +140,6 @@ export interface SyllableEvaluation {
   syllable: string;
   ipa: string;
   isCorrect: boolean;
-  score: number;
   feedback?: string;
   isStressed?: boolean;
 }
@@ -153,10 +152,8 @@ export interface PronunciationAssessmentData {
   fluencyScore: number;
   nativeComparisonScore: number;
   syllables?: SyllableEvaluation[];
-  phonemeErrors: {
-    targetPhonemes?: string[];
-    mispronounced?: Array<{ phoneme: string; userAudioScore?: number; tip: string }>;
-  };
+  /** Lỗi âm vị AI trả về: [{ phoneme, issue, correction }]. Đọc bằng phonemeErrorList. */
+  phonemeErrors: unknown;
   errorFeedback: string[];
   improvementTips: string[];
   audioUrl?: string;
@@ -164,17 +161,18 @@ export interface PronunciationAssessmentData {
 }
 
 /**
- * Phân tích và bóc tách từ vựng thành các âm tiết IPA kèm đánh giá độ chuẩn xác (tô đỏ âm sai)
+ * Tách phiên âm IPA thành âm tiết và tô đỏ âm tiết chứa âm vị AI báo sai.
+ * Chỉ dựa vào lỗi âm vị AI trả về; không tự suy ra lỗi hay điểm từng âm tiết.
  */
 export const extractAndEvaluateSyllables = (
   targetText: string,
   targetIpa: string = '',
-  accuracyScore: number = 85,
-  phonemeErrors?: any
+  phonemeErrors?: unknown
 ): SyllableEvaluation[] => {
-  let cleanIpa = targetIpa.replace(/^\/+|\/+$/g, '').trim();
+  const cleanIpa = targetIpa.replace(/^\/+|\/+$/g, '').trim();
+  // Không có phiên âm thì không tách được âm tiết: hiện nguyên từ
   if (!cleanIpa) {
-    cleanIpa = targetText.toLowerCase();
+    return targetText ? [{ syllable: targetText, ipa: targetText, isCorrect: true, feedback: '' }] : [];
   }
 
   let rawSyllables: string[] = [];
@@ -197,80 +195,41 @@ export const extractAndEvaluateSyllables = (
     }
     if (current) chunks.push(current);
 
-    if (chunks.length > 1) {
-      rawSyllables = chunks;
-    } else {
-      const len = cleanIpa.length;
-      if (len <= 4) {
-        rawSyllables = [cleanIpa];
-      } else {
-        const mid = Math.floor(len / 2);
-        rawSyllables = [cleanIpa.slice(0, mid), cleanIpa.slice(mid)];
-      }
-    }
+    // Không có dấu chia âm tiết / trọng âm thì giữ nguyên, không tự cắt
+    rawSyllables = chunks.length > 1 ? chunks : [cleanIpa];
   }
 
-  // Thu thập danh sách lỗi âm vị từ AI backend
-  const errList: Array<{ phoneme: string; tip: string }> = [];
-  if (Array.isArray(phonemeErrors)) {
-    phonemeErrors.forEach((p: any) => {
-      const ph = (p.phoneme || p.expectedPhoneme || '').replace(/^\/+|\/+$/g, '').trim();
-      const tip = p.correction || p.issue || p.message || p.tip || p.suggestion || '';
-      if (ph) errList.push({ phoneme: ph, tip });
-    });
-  } else if (phonemeErrors?.mispronounced && Array.isArray(phonemeErrors.mispronounced)) {
-    phonemeErrors.mispronounced.forEach((p: any) => {
-      const ph = (p.phoneme || '').replace(/^\/+|\/+$/g, '').trim();
-      const tip = p.tip || p.message || '';
-      if (ph) errList.push({ phoneme: ph, tip });
-    });
-  }
+  const errList = phonemeErrorList(phonemeErrors);
 
-  return rawSyllables.map((syl, idx) => {
+  return rawSyllables.map((syl) => {
     const cleanSyl = syl.replace(/[ˈˌ]/g, '').toLowerCase();
     const isStressed = syl.includes('ˈ') || syl.includes('ˌ');
-
-    // Tìm xem âm tiết này có chứa âm vị bị lỗi không
-    const matchedErr = errList.find(
-      (e) => cleanSyl.includes(e.phoneme.toLowerCase()) || e.phoneme.toLowerCase().includes(cleanSyl)
-    );
-
-    // Nếu có lỗi âm vị rõ ràng từ AI -> đánh dấu lỗi
-    // Nếu không có danh sách lỗi âm vị từ AI: chỉ đánh dấu lỗi khi điểm < 75%
-    let isErr = false;
-    let errTip = '';
-
-    if (matchedErr) {
-      isErr = true;
-      errTip = matchedErr.tip;
-    } else if (errList.length === 0 && accuracyScore < 75) {
-      // Khi phát âm dưới 75%, đánh dấu âm tiết cuối hoặc âm tiết trọng âm chưa đạt
-      if (rawSyllables.length > 1 && idx === rawSyllables.length - 1) {
-        isErr = true;
-        errTip = `Âm đuôi '${syl}' phát âm chưa dứt khoát.`;
-      }
-    }
-
-    const score = isErr
-      ? Math.max(48, Math.min(68, accuracyScore - 18))
-      : Math.min(98, Math.max(82, accuracyScore + 4));
-
-    let feedback = 'Phát âm chuẩn xác, đúng trường độ và cao độ.';
-    if (isErr) {
-      feedback = errTip || (isStressed
-        ? `Cần nhấn rõ trọng âm '${syl}', mở rộng khoang miệng.`
-        : `Âm tiết '${syl}' cần phát âm rõ nét hơn, tránh nuốt âm.`);
-    }
-
+    // Âm tiết chứa âm vị AI báo sai thì tô đỏ, kèm cách sửa AI đưa
+    const matchedErr = errList.find((e) => cleanSyl.includes(e.phoneme.toLowerCase()));
     return {
       syllable: syl.replace(/[ˈˌ]/g, ''),
       ipa: `/${syl}/`,
-      isCorrect: !isErr,
-      score: Math.round(score),
-      feedback,
+      isCorrect: !matchedErr,
+      feedback: matchedErr ? matchedErr.tip || `AI báo âm /${matchedErr.phoneme}/ chưa chuẩn.` : '',
       isStressed,
     };
   });
+};
+
+/** Lỗi âm vị AI trả về: [{ phoneme, issue, correction }] (hoặc dạng cũ { mispronounced: [...] }). */
+export const phonemeErrorList = (raw: unknown): { phoneme: string; tip: string }[] => {
+  const items = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === 'object' && Array.isArray((raw as { mispronounced?: unknown }).mispronounced)
+      ? (raw as { mispronounced: unknown[] }).mispronounced
+      : [];
+  return items
+    .filter((p): p is Record<string, unknown> => typeof p === 'object' && p !== null)
+    .map((p) => ({
+      phoneme: String(p.phoneme ?? p.expectedPhoneme ?? '').replace(/^\/+|\/+$/g, '').trim(),
+      tip: [p.issue, p.correction, p.tip, p.message].filter((x) => typeof x === 'string' && x).join(' '),
+    }))
+    .filter((p) => p.phoneme);
 };
 
 /** Lỗi từ server (FastAPI `detail`) hoặc thông báo mặc định — để hiện cho học viên thay vì bịa điểm. */
@@ -318,7 +277,6 @@ export const evaluatePronunciationApi = async (params: {
       const syllables = extractAndEvaluateSyllables(
         params.targetText,
         params.targetIpa || '',
-        acc,
         data.phonemeErrors
       );
 
@@ -330,10 +288,7 @@ export const evaluatePronunciationApi = async (params: {
         fluencyScore: fluency,
         nativeComparisonScore: Math.round(data.nativeComparisonScore ?? 0),
         syllables,
-        phonemeErrors: data.phonemeErrors || {
-          targetPhonemes: [],
-          mispronounced: [],
-        },
+        phonemeErrors: data.phonemeErrors ?? [],
         errorFeedback: Array.isArray(data.errorFeedback) ? data.errorFeedback : [],
         improvementTips: Array.isArray(data.improvementTips) ? data.improvementTips : [],
         audioUrl: data.audioUrl,

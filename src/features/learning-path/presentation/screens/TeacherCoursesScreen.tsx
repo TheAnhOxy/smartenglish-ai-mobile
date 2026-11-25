@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRefetchOnFocus } from '@/src/hooks/useRefetchOnFocus';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View, type ListRenderItem } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -39,6 +40,7 @@ export const TeacherCoursesScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { matched, others, level, fromPlacement, isLoading, isError, refetch, isRefetching } =
     useTeacherCoursesForLearner();
+  useRefetchOnFocus(refetch);
   const [filter, setFilter] = useState<LevelFilter>(defaultLevelFilter(level));
 
   // Trình độ có thể về sau khi kế hoạch học tải xong → cập nhật bộ lọc mặc định một lần

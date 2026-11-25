@@ -27,9 +27,10 @@ import {
   useAudioPlayerStatus,
   useAudioRecorder,
 } from 'expo-audio';
+import { METERED_RECORDING_OPTIONS, useMicLevel } from '@/src/core/audio/micLevel';
+import { MicLevelWaveform } from '@/src/core/components/MicLevelWaveform';
 import { CircularAccuracyRing } from '../components/CircularAccuracyRing';
 import { IpaSyllableBreakdownCard } from '../components/IpaSyllableBreakdownCard';
-import { SpeakingMetricsGrid } from '../components/SpeakingMetricsGrid';
 import { AppColors } from '@/src/core/theme/colors';
 import { PracticeFeedbackCard } from '@/src/features/practice-feedback/presentation/components/PracticeFeedbackCard';
 import {
@@ -51,17 +52,30 @@ export const SpeakingFeedbackScreen = () => {
     intonation?: string;
     fluency?: string;
     audioUri?: string;
+    /** Lỗi âm vị AI trả về ở màn trước (JSON). */
+    phonemes?: string;
+    /** Từ AI nghe được ở lần chấm trước. */
+    heard?: string;
   }>();
 
-  const targetWord = params.word || 'Phenomenal';
-  const targetIpa = params.ipa || '/fəˈnæmənəl/';
-  const initialScore = params.score ? Number(params.score) : 85;
+  // Chỉ hiện số liệu thật từ lần chấm; thiếu thì để 0, không dùng số mẫu
+  const targetWord = params.word || '';
+  const targetIpa = params.ipa || '';
+  const num = (v?: string) => (v && Number.isFinite(Number(v)) ? Number(v) : 0);
 
-  const [currentScore, setCurrentScore] = useState<number>(initialScore);
-  const [accuracy, setAccuracy] = useState<number>(params.accuracy ? Number(params.accuracy) : 86);
-  const [stress, setStress] = useState<number>(params.stress ? Number(params.stress) : 80);
-  const [intonation, setIntonation] = useState<number>(params.intonation ? Number(params.intonation) : 82);
-  const [fluency, setFluency] = useState<number>(params.fluency ? Number(params.fluency) : 88);
+  const [currentScore, setCurrentScore] = useState<number>(num(params.accuracy));
+  const [accuracy, setAccuracy] = useState<number>(num(params.accuracy));
+  const [stress, setStress] = useState<number>(num(params.stress));
+  const [intonation, setIntonation] = useState<number>(num(params.intonation));
+  const [fluency, setFluency] = useState<number>(num(params.fluency));
+  const [heardText, setHeardText] = useState<string>(params.heard || '');
+  const [phonemeErrors, setPhonemeErrors] = useState<unknown>(() => {
+    try {
+      return params.phonemes ? JSON.parse(params.phonemes) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const [isPlayingNative, setIsPlayingNative] = useState(false);
   const [isPlayingUserVoice, setIsPlayingUserVoice] = useState(false);
@@ -73,17 +87,22 @@ export const SpeakingFeedbackScreen = () => {
   const [mouthGuide, setMouthGuide] = useState<string>('');
 
   useEffect(() => {
-    fetchPronunciationLessonsApi().then((list) => {
-      const found = list.find((item) => item.targetText.toLowerCase() === targetWord.toLowerCase());
-      if (found?.mouthShapeGuide) {
-        setMouthGuide(found.mouthShapeGuide);
-      }
-    });
+    fetchPronunciationLessonsApi()
+      .then((list) => {
+        const found = list.find((item) => item.targetText.toLowerCase() === targetWord.toLowerCase());
+        if (found?.mouthShapeGuide) {
+          setMouthGuide(found.mouthShapeGuide);
+        }
+      })
+      .catch(() => undefined);
   }, [targetWord]);
 
-  const syllables = extractAndEvaluateSyllables(targetWord, targetIpa, accuracy);
+  const syllables = extractAndEvaluateSyllables(targetWord, targetIpa, phonemeErrors);
 
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  // Bật đo âm lượng để vẽ sóng âm theo giọng nói, học viên biết micro có đang thu hay không
+  const recorder = useAudioRecorder(METERED_RECORDING_OPTIONS);
+  const [webStream, setWebStream] = useState<MediaStream | null>(null);
+  const micLevel = useMicLevel(recorder, isRecording, webStream);
   const player = useAudioPlayer(recordedUri);
   const playerStatus = useAudioPlayerStatus(player);
 
@@ -153,6 +172,7 @@ export const SpeakingFeedbackScreen = () => {
     try {
       if (Platform.OS === 'web' && typeof window !== 'undefined' && navigator.mediaDevices) {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setWebStream(stream);
         mediaRecorderRef.current = new (window as any).MediaRecorder(stream);
         audioChunksRef.current = [];
 
@@ -191,11 +211,13 @@ export const SpeakingFeedbackScreen = () => {
             audioMimeType: 'audio/webm',
             sessionType: 'SINGLE_WORD',
           }).then((res) => {
-            setCurrentScore(res.overallScore);
+            setCurrentScore(Math.round(res.accuracyScore));
             setAccuracy(res.accuracyScore);
             setStress(res.stressScore);
             setIntonation(res.intonationScore);
             setFluency(res.fluencyScore);
+            setPhonemeErrors(res.phonemeErrors);
+            setHeardText(res.transcribedText || '');
           }).catch((err: unknown) => {
             setNoticeMessage(err instanceof Error ? err.message : 'AI chưa chấm được phát âm. Hãy thử lại.');
           });
@@ -273,11 +295,13 @@ export const SpeakingFeedbackScreen = () => {
             audioMimeType: 'audio/mp4',
             sessionType: 'SINGLE_WORD',
           });
-          setCurrentScore(res.overallScore);
+          setCurrentScore(Math.round(res.accuracyScore));
           setAccuracy(res.accuracyScore);
           setStress(res.stressScore);
           setIntonation(res.intonationScore);
           setFluency(res.fluencyScore);
+          setPhonemeErrors(res.phonemeErrors);
+          setHeardText(res.transcribedText || '');
         } catch (err) {
           setNoticeMessage(err instanceof Error ? err.message : 'AI chưa chấm được phát âm. Hãy thử lại.');
         }
@@ -367,32 +391,22 @@ export const SpeakingFeedbackScreen = () => {
             score={currentScore}
             size={110}
             strokeWidth={10}
-            label="ĐỘ CHUẨN"
+            label="CHÍNH XÁC"
           />
           <Text style={s.wordTitle}>{targetWord}</Text>
           <Text style={s.ipaText}>{targetIpa}</Text>
           <Text style={s.scoreTitleText}>
-            {currentScore >= 80
-              ? 'Xuất sắc! Phát âm chuẩn giọng bản xứ'
-              : currentScore >= 60
-              ? 'Khá tốt! Cần chú ý thêm trọng âm & âm đuôi'
-              : 'Cần luyện tập thêm khẩu hình'}
+            Mức khớp giữa từ AI nghe được và từ mẫu
           </Text>
         </View>
-
-        {/* 4 Chỉ Số Đánh Giá Chi Tiết */}
-        <SpeakingMetricsGrid
-          accuracy={accuracy}
-          fluency={fluency}
-          stress={stress}
-          intonation={intonation}
-        />
 
         {/* Tô đỏ âm tiết IPA đọc sai để làm nổi bật thế mạnh AI */}
         <IpaSyllableBreakdownCard
           syllables={syllables}
           targetWord={targetWord}
           targetIpa={targetIpa}
+          heardText={heardText}
+          overallScore={currentScore}
           mouthShapeGuide={mouthGuide}
         />
 
@@ -445,15 +459,21 @@ export const SpeakingFeedbackScreen = () => {
               <Text style={[s.audioLabelUserText, !hasRecording && { color: dk('#94A3B8', 'text') }]}>
                 {hasRecording ? 'Your Voice (Bản ghi âm giọng của bạn)' : 'Your Voice (Chưa có bản ghi âm)'}
               </Text>
-              <View style={s.waveformRow}>
-                <View style={[s.waveBar, { height: 14, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
-                <View style={[s.waveBar, { height: 28, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
-                <View style={[s.waveBar, { height: 12, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
-                <View style={[s.waveBar, { height: 32, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
-                <View style={[s.waveBar, { height: 24, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
-                <View style={[s.waveBar, { height: 16, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
-                <View style={[s.waveBar, { height: 10, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
-              </View>
+              {isRecording ? (
+                <View style={{ marginTop: 6 }}>
+                  <MicLevelWaveform recording level={micLevel} color="#38BDF8" height={36} />
+                </View>
+              ) : (
+                <View style={s.waveformRow}>
+                  <View style={[s.waveBar, { height: 14, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
+                  <View style={[s.waveBar, { height: 28, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
+                  <View style={[s.waveBar, { height: 12, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
+                  <View style={[s.waveBar, { height: 32, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
+                  <View style={[s.waveBar, { height: 24, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
+                  <View style={[s.waveBar, { height: 16, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
+                  <View style={[s.waveBar, { height: 10, backgroundColor: hasRecording ? '#38BDF8' : '#CBD5E1' }]} />
+                </View>
+              )}
             </View>
           </View>
         </View>
@@ -510,7 +530,7 @@ export const SpeakingFeedbackScreen = () => {
             sourceId: `speak-${targetWord}-${currentScore}-${accuracy}-${fluency}`.slice(0, 80),
             details: [
               `Từ/cụm luyện phát âm: "${targetWord}" ${targetIpa}.`,
-              `Điểm tổng ${currentScore}/100; độ chính xác âm ${accuracy}; trọng âm ${stress}; ngữ điệu ${intonation}; độ trôi chảy ${fluency}.`,
+              `Độ chính xác ${currentScore}/100.`,
               'Hãy nhận xét phát âm (âm nào dễ sai với người Việt), kỹ năng nói và từ vựng liên quan.',
             ].join('\n'),
           }}

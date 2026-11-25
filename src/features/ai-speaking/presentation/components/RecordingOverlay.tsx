@@ -16,8 +16,10 @@ import { ds, dsFont, dsRadius, dsSize } from '@/src/theme/ds';
 interface RecordingOverlayProps {
   /** Đang ghi âm. */
   listening: boolean;
-  /** Đã dừng, đang chuyển giọng nói thành chữ. */
+  /** Đã dừng, AI đang nghe và chấm phát âm. */
   busy: boolean;
+  /** Câu mẫu học viên đang đọc theo (nếu có). */
+  targetText?: string | null;
   /** Chữ nhận dạng tạm thời (web có, iOS/Android trống tới khi xong). */
   liveText?: string;
   /** Âm lượng micro 0…1 (đo thật trên iOS/Android); null → hiệu ứng nhịp mặc định (web). */
@@ -112,6 +114,7 @@ const BAR_COUNT = 11;
 export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
   listening,
   busy,
+  targetText,
   liveText,
   level = null,
   maxSeconds = 20,
@@ -135,9 +138,13 @@ export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel} statusBarTranslucent>
       <View style={s.backdrop}>
         <View style={s.sheet}>
-          <Text style={s.title}>{busy ? 'Đang nhận dạng giọng nói…' : 'Đang nghe bạn nói'}</Text>
+          <Text style={s.title}>{busy ? 'AI đang chấm phát âm…' : 'Đang nghe bạn nói'}</Text>
           <Text style={s.sub}>
-            {busy ? 'AI đang chuyển lời bạn nói thành chữ' : 'Nói câu trả lời bằng tiếng Anh, xong thì bấm “Xong”'}
+            {busy
+              ? 'Nghe lại bản ghi, so từng từ và chấm trọng âm, ngữ điệu, độ trôi chảy'
+              : targetText
+                ? `Đọc câu: “${targetText}”, xong thì bấm “Xong”`
+                : 'Nói câu trả lời bằng tiếng Anh, xong thì bấm “Xong”'}
           </Text>
 
           <View style={s.micArea}>

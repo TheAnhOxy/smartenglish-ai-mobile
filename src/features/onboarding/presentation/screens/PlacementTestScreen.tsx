@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, Pressable, TouchableOpacity, Modal, ActivityIndicator, StyleSheet, ScrollView } from 'react-native';
-import { useRouter, useSegments } from 'expo-router';
+import { useFocusEffect, useRouter, useSegments } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useOnboardingStore } from '../../application/useOnboardingStore';
@@ -58,11 +58,19 @@ export const PlacementTestScreen = () => {
     }
   };
 
-  useEffect(() => {
-    if (questions.length === 0) {
-      loadQuestions();
-    }
-  }, []);
+  // Màn này nằm trong Tabs nên không bị tháo khi rời đi: kiểm tra mỗi lần được mở lại.
+  // Lần trước đã có kết quả thì bỏ phiên đã nộp để máy chủ mở phiên mới và chấm lại,
+  // không thì nộp lại attemptId cũ chỉ nhận về kết quả lần trước.
+  useFocusEffect(
+    useCallback(() => {
+      const state = useOnboardingStore.getState();
+      if (state.result) state.resetTest();
+      if (state.result || state.questions.length === 0) {
+        loadQuestions();
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+  );
 
   const currentQuestion = questions[currentQuestionIndex];
 

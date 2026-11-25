@@ -92,9 +92,12 @@ export default function ReadingPassageScreen() {
           questions={passage.questions}
         />
 
-        <View className="mt-4 -mx-4">
-          <AssignmentSubmitBanner referenceId={passageId} />
-        </View>
+        {/* Bài có câu hỏi: nút nộp bài tập lớp hiện sau khi nộp, kèm điểm (trong SkillQuestionsPanel) */}
+        {passage.questions.length === 0 ? (
+          <View className="mt-4 -mx-4">
+            <AssignmentSubmitBanner referenceId={passageId} />
+          </View>
+        ) : null}
       </ScrollView>
 
       <QuickWordLookupModal visible={showDictLookup} onClose={() => setShowDictLookup(false)} />

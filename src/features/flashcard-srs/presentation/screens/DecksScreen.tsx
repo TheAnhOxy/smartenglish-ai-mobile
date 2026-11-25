@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useRefetchOnFocus } from '@/src/hooks/useRefetchOnFocus';
 import {
   View,
   Text,
@@ -10,6 +11,7 @@ import {
   StyleSheet,
   Dimensions,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -273,8 +275,11 @@ export const DecksScreen = ({ embedded = false }: { embedded?: boolean }) => {
 
   const createBtnSpring = usePressSpring(0.96);
 
-  const loadData = async () => {
-    setLoading(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  /** silent: tải lại ngầm (quay lại màn, kéo để làm mới) mà không thay danh sách bằng vòng quay. */
+  const loadData = async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       // Khách vãng lai: chỉ tải bộ thẻ hệ thống (công khai); "Của tôi" cần đăng nhập
@@ -318,6 +323,14 @@ export const DecksScreen = ({ embedded = false }: { embedded?: boolean }) => {
   useEffect(() => {
     loadData();
   }, []);
+
+  useRefetchOnFocus(() => loadData(true));
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData(true);
+    setRefreshing(false);
+  };
 
   const isUserPremium = hasActivePremium(currentUser);
 
@@ -389,6 +402,7 @@ export const DecksScreen = ({ embedded = false }: { embedded?: boolean }) => {
       style={[styles.container, xmas && { backgroundColor: 'transparent' }]}
       contentContainerStyle={[styles.scrollContent, !embedded && { paddingTop: insets.top + 10 }]}
       showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />}
     >
       {/* Top Header Bar */}
       <View style={styles.headerRow}>
@@ -471,7 +485,7 @@ export const DecksScreen = ({ embedded = false }: { embedded?: boolean }) => {
           <AlertCircle size={38} color="#EF4444" />
           <Text style={styles.errorTitle}>Lỗi kết nối máy chủ</Text>
           <Text style={styles.errorSub}>{error}</Text>
-          <Pressable onPress={loadData} style={styles.retryBtn}>
+          <Pressable onPress={() => loadData()} style={styles.retryBtn}>
             <RotateCcw size={15} color="#FFFFFF" />
             <Text style={styles.retryBtnText}>Thử lại</Text>
           </Pressable>

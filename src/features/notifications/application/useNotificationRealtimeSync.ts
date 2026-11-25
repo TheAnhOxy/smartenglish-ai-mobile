@@ -3,8 +3,31 @@ import { AppState, AppStateStatus } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { fetchLatestUnreadNotificationsApi } from '../data/notificationApi';
 import { presentLocalNotificationAsync } from './pushNotificationService';
+import { refreshEntitlements } from '@/src/core/flows/refreshEntitlements';
+import type { QueryClient } from '@tanstack/react-query';
 
 const POLL_INTERVAL_MS = 5000;
+
+/** Thông báo về lớp học: giáo viên giao bài, nhắc hạn, chấm điểm, thay đổi lớp. */
+const CLASS_TYPES = ['homework_assigned', 'homework_reminder', 'teacher_feedback', 'grade', 'class'];
+/** Thông báo về gói: thanh toán thành công, hủy gói, hoàn tiền. */
+const PLAN_TYPE_PREFIXES = ['payment', 'refunded'];
+
+/**
+ * Thông báo mới báo hiệu dữ liệu phía máy chủ đã đổi: tải lại ngay phần liên quan
+ * thay vì đợi người học mở lại màn hình.
+ */
+export const syncDataForNotifications = (queryClient: QueryClient, types: string[]) => {
+  if (types.some((t) => CLASS_TYPES.includes(t))) {
+    queryClient.invalidateQueries({ queryKey: ['student-assignments'] });
+    queryClient.invalidateQueries({ queryKey: ['class-detail'] });
+    queryClient.invalidateQueries({ queryKey: ['my-classes'] });
+  }
+  if (types.some((t) => PLAN_TYPE_PREFIXES.some((p) => t.startsWith(p)))) {
+    // Cấp lại token và tải lại hồ sơ để mở khóa hoặc khóa các chức năng Premium ngay
+    refreshEntitlements();
+  }
+};
 
 /**
  * Nhận thông báo gần realtime trên mobile bằng polling (cùng cách với tin nhắn chat).
@@ -40,6 +63,7 @@ export const useNotificationRealtimeSync = (userId?: string | number | null) => 
 
         fresh.forEach((n) => seen.add(n.id));
         queryClient.invalidateQueries({ queryKey: ['notifications'] });
+        syncDataForNotifications(queryClient, fresh.map((n) => String(n.notification_type ?? '').toLowerCase()));
 
         // Thông báo mới nhất hiện đầy đủ; nhiều thông báo dồn lại thì gộp thành 1 banner
         const [first] = fresh;

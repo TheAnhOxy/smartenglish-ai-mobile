@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useRefetchOnFocus } from '@/src/hooks/useRefetchOnFocus';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,6 +29,7 @@ export const StudentClassDetailScreen = () => {
 
   const validClassId = classId ? String(classId) : '';
   const { data: currentClass, isLoading, isError, error, refetch } = useClassDetail(validClassId);
+  useRefetchOnFocus(() => validClassId && refetch());
 
   if (isLoading) {
     return (

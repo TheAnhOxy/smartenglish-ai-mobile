@@ -690,7 +690,7 @@ export const LearningPathScreen = () => {
               Hệ thống chưa có khóa học tiêu chuẩn hoặc đang được cập nhật. Bạn có thể làm bài kiểm tra đầu vào để hệ thống sắp xếp bài học phù hợp.
             </Text>
             <Pressable
-              onPress={() => router.push('/(student)/practice' as any)}
+              onPress={() => router.push('/(student)/placement' as never)}
               style={{ backgroundColor: colors.primary, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 14 }}
             >
               <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>Làm bài kiểm tra</Text>
