@@ -14,6 +14,10 @@ export interface WritingResult {
   overall_band: number;
   rewritten_text: string;
   summary_vi: string;
+  /** Nhận xét ngắn cho từng tiêu chí chấm. */
+  criteria_comments_vi?: Partial<Record<keyof WritingResult['scoring_detail'], string>>;
+  strengths_vi?: string[];
+  improvements_vi?: string[];
   quota_used: number | null;
   quota_limit: number | null;
 }
