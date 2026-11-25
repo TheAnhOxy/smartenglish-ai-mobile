@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, CheckCircle2, FileText } from 'lucide-react-native';
 import { colors } from '@/src/theme';
+import { ds } from '@/src/theme/ds';
 import type { WritingError } from '@/src/core/types/schema';
 import { applyCorrections, useWritingSession } from '../../application/useAiWriting';
 import type { WritingResult } from '../../data/writingApi';
@@ -45,6 +46,10 @@ export const WritingAnalysisScreen = () => {
 
   const toggle = (id: string) => setAccepted((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   const acceptAll = () => setAccepted(errors.map((e) => e.error_id));
+
+  // Số thứ tự lỗi để đối chiếu giữa bài chấm và danh sách lỗi
+  const numberOf = (id: string) => errors.findIndex((x) => x.error_id === id) + 1;
+  const majorCount = errors.filter((e) => e.severity === 'major').length;
 
   // Bài gốc với các đoạn lỗi được tô màu
   const segments: { text: string; error?: WritingError }[] = [];
@@ -88,23 +93,87 @@ export const WritingAnalysisScreen = () => {
 
         {result.summary_vi ? <Text style={s.summary}>{result.summary_vi}</Text> : null}
 
-        <View style={s.card}>
-          <Text style={s.sectionTitle}>Bài của bạn</Text>
-          <Text style={s.essay}>
-            {segments.map((seg, i) =>
-              seg.error ? (
-                <Text key={i} style={accepted.includes(seg.error.error_id) ? s.markFixed : s.markError}>
-                  {accepted.includes(seg.error.error_id) ? seg.error.suggestion : seg.text}
+        {SCORE_LABEL.some(([key]) => result.criteria_comments_vi?.[key]) ? (
+          <View style={s.card}>
+            <Text style={s.sectionTitle}>Nhận xét theo tiêu chí</Text>
+            {SCORE_LABEL.map(([key, label]) =>
+              result.criteria_comments_vi?.[key] ? (
+                <Text key={key} style={s.commentLine}>
+                  <Text style={s.commentLabel}>
+                    {label} ({result.scoring_detail[key].toFixed(1)}):{' '}
+                  </Text>
+                  {result.criteria_comments_vi[key]}
                 </Text>
-              ) : (
-                <Text key={i}>{seg.text}</Text>
-              ),
+              ) : null,
             )}
+          </View>
+        ) : null}
+
+        {result.strengths_vi?.length || result.improvements_vi?.length ? (
+          <View style={s.card}>
+            {result.strengths_vi?.length ? (
+              <>
+                <Text style={s.sectionTitle}>Điểm làm tốt</Text>
+                {result.strengths_vi.map((x) => (
+                  <Text key={x} style={s.bullet}>
+                    - {x}
+                  </Text>
+                ))}
+              </>
+            ) : null}
+            {result.improvements_vi?.length ? (
+              <>
+                <Text style={[s.sectionTitle, result.strengths_vi?.length ? s.spaced : null]}>Cần cải thiện</Text>
+                {result.improvements_vi.map((x) => (
+                  <Text key={x} style={s.bullet}>
+                    - {x}
+                  </Text>
+                ))}
+              </>
+            ) : null}
+          </View>
+        ) : null}
+
+        <View style={s.card}>
+          <View style={s.rowBetween}>
+            <Text style={s.sectionTitle}>Bài chấm của bạn</Text>
+            {errors.length ? (
+              <View style={s.legend}>
+                <View style={[s.swatch, { backgroundColor: colors.dangerSoft, borderColor: colors.danger }]} />
+                <Text style={s.legendText}>Lỗi nặng</Text>
+                <View style={[s.swatch, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]} />
+                <Text style={s.legendText}>Lỗi nhỏ</Text>
+              </View>
+            ) : null}
+          </View>
+          <Text style={s.essay}>
+            {segments.map((seg, i) => {
+              if (!seg.error) return <Text key={i}>{seg.text}</Text>;
+              if (accepted.includes(seg.error.error_id)) {
+                return (
+                  <Text key={i} style={s.markFixed}>
+                    {seg.error.suggestion}
+                  </Text>
+                );
+              }
+              const major = seg.error.severity === 'major';
+              return (
+                <Text key={i}>
+                  <Text style={major ? s.markMajor : s.markMinor}>{seg.text}</Text>
+                  <Text style={s.markCorrection}> {seg.error.suggestion}</Text>
+                  <Text style={[s.markNumber, { color: major ? ds.redText : ds.amberText }]}>
+                    ({numberOf(seg.error.error_id)})
+                  </Text>
+                </Text>
+              );
+            })}
           </Text>
         </View>
 
         <View style={s.rowBetween}>
-          <Text style={s.sectionTitle}>{errors.length ? `${errors.length} lỗi cần xem` : 'Không phát hiện lỗi'}</Text>
+          <Text style={s.sectionTitle}>
+            {errors.length ? `${errors.length} lỗi (${majorCount} lỗi nặng)` : 'Không phát hiện lỗi'}
+          </Text>
           {errors.length > 1 ? (
             <Pressable onPress={acceptAll} hitSlop={8}>
               <Text style={s.link}>Chấp nhận tất cả</Text>
@@ -115,9 +184,14 @@ export const WritingAnalysisScreen = () => {
         {errors.map((e) => {
           const on = accepted.includes(e.error_id);
           return (
-            <View key={e.error_id} style={[s.card, on && s.cardOn]}>
+            <View
+              key={e.error_id}
+              style={[s.card, s.errCard, { borderLeftColor: e.severity === 'major' ? colors.danger : colors.warning }, on && s.cardOn]}
+            >
               <View style={s.rowBetween}>
-                <Text style={s.errType}>{TYPE_LABEL[e.type]}{e.severity === 'major' ? ' · quan trọng' : ''}</Text>
+                <Text style={[s.errType, { color: e.severity === 'major' ? ds.redText : ds.amberText }]}>
+                  ({numberOf(e.error_id)}) {TYPE_LABEL[e.type]} · {e.severity === 'major' ? 'lỗi nặng' : 'lỗi nhỏ'}
+                </Text>
                 <Pressable onPress={() => toggle(e.error_id)} style={[s.acceptBtn, on && s.acceptBtnOn]}>
                   {on ? <Check size={14} color="#FFFFFF" /> : null}
                   <Text style={[s.acceptText, on && { color: '#FFFFFF' }]}>{on ? 'Đã sửa' : 'Chấp nhận sửa'}</Text>
@@ -182,7 +256,18 @@ const s = StyleSheet.create({
   cardOn: { borderColor: colors.success },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
   essay: { fontSize: 15, lineHeight: 24, color: colors.text },
-  markError: { backgroundColor: colors.dangerSoft, color: colors.danger, textDecorationLine: 'underline' },
+  markMajor: { backgroundColor: colors.dangerSoft, color: ds.redText, textDecorationLine: 'line-through' },
+  markMinor: { backgroundColor: colors.warningSoft, color: ds.amberText, textDecorationLine: 'line-through' },
+  markCorrection: { color: ds.greenText, fontWeight: '700' },
+  markNumber: { fontSize: 11, fontWeight: '700' },
+  legend: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  swatch: { width: 12, height: 12, borderRadius: 3, borderWidth: 1, marginLeft: 6 },
+  legendText: { fontSize: 11, color: colors.textSoft },
+  commentLine: { fontSize: 14, lineHeight: 20, color: colors.text },
+  commentLabel: { fontWeight: '700' },
+  bullet: { fontSize: 14, lineHeight: 20, color: colors.text },
+  spaced: { marginTop: 6 },
+  errCard: { borderLeftWidth: 4 },
   markFixed: { backgroundColor: colors.successSoft, color: colors.success, fontWeight: '700' },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   link: { fontSize: 13, fontWeight: '700', color: colors.primary },

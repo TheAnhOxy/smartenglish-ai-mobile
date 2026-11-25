@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,8 @@ import {
   RefreshControl,
 } from "react-native";
 import { LinearGradient as ExpoLinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
+import { getPracticeUpdatedAt } from "@/src/core/flows/practiceActivity";
 import { BackButton } from "@/src/core/components/BackButton";
 import Svg, {
   Polygon,
@@ -443,7 +444,9 @@ export const AnalyticsScreen = ({ showBack = false }: { showBack?: boolean }) =>
   const [showExplanation, setShowExplanation] = useState(false);
   const [quizScore, setQuizScore] = useState(0);
 
+  const loadedAt = useRef(0);
   const loadData = useCallback(async () => {
+    loadedAt.current = Date.now();
     try {
       const uid = currentUser?.id ? String(currentUser.id) : undefined;
       // Đánh giá AI gọi Gemini nên chậm (10–50s): tải riêng để Tiến độ/Xếp hạng hiện ngay
@@ -474,6 +477,13 @@ export const AnalyticsScreen = ({ showBack = false }: { showBack?: boolean }) =>
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Vừa làm bài / được AI chấm ở màn khác: mở lại tab thì tải lại số liệu và Đánh giá AI
+  useFocusEffect(
+    useCallback(() => {
+      if (loadedAt.current > 0 && getPracticeUpdatedAt() > loadedAt.current) loadData();
+    }, [loadData]),
+  );
 
   const onRefresh = () => {
     setRefreshing(true);

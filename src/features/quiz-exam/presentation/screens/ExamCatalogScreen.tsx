@@ -35,9 +35,9 @@ import {
   Shuffle,
   ChevronRight,
 } from 'lucide-react-native';
-import { usePublishedExamsInfiniteQuery } from '../../application/useExamCatalog';
+import { usePublishedExamsInfiniteQuery, useSkillLessonsQuery } from '../../application/useExamCatalog';
 import { useUserExamHistoryQuery } from '../../application/useExamAttempt';
-import { ExamCategory, CefrLevel, PublicExamSummary } from '../../data/examCatalogApi';
+import { ExamCategory, CefrLevel, PublicExamSummary, SkillLessonSummary } from '../../data/examCatalogApi';
 import { TabLoadingState } from '@/src/components/ui/TabLoadingState';
 import {
   getAllSavedPracticeSessions,
@@ -73,6 +73,10 @@ const CATEGORY_TABS: { key: string; label: string; cat?: ExamCategory }[] = [
 ];
 
 const CEFR_LEVELS = ['ALL', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+
+/** So khớp tìm kiếm không phân biệt hoa thường và dấu tiếng Việt. */
+const foldText = (s: string) =>
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
 
 export function ExamCatalogScreen() {
   const router = useRouter();
@@ -118,7 +122,43 @@ export function ExamCatalogScreen() {
   }, [params.xpAwarded]);
 
   const activeCategory = CATEGORY_TABS.find((t) => t.key === selectedCategoryKey)?.cat;
-  const activeFilterCount = (selectedCategoryKey !== 'ALL' ? 1 : 0) + (selectedLevel !== 'ALL' ? 1 : 0);
+  const [selectedTopic, setSelectedTopic] = useState<string>('ALL');
+  const activeFilterCount =
+    (selectedCategoryKey !== 'ALL' ? 1 : 0) + (selectedLevel !== 'ALL' ? 1 : 0) + (selectedTopic !== 'ALL' ? 1 : 0);
+
+  // Tab Nghe hiểu / Đọc hiểu: lấy thêm bài nghe, bài đọc đã xuất bản (giáo viên/admin soạn trên web)
+  const skillKind: 'LISTENING' | 'READING' | null =
+    selectedCategoryKey === 'LISTENING' || selectedCategoryKey === 'READING' ? selectedCategoryKey : null;
+  const skillQuery = useSkillLessonsQuery(skillKind);
+
+  useEffect(() => {
+    setSelectedTopic('ALL');
+  }, [skillKind]);
+
+  const skillTopics = useMemo(() => {
+    const set = new Set<string>();
+    (skillQuery.data ?? []).forEach((l) => set.add(l.topic));
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'vi'));
+  }, [skillQuery.data]);
+
+  const filteredLessons = useMemo<SkillLessonSummary[]>(() => {
+    if (!skillKind) return [];
+    const q = foldText(searchText.trim());
+    return (skillQuery.data ?? []).filter((l) => {
+      if (selectedLevel !== 'ALL' && l.cefrLevel !== selectedLevel) return false;
+      if (selectedTopic !== 'ALL' && l.topic !== selectedTopic) return false;
+      if (q && !foldText(`${l.title} ${l.subtitle ?? ''} ${l.topic}`).includes(q)) return false;
+      return true;
+    });
+  }, [skillKind, skillQuery.data, selectedLevel, selectedTopic, searchText]);
+
+  const openLesson = (lesson: SkillLessonSummary) => {
+    router.push(
+      (lesson.kind === 'LISTENING'
+        ? `/(student)/practice/listening/${lesson.id}`
+        : `/(student)/practice/reading/${lesson.id}`) as never,
+    );
+  };
 
   const query = usePublishedExamsInfiniteQuery({
     search: searchText.trim() || undefined,
@@ -229,7 +269,7 @@ export function ExamCatalogScreen() {
           <Search size={18} color={dk('#94A3B8', 'text')} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Tìm kiếm đề thi, chủ đề TOEIC..."
+            placeholder="Tìm đề thi, bài nghe, bài đọc..."
             placeholderTextColor={dk('#94A3B8', 'text')}
             value={searchText}
             onChangeText={setSearchText}
@@ -288,10 +328,32 @@ export function ExamCatalogScreen() {
                 );
               })}
             </View>
+            {skillKind && skillTopics.length > 0 ? (
+              <>
+                <Text style={[styles.filterGroupLabel, { marginTop: 12 }]}>Chủ đề</Text>
+                <View style={styles.chipRow}>
+                  {['ALL', ...skillTopics].map((topic) => {
+                    const active = selectedTopic === topic;
+                    return (
+                      <Pressable
+                        key={topic}
+                        onPress={() => setSelectedTopic(topic)}
+                        style={[styles.filterChip, active && styles.filterChipActive]}
+                      >
+                        <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                          {topic === 'ALL' ? 'Tất cả' : topic}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </>
+            ) : null}
             {activeFilterCount > 0 ? (
               <Pressable
                 onPress={() => {
                   setSelectedCategoryKey('ALL');
+                  setSelectedTopic('ALL');
                   setSelectedLevel('ALL');
                 }}
                 style={styles.clearFilterBtn}
@@ -326,12 +388,63 @@ export function ExamCatalogScreen() {
           />
         )}
 
+        {/* Bài nghe / bài đọc */}
+        {skillKind ? (
+          <View style={styles.cardsList}>
+            {skillQuery.isLoading ? <ActivityIndicator color={colors.primary} style={{ marginVertical: 16 }} /> : null}
+            {filteredLessons.map((lesson) => (
+              <Pressable
+                key={`${lesson.kind}-${lesson.id}`}
+                onPress={() => openLesson(lesson)}
+                style={styles.lessonCard}
+                accessibilityLabel={`Mở ${lesson.title}`}
+              >
+                <View style={styles.lessonIcon}>
+                  {lesson.kind === 'LISTENING' ? (
+                    <PlayCircle size={20} color={colors.primary} />
+                  ) : (
+                    <BookOpen size={20} color={colors.primary} />
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.lessonTitle} numberOfLines={2}>{lesson.title}</Text>
+                  <Text style={styles.lessonMeta} numberOfLines={1}>
+                    {[lesson.cefrLevel, lesson.topic, lesson.questionCount ? `${lesson.questionCount} câu` : null, lesson.durationLabel]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </Text>
+                </View>
+                <ChevronRight size={18} color={colors.textSoft} />
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
         {/* Empty State */}
-        {displayExams.length === 0 && !query.isLoading && (
+        {displayExams.length === 0 &&
+          !query.isLoading &&
+          !(skillKind && (skillQuery.isLoading || filteredLessons.length > 0)) && (
           <View style={styles.emptyContainer}>
             <BookOpen size={42} color={dk('#94A3B8', 'text')} />
-            <Text style={styles.emptyTitle}>Chưa có bài thi nào</Text>
-            <Text style={styles.emptySubtitle}>Không tìm thấy bài thi phù hợp với danh mục này.</Text>
+            <Text style={styles.emptyTitle}>Chưa có bài phù hợp</Text>
+            <Text style={styles.emptySubtitle}>
+              {selectedLevel !== 'ALL'
+                ? `Không có bài nào ở cấp độ ${selectedLevel} với bộ lọc này.`
+                : 'Không tìm thấy bài phù hợp với bộ lọc này.'}
+            </Text>
+            {activeFilterCount > 0 ? (
+              <Pressable
+                onPress={() => {
+                  setSelectedCategoryKey('ALL');
+                  setSelectedTopic('ALL');
+                  setSelectedLevel('ALL');
+                }}
+                style={styles.clearFilterBtn}
+                hitSlop={6}
+              >
+                <Text style={styles.clearFilterText}>Xoá bộ lọc</Text>
+              </Pressable>
+            ) : null}
           </View>
         )}
 
@@ -500,6 +613,19 @@ export function ExamCatalogScreen() {
 }
 
 const styles = StyleSheet.create({
+  lessonCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+  },
+  lessonIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  lessonTitle: { fontSize: 14, fontWeight: '700', color: colors.text },
+  lessonMeta: { fontSize: 12, color: colors.textSoft, marginTop: 2 },
   levelMatchRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -59,6 +59,53 @@ export const stopSpeech = async () => {
   }
 };
 
+// Giọng đọc tự nhiên nhất có trên máy (ưu tiên bản Enhanced/Premium/Neural), chọn một lần rồi dùng lại
+let naturalVoice: { id?: string; webVoice?: SpeechSynthesisVoice } | null = null;
+const NATURAL_HINTS = /(premium|enhanced|neural|natural|siri|google us english|samantha|ava|zoe|allison|network)/i;
+const ROBOTIC_HINTS = /(compact|eloquence|espeak|fred|albert|zarvox|bad news|bells|boing|bubbles|cellos|trinoids|whisper|jester|organ|superstar|wobble|grandpa|grandma|rocko|shelley|flo|reed|sandy|eddy)/i;
+
+const scoreVoice = (v: { name?: string; identifier?: string; language?: string; quality?: string }) => {
+  const label = `${v.name ?? ''} ${v.identifier ?? ''}`;
+  if (ROBOTIC_HINTS.test(label)) return -10;
+  let s = 0;
+  if (/^en[-_]US/i.test(v.language ?? '')) s += 3;
+  else if (/^en/i.test(v.language ?? '')) s += 1;
+  if (v.quality === 'Enhanced') s += 4;
+  if (NATURAL_HINTS.test(label)) s += 3;
+  if (/network/i.test(label)) s += 1;
+  return s;
+};
+
+const pickNaturalVoice = async () => {
+  if (naturalVoice) return naturalVoice;
+  try {
+    if (Platform.OS === 'web') {
+      if (typeof window === 'undefined' || !window.speechSynthesis) return (naturalVoice = {});
+      let voices = window.speechSynthesis.getVoices();
+      if (voices.length === 0) {
+        await new Promise<void>((resolve) => {
+          window.speechSynthesis.addEventListener('voiceschanged', () => resolve(), { once: true });
+          setTimeout(resolve, 1000);
+        });
+        voices = window.speechSynthesis.getVoices();
+      }
+      const best = voices
+        .filter((v) => /^en/i.test(v.lang))
+        .sort((a, b) => scoreVoice({ name: a.name, language: a.lang }) - scoreVoice({ name: b.name, language: b.lang }))
+        .pop();
+      return (naturalVoice = { webVoice: best });
+    }
+    const voices = await Speech.getAvailableVoicesAsync();
+    const best = voices
+      .filter((v) => /^en/i.test(v.language))
+      .sort((a, b) => scoreVoice(a) - scoreVoice(b))
+      .pop();
+    return (naturalVoice = { id: best && scoreVoice(best) > 0 ? best.identifier : undefined });
+  } catch {
+    return (naturalVoice = {});
+  }
+};
+
 /**
  * Hybrid Speech Service:
  * 1. Native Expo Speech API
@@ -71,14 +118,25 @@ export const speakText = async (text: string, options?: SpeakOptions) => {
   await stopAllAudio();
   const sessionId = ++activeSpeechSession;
 
+  const language = options?.language || 'en-US';
+  const voice = /^en/i.test(language) ? await pickNaturalVoice() : {};
+  if (sessionId !== activeSpeechSession) return;
+
+  // Web: đọc trực tiếp bằng giọng tự nhiên đã chọn
+  if (Platform.OS === 'web' && voice.webVoice && typeof window !== 'undefined' && window.speechSynthesis) {
+    fallbackWebOrAudio(cleanText, options, sessionId, voice.webVoice);
+    return;
+  }
+
   // Tier 1: Try Expo Speech
   try {
     let hasSpoken = false;
 
     Speech.speak(cleanText, {
-      language: options?.language || 'en-US',
+      language,
+      voice: voice.id,
       pitch: options?.pitch || 1.0,
-      rate: options?.rate || 0.9,
+      rate: options?.rate || 0.95,
       onDone: () => {
         if (sessionId !== activeSpeechSession) return;
         hasSpoken = true;
@@ -182,7 +240,12 @@ export const speakDialogue = async (script: string, options?: SpeakOptions) => {
   next();
 };
 
-const fallbackWebOrAudio = async (text: string, options: SpeakOptions | undefined, sessionId: number) => {
+const fallbackWebOrAudio = async (
+  text: string,
+  options: SpeakOptions | undefined,
+  sessionId: number,
+  webVoice?: SpeechSynthesisVoice
+) => {
   if (sessionId !== activeSpeechSession) return;
   // Tier 2: Web SpeechSynthesis
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.speechSynthesis) {
@@ -190,7 +253,12 @@ const fallbackWebOrAudio = async (text: string, options: SpeakOptions | undefine
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = options?.language || 'en-US';
-      utterance.rate = options?.rate || 0.9;
+      utterance.rate = options?.rate || 0.95;
+      if (webVoice) {
+        utterance.voice = webVoice;
+        utterance.lang = webVoice.lang;
+      }
+      activeUtterance = utterance;
       utterance.onend = () => {
         if (sessionId === activeSpeechSession) options?.onDone?.();
       };

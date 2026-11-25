@@ -1,5 +1,43 @@
 import { apiClient } from '@/src/core/api/client';
 
+/** Câu hỏi trắc nghiệm của bài đọc / bài nghe (đã chuẩn hoá 2 định dạng lưu trên web). */
+export interface SkillQuestion {
+  id: string;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation?: string;
+}
+
+const stripOptionPrefix = (s: string) => s.replace(/^\s*[A-Da-d][.)]\s+/, '').trim();
+
+export const normalizeSkillQuestions = (raw: unknown): SkillQuestion[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((q: any, idx: number): SkillQuestion | null => {
+      const options: string[] = Array.isArray(q?.options)
+        ? q.options.map((o: any) => stripOptionPrefix(typeof o === 'string' ? o : String(o?.text ?? o?.label ?? '')))
+        : [];
+      const question = String(q?.questionText ?? q?.question ?? '').trim();
+      if (!question || options.length < 2) return null;
+      let correctIndex = typeof q?.correctIndex === 'number' ? q.correctIndex : -1;
+      if (correctIndex < 0 && q?.correctAnswer != null) {
+        const ans = String(q.correctAnswer).trim();
+        if (/^[A-Da-d]$/.test(ans)) correctIndex = ans.toUpperCase().charCodeAt(0) - 65;
+        else correctIndex = options.findIndex((o) => o.toLowerCase() === stripOptionPrefix(ans).toLowerCase());
+      }
+      if (correctIndex < 0 || correctIndex >= options.length) return null;
+      return {
+        id: String(q?.id ?? idx + 1),
+        question,
+        options,
+        correctIndex,
+        explanation: q?.explanationVi || q?.explanation || undefined,
+      };
+    })
+    .filter((q): q is SkillQuestion => q !== null);
+};
+
 export interface PassageItem {
   id: string;
   title: string;
@@ -7,6 +45,8 @@ export interface PassageItem {
   content_en: string;
   content_vi: string;
   key_vocabulary?: Array<{ word: string; meaningVi: string; ipaUs: string }>;
+  topic?: string;
+  questions: SkillQuestion[];
 }
 
 export interface AudioTrackItem {
@@ -17,6 +57,8 @@ export interface AudioTrackItem {
   /** Lời thoại đầy đủ, dùng để đọc bằng giọng máy khi bài chưa có file audio. */
   transcript: string;
   subtitles:Array<{ time_ms: number; text_en: string; text_vi: string }>;
+  cefr_level?: string;
+  questions?: SkillQuestion[];
 }
 
 export const fetchPassageApi = async (id: string): Promise<PassageItem> => {
@@ -34,7 +76,9 @@ export const fetchPassageApi = async (id: string): Promise<PassageItem> => {
     cefr_level: data.cefrLevel || 'B1',
     content_en: data.passageText || '',
     content_vi: data.titleVi || '',
-    key_vocabulary: data.keyVocabulary || []
+    key_vocabulary: data.keyVocabulary || [],
+    topic: data.topic || undefined,
+    questions: normalizeSkillQuestions(data.questions),
   };
 };
 
@@ -57,7 +101,9 @@ export const fetchAudioTrackApi = async (id: string): Promise<AudioTrackItem> =>
       time_ms: st.startMs || st.time_ms || 0,
       text_en: st.text || st.text_en || '',
       text_vi: st.textVi || st.text_vi || ''
-    }))
+    })),
+    cefr_level: data.cefrLevel || undefined,
+    questions: normalizeSkillQuestions(data.questions),
   };
 };
 
@@ -75,7 +121,8 @@ export const fetchPassagesListApi = async (cefrLevel?: string, topicId?: number)
       cefr_level: p.cefrLevel || 'B1',
       content_en: p.passageText || '',
       content_vi: p.titleVi || '',
-      key_vocabulary: p.keyVocabulary || []
+      key_vocabulary: p.keyVocabulary || [],
+      questions: normalizeSkillQuestions(p.questions),
     }));
   }
   return [];
@@ -103,4 +150,16 @@ export const fetchListeningLessonsListApi = async (cefrLevel?: string, topicId?:
     }));
   }
   return [];
+};
+
+/** Lưu kết quả bài nghe / bài đọc để nhiệm vụ hằng ngày và thống kê tính đúng. */
+export const saveSkillPracticeResultApi = async (payload: {
+  kind: 'READING' | 'LISTENING';
+  contentId: string;
+  title?: string;
+  correct: number;
+  total: number;
+  durationSec: number;
+}): Promise<void> => {
+  await apiClient.post('/api/v1/learning/skill-practice/results', payload);
 };

@@ -92,3 +92,46 @@ export async function fetchPublishedExamDetailApi(examId: number): Promise<Publi
     questions: Array.isArray(data.questions) ? data.questions : [],
   };
 }
+
+/** Bài nghe / bài đọc đã xuất bản — hiển thị chung trong trang "Luyện đề" ở tab Nghe hiểu, Đọc hiểu. */
+export interface SkillLessonSummary {
+  id: string;
+  kind: 'LISTENING' | 'READING';
+  title: string;
+  subtitle?: string;
+  cefrLevel: string;
+  topic: string;
+  questionCount: number;
+  durationLabel?: string;
+}
+
+const countQuestions = (raw: unknown): number => (Array.isArray(raw) ? raw.length : 0);
+
+export async function fetchSkillLessonsApi(kind: 'LISTENING' | 'READING'): Promise<SkillLessonSummary[]> {
+  const url = kind === 'LISTENING' ? '/api/v1/content/listening/lessons' : '/api/v1/content/reading/passages';
+  const response = await apiClient.get(url);
+  const data = unwrapData<any[]>(response.data);
+  if (!Array.isArray(data)) return [];
+  return data
+    .filter((x) => !x?.status || String(x.status).toLowerCase() === 'published')
+    .map((x) => {
+      const durationSec = Number(x.durationSec ?? 0);
+      return {
+        id: String(x.id),
+        kind,
+        title: kind === 'LISTENING' ? x.title || x.titleEn || 'Bài nghe' : x.titleEn || x.titleVi || 'Bài đọc',
+        subtitle: kind === 'READING' ? x.titleVi || undefined : x.description || undefined,
+        cefrLevel: String(x.cefrLevel || '').toUpperCase(),
+        topic: String(x.topic || 'Khác'),
+        questionCount: Number(x.questionCount ?? countQuestions(x.questions)),
+        durationLabel:
+          kind === 'LISTENING'
+            ? durationSec > 0
+              ? `${Math.max(1, Math.round(durationSec / 60))}p`
+              : undefined
+            : x.estimatedMin
+              ? `${x.estimatedMin}p`
+              : undefined,
+      };
+    });
+}

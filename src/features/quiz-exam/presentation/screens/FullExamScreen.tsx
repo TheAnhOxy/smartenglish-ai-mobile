@@ -743,7 +743,13 @@ export function FullExamScreen() {
   }, [currentQ, questions]);
 
   const isCluster = clusterQuestions.length > 1;
-  const isListeningPart = currentQ?.part === 'PART_1' || currentQ?.part === 'PART_2' || currentQ?.part === 'PART_3' || currentQ?.part === 'PART_4';
+  // Part 1-4 chỉ là phần Nghe với đề TOEIC (hoặc câu có audio); đề ngữ pháp/từ vựng cũng đánh số "Part 1"
+  const examCategoryForLayout = String(
+    activeSession?.category || attemptQuery.data?.category || examDetailQuery.data?.category || ''
+  ).toUpperCase();
+  const isListeningPart =
+    (currentQ?.part === 'PART_1' || currentQ?.part === 'PART_2' || currentQ?.part === 'PART_3' || currentQ?.part === 'PART_4') &&
+    (examCategoryForLayout.startsWith('TOEIC') || examCategoryForLayout === 'LISTENING' || Boolean(currentQ?.audioUrl));
   const clusterKey = isCluster
     ? `cluster_${clusterQuestions.map((q) => q.questionNumber).join('_')}`
     : (currentQ?.groupTag || currentQ?.audioUrl || `q_${currentQ?.questionNumber}`);
