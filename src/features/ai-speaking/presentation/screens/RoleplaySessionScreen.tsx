@@ -5,9 +5,7 @@ import {
   ScrollView,
   Pressable,
   Modal,
-  Image,
   StyleSheet,
-  TextInput,
   ActivityIndicator,
   type ScrollViewInstance,
 } from 'react-native';
@@ -15,18 +13,13 @@ import { useLocalSearchParams, useRouter, useFocusEffect, useIsFocused } from 'e
 import {
   Mic,
   Lightbulb,
-  X,
   Volume2,
   VolumeX,
   Flame,
-  Sparkles,
   RotateCcw,
   CheckCircle2,
   ArrowRight,
-  Keyboard,
   Send,
-  Trash2,
-  Square,
   Crown,
 } from 'lucide-react-native';
 import * as Speech from 'expo-speech';
@@ -37,6 +30,8 @@ import {
   useSpeakingQuotaStore,
   FREE_SPEAKING_DAILY_LIMIT,
   transcribeSpeechApi,
+  evaluatePronunciationApi,
+  speakingErrorMessage,
 } from '../../data/speakingApi';
 import { useAuthStore } from '@/src/core/flows/authStore';
 import { speakText, stopSpeech } from '@/src/core/services/speechService';
@@ -47,11 +42,33 @@ import { RecordingOverlay } from '../components/RecordingOverlay';
 import { PracticeFeedbackCard } from '@/src/features/practice-feedback/presentation/components/PracticeFeedbackCard';
 import { hasActivePremium } from '@/src/core/utils/plan';
 import { dk } from '@/src/theme/themeMode';
+import { AppColors } from '@/src/core/theme/colors';
+
+/** Đánh giá ngay sau mỗi câu nói của học viên. */
+interface TurnAssessment {
+  overall: number;
+  accuracy: number;
+  fluency: number;
+  intonation: number;
+  tip?: string;
+}
 
 interface ChatTurn {
   role: 'ai' | 'user';
   text: string;
+  /** Lượt AI: câu đáp gợi ý do AI tạo theo trình độ học viên. */
+  suggestions?: string[];
+  /** Lượt học viên: điểm phát âm (chỉ khi nói bằng micro). */
+  assessment?: TurnAssessment;
+  assessing?: boolean;
+  assessError?: string;
+  /** Lượt học viên: câu sửa ngữ pháp / cách nói hay hơn. */
+  grammarFix?: string;
+  betterPhrasing?: string;
 }
+
+const scoreColor = (v: number) => (v >= 80 ? '#15803D' : v >= 60 ? '#B45309' : '#B91C1C');
+
 
 export const RoleplaySessionScreen = () => {
   const { scenarioId } = useLocalSearchParams<{ scenarioId: string }>();
@@ -74,23 +91,30 @@ export const RoleplaySessionScreen = () => {
   const [showQuotaModal, setShowQuotaModal] = useState(false);
   const [isAiVoiceMuted, setIsAiVoiceMuted] = useState(false);
 
-  // Micro: web nhận dạng trực tiếp; iOS/Android ghi âm rồi gửi AI chuyển thành chữ
+  // Micro: web nhận dạng trực tiếp; iOS/Android ghi âm rồi gửi AI chuyển thành chữ.
+  // Giữ lại bản ghi của câu vừa nói để chấm phát âm ngay khi gửi.
   const [transcribing, setTranscribing] = useState(false);
   const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
+  const lastRecording = useRef<{ base64: string; mimeType: string; transcript: string } | null>(null);
   const voice = useTutorVoice({
     onText: (text) => setInputText(text.trim()),
     onInterim: (text) => setInputText(text.trim()),
     onAudio: async ({ base64, mimeType }) => {
       setTranscribing(true);
+      lastRecording.current = null;
       try {
-        setInputText(await transcribeSpeechApi(base64, mimeType));
+        const transcript = await transcribeSpeechApi(base64, mimeType);
+        lastRecording.current = { base64, mimeType, transcript };
+        setInputText(transcript);
       } catch (err) {
-        setVoiceNotice(err instanceof Error ? err.message : 'Chưa nhận dạng được giọng nói. Hãy thử lại.');
+        setInputText('');
+        setVoiceNotice(err instanceof Error ? err.message : 'Chưa nghe được giọng nói. Hãy nói to, rõ và thử lại.');
       } finally {
         setTranscribing(false);
       }
     },
   });
+  const learnerLevel = currentUser?.cefr_level ?? null;
   const isRecording = voice.listening;
   const voiceBusy = voice.processing || transcribing;
   const cancelVoiceRef = useRef(voice.cancel);
@@ -154,7 +178,7 @@ export const RoleplaySessionScreen = () => {
   // Hook phải nằm trước lệnh return sớm (!scenario), nếu không React báo "Rendered more hooks"
   const sessionEvaluation = useMemo(() => {
     if (!scenario) {
-      return { turnsCount: 0, fluency: 0, level: 'A1', feedback: '' };
+      return { turnsCount: 0, fluency: 0, scoredCount: 0, accuracy: 0, fluencyOnly: 0, grammarFixes: 0, level: '', feedback: '' };
     }
     const userTurns = turns.filter((t) => t.role === 'user');
     const userTurnsCount = userTurns.length;
@@ -163,70 +187,32 @@ export const RoleplaySessionScreen = () => {
       return {
         turnsCount: 0,
         fluency: 0,
-        level: 'A1',
-        feedback: `Bạn chưa gửi lượt thoại nào. Hãy nhấn vào Micro hoặc nhập câu trả lời để đàm thoại cùng ${scenario.partner_name || scenario.ai_persona} nhé!`,
+        scoredCount: 0,
+        accuracy: 0,
+        fluencyOnly: 0,
+        grammarFixes: 0,
+        level: learnerLevel || scenario.cefr_level || '',
+        feedback: `Bạn chưa gửi lượt thoại nào. Hãy nhấn vào Micro và nói câu trả lời để đàm thoại cùng ${scenario.partner_name || scenario.ai_persona} nhé!`,
       };
     }
 
-    // 1. Phân tích số từ thực tế của các câu nói
-    const wordsPerTurn = userTurns.map((t) =>
-      t.text.trim().split(/\s+/).filter(Boolean).length
-    );
-    const totalWords = wordsPerTurn.reduce((sum, count) => sum + count, 0);
-    const avgWords = totalWords / userTurnsCount;
-
-    // 2. Tính điểm độ trôi chảy thực tế (Fluency Score)
-    let baseFluency = 30;
-    if (avgWords < 3) {
-      baseFluency = 35 + Math.round(avgWords * 5); // 35 - 50%
-    } else if (avgWords < 7) {
-      baseFluency = 50 + Math.round((avgWords - 3) * 6); // 50 - 74%
-    } else if (avgWords < 12) {
-      baseFluency = 75 + Math.round((avgWords - 7) * 3); // 75 - 90%
-    } else {
-      baseFluency = 90 + Math.min(6, Math.round(avgWords - 12)); // 90 - 96%
-    }
-
-    // Nhân hệ số tích cực theo số lượt tương tác
-    const turnFactor = Math.min(1.0, 0.65 + userTurnsCount * 0.1);
-    const calculatedFluency = Math.min(98, Math.max(15, Math.round(baseFluency * turnFactor)));
-
-    // 3. Đánh giá trình độ CEFR thực tế
-    let calculatedLevel = 'A1';
-    if (avgWords >= 10 && userTurnsCount >= 3) {
-      calculatedLevel = 'B2';
-    } else if (avgWords >= 6 && userTurnsCount >= 2) {
-      calculatedLevel = 'B1';
-    } else if (avgWords >= 3) {
-      calculatedLevel = 'A2';
-    } else {
-      calculatedLevel = 'A1';
-    }
-
-    // 4. Nhận xét của AI bám sát theo đúng tình huống kịch bản và câu nói của học viên
-    const partnerName = scenario.partner_name || scenario.ai_persona || 'đối tác AI';
-    const scenarioTitle = scenario.title || 'tình huống thực tế';
-
-    let dynamicFeedback = '';
-    if (userTurnsCount === 1) {
-      if (avgWords < 4) {
-        dynamicFeedback = `Bạn vừa trao đổi 1 câu ngắn (${totalWords} từ) với ${partnerName}. Để nâng cao độ trôi chảy trong tình huống '${scenarioTitle}', hãy thử ghép thành câu hoàn chỉnh hơn nhé!`;
-      } else {
-        dynamicFeedback = `Khởi đầu tốt với ${totalWords} từ trong lượt trao đổi đầu tiên. Hãy duy trì trò chuyện thêm nhiều lượt với ${partnerName} để AI đánh giá phản xạ ngữ pháp chuyên sâu hơn.`;
-      }
-    } else if (avgWords < 4) {
-      dynamicFeedback = `Bạn đã hoàn thành ${userTurnsCount} lượt thoại cùng ${partnerName} trong bối cảnh '${scenarioTitle}'. Các câu trả lời còn hơi ngắn, hãy bổ sung thêm liên từ (because, and, so) để câu nói mượt mà hơn.`;
-    } else {
-      dynamicFeedback = `Phản xạ tương đối tự nhiên trong tình huống '${scenarioTitle}'! Bạn đã duy trì được ${userTurnsCount} lượt đàm thoại với ${partnerName} (trung bình ${Math.round(avgWords)} từ/lượt). Tiếp tục phát huy ngữ điệu và vốn từ này nhé!`;
-    }
+    // Chỉ dùng điểm thật: điểm phát âm AI chấm cho từng câu nói bằng micro, số câu AI phải sửa ngữ pháp
+    const scored = userTurns.filter((t) => t.assessment).map((t) => t.assessment as TurnAssessment);
+    const avg = (pick: (a: TurnAssessment) => number) =>
+      scored.length ? Math.round(scored.reduce((sum, a) => sum + pick(a), 0) / scored.length) : 0;
+    const fixes = userTurns.filter((t) => t.grammarFix).length;
 
     return {
       turnsCount: userTurnsCount,
-      fluency: calculatedFluency,
-      level: calculatedLevel,
-      feedback: dynamicFeedback,
+      fluency: avg((a) => a.overall),
+      scoredCount: scored.length,
+      accuracy: avg((a) => a.accuracy),
+      fluencyOnly: avg((a) => a.fluency),
+      grammarFixes: fixes,
+      level: learnerLevel || scenario.cefr_level || '',
+      feedback: '',
     };
-  }, [turns, scenario]);
+  }, [turns, scenario, learnerLevel]);
 
   if (!scenario) {
     return (
@@ -254,10 +240,14 @@ export const RoleplaySessionScreen = () => {
     }
     setVoiceNotice(null);
     setInputText('');
+    lastRecording.current = null;
+    // iOS không ghi âm được khi phiên âm thanh đang phát giọng AI
+    stopSpeech();
+    Speech.stop();
     void voice.start();
   };
 
-  // Gửi tin nhắn từ ô nhập text (hoặc sau khi nói qua micro)
+  // Gửi câu vừa nói qua micro (luyện nói chỉ dùng giọng nói, không nhập chữ)
   const handleSendMessage = () => {
     // Đang nói thì bấm gửi = dừng ghi âm; chữ nhận dạng xong sẽ hiện trong ô để kiểm tra rồi gửi
     if (isRecording) {
@@ -266,20 +256,19 @@ export const RoleplaySessionScreen = () => {
     }
     if (voiceBusy) return;
 
-    const textToSend =
-      inputText.trim() ||
-      (scenario.suggested_keywords && scenario.suggested_keywords.length > 0
-        ? `Hello! ${scenario.suggested_keywords[0]}, please.`
-        : 'Hello! I am ready to practice conversation with you.');
-
-    if (!textToSend || isProcessing) return;
+    // Không có nội dung thì không gửi gì (trước đây tự gửi một câu mặc định)
+    const textToSend = inputText.trim();
+    if (!textToSend || isProcessing) {
+      if (!textToSend) setVoiceNotice('Hãy bấm micro và nói câu trả lời trước khi gửi.');
+      return;
+    }
 
     setInputText('');
     handleSendUserTurn(textToSend);
   };
 
   // Gửi tin nhắn và xử lý phản hồi từ AI
-  const handleSendUserTurn = async (customPrompt?: string) => {
+  const handleSendUserTurn = async (userText: string) => {
 
     // Kiểm tra hạn mức lượt chat hôm nay
     if (!canChat(isPremium)) {
@@ -288,19 +277,7 @@ export const RoleplaySessionScreen = () => {
     }
 
     setIsProcessing(true);
-
-    const defaultSuggestion =
-      scenario.suggested_keywords && scenario.suggested_keywords.length > 0
-        ? `Hello! ${scenario.suggested_keywords[0]}, please.`
-        : 'Hello! I am ready to practice conversation with you.';
-
-    const userText =
-      customPrompt ||
-      (turns.length === 1
-        ? defaultSuggestion
-        : turns.length === 3
-        ? 'Could you tell me more about that, please?'
-        : 'Thank you very much! That was helpful.');
+    setVoiceNotice(null);
 
     // Trừ 1 lượt
     const consumed = consumeTurn(isPremium);
@@ -310,20 +287,53 @@ export const RoleplaySessionScreen = () => {
       return;
     }
 
-    // Hiển thị tin nhắn người dùng
-    setTurns((prev) => [...prev, { role: 'user', text: userText }]);
+    // Câu vừa nói bằng micro (chưa sửa tay) thì chấm phát âm trên chính bản ghi đó
+    const recording =
+      lastRecording.current && lastRecording.current.transcript.trim().toLowerCase() === userText.trim().toLowerCase()
+        ? lastRecording.current
+        : null;
+    lastRecording.current = null;
+
+    const history = turns.map((t) => ({ role: t.role === 'ai' ? ('model' as const) : ('user' as const), content: t.text }));
+    const userIndex = turns.length;
+    setTurns((prev) => [...prev, { role: 'user', text: userText, assessing: Boolean(recording) }]);
+
+    if (recording) {
+      evaluatePronunciationApi({
+        targetText: userText,
+        audioBase64: recording.base64,
+        audioMimeType: recording.mimeType,
+        sessionType: 'ROLEPLAY',
+      })
+        .then((r) => {
+          const assessment: TurnAssessment = {
+            overall: r.overallScore,
+            accuracy: r.accuracyScore,
+            fluency: r.fluencyScore,
+            intonation: r.intonationScore,
+            tip: r.improvementTips[0] || r.errorFeedback[0],
+          };
+          setTurns((prev) => prev.map((t, i) => (i === userIndex ? { ...t, assessing: false, assessment } : t)));
+        })
+        .catch((err) => {
+          const message = speakingErrorMessage(err, 'Chưa chấm được phát âm câu này.');
+          setTurns((prev) => prev.map((t, i) => (i === userIndex ? { ...t, assessing: false, assessError: message } : t)));
+        });
+    }
 
     try {
-      const aiResult = await sendRoleplayChatApi(
-        scenario.id,
-        userText,
-        currentUser ? String(currentUser.id) : undefined,
-        isPremium
-      );
+      const aiResult = await sendRoleplayChatApi(scenario.id, userText, { history, learnerLevel });
 
       const aiText = aiResult.aiResponse;
       if (!aiText) throw new Error('Backend không trả về nội dung hội thoại');
-      setTurns((prev) => [...prev, { role: 'ai', text: aiText }]);
+      setTurns((prev) => [
+        ...prev.map((t, i) =>
+          i === userIndex
+            ? { ...t, grammarFix: aiResult.grammarCorrections[0], betterPhrasing: aiResult.betterPhrasing }
+            : t
+        ),
+        { role: 'ai', text: aiText, suggestions: aiResult.suggestedNextReplies },
+      ]);
 
       if (!isAiVoiceMuted) {
         const cleanSpeech = aiText.split(/💡/)[0].trim();
@@ -335,19 +345,6 @@ export const RoleplaySessionScreen = () => {
     } finally {
       setIsProcessing(false);
     }
-  };
-
-  const handleSendTextMessage = () => {
-    if (!inputText.trim() || isProcessing) return;
-    const msg = inputText.trim();
-    setInputText('');
-    handleSendUserTurn(msg);
-  };
-
-  const formatTimer = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
   const handleSpeakAiLine = (text: string) => {
@@ -499,6 +496,54 @@ export const RoleplaySessionScreen = () => {
                   {mainText}
                 </Text>
 
+                {/* Đánh giá ngay sau câu nói của học viên */}
+                {!isAi && (turn.assessing || turn.assessment || turn.assessError || turn.grammarFix || turn.betterPhrasing) ? (
+                  <View style={s.assessCard}>
+                    {turn.assessing ? (
+                      <View style={s.assessRow}>
+                        <ActivityIndicator size="small" color="#4F46E5" />
+                        <Text style={s.assessMuted}>Đang chấm phát âm...</Text>
+                      </View>
+                    ) : null}
+                    {turn.assessment ? (
+                      <>
+                        <View style={s.assessRow}>
+                          <Text style={[s.assessOverall, { color: scoreColor(turn.assessment.overall) }]}>
+                            {turn.assessment.overall}%
+                          </Text>
+                          <Text style={s.assessMuted}>Phát âm tổng thể</Text>
+                        </View>
+                        <View style={s.assessMetrics}>
+                          {[
+                            ['Chính xác', turn.assessment.accuracy],
+                            ['Trôi chảy', turn.assessment.fluency],
+                            ['Ngữ điệu', turn.assessment.intonation],
+                          ].map(([label, value]) => (
+                            <View key={String(label)} style={s.assessMetric}>
+                              <Text style={[s.assessMetricValue, { color: scoreColor(Number(value)) }]}>{value}%</Text>
+                              <Text style={s.assessMetricLabel}>{label}</Text>
+                            </View>
+                          ))}
+                        </View>
+                        {turn.assessment.tip ? <Text style={s.assessTip}>{turn.assessment.tip}</Text> : null}
+                      </>
+                    ) : null}
+                    {turn.assessError ? <Text style={s.assessMuted}>{turn.assessError}</Text> : null}
+                    {turn.grammarFix ? (
+                      <Text style={s.assessFix}>
+                        <Text style={s.assessFixLabel}>Sửa ngữ pháp: </Text>
+                        {turn.grammarFix}
+                      </Text>
+                    ) : null}
+                    {!turn.grammarFix && turn.betterPhrasing ? (
+                      <Text style={s.assessBetter}>
+                        <Text style={s.assessBetterLabel}>Cách nói tự nhiên hơn: </Text>
+                        {turn.betterPhrasing}
+                      </Text>
+                    ) : null}
+                  </View>
+                ) : null}
+
                 {/* Góp ý tiếng Việt từ AI nếu có */}
                 {isAi && feedbackText && (
                   <View style={s.inlineFeedbackCard}>
@@ -513,6 +558,24 @@ export const RoleplaySessionScreen = () => {
             </View>
           );
         })}
+
+        {/* Câu đáp gợi ý cho lượt tiếp theo (AI tạo theo trình độ học viên) */}
+        {!isProcessing && turns[turns.length - 1]?.role === 'ai' && (turns[turns.length - 1]?.suggestions?.length ?? 0) > 0 ? (
+          <View style={s.suggestBox}>
+            <Text style={s.suggestTitle}>Gợi ý trả lời</Text>
+            {(turns[turns.length - 1]?.suggestions ?? []).map((sug) => (
+              <Pressable
+                key={sug}
+                onPress={() => handleSpeakAiLine(sug)}
+                style={({ pressed }) => [s.suggestChip, pressed && { opacity: 0.7 }]}
+                accessibilityLabel={`Nghe đọc mẫu câu gợi ý: ${sug}`}
+              >
+                <Text style={s.suggestText}>{sug}</Text>
+              </Pressable>
+            ))}
+            <Text style={s.suggestHint}>Chạm để nghe đọc mẫu, sau đó bấm micro và tự nói lại để được chấm phát âm.</Text>
+          </View>
+        ) : null}
 
         {/* AI Thinking Indicator (loading ... giống FE admin) */}
         {isProcessing && (
@@ -536,7 +599,7 @@ export const RoleplaySessionScreen = () => {
       </ScrollView>
 
 
-      {/* ── KHU VỰC ĐIỀU KHIỂN DƯỚI CHÂN: THANH NHẬP LIỆU DUY NHẤT (MICRO + TEXT + NÚT GỬI) ── */}
+      {/* ── KHU VỰC ĐIỀU KHIỂN DƯỚI CHÂN: MICRO + CÂU VỪA NÓI + NÚT GỬI (không nhập chữ) ── */}
       <View style={s.bottomControl}>
         <View style={[s.textInputRow, isRecording && s.textInputRowRecording]}>
           {/* Nút Micro bên trái: Bấm để bật/tắt thu âm và nhận diện giọng nói */}
@@ -553,28 +616,27 @@ export const RoleplaySessionScreen = () => {
             <Mic color={isRecording ? '#DC2626' : '#4F46E5'} size={20} />
           </Pressable>
 
-          {/* Ô nhập văn bản / hiển thị trực tiếp giọng nói khi đang nói */}
-          <TextInput
-            placeholder={
-              voiceBusy
-                ? 'Đang nhận dạng giọng nói...'
-                : isRecording
-                  ? 'Đang ghi âm... bấm micro lần nữa khi nói xong'
-                  : 'Nhập câu trả lời bằng tiếng Anh...'
-            }
-            placeholderTextColor={isRecording ? '#EA580C' : '#94A3B8'}
-            value={inputText}
-            onChangeText={setInputText}
-            onSubmitEditing={handleSendMessage}
-            returnKeyType="send"
-            style={[s.textInputField, isRecording && s.textInputFieldRecording]}
-            editable={!isProcessing && !voiceBusy}
-          />
+          {/* Câu nhận dạng từ giọng nói: chỉ hiển thị, không cho gõ */}
+          <Text
+            numberOfLines={3}
+            style={[
+              s.textInputField,
+              isRecording && s.textInputFieldRecording,
+              !inputText && !isRecording && s.voicePlaceholder,
+            ]}
+            accessibilityLiveRegion="polite"
+          >
+            {voiceBusy
+              ? 'Đang nhận dạng giọng nói...'
+              : isRecording
+                ? inputText || 'Đang ghi âm... bấm micro lần nữa khi nói xong'
+                : inputText || 'Bấm micro và nói câu trả lời bằng tiếng Anh'}
+          </Text>
 
           {/* Nút Gửi bên phải: Xoay vòng tròn ActivityIndicator khi AI đang xử lý phản hồi */}
           <Pressable
             onPress={handleSendMessage}
-            disabled={(!inputText.trim() && !isRecording) || isProcessing}
+            disabled={(!inputText.trim() && !isRecording) || isProcessing || voiceBusy}
             style={[
               s.sendBtn,
               (inputText.trim() || isRecording) && !isProcessing
@@ -637,16 +699,16 @@ export const RoleplaySessionScreen = () => {
               <View style={s.scoreDivider} />
               <View style={s.scoreItem}>
                 <Text style={[s.scoreNumber, { color: '#4F46E5' }]}>
-                  {sessionEvaluation.fluency}%
+                  {sessionEvaluation.scoredCount > 0 ? `${sessionEvaluation.fluency}%` : '--'}
                 </Text>
-                <Text style={s.scoreLabel}>Độ trôi chảy</Text>
+                <Text style={s.scoreLabel}>Phát âm TB</Text>
               </View>
               <View style={s.scoreDivider} />
               <View style={s.scoreItem}>
-                <Text style={[s.scoreNumber, { color: dk('#059669', 'text') }]}>
-                  {sessionEvaluation.level}
+                <Text style={[s.scoreNumber, { color: dk('#B45309', 'text') }]}>
+                  {sessionEvaluation.grammarFixes}
                 </Text>
-                <Text style={s.scoreLabel}>Trình độ</Text>
+                <Text style={s.scoreLabel}>Câu cần sửa</Text>
               </View>
             </View>
 
@@ -658,13 +720,17 @@ export const RoleplaySessionScreen = () => {
                   ? {
                       skill: 'ROLEPLAY',
                       title: `Hội thoại: ${scenario.title || 'tình huống thực tế'}`,
-                      score: sessionEvaluation.fluency,
-                      cefrLevel: scenario.cefr_level ?? null,
+                      score: sessionEvaluation.scoredCount > 0 ? sessionEvaluation.fluency : null,
+                      cefrLevel: learnerLevel || scenario.cefr_level || null,
                       sourceId: `roleplay-${scenario.id}-${turns.length}-${turns[turns.length - 1]?.text.length ?? 0}`,
                       details: [
                         `Tình huống: ${scenario.title}. Học viên nói chuyện với ${scenario.ai_persona}.`,
                         'Hội thoại (AI = đối tác, HV = học viên):',
-                        ...turns.slice(-30).map((t) => `${t.role === 'ai' ? 'AI' : 'HV'}: ${t.text}`),
+                        ...turns.slice(-30).map((t) =>
+                          t.role === 'ai'
+                            ? `AI: ${t.text}`
+                            : `HV: ${t.text}${t.assessment ? ` [phát âm ${t.assessment.overall}%]` : ''}${t.grammarFix ? ` [sửa: ${t.grammarFix}]` : ''}`
+                        ),
                       ].join('\n'),
                     }
                   : null
@@ -1105,6 +1171,9 @@ const s = StyleSheet.create({
     color: '#C2410C',
     fontWeight: '600',
   },
+  voicePlaceholder: {
+    color: '#94A3B8',
+  },
   sendBtn: {
     width: 38,
     height: 38,
@@ -1310,4 +1379,54 @@ const s = StyleSheet.create({
     fontWeight: '600',
     color: '#94A3B8',
   },
+  assessCard: {
+    alignSelf: 'flex-end',
+    maxWidth: '85%',
+    marginTop: 6,
+    padding: 10,
+    gap: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: AppColors.cardWhite,
+  },
+  assessRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  assessOverall: { fontSize: 18, fontWeight: '800' },
+  assessMuted: { fontSize: 12, color: AppColors.neutralGray },
+  assessMetrics: { flexDirection: 'row', gap: 6 },
+  assessMetric: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: AppColors.surface,
+  },
+  assessMetricValue: { fontSize: 13, fontWeight: '700' },
+  assessMetricLabel: { fontSize: 11, color: AppColors.neutralGray },
+  assessTip: { fontSize: 12, lineHeight: 17, color: AppColors.neutralInk },
+  assessFix: { fontSize: 12, lineHeight: 17, color: '#B91C1C' },
+  assessFixLabel: { fontWeight: '700' },
+  assessBetter: { fontSize: 12, lineHeight: 17, color: '#B45309' },
+  assessBetterLabel: { fontWeight: '700' },
+  suggestBox: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 10,
+    gap: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: AppColors.cardWhite,
+  },
+  suggestTitle: { fontSize: 12, fontWeight: '700', color: AppColors.neutralGray },
+  suggestChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: AppColors.primary,
+    backgroundColor: AppColors.surface,
+  },
+  suggestText: { fontSize: 14, color: AppColors.neutralInk },
+  suggestHint: { fontSize: 11, color: AppColors.neutralGray },
 });

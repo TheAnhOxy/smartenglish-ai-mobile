@@ -98,6 +98,8 @@ export interface RoleplayChatResponse {
   suggestedNextReplies: string[];
   grammarCorrections: string[];
   vocabularySuggestions: Array<{ word: string; meaningVi: string }>;
+  /** Câu học viên viết lại cho tự nhiên hơn (AI gợi ý khi không có lỗi ngữ pháp). */
+  betterPhrasing?: string;
 }
 
 export const fetchRoleplayScenariosApi = async (forceRefresh: boolean = false): Promise<RoleplayScenario[]> => {
@@ -423,26 +425,41 @@ export const fetchSpeakingDailyQuotaApi = async (
   throw new Error('Backend không trả về thông tin quota hợp lệ');
 };
 
+const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+
 export const sendRoleplayChatApi = async (
   scenarioId: number | string,
   userMessage: string,
-  _userId?: string,
-  _isPremium: boolean = false
+  options: {
+    /** Các lượt trước (AI = model) để AI nhớ ngữ cảnh hội thoại. */
+    history?: Array<{ role: 'user' | 'model'; content: string }>;
+    /** Trình độ của học viên: AI trả lời và gợi ý câu đáp đúng mức này. */
+    learnerLevel?: string | null;
+  } = {}
 ): Promise<RoleplayChatResponse> => {
   try {
-    const response = await apiClient.post<any>('/api/v1/ai-practice/speaking/roleplay/chat', {
-      scenarioId: Number(scenarioId),
-      userMessage,
-      userText: userMessage
-    });
+    const level = String(options.learnerLevel || '').toUpperCase();
+    const response = await apiClient.post<any>(
+      '/api/v1/ai-practice/speaking/roleplay/chat',
+      {
+        scenarioId: Number(scenarioId),
+        userMessage,
+        userText: userMessage,
+        history: (options.history || []).slice(-12),
+        learnerLevel: CEFR_LEVELS.includes(level) ? level : undefined,
+      },
+      { timeout: 45000 }
+    );
     const data = response.data?.data || response.data;
     if (data) {
+      const suggestions: string[] = data.suggestedReplies || data.suggestedNextReplies || [];
       return {
         sessionId: data.sessionId,
-        aiResponse: data.aiResponse || data.aiResponseText,
-        suggestedNextReplies: data.suggestedNextReplies || [],
-        grammarCorrections: data.grammarCorrections || [],
-        vocabularySuggestions: data.vocabularySuggestions || []
+        aiResponse: data.reply || data.aiResponse || data.aiResponseText,
+        suggestedNextReplies: suggestions.filter((x) => typeof x === 'string' && x.trim()).slice(0, 3),
+        grammarCorrections: data.grammarCorrection ? [String(data.grammarCorrection)] : data.grammarCorrections || [],
+        vocabularySuggestions: Array.isArray(data.vocabularySuggestions) ? data.vocabularySuggestions : [],
+        betterPhrasing: data.betterPhrasing ? String(data.betterPhrasing) : undefined
       };
     }
   } catch (err: any) {
