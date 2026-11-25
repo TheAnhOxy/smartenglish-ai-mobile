@@ -3,7 +3,7 @@ import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View, useWin
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ClipboardCheck, PenLine, School, Search, Users } from 'lucide-react-native';
+import { ClipboardCheck, Headphones, Mic, PenLine, School, Search, Users } from 'lucide-react-native';
 import { subscribeTopic } from '@/src/core/realtime/stompClient';
 import { fetchUserConversationsApi } from '@/src/features/social-feed/data/socialApi';
 import { fetchUnreadNotificationCountApi } from '@/src/features/notifications/data/notificationApi';
@@ -186,6 +186,14 @@ export const HomeScreen = () => {
       visible: hasPermission('take_quiz_exam'),
     },
   ].filter((a) => a.visible);
+
+  // Bốn kỹ năng, mở thẳng màn riêng như mục Kỹ năng của tab Lộ trình
+  const skillLinks = [
+    { key: 'speaking', label: 'Luyện nói', icon: Mic, route: '/(student)/practice/speaking', visible: hasPermission('access_ai_tools') },
+    { key: 'writing', label: 'Luyện viết', icon: PenLine, route: '/(student)/practice/writing', visible: hasPermission('access_ai_tools') },
+    { key: 'reading', label: 'Luyện đọc', icon: BookOpen, route: '/(student)/practice/reading', visible: true },
+    { key: 'listening', label: 'Luyện nghe', icon: Headphones, route: '/(student)/practice/listening', visible: true },
+  ].filter((k) => k.visible);
 
   // Quét ảnh AI được làm nổi bật bằng thẻ riêng, các mục còn lại xếp thành ô
   const scanAction = actions.find((a) => a.key === 'scan');
@@ -413,6 +421,19 @@ export const HomeScreen = () => {
               );
             })}
           </View>
+          <View style={s.connectRow}>
+            {skillLinks.map((k) => {
+              const Icon = k.icon;
+              return (
+                <Tap key={k.key} onPress={() => go(k.route as QuickAction['route'])} style={s.actionTile} accessibilityLabel={k.label}>
+                  <View style={[s.actionIconSm, { backgroundColor: ds.skySoft }]}>
+                    <Icon size={20} color={ds.btn} />
+                  </View>
+                  <Text style={s.actionTileLabel}>{k.label}</Text>
+                </Tap>
+              );
+            })}
+          </View>
         </Reveal>
       ) : null}
 
@@ -471,22 +492,6 @@ export const HomeScreen = () => {
       <Reveal delay={300} style={s.section}>
         <WordOfDayCard />
       </Reveal>
-
-      {/* Luyện viết với AI */}
-      {isLoggedIn ? (
-        <Reveal delay={320}>
-          <Tap onPress={() => go('/(student)/practice/writing')} style={[s.pathRow, xmas && glassCard()]} scaleTo={0.98}>
-            <View style={[s.actionIcon, { backgroundColor: ds.greenSoft }]}>
-              <PenLine size={22} color={ds.green} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.actionLabel}>Luyện viết với AI</Text>
-              <Text style={s.actionHint}>Chấm lỗi, chấm điểm và viết lại bài của bạn</Text>
-            </View>
-            <ChevronRight size={20} color={ds.faint} />
-          </Tap>
-        </Reveal>
-      ) : null}
 
       {/* Bài kiểm tra đầu vào: chưa làm thì mời làm để xếp lộ trình */}
       {needsPlacement && hasPermission('take_quiz_exam') ? (

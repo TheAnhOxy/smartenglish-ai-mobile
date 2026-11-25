@@ -7,7 +7,6 @@ import { useListeningPlayback } from '../../application/useListeningPlayback';
 import { ArrowLeft, Headphones, Pause, Play } from '@/src/components/ds/icons';
 import { Button3D, Tap, dsText } from '@/src/components/ds';
 import { ds, dsFont, dsRadius, dsShadow, dsSize } from '@/src/theme/ds';
-import { TranslatableText, TranslationPanel } from '@/src/core/components/TranslatableText';
 import { SeekBar } from '../components/SeekBar';
 import { SkillQuestionsPanel } from '../components/SkillQuestionsPanel';
 
@@ -33,9 +32,6 @@ export const ListeningPlayerScreen: React.FC<Props> = ({ footer }) => {
   const { data: track, isLoading, isError, error, refetch } = useAudioTrackQuery(validId);
 
   const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>(SPEEDS[1]);
-  const [showSub, setShowSub] = useState(true);
-  const [selectedText, setSelectedText] = useState('');
-  const [clearKey, setClearKey] = useState(0);
   // Vào bài là tự phát
   const playback = useListeningPlayback(track?.audio_url ?? '', track?.transcript ?? '', speed.rate, { autoPlay: true });
 
@@ -66,8 +62,6 @@ export const ListeningPlayerScreen: React.FC<Props> = ({ footer }) => {
     );
   }
 
-  const subtitleEn = track.subtitles[0]?.text_en || track.transcript || '';
-  const subtitleVi = track.subtitles[0]?.text_vi || '';
   const meta = [
     track.duration_sec > 0 ? `Thời lượng ${formatDuration(track.duration_sec)}` : null,
     playback.source === 'tts' ? 'Giọng đọc máy' : null,
@@ -87,32 +81,6 @@ export const ListeningPlayerScreen: React.FC<Props> = ({ footer }) => {
           <Text style={dsText.h1}>{track.title}</Text>
           {meta ? <Text style={dsText.bodyMuted}>{meta}</Text> : null}
         </View>
-
-        <View style={[st.card, st.subtitleCard]}>
-          {!showSub ? (
-            <Text style={dsText.bodyMuted}>Phụ đề đã bị ẩn</Text>
-          ) : subtitleEn ? (
-            <View style={{ gap: 8, width: '100%' }}>
-              <TranslatableText
-                text={subtitleEn}
-                onSelectText={setSelectedText}
-                clearKey={clearKey}
-                textStyle={st.subtitleText}
-              />
-              {subtitleVi ? <Text style={[dsText.bodyMuted, { textAlign: 'center' }]}>{subtitleVi}</Text> : null}
-            </View>
-          ) : (
-            <Text style={dsText.bodyMuted}>Bài nghe chưa có phụ đề</Text>
-          )}
-        </View>
-
-        <TranslationPanel
-          text={selectedText}
-          onClose={() => {
-            setSelectedText('');
-            setClearKey((k) => k + 1);
-          }}
-        />
 
         <View style={[st.card, st.controls]}>
           <View style={st.row}>
@@ -149,8 +117,6 @@ export const ListeningPlayerScreen: React.FC<Props> = ({ footer }) => {
           )}
         </View>
 
-        <Button3D label={showSub ? 'Ẩn phụ đề' : 'Hiện phụ đề'} variant="light" onPress={() => setShowSub(!showSub)} height={48} />
-
         <SkillQuestionsPanel kind="LISTENING" contentId={track.id} title={track.title} questions={track.questions ?? []} />
 
         {footer}
@@ -182,8 +148,6 @@ const st = StyleSheet.create({
     ...dsShadow.card,
   },
   stateCard: { padding: 24, gap: 12, alignItems: 'center', width: '100%', maxWidth: 360 },
-  subtitleCard: { padding: 20, minHeight: 140, alignItems: 'center', justifyContent: 'center' },
-  subtitleText: { fontFamily: dsFont.bold, fontSize: dsSize.md, lineHeight: 26, textAlign: 'center', color: ds.ink },
   controls: { padding: 18, gap: 18, alignItems: 'center' },
   speedChip: {
     paddingHorizontal: 12,

@@ -187,8 +187,10 @@ export default function StudentTabsLayout() {
       <Tabs.Screen name="practice/quiz/[quizId]" options={hideOptions} />
       <Tabs.Screen name="practice/exam/[examId]" options={hideOptions} />
       <Tabs.Screen name="practice/exam/result" options={hideOptions} />
+      <Tabs.Screen name="practice/reading/index" options={hideOptions} />
       <Tabs.Screen name="practice/reading/[passageId]" options={hideOptions} />
       <Tabs.Screen name="practice/reading/generate" options={hideOptions} />
+      <Tabs.Screen name="practice/listening/index" options={hideOptions} />
       <Tabs.Screen name="practice/listening/[audioId]" options={hideOptions} />
 
 

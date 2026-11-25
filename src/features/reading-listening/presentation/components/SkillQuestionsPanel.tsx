@@ -20,10 +20,10 @@ const verdict = (pct: number, kind: Props['kind']) => {
   if (pct >= 80) return 'Rất tốt. Bạn đã nắm được ý chính và chi tiết của bài.';
   if (pct >= 50)
     return kind === 'LISTENING'
-      ? 'Khá. Hãy nghe lại đoạn có câu sai và bật phụ đề để đối chiếu.'
+      ? 'Khá. Hãy nghe lại đoạn có câu sai rồi làm lại.'
       : 'Khá. Hãy đọc lại đoạn chứa câu sai, chú ý từ khoá trong câu hỏi.';
   return kind === 'LISTENING'
-    ? 'Cần luyện thêm. Nghe chậm 0.75x, bật phụ đề rồi làm lại.'
+    ? 'Cần luyện thêm. Nghe lại ở tốc độ 0.75x rồi làm lại.'
     : 'Cần luyện thêm. Đọc lướt tìm ý chính trước, sau đó tìm chi tiết cho từng câu.';
 };
 
