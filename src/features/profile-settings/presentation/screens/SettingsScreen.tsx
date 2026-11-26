@@ -28,11 +28,14 @@ import { BackButton } from '@/src/core/components/BackButton';
 import { SoundControl } from '@/src/core/components/SoundControl';
 import { useThemeMode } from '@/src/theme/useThemeMode';
 import { setThemePref } from '@/src/theme/themeMode';
+import { noTranslate, setLanguage, type AppLanguage } from '@/src/i18n/i18n';
+import { useLanguage } from '@/src/i18n/useLanguage';
 import { useXmasStore } from '@/src/core/services/xmas';
 
 export const SettingsScreen = () => {
   const router = useRouter();
   const { currentUser, logout } = useAuthStore();
+  const { lang } = useLanguage();
 
   const [dailyCards, setDailyCards] = useState(20);
   const [ttsVoice, setTtsVoice] = useState('Anh - Mỹ');
@@ -198,6 +201,35 @@ export const SettingsScreen = () => {
                   <ThemeIcon size={18} color={isSelected ? palette.primary : palette.textSoft} />
                   <Text style={[styles.themeLabel, isSelected && styles.themeLabelSelected]}>
                     {labels[mode]}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </Animated.View>
+
+        {/* Ngôn ngữ giao diện: tên ngôn ngữ giữ nguyên chữ gốc, không dịch */}
+        <Animated.View entering={FadeInDown.delay(220).duration(300)}>
+          <Text style={styles.sectionTitle}>NGÔN NGỮ</Text>
+          <View style={styles.themeGrid}>
+            {([
+              { code: 'vi', label: 'Tiếng Việt', short: 'VI' },
+              { code: 'en', label: 'English', short: 'EN' },
+            ] as Array<{ code: AppLanguage; label: string; short: string }>).map((item) => {
+              const isSelected = lang === item.code;
+              return (
+                <Pressable
+                  key={item.code}
+                  onPress={() => setLanguage(item.code)}
+                  style={[styles.themeCard, isSelected && styles.themeCardSelected]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
+                >
+                  <Text style={[styles.themeLabel, { fontWeight: '800' }, isSelected && styles.themeLabelSelected]}>
+                    {item.short}
+                  </Text>
+                  <Text style={[styles.themeLabel, isSelected && styles.themeLabelSelected]} numberOfLines={1}>
+                    {noTranslate(item.label)}
                   </Text>
                 </Pressable>
               );
