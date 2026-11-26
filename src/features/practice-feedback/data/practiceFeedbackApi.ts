@@ -130,6 +130,27 @@ export const fetchFeedbackOverviewApi = async (): Promise<FeedbackOverview> => {
     coach: coach
       ? { summary_vi: String(coach.summary_vi ?? ''), focus_vi: strList(coach.focus_vi), plan_vi: strList(coach.plan_vi) }
       : null,
-    recent: (Array.isArray(d.recent) ? d.recent : []).map(toFeedbackItem),
+    recent: dedupeRecent((Array.isArray(d.recent) ? d.recent : []).map(toFeedbackItem)),
   };
+};
+
+/**
+ * Một bài được nhận xét nhiều lần (dữ liệu cũ) hiện thành nhiều dòng giống hệt nhau:
+ * gộp các dòng cùng kỹ năng + tên + điểm + ngày, giữ dòng mới nhất.
+ */
+export const dedupeRecent = (items: FeedbackItem[]): FeedbackItem[] => {
+  const seen = new Set<string>();
+  return items.filter((it) => {
+    const key = [it.skill, it.title, it.overallScore ?? '', (it.createdAt ?? '').slice(0, 10)].join('|');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+/** Các buổi luyện gần nhất (đã gộp trùng) — dùng cho biểu đồ chi tiết từng kỹ năng. */
+export const fetchRecentFeedbackApi = async (limit = 50): Promise<FeedbackItem[]> => {
+  const response = await apiClient.get(`/api/v1/ai-practice/feedback/recent?limit=${limit}`);
+  const d = response.data?.data ?? response.data;
+  return dedupeRecent((Array.isArray(d) ? d : []).map(toFeedbackItem));
 };
