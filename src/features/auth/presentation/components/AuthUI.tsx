@@ -1,4 +1,5 @@
 import React, { createContext, forwardRef, useContext, useEffect, useState } from 'react';
+import { LanguageToggle } from '@/src/core/components/LanguageToggle';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps, type TextInputInstance } from 'react-native';
 // Pressable hỗ trợ style dạng hàm ({ pressed }) — bản của react-native bỏ qua nó (xem PressableCompat)
 import { Pressable } from '@/src/core/components/PressableCompat';
@@ -94,8 +95,12 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
 
           <View style={s.heroTop}>
             {onBack ? <BackButton onPress={onBack} variant="onDark" /> : <View style={s.backSpacer} />}
+            {/* Tên thương hiệu căn giữa tuyệt đối: nút hai bên rộng khác nhau vẫn không lệch */}
             <Text style={s.brand}>Loxera English</Text>
-            {headerRight ?? <View style={s.backSpacer} />}
+            <View style={s.headerActions}>
+              {headerRight}
+              <LanguageToggle variant="onDark" />
+            </View>
           </View>
 
           {showMascot ? (
@@ -302,7 +307,8 @@ const s = StyleSheet.create({
   halo: { position: 'absolute', backgroundColor: ds.onInkFaint },
   heroTop: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   backSpacer: { width: 40, height: 40 },
-  brand: { fontFamily: dsFont.bold, fontSize: dsSize.xs, color: ds.skyLight, letterSpacing: 1.2, textTransform: 'uppercase' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  brand: { position: 'absolute', left: 0, right: 0, textAlign: 'center', fontFamily: dsFont.bold, fontSize: dsSize.xs, color: ds.skyLight, letterSpacing: 1.2, textTransform: 'uppercase' },
   mascot: { marginTop: 4, alignItems: 'center' },
 
   card: {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getLanguage, setLanguage, type AppLanguage } from '@/src/i18n/i18n';
 import {
   View,
   Text,
@@ -51,7 +52,8 @@ export const EditProfileScreen = () => {
   const [cefrLevel, setCefrLevel] = useState(currentUser?.cefr_level || 'B1');
   const [targetGoal, setTargetGoal] = useState(currentUser?.target_goal || 'Giao tiếp tự tin');
   const [dailyGoalXp, setDailyGoalXp] = useState<number>(currentUser?.daily_goal_xp || 50);
-  const [uiLanguage, setUiLanguage] = useState(currentUser?.ui_language || 'vi');
+  // Ngôn ngữ giao diện theo lựa chọn hiện tại trên máy (Cài đặt / nút VI-EN)
+  const [uiLanguage, setUiLanguage] = useState<string>(getLanguage());
 
   // Load fresh profile from backend on mount
   useEffect(() => {
@@ -79,7 +81,6 @@ export const EditProfileScreen = () => {
           if (fresh.cefr_level) setCefrLevel(fresh.cefr_level);
           if (fresh.target_goal) setTargetGoal(fresh.target_goal);
           if (fresh.daily_goal_xp) setDailyGoalXp(fresh.daily_goal_xp);
-          if (fresh.ui_language) setUiLanguage(fresh.ui_language);
         }
       } catch (e) {
         console.warn('Could not load latest profile:', e);
@@ -186,6 +187,9 @@ export const EditProfileScreen = () => {
             } else {
               router.navigate('/(student)/profile' as any);
             }
+            // Áp dụng ngôn ngữ đã chọn sau khi rời màn chỉnh sửa
+            const nextLang: AppLanguage = uiLanguage === 'en' ? 'en' : 'vi';
+            setTimeout(() => setLanguage(nextLang), 350);
           },
         },
       ]);

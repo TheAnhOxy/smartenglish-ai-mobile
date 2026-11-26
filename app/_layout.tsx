@@ -1,3 +1,5 @@
+// Đổi ngôn ngữ: bình thường đã nạp từ index.js; nạp lại ở đây (không chạy hai lần) phòng khi entry chưa chạy
+import '@/src/i18n/bootstrap';
 // Theme phải nạp ĐẦU TIÊN: đổi token + bọc StyleSheet.create trước khi màn hình nào được tạo
 import '@/src/theme/themeMode';
 import '../global.css';
@@ -15,6 +17,7 @@ import { BeVietnamPro_600SemiBold } from '@expo-google-fonts/be-vietnam-pro/600S
 import { BeVietnamPro_700Bold } from '@expo-google-fonts/be-vietnam-pro/700Bold';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, usePathname, useRouter, useSegments } from 'expo-router';
 import { useThemeMode, useThemeSwitching } from '@/src/theme/useThemeMode';
+import { useLanguage } from '@/src/i18n/useLanguage';
 import { colors } from '@/src/theme/colors';
 import { BackgroundMusic } from '@/src/core/components/BackgroundMusic';
 import { Snowfall } from '@/src/components/xmas/Snowfall';
@@ -116,7 +119,10 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   const router = useRouter();
-  const { dark, version: themeVersion } = useThemeMode();
+  const { dark, version: themeOnlyVersion } = useThemeMode();
+  // Đổi theme HOẶC ngôn ngữ đều vẽ lại toàn bộ cây giao diện
+  const { version: langVersion } = useLanguage();
+  const themeVersion = `${themeOnlyVersion}.${langVersion}`;
   const themeSwitching = useThemeSwitching();
   const pathname = usePathname();
 

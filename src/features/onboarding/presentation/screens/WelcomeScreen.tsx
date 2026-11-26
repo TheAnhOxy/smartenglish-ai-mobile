@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { LanguageToggle } from '@/src/core/components/LanguageToggle';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Animated, Easing } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -100,6 +101,9 @@ export const WelcomeScreen = () => {
       <Animated.View style={[styles.particle, styles.particle1, { transform: [{ translateY: particle1Y }] }]} />
       <Animated.View style={[styles.particle, styles.particle2, { transform: [{ translateY: particle2Y }] }]} />
       <Animated.View style={[styles.particle, styles.particle3, { transform: [{ translateY: particle3Y }] }]} />
+
+      {/* Đổi ngôn ngữ ở góc trên (đặt tuyệt đối, không đẩy bố cục) */}
+      <LanguageToggle style={{ position: 'absolute', top: safeTop, right: 16, zIndex: 5 }} />
 
       {/* Top Brand Badge */}
       <Animated.View style={[styles.brandBadge, { opacity: contentFade, transform: [{ translateY: contentY }] }]}>
