@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -14,7 +14,6 @@ import { BackButton } from "@/src/core/components/BackButton";
 import Svg, {
   Polygon,
   Path,
-  Line,
   Circle,
   Defs,
   LinearGradient,
@@ -68,6 +67,12 @@ import {
   RemedialQuiz,
 } from "../../data/analyticsApi";
 import { PracticeFeedbackOverview } from '@/src/features/practice-feedback/presentation/components/PracticeFeedbackOverview';
+import { FEEDBACK_OVERVIEW_KEY, FEEDBACK_RECENT_KEY, useFeedbackOverview } from '@/src/features/practice-feedback/application/usePracticeFeedback';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchRecentFeedbackApi } from '@/src/features/practice-feedback/data/practiceFeedbackApi';
+import { buildSkillMap, type SkillKey } from '../../application/skillMap';
+import { SkillDetailSheet } from '../components/skillmap/SkillDetailSheet';
+import { SkillMapSection } from '../components/skillmap/SkillMapSection';
 import { ChristmasScene, type ChristmasSceneKey } from '@/src/components/xmas/ChristmasScenes';
 import { useXmasActive } from '@/src/core/services/xmas';
 import { Campfire, METRIC_TONE, MetricArt, type MetricKind } from '@/src/components/xmas/ExpeditionArt';
@@ -258,8 +263,7 @@ const ScoreRing: React.FC<{ score: number; size?: number; xmas?: boolean }> = ({
             fill="none"
             strokeLinecap="round"
             strokeDasharray={`${c * pct} ${c}`}
-            rotation={-90}
-            origin={`${size / 2}, ${size / 2}`}
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
           />
         ) : null}
       </Svg>
@@ -478,12 +482,52 @@ export const AnalyticsScreen = ({ showBack = false }: { showBack?: boolean }) =>
     loadData();
   }, [loadData]);
 
-  // Vừa làm bài / được AI chấm ở màn khác: mở lại tab thì tải lại số liệu và Đánh giá AI
+  // Quay lại tab Thống kê: làm mới số liệu (Tiến độ, Xếp hạng, tổng quan đánh giá) — giữ nguyên tab đang mở.
+  // Nhận xét AI (gọi Gemini, chậm) chỉ tạo lại khi vừa có bài luyện mới hoặc đã cũ hơn 10 phút.
+  const queryClient = useQueryClient();
+  const focusedOnce = useRef(false);
   useFocusEffect(
     useCallback(() => {
-      if (loadedAt.current > 0 && getPracticeUpdatedAt() > loadedAt.current) loadData();
-    }, [loadData]),
+      if (!focusedOnce.current) {
+        focusedOnce.current = true;
+        return;
+      }
+      void queryClient.invalidateQueries({ queryKey: FEEDBACK_OVERVIEW_KEY });
+      void queryClient.invalidateQueries({ queryKey: FEEDBACK_RECENT_KEY });
+      const practiced = loadedAt.current > 0 && getPracticeUpdatedAt() > loadedAt.current;
+      const stale = Date.now() - loadedAt.current > 10 * 60_000;
+      if (practiced || stale) {
+        loadData();
+        return;
+      }
+      const uid = currentUser?.id ? String(currentUser.id) : undefined;
+      Promise.all([fetchProgressStatsApi(uid), fetchLeaderboardApi(rankingSubTab, uid)])
+        .then(([prog, lb]) => {
+          setProgressData(prog);
+          setLeaderboardData(lb);
+        })
+        .catch(() => undefined);
+    }, [loadData, queryClient, currentUser?.id, rankingSubTab]),
   );
+
+  const feedbackOverview = useFeedbackOverview();
+  // Các buổi luyện gần nhất (xu hướng, sparkline, biểu đồ chi tiết từng kỹ năng)
+  const recentFeedback = useQuery({
+    queryKey: [...FEEDBACK_RECENT_KEY, currentUser?.id],
+    queryFn: () => fetchRecentFeedbackApi(50),
+    enabled: Boolean(currentUser?.id),
+    staleTime: 60_000,
+  });
+  const skillPoints = useMemo(
+    () => buildSkillMap(feedbackOverview.data?.skills, progressData ?? undefined, recentFeedback.data),
+    [feedbackOverview.data, progressData, recentFeedback.data],
+  );
+  const skillUpdatedAt = useMemo(
+    () => (feedbackOverview.data?.skills ?? []).map((x) => x.last_practiced_at ?? '').sort().pop() || null,
+    [feedbackOverview.data],
+  );
+  const [selectedSkill, setSelectedSkill] = useState<SkillKey | null>(null);
+  const selectedPoint = skillPoints.find((p) => p.key === selectedSkill) ?? null;
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -500,57 +544,6 @@ export const AnalyticsScreen = ({ showBack = false }: { showBack?: boolean }) =>
       console.warn("[AnalyticsScreen] fetchLeaderboardApi failed:", err);
     }
   };
-
-  // Radar ngũ giác theo điểm thật
-  const cx = 120;
-  const cy = 110;
-  const maxR = 72;
-  const getPentagonPoints = (r: number) => {
-    const points = [];
-    for (let i = 0; i < 5; i++) {
-      const angle = (Math.PI / 180) * (i * 72 - 90);
-      points.push(
-        `${(cx + r * Math.cos(angle)).toFixed(1)},${(cy + r * Math.sin(angle)).toFixed(1)}`,
-      );
-    }
-    return points.join(" ");
-  };
-
-  const radarScores = progressData?.skillRadarScores || {
-    vocabulary: 0,
-    grammar: 0,
-    speaking: 0,
-    reading: 0,
-    listening: 0,
-  };
-  const userSkillRatios = [
-    Math.max(0.12, (radarScores.vocabulary || 0) / 100),
-    Math.max(0.12, (radarScores.grammar || 0) / 100),
-    Math.max(0.12, (radarScores.speaking || 0) / 100),
-    Math.max(0.12, (radarScores.reading || 0) / 100),
-    Math.max(0.12, (radarScores.listening || 0) / 100),
-  ];
-  const userSkillPoints = userSkillRatios
-    .map((ratio, i) => {
-      const angle = (Math.PI / 180) * (i * 72 - 90);
-      return `${(cx + maxR * ratio * Math.cos(angle)).toFixed(1)},${(cy + maxR * ratio * Math.sin(angle)).toFixed(1)}`;
-    })
-    .join(" ");
-
-  const getSkillLevelStr = (score: number) => {
-    if (score >= 80) return "B2 Cao cấp";
-    if (score >= 60) return "B1 Khá";
-    if (score >= 40) return "A2 Trung bình";
-    return "A1 Khởi đầu";
-  };
-
-  const skillData = [
-    { label: "Từ vựng", score: radarScores.vocabulary, color: ds.sky },
-    { label: "Ngữ pháp", score: radarScores.grammar, color: ds.btn },
-    { label: "Phát âm & Nói", score: radarScores.speaking, color: ds.green },
-    { label: "Nghe hiểu", score: radarScores.listening, color: ds.heart },
-    { label: "Đọc hiểu", score: radarScores.reading, color: ds.amber },
-  ].map((x) => ({ ...x, level: getSkillLevelStr(x.score) }));
 
   const safeTop = (insets.top || 16) + 8;
 
@@ -913,136 +906,14 @@ export const AnalyticsScreen = ({ showBack = false }: { showBack?: boolean }) =>
               </View>
             </Reveal>
 
-            {progressData ? (
-              <Reveal delay={140}>
-                <Card
-                  title="Bản đồ 5 kỹ năng"
-                  style={xmas ? { backgroundColor: 'rgba(30,27,75,0.9)', borderColor: 'rgba(165,180,252,0.35)' } : undefined}
-                  sub="Điểm thật từ bài làm của bạn"
-                >
-                  <View style={s.radarBox}>
-                    <Svg height="220" width="240" viewBox="0 0 240 220">
-                      <Defs>
-                        <LinearGradient
-                          id="radarFill"
-                          x1="0"
-                          y1="0"
-                          x2="0"
-                          y2="1"
-                        >
-                          <Stop
-                            offset="0"
-                            stopColor={xmas ? '#22D3EE' : ds.sky}
-                            stopOpacity="0.45"
-                          />
-                          <Stop
-                            offset="1"
-                            stopColor={xmas ? '#A78BFA' : ds.btn}
-                            stopOpacity={xmas ? '0.3' : '0.15'}
-                          />
-                        </LinearGradient>
-                      </Defs>
-                      <Polygon
-                        points={getPentagonPoints(72)}
-                        fill={xmas ? 'rgba(11,16,38,0.55)' : ds.bg}
-                        stroke={xmas ? 'rgba(165,180,252,0.45)' : ds.line}
-                        strokeWidth="1.5"
-                        strokeDasharray={xmas ? '3,4' : undefined}
-                      />
-                      <Polygon
-                        points={getPentagonPoints(50)}
-                        fill="none"
-                        stroke={ds.line}
-                        strokeWidth="1"
-                        strokeDasharray="4,4"
-                      />
-                      <Polygon
-                        points={getPentagonPoints(28)}
-                        fill="none"
-                        stroke={ds.line}
-                        strokeWidth="1"
-                        strokeDasharray="3,3"
-                      />
-                      {[0, 72, 144, 216, 288].map((deg, i) => {
-                        const rad = (Math.PI / 180) * (deg - 90);
-                        return (
-                          <Line
-                            key={i}
-                            x1={cx}
-                            y1={cy}
-                            x2={cx + maxR * Math.cos(rad)}
-                            y2={cy + maxR * Math.sin(rad)}
-                            stroke={ds.lineStrong}
-                            strokeWidth="1"
-                            strokeDasharray="2,3"
-                          />
-                        );
-                      })}
-                      <Polygon
-                        points={userSkillPoints}
-                        fill="url(#radarFill)"
-                        stroke={xmas ? '#22D3EE' : ds.sky}
-                        strokeWidth="2.5"
-                      />
-                      {userSkillRatios.map((ratio, i) => {
-                        const angle = (Math.PI / 180) * (i * 72 - 90);
-                        return (
-                          <Circle
-                            key={i}
-                            cx={cx + maxR * ratio * Math.cos(angle)}
-                            cy={cy + maxR * ratio * Math.sin(angle)}
-                            r={xmas ? '5' : '4.5'}
-                            fill={xmas ? '#FDE68A' : ds.white}
-                            stroke={xmas ? 'rgba(253,230,138,0.35)' : ds.btn}
-                            strokeWidth={xmas ? '6' : '2.5'}
-                          />
-                        );
-                      })}
-                    </Svg>
-                    <Text
-                      style={[s.radarLabel, { top: 0, alignSelf: "center" }]}
-                    >
-                      Từ vựng {radarScores.vocabulary}%
-                    </Text>
-                    <Text style={[s.radarLabel, { top: 78, right: 0 }]}>
-                      Ngữ pháp {radarScores.grammar}%
-                    </Text>
-                    <Text style={[s.radarLabel, { top: 186, right: 56 }]}>
-                      Nói {radarScores.speaking}%
-                    </Text>
-                    <Text style={[s.radarLabel, { top: 186, left: 64 }]}>
-                      Đọc {radarScores.reading}%
-                    </Text>
-                    <Text style={[s.radarLabel, { top: 78, left: 0 }]}>
-                      Nghe {radarScores.listening}%
-                    </Text>
-                  </View>
-
-                  <View style={s.skillList}>
-                    {skillData.map((item) => (
-                      <View key={item.label} style={s.skillItem}>
-                        <View style={s.skillHead}>
-                          <View
-                            style={[
-                              s.skillDot,
-                              { backgroundColor: item.color },
-                            ]}
-                          />
-                          <Text style={s.skillLabel}>{item.label}</Text>
-                          <Text style={s.skillLevel}>{item.level}</Text>
-                          <Text style={s.skillScore}>{item.score}%</Text>
-                        </View>
-                        <ProgressBar
-                          value={(item.score || 0) / 100}
-                          color={item.color}
-                          height={8}
-                        />
-                      </View>
-                    ))}
-                  </View>
-                </Card>
-              </Reveal>
-            ) : null}
+            <Reveal delay={140}>
+              <SkillMapSection
+                points={skillPoints}
+                updatedAt={skillUpdatedAt}
+                refreshing={feedbackOverview.isFetching || recentFeedback.isFetching}
+                onOpen={setSelectedSkill}
+              />
+            </Reveal>
 
             <Reveal delay={200}>
               <View style={[s.card, s.accentCard, { borderLeftColor: ds.red }]}>
@@ -1341,6 +1212,15 @@ export const AnalyticsScreen = ({ showBack = false }: { showBack?: boolean }) =>
           </View>
         ) : null}
       </ScrollView>
+      {selectedPoint ? (
+        <SkillDetailSheet
+          point={selectedPoint}
+          items={recentFeedback.data}
+          loading={recentFeedback.isLoading}
+          vocab={progressData ?? undefined}
+          onClose={() => setSelectedSkill(null)}
+        />
+      ) : null}
     </View>
   );
 };
